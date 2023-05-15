@@ -2,3 +2,4 @@
 
 export(install_micromamba)
 export(micromamba_bin_path)
+export(run)

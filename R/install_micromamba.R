@@ -1,13 +1,13 @@
 #' @export
 install_micromamba <- function(timeout_limit = 3600,
-                               method = "auto") {
+                               download_method = "auto") {
   # Implementation of:
   # + wget -qO- https://micromamba.snakepit.net/api/micromamba/linux-$ARCH/latest
   # + | tar -xvj bin/micromamba
 
   sys_arch <- get_sys_arch()
 
-  # arch dictionary from:
+  # CPU achitecture dictionary from:
   # + https://github.com/mamba-org/mamba/issues/1437#issue-1121921978
   sys_arch_str <- dplyr::case_when(
     sys_arch == "Linux-x86_64" ~ "linux-64",
@@ -50,7 +50,7 @@ install_micromamba <- function(timeout_limit = 3600,
       dl_res <- utils::download.file(
         url = download_url,
         destfile = full_dl_path,
-        method = method
+        method = download_method
       )
     }
   )
@@ -60,6 +60,7 @@ install_micromamba <- function(timeout_limit = 3600,
   if (!fs::dir_exists(untar_dir)) {
     fs::dir_create(untar_dir)
   }
+
   utils::untar(
     tarfile = full_dl_path,
     exdir = fs::path_real(untar_dir)
@@ -80,3 +81,4 @@ install_micromamba <- function(timeout_limit = 3600,
   }
   invisible(umamba_bin_path)
 }
+
