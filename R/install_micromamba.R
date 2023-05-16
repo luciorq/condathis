@@ -1,3 +1,7 @@
+#' Install Micromamba binaries in a `condathis` controlled path.
+#' @param timeout_limit Timeout limit for downloading.
+#' @param download_method Argument passed to `method` argument from
+#' `utils::download.file()` function.
 #' @export
 install_micromamba <- function(timeout_limit = 3600,
                                download_method = "auto") {

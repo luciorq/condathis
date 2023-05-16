@@ -1,4 +1,7 @@
 #' Run Command Line tools tools in a Conda environment.
+#' @param cmd Main CLI command to be executed in the Conda environment.
+#' @param ... Additional arguments used in the command.
+#' @param env_name Name of the Conda Environment where the tool is run.
 #' @export
 run <- function(cmd, ..., env_name) {
   umamba_bin_path <- micromamba_bin_path()
@@ -37,11 +40,15 @@ list_envs <- function() {
     cat()
 }
 
-
-
-create_env <- function(packages, env_name){
+#' Create Conda Environment with specific packages
+#' @param packages Character vector with the names of the packages and
+#'   version strings if necessary.
+#' @param env_name Name of the Conda environment where the packages are
+#'   going to be installed.
+#' @export
+create_env <- function(packages, env_name) {
   umamba_bin_path <- micromamba_bin_path()
-  processx::run(
+  px_res <- processx::run(
     command = fs::path_real(umamba_bin_path),
     args = c(
       "create",
@@ -55,7 +62,10 @@ create_env <- function(packages, env_name){
       "conda-forge",
       packages
     )
-  )$stdout |>
+  )
+
+  px_res$stdout |>
     cat()
+  invisible(px_res$status)
 }
 
