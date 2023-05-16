@@ -15,7 +15,9 @@ Imports:
     cli,
     dplyr,
     fs,
+    processx,
     rappdirs,
+    stringr,
     utils,
     withr
 Suggests: 
