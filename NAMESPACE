@@ -2,5 +2,6 @@
 
 export(create_env)
 export(install_micromamba)
+export(install_packages)
 export(micromamba_bin_path)
 export(run)

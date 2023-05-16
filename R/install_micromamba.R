@@ -1,13 +1,24 @@
 #' Install Micromamba binaries in a `condathis` controlled path.
 #' @param timeout_limit Timeout limit for downloading.
 #' @param download_method Argument passed to `method` argument from
-#' `utils::download.file()` function.
+#'   `utils::download.file()` function.
+#' @param force Force or overwrite the download of the micrommamba binaries.
 #' @export
 install_micromamba <- function(timeout_limit = 3600,
-                               download_method = "auto") {
+                               download_method = "auto",
+                               force = FALSE) {
   # Implementation of:
   # + wget -qO- https://micromamba.snakepit.net/api/micromamba/linux-$ARCH/latest
   # + | tar -xvj bin/micromamba
+
+  umamba_bin_path <- micromamba_bin_path()
+
+  if (isTRUE(fs::file_exists(umamba_bin_path)) & isFALSE(force)) {
+    cli::cli_inform(c(
+      "i" = "{.var micromamba} is already installed at {.path {umamba_bin_path}}"
+    ))
+    return(invisible(umamba_bin_path))
+  }
 
   sys_arch <- get_sys_arch()
 
@@ -79,11 +90,11 @@ install_micromamba <- function(timeout_limit = 3600,
   #  fs::file_chmod(full_output_path, mode = "u+x")
   # }
 
-  umamba_bin_path <- micromamba_bin_path()
+  # umamba_bin_path <- micromamba_bin_path()
   if (isTRUE(dl_res == 0) & fs::file_exists(umamba_bin_path)) {
     cli::cli_inform(
       c(
-        `v` = "{.path micromamba} successfully downloaded."
+        `v` = "{.var micromamba} successfully downloaded."
       )
     )
   }

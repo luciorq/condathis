@@ -4,13 +4,19 @@
 \alias{install_micromamba}
 \title{Install Micromamba binaries in a \code{condathis} controlled path.}
 \usage{
-install_micromamba(timeout_limit = 3600, download_method = "auto")
+install_micromamba(
+  timeout_limit = 3600,
+  download_method = "auto",
+  force = FALSE
+)
 }
 \arguments{
 \item{timeout_limit}{Timeout limit for downloading.}
 
 \item{download_method}{Argument passed to \code{method} argument from
 \code{utils::download.file()} function.}
+
+\item{force}{Force or overwrite the download of the micrommamba binaries.}
 }
 \description{
 Install Micromamba binaries in a \code{condathis} controlled path.
