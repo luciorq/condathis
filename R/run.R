@@ -2,8 +2,9 @@
 #' @param cmd Main CLI command to be executed in the Conda environment.
 #' @param ... Additional arguments used in the command.
 #' @param env_name Name of the Conda Environment where the tool is run.
+#'   Defaults to 'condathis-env'.
 #' @export
-run <- function(cmd, ..., env_name) {
+run <- function(cmd, ..., env_name = "condathis-env") {
   umamba_bin_path <- micromamba_bin_path()
 
   withr::local_envvar(list(CONDA_SHLVL = 0))
@@ -31,9 +32,9 @@ run <- function(cmd, ..., env_name) {
 #' @param packages Character vector with the names of the packages and
 #'   version strings if necessary.
 #' @param env_name Name of the Conda environment where the packages are
-#'   going to be installed.
+#'   going to be installed. Defaults to 'condathis-env'.
 #' @export
-create_env <- function(packages, env_name) {
+create_env <- function(packages, env_name = "condathis-env") {
   umamba_bin_path <- micromamba_bin_path()
   px_res <- processx::run(
     command = fs::path_real(umamba_bin_path),

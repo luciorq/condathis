@@ -4,14 +4,14 @@
 \alias{create_env}
 \title{Create Conda Environment with specific packages}
 \usage{
-create_env(packages, env_name)
+create_env(packages, env_name = "condathis-env")
 }
 \arguments{
 \item{packages}{Character vector with the names of the packages and
 version strings if necessary.}
 
 \item{env_name}{Name of the Conda environment where the packages are
-going to be installed.}
+going to be installed. Defaults to 'condathis-env'.}
 }
 \description{
 Create Conda Environment with specific packages

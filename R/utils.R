@@ -24,7 +24,7 @@ get_install_dir <- function() {
   return(dir_path)
 }
 
-#' Retrive the path to the `condathis` managed installation of `micromamba`.
+#' Retrieve the path to the `condathis` managed installation of `micromamba`.
 #' @export
 micromamba_bin_path <- function() {
   sys_arch <- get_sys_arch()

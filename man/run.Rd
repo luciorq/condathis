@@ -4,14 +4,15 @@
 \alias{run}
 \title{Run Command Line tools tools in a Conda environment.}
 \usage{
-run(cmd, ..., env_name)
+run(cmd, ..., env_name = "condathis-env")
 }
 \arguments{
 \item{cmd}{Main CLI command to be executed in the Conda environment.}
 
 \item{...}{Additional arguments used in the command.}
 
-\item{env_name}{Name of the Conda Environment where the tool is run.}
+\item{env_name}{Name of the Conda Environment where the tool is run.
+Defaults to 'condathis-env'.}
 }
 \description{
 Run Command Line tools tools in a Conda environment.

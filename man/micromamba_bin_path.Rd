@@ -2,10 +2,10 @@
 % Please edit documentation in R/utils.R
 \name{micromamba_bin_path}
 \alias{micromamba_bin_path}
-\title{Retrive the path to the \code{condathis} managed installation of \code{micromamba}.}
+\title{Retrieve the path to the \code{condathis} managed installation of \code{micromamba}.}
 \usage{
 micromamba_bin_path()
 }
 \description{
-Retrive the path to the \code{condathis} managed installation of \code{micromamba}.
+Retrieve the path to the \code{condathis} managed installation of \code{micromamba}.
 }
