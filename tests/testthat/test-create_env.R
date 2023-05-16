@@ -1,8 +1,9 @@
 test_that("conda env is created", {
-  create_env(c("r-base=4.1.3", "r-devtools"), env_name = "condathis-test-env")
-
-
-  expect_equal(2 * 2, 4)
+  px_res <- create_env(
+    packages = c("r-base=4.1.3", "r-devtools"),
+    env_name = "condathis-test-env"
+  )
+  expect_equal(px_res, 0)
 })
 
 test_that("CLI run inside environment", {
