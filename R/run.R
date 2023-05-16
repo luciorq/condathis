@@ -27,19 +27,6 @@ run <- function(cmd, ..., env_name) {
   )
 }
 
-
-list_envs <- function() {
-  umamba_bin_path <- micromamba_bin_path()
-  processx::run(
-    command = fs::path_real(umamba_bin_path),
-    args = c(
-      "env",
-      "list"
-    )
-  )$stdout |>
-    cat()
-}
-
 #' Create Conda Environment with specific packages
 #' @param packages Character vector with the names of the packages and
 #'   version strings if necessary.

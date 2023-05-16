@@ -70,6 +70,10 @@ install_micromamba <- function(timeout_limit = 3600,
     exdir = fs::path_real(untar_dir)
   )
 
+  if (fs::file_exists(full_dl_path)) {
+    fs::file_delete(full_dl_path)
+  }
+
   # TODO(luciorq): Check for necessity of changing permissions on Unix/Linux
   # if (fs::file_exists(full_output_path)) {
   #  fs::file_chmod(full_output_path, mode = "u+x")

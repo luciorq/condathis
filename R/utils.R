@@ -4,7 +4,6 @@ get_sys_arch <- function() {
   return(paste0(os, "-", cpu_arch))
 }
 
-
 get_install_dir <- function() {
   sys_arch <- get_sys_arch()
   # TODO(luciorq): On MacOS micromamba run fail if there is space in the path
@@ -39,4 +38,23 @@ micromamba_bin_path <- function() {
     umamba_bin_path <- fs::path(output_dir, "micromamba", "bin", "micromamba")
   }
   return(umamba_bin_path)
+}
+
+list_envs <- function() {
+  umamba_bin_path <- micromamba_bin_path()
+  px_res <- processx::run(
+    command = fs::path_real(umamba_bin_path),
+    args = c(
+      "env",
+      "list",
+      "-q",
+      "--json"
+    )
+  )
+  if (isTRUE(px_res$status == 0)) {
+    envs_list <- jsonlite::fromJSON(px_res$stdout)
+    return(envs_list$envs)
+  } else {
+    return(px_res$status)
+  }
 }
