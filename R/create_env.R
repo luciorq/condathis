@@ -21,7 +21,8 @@ create_env <- function(packages, env_name = "condathis-env") {
       "-c",
       "conda-forge",
       packages
-    )
+    ),
+    spinner = TRUE
   )
   px_res$stdout |>
     cat()

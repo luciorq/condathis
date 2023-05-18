@@ -18,7 +18,8 @@ run <- function(cmd, ..., env_name = "condathis-env") {
       env_name,
       cmd,
       ...
-    )
+    ),
+    spinner = TRUE
   )
   if (isTRUE(px_res$status == 0)) {
     cat(px_res$stdout)

@@ -40,6 +40,8 @@ micromamba_bin_path <- function() {
   return(umamba_bin_path)
 }
 
+#' List Installed Environments
+#' @export
 list_envs <- function() {
   umamba_bin_path <- micromamba_bin_path()
   px_res <- processx::run(
@@ -49,7 +51,8 @@ list_envs <- function() {
       "list",
       "-q",
       "--json"
-    )
+    ),
+    spinner = TRUE
   )
   if (isTRUE(px_res$status == 0)) {
     envs_list <- jsonlite::fromJSON(px_res$stdout)
@@ -57,4 +60,26 @@ list_envs <- function() {
   } else {
     return(px_res$status)
   }
+}
+
+#' List Packages Installed Inside Environment
+#' @inheritParams run
+#' @export
+list_packages <- function(env_name = "condathis-env") {
+  umamba_bin_path <- micromamba_bin_path()
+  px_res <- processx::run(
+    command = fs::path_real(umamba_bin_path),
+    args = c(
+      "list",
+      "-n",
+      env_name
+    ),
+    spinner = TRUE
+  )
+  if (isTRUE(px_res$status == 0)) {
+    cat(px_res$stdout)
+    invisible(px_res)
+  } else(
+    return(px_res)
+  )
 }
