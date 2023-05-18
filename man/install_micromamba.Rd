@@ -11,13 +11,14 @@ install_micromamba(
 )
 }
 \arguments{
-\item{timeout_limit}{Timeout limit for downloading.}
+\item{timeout_limit}{Numeric. Timeout limit for downloading the Micromamba binaries, in seconds.
+Defaults to 3600 seconds (1 hour).}
 
-\item{download_method}{Argument passed to \code{method} argument from
-\code{utils::download.file()} function.}
+\item{download_method}{Character. Argument passed to the \code{method} argument of the \code{utils::download.file()} function used for downloading the binaries. Defaults to "auto".}
 
-\item{force}{Force or overwrite the download of the micrommamba binaries.}
+\item{force}{Logical. If set to TRUE, the download and installation of the Micromamba binaries will be forced, even if they already exist in the controlled path. Defaults to FALSE.}
 }
 \description{
-Install Micromamba binaries in a \code{condathis} controlled path.
+This function downloads and installs the Micromamba binaries in the path managed by the \code{condathis} package.
+Micromamba is a lightweight implementation of the Conda package manager and provides an efficient way to create and manage conda environments.
 }

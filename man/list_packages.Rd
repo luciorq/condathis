@@ -7,8 +7,7 @@
 list_packages(env_name = "condathis-env")
 }
 \arguments{
-\item{env_name}{Name of the Conda Environment where the tool is run.
-Defaults to 'condathis-env'.}
+\item{env_name}{Character. The name of the Conda environment where the tool will be run. Defaults to 'condathis-env'. If the specified environment does not exist, it will be created automatically using create_env() function from the \code{condathis} package.}
 }
 \description{
 List Packages Installed Inside Environment

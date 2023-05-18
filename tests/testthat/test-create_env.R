@@ -29,3 +29,4 @@ test_that("conda env is created", {
   )
 })
 
+# fs::dir_delete(fs::path(get_install_dir(), "envs", "condathis-test-env"))

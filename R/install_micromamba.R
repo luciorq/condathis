@@ -1,8 +1,15 @@
 #' Install Micromamba binaries in a `condathis` controlled path.
-#' @param timeout_limit Timeout limit for downloading.
-#' @param download_method Argument passed to `method` argument from
-#'   `utils::download.file()` function.
-#' @param force Force or overwrite the download of the micrommamba binaries.
+#'
+#' This function downloads and installs the Micromamba binaries in the path managed by the `condathis` package.
+#' Micromamba is a lightweight implementation of the Conda package manager and provides an efficient way to create and manage conda environments.
+#'
+#' @param timeout_limit Numeric. Timeout limit for downloading the Micromamba binaries, in seconds.
+#'   Defaults to 3600 seconds (1 hour).
+#'
+#' @param download_method  Character. Argument passed to the `method` argument of the `utils::download.file()` function used for downloading the binaries. Defaults to "auto".
+#'
+#' @param force Logical. If set to TRUE, the download and installation of the Micromamba binaries will be forced, even if they already exist in the controlled path. Defaults to FALSE.
+#'
 #' @export
 install_micromamba <- function(timeout_limit = 3600,
                                download_method = "auto",
