@@ -1,10 +1,15 @@
 Package: condathis
-Title: What the Package Does (One Line, Title Case)
+Title: Condathis: run any CLI tool on a Conda Environment
 Version: 0.0.0.9004
-Authors@R: 
-    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"),
-           comment = c(ORCID = "YOUR-ORCID-ID"))
-Description: What the package does (one paragraph).
+Authors@R: c(
+    person("Lucio Rezende", "Queiroz", , "luciorqueiroz@gmail.com", role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0002-6090-1834"))
+  )
+Description: Condathis is an R package that simplifies the execution of command 
+    line tools within isolated conda environments.
+    It enables users to effortlessly manage conda environments, 
+    execute command line tools, handle dependencies, and ensure reproducibility 
+    in their data analysis workflows.
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
