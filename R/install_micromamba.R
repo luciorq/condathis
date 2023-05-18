@@ -78,7 +78,7 @@ install_micromamba <- function(timeout_limit = 3600,
 
   utils::untar(
     tarfile = full_dl_path,
-    exdir = fs::path_real(untar_dir)
+    exdir = fs::path_expand(untar_dir)
   )
 
   if (fs::file_exists(full_dl_path)) {

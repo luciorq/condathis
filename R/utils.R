@@ -44,11 +44,14 @@ micromamba_bin_path <- function() {
 #' @export
 list_envs <- function() {
   umamba_bin_path <- micromamba_bin_path()
+  env_root_dir <- get_install_dir()
   px_res <- processx::run(
     command = fs::path_real(umamba_bin_path),
     args = c(
       "env",
       "list",
+      "-r",
+      env_root_dir,
       "-q",
       "--json"
     ),
@@ -67,10 +70,13 @@ list_envs <- function() {
 #' @export
 list_packages <- function(env_name = "condathis-env") {
   umamba_bin_path <- micromamba_bin_path()
+  env_root_dir <- get_install_dir()
   px_res <- processx::run(
     command = fs::path_real(umamba_bin_path),
     args = c(
       "list",
+      "-r",
+      env_root_dir,
       "-n",
       env_name
     ),

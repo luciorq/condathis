@@ -4,12 +4,16 @@
 #' @param env_name Name of the Conda environment where the packages are
 #'   going to be installed. Defaults to 'condathis-env'.
 #' @export
-create_env <- function(packages, env_name = "condathis-env") {
+create_env <- function(packages = NULL, env_name = "condathis-env") {
   umamba_bin_path <- micromamba_bin_path()
+  env_root_dir <- get_install_dir()
+
   px_res <- processx::run(
     command = fs::path_real(umamba_bin_path),
     args = c(
       "create",
+      "-r",
+      env_root_dir,
       "-n",
       env_name,
       "--yes",

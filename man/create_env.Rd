@@ -4,7 +4,7 @@
 \alias{create_env}
 \title{Create Conda Environment with specific packages}
 \usage{
-create_env(packages, env_name = "condathis-env")
+create_env(packages = NULL, env_name = "condathis-env")
 }
 \arguments{
 \item{packages}{Character vector with the names of the packages and
