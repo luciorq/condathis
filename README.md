@@ -6,7 +6,33 @@
 
 ## `condathis` R package
 
-Run anything that is available through conda environments.
+Run any CLI tool that is available through conda environments.
+
+### Get started
+
+```r
+remotes::install_github("luciorq/condathis")
+```
+
+### Try it
+
+#### General Command line tool
+
+```r
+library(condathis)
+create_env("python=3.8")
+run("python3", "-c", "import os; print(os.getcwd())")
+```
+
+#### Bioinformatics example
+
+```r
+library(condathis)
+create_env("samtools", env_name = "samtools-env")
+run("samtools", "--help", env_name = "samtools-env")
+```
+
+## Motivation
 
 Traditionally [Conda Environments][conda-env-ref] have been designed to solve a problem related to Python Programming and specially tailored for interactive usage.
 
