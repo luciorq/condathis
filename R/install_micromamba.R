@@ -22,7 +22,7 @@ install_micromamba <- function(timeout_limit = 3600,
 
   if (isTRUE(fs::file_exists(umamba_bin_path)) & isFALSE(force)) {
     cli::cli_inform(c(
-      "i" = "{.var micromamba} is already installed at {.path {umamba_bin_path}}"
+      "i" = "{.pkg micromamba} is already installed at {.path {umamba_bin_path}}"
     ))
     return(invisible(umamba_bin_path))
   }
@@ -45,7 +45,7 @@ install_micromamba <- function(timeout_limit = 3600,
 
   if (isTRUE(sys_arch_str == "")) {
     cli::cli_abort(c(
-     `x` = "{.path micromamba} is not available for {.code {sys_arch}}. CPU architecture"
+     `x` = "{.pkg micromamba} is not available for {.code {sys_arch}}. CPU architecture"
     ))
   }
 
@@ -101,7 +101,7 @@ install_micromamba <- function(timeout_limit = 3600,
   if (isTRUE(dl_res == 0) & fs::file_exists(umamba_bin_path)) {
     cli::cli_inform(
       c(
-        `v` = "{.var micromamba} successfully downloaded."
+        `v` = "{.pkg micromamba} successfully downloaded."
       )
     )
   }
