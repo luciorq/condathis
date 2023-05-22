@@ -51,7 +51,7 @@ run <- function(cmd, ..., env_name = "condathis-env") {
   if (isTRUE(px_res$status == 0)) {
     cat(px_res$stdout)
     invisible(px_res)
-  } else(
+  } else {
     return(px_res)
-  )
+  }
 }
