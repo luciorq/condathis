@@ -120,6 +120,10 @@ create_env_docker <- function(packages = NULL,
       packages = c("-f", env_file_path)
     }
   }
+  user_arg <- "--user=dockerthis"
+  if (isTRUE(Sys.info()["sysname"] == "Linux") {
+    user_arg = "--user=$(id -u):$(id -g)"
+  }
   px_res <- dockerthis::docker_run(
     "micromamba",
     "create",
@@ -135,7 +139,7 @@ create_env_docker <- function(packages = NULL,
     image_name = image_name,
     docker_args = c(
       "--platform=linux/amd64",
-      "--user=dockerthis",
+      user_arg,
       "--rm"
     ),
     mount_paths = c(
