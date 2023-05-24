@@ -109,6 +109,7 @@ create_env_docker <- function(packages = NULL,
   env_root_dir <- fs::path(paste0(env_root_dir, "-docker"))
   if (isFALSE(fs::dir_exists(env_root_dir))) {
     fs::dir_create(env_root_dir)
+    fs::dir_create(env_root_dir, "home")
   }
   channels_arg <- c()
   for (channel in channels) {
@@ -140,6 +141,7 @@ create_env_docker <- function(packages = NULL,
     container_name = container_name,
     image_name = image_name,
     docker_args = c(
+      paste0("-e HOME=", env_root_dir, "/home"),
       "--platform=linux/amd64",
       user_arg,
       "--rm"
