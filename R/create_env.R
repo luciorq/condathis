@@ -122,7 +122,9 @@ create_env_docker <- function(packages = NULL,
   }
   user_arg <- "--user=dockerthis"
   if (isTRUE(Sys.info()["sysname"] == "Linux")) {
-    user_arg = "--user=$(id -u):$(id -g)"
+    user_id <- system("id -u", intern = TRUE)
+    user_group_id <- system("id -g", intern = TRUE)
+    user_arg = paste0("--user=", user_id, ":", user_group_id)
   }
   px_res <- dockerthis::docker_run(
     "micromamba",
