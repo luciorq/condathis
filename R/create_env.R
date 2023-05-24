@@ -141,7 +141,8 @@ create_env_docker <- function(packages = NULL,
     container_name = container_name,
     image_name = image_name,
     docker_args = c(
-      paste0("-e HOME=", env_root_dir, "/home"),
+      "-e",
+      paste0("HOME=", env_root_dir, "/home"),
       "--platform=linux/amd64",
       user_arg,
       "--rm"
