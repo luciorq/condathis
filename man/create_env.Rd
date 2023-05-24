@@ -4,14 +4,37 @@
 \alias{create_env}
 \title{Create Conda Environment with specific packages}
 \usage{
-create_env(packages = NULL, env_name = "condathis-env")
+create_env(
+  packages = NULL,
+  env_file = NULL,
+  env_name = "condathis-env",
+  channels = c("bioconda", "conda-forge", "defaults"),
+  method = c("auto", "native", "docker", "singularity")
+)
 }
 \arguments{
-\item{packages}{Character vector with the names of the packages and
-version strings if necessary.}
+\item{packages}{Character vector. Names of the packages, and
+version strings if necessary, e.g. 'python=3.11'. The use of the \code{packages}
+argument assumes that env_file is not used.}
 
-\item{env_name}{Name of the Conda environment where the packages are
-going to be installed. Defaults to 'condathis-env'.}
+\item{env_file}{Character. Path to the YAML file with Conda Environment
+discription. If this argument is used, the \code{packages} argument should not
+be included in the command.}
+
+\item{env_name}{Character. Name of the Conda environment where the packages
+are going to be installed. Defaults to 'condathis-env'.}
+
+\item{channels}{Character vector. Names of the channels to be included.
+By default 'c("bioconda", "conda-forge", "defaults")' are used for solving
+dependencies.}
+
+\item{method}{Character. Beckend method to run \code{micromamba}, the default is
+"auto" running nativelly "native" with the \code{micromamba} binaries installed
+by \code{condathis}. Additional methods are supported for using Docker Linux Containers
+"docker" and Singularity Containers "singularity" as the beckends,
+those are especially useful if running on systems where the conda
+recipes are not available for the OS or CPU architecture in place.
+The container based backends leverage \code{dockerthis} R package.}
 }
 \description{
 Create Conda Environment with specific packages

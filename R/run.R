@@ -28,9 +28,9 @@ run <- function(cmd, ..., env_name = "condathis-env") {
   umamba_bin_path <- micromamba_bin_path()
   env_root_dir <- get_install_dir()
 
-  if (!any(stringr::str_detect(list_envs(), paste0(env_name, "$")))) {
-    create_env(packages = cmd, env_name = env_name)
-  }
+  # if (!any(stringr::str_detect(list_envs(), paste0(env_name, "$")))) {
+  #  create_env(packages = cmd, env_name = env_name)
+  # }
 
   withr::local_envvar(list(CONDA_SHLVL = 0))
   # withr::local_envvar(list(CONDARC = paste0(Sys.getenv("HOME"),".config/conda/condarc")))
@@ -48,10 +48,5 @@ run <- function(cmd, ..., env_name = "condathis-env") {
     ),
     spinner = TRUE
   )
-  if (isTRUE(px_res$status == 0)) {
-    cat(px_res$stdout)
-    invisible(px_res)
-  } else {
-    return(px_res)
-  }
+  return(invisible(px_res))
 }

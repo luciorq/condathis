@@ -1,9 +1,11 @@
+#' Return OS and CPU Architecture
 get_sys_arch <- function() {
   os <- Sys.info()["sysname"]
   cpu_arch <- Sys.info()["machine"]
   return(paste0(os, "-", cpu_arch))
 }
 
+#' Retrieve `condathis` Data Creation Path
 get_install_dir <- function() {
   sys_arch <- get_sys_arch()
   # TODO(luciorq): On MacOS micromamba run fail if there is space in the path
@@ -21,12 +23,16 @@ get_install_dir <- function() {
       appauthor = "luciorq"
     )
   }
-  return(dir_path)
+  return(fs::path_real(dir_path))
 }
 
 #' Retrieve the path to the `condathis` managed installation of `micromamba`.
 #' @export
 micromamba_bin_path <- function() {
+  # umamba_bin_path <- micromamba_user_installed()
+  # if (isFALSE(umamba_bin_path == "")) {
+  #   return(umamba_bin_path)
+  # }
   sys_arch <- get_sys_arch()
 
   output_dir <- get_install_dir()
