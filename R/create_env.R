@@ -1,3 +1,6 @@
+# TODO(luciorq): Add unique identifier to `container_name` to reduce potential
+# + locks on all docker exec
+
 #' Create Conda Environment with specific packages
 #'
 #' @param packages Character vector. Names of the packages, and
@@ -5,7 +8,7 @@
 #'   argument assumes that env_file is not used.
 #'
 #' @param env_file Character. Path to the YAML file with Conda Environment
-#'   discription. If this argument is used, the `packages` argument should not
+#'   description. If this argument is used, the `packages` argument should not
 #'   be included in the command.
 #'
 #' @param env_name Character. Name of the Conda environment where the packages
@@ -14,6 +17,9 @@
 #' @param channels Character vector. Names of the channels to be included.
 #'   By default 'c("bioconda", "conda-forge", "defaults")' are used for solving
 #'   dependencies.
+#'
+#' @param additional_channels Character. Additional Channels to be added to the
+#'   default ones.
 #'
 #' @param method Character. Beckend method to run `micromamba`, the default is
 #'   "auto" running nativelly "native" with the `micromamba` binaries installed
@@ -33,7 +39,8 @@ create_env <- function(packages = NULL,
                        method = c("auto",
                                   "native",
                                   "docker",
-                                  "singularity")) {
+                                  "singularity"),
+                       additional_channels = NULL) {
   umamba_bin_path <- micromamba_bin_path()
   env_root_dir <- get_install_dir()
 
@@ -44,14 +51,11 @@ create_env <- function(packages = NULL,
       packages = c("-f", env_file_path)
     }
   }
-  channels_arg <- c()
-  for (channel in channels) {
-    channels_arg <- c(channels_arg, "-c", channel)
-  }
-
+  channels_arg <- format_channels_args(channels, additional_channels)
   # TODO: Implement auto mode.
   method_to_use <- method[1]
   if (method_to_use == "auto") {
+    # method_to_use <- define_method_to_use()
     cli::cli_inform(c(
       `!` = "{.code method = \"auto\"} is not implemented yet.",
       `v` = "Using {.code method = \"native\"} instead."
@@ -82,7 +86,8 @@ create_env <- function(packages = NULL,
       env_name = env_name,
       channels = channels,
       container_name = "condathis-micromamba-base",
-      image_name = "luciorq/condathis-micromamba:latest"
+      image_name = "luciorq/condathis-micromamba:latest",
+      additional_channels = additional_channels
     )
   } else if (isTRUE(method_to_use == "singularity")) {
     # cli::cli_abort(c(
@@ -93,7 +98,8 @@ create_env <- function(packages = NULL,
       env_file = env_file,
       env_name = env_name,
       channels = channels,
-      sif_image_path = NULL
+      sif_image_path = NULL,
+      additional_channels = additional_channels
     )
   }
   return(invisible(px_res))
@@ -118,8 +124,8 @@ create_env_internal_docker <- function(packages = NULL,
                                 "defaults"
                               ),
                               container_name = "condathis-micromamba-base",
-                              image_name = "luciorq/condathis-micromamba:latest"
-                              ) {
+                              image_name = "luciorq/condathis-micromamba:latest",
+                              additional_channels = NULL) {
   stop_if_not_installed("dockerthis")
   env_root_dir <- get_install_dir()
   env_root_dir <- fs::path(paste0(env_root_dir, "-docker"))
@@ -127,10 +133,7 @@ create_env_internal_docker <- function(packages = NULL,
     fs::dir_create(env_root_dir)
     fs::dir_create(env_root_dir, "home")
   }
-  channels_arg <- c()
-  for (channel in channels) {
-    channels_arg <- c(channels_arg, "-c", channel)
-  }
+  channels_arg <- format_channels_args(channels, additional_channels)
   env_file_path <- NULL
   if (isFALSE(is.null(env_file))) {
     if (fs::file_exists(env_file)) {
@@ -177,7 +180,8 @@ create_env_internal_singularity <- function(packages = NULL,
                                               "conda-forge",
                                               "defaults"
                                             ),
-                                            sif_image_path = NULL) {
+                                            sif_image_path = NULL,
+                                            additional_channels = NULL) {
   invisible(is_singularity_available())
   env_root_dir <- get_install_dir()
   env_root_dir <- fs::path(paste0(env_root_dir, "-docker"))
@@ -192,12 +196,8 @@ create_env_internal_singularity <- function(packages = NULL,
   if (is.null(sif_image_path)) {
     sif_image_path <- fs::path(sif_dir, "condathis-micromamba", ext = "sif")
   }
-
-  channels_arg <- c()
-  for (channel in channels) {
-    channels_arg <- c(channels_arg, "-c", channel)
-  }
-  env_file_path <- NULL
+  channels_arg <- format_channels_args(channels, additional_channels)
+    env_file_path <- NULL
   if (isFALSE(is.null(env_file))) {
     if (fs::file_exists(env_file)) {
       packages = c("-f", env_file_path)

@@ -49,6 +49,17 @@ micromamba_bin_path <- function() {
   return(umamba_bin_path)
 }
 
+#' Format Channels Arguments
+#' @param ... Character. Channels to be used by `micromamba`.
+format_channels_args <- function(...) {
+  channels <- c(...)
+  channels_arg <- c()
+  for (channel in channels) {
+    channels_arg <- c(channels_arg, "-c", channel)
+  }
+  return(channels_arg)
+}
+
 #' List Installed Environments
 #' @export
 list_envs <- function() {
