@@ -88,10 +88,18 @@ create_env <- function(packages = NULL,
     cli::cli_abort(c(
       `x` = "Method {.code \"singularity\"} is not implemented yet."
     ))
+    create_env_internal_singularity(
+      packages = packages,
+      env_file = env_file,
+      env_name = env_name,
+      channels = channels,
+      sif_image_path = NULL
+    )
   }
   return(invisible(px_res))
 }
 
+#' Create Environment Using Docker
 #' @inheritParams create_env
 create_env_internal_docker <- function(packages = NULL,
                               env_file = NULL,
@@ -116,7 +124,7 @@ create_env_internal_docker <- function(packages = NULL,
     channels_arg <- c(channels_arg, "-c", channel)
   }
   env_file_path <- NULL
-  if (!is.null(env_file)) {
+  if (isFALSE(is.null(env_file))) {
     if (fs::file_exists(env_file)) {
       packages = c("-f", env_file_path)
     }
@@ -150,6 +158,7 @@ create_env_internal_docker <- function(packages = NULL,
   return(invisible(px_res))
 }
 
+#' Create Environment Using Singularity / Apptainer
 #' @param sif_image_path Character. Path to SIF image file.
 #' @inheritParams create_env
 create_env_internal_singularity <- function(packages = NULL,
@@ -169,7 +178,7 @@ create_env_internal_singularity <- function(packages = NULL,
     fs::dir_create(env_root_dir, "home")
   }
   sif_dir <- fs::path(env_root_dir, "sif")
-  if (!fs::dir_exists(sif_dir)) {
+  if (isFALSE(fs::dir_exists(sif_dir))) {
     fs::dir_create(sif_dir)
   }
   if (is.null(sif_image_path)) {
@@ -181,7 +190,7 @@ create_env_internal_singularity <- function(packages = NULL,
     channels_arg <- c(channels_arg, "-c", channel)
   }
   env_file_path <- NULL
-  if (!is.null(env_file)) {
+  if (isFALSE(is.null(env_file))) {
     if (fs::file_exists(env_file)) {
       packages = c("-f", env_file_path)
     }

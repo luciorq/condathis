@@ -37,6 +37,7 @@ build_micromamba_image <- function(dockerfile_path = NULL,
   return(invisible(px_res))
 }
 
+#' Build Singularity / Apptainer Image
 #' @param image_name Character. Image name used for the container image,
 #'  containing the remote repository, separated by forward slash.
 #'   Defaults to `"luciorq/condathis-micromamba:latest"`.

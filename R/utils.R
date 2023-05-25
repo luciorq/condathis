@@ -23,6 +23,9 @@ get_install_dir <- function() {
       appauthor = "luciorq"
     )
   }
+  if (isFALSE(fs::dir_exists(dir_path))) {
+    fs::dir_create(dir_path)
+  }
   return(fs::path_real(dir_path))
 }
 
