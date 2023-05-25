@@ -57,9 +57,6 @@ run <- function(cmd,
       mount_paths = mount_paths
     )
   } else if (isTRUE(method_to_use == "singularity")) {
-    #cli::cli_abort(c(
-    #  `x` = "Method {.code \"singularity\"} is not implemented yet."
-    #))
     px_res <- run_internal_singularity(
       cmd = cmd,
       ...,

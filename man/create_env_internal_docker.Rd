@@ -28,6 +28,13 @@ are going to be installed. Defaults to 'condathis-env'.}
 \item{channels}{Character vector. Names of the channels to be included.
 By default 'c("bioconda", "conda-forge", "defaults")' are used for solving
 dependencies.}
+
+\item{container_name}{Character. Name of the Container created by Docker.
+Defaults to \code{"condathis-micromamba-base"}.}
+
+\item{image_name}{Character. Name of the Docker Image used, it will try
+to pull it automatically if internet connection is available.
+Defaults to \code{"luciorq/condathis-micromamba:latest"}.}
 }
 \description{
 Create Environment Using Docker

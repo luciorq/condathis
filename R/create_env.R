@@ -100,6 +100,14 @@ create_env <- function(packages = NULL,
 }
 
 #' Create Environment Using Docker
+#'
+#' @param container_name Character. Name of the Container created by Docker.
+#'   Defaults to `"condathis-micromamba-base"`.
+#'
+#' @param image_name Character. Name of the Docker Image used, it will try
+#'   to pull it automatically if internet connection is available.
+#'   Defaults to `"luciorq/condathis-micromamba:latest"`.
+#'
 #' @inheritParams create_env
 create_env_internal_docker <- function(packages = NULL,
                               env_file = NULL,

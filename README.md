@@ -35,37 +35,42 @@ run("python3", "-c", "import os; print(os.getcwd())", env_name = "condathis-yaml
 #### Bioinformatics example
 
 ``` r
-create_env("samtools", env_name = "samtools-env")
-run("samtools", "view", "--help", env_name = "samtools-env")
+create_env("samtools", env_name = "samtools-env", method = "native")
+run("samtools", "view", "--help", env_name = "samtools-env", method = "native")
 ```
 
 #### Example with Singularity containers
 
-`condathis` supports running conda using Singularity containers.
+`condathis` supports running Conda using Singularity containers.
 Singularity containers are especially suited for HPC environments,
 and most time the required tools are already installed in the systems.
 
 ``` r
 bam_file <- system.file("extdata", "example.bam", package = "condathis")
-build_micromamba_image(method = "singularity")
+build_container_image(method = "singularity")
 create_env("samtools", env_name = "samtools-env", method = "singularity")
 run("samtools", "view", bam_file, env_name = "samtools-env", method = "singularity")
 ```
 
 #### Example with Docker containers
 
+Docker Containers are one of the most used technologies for environment isolation
+and being able to run Linux based tools in other systems.
+Leveraging Docker Containers together with Conda environments is the closest
+thing to being able to run any command-line tool in any system.
+
 ``` r
 bam_file <- system.file("extdata", "example.bam", package = "condathis")
-build_micromamba_image(method = "docker")
+build_container_image(method = "docker")
 create_env("samtools", env_name = "samtools-env", method = "docker")
 run("samtools", "view", bam_file, env_name = "samtools-env", method = "docker")
 ```
 
 ---
 
-`condathis` is a powerful R package designed to simplify the execution of command line tools within isolated conda environments. Built with efficiency and flexibility in mind, `condathis` seamlessly integrates the world of conda environments with the versatility of R programming.
+`condathis` is a powerful R package designed to simplify the execution of command line tools within isolated Conda environments. Built with efficiency and flexibility in mind, `condathis` seamlessly integrates the world of Conda environments with the versatility of R programming.
 
-With Condathis, you can effortlessly create and manage isolated conda environments directly from your R scripts. These environments provide a controlled and reproducible setting where you can install and run various command line tools without worrying about conflicts or dependencies. Whether you need to execute bioinformatics pipelines, data processing tasks, or any other command line operation, `condathis` ensures a hassle-free experience.
+With `condathis`, you can effortlessly create and manage isolated Conda environments directly from your R scripts. These environments provide a controlled and reproducible setting where you can install and run various command line tools without worrying about conflicts or dependencies. Whether you need to execute bioinformatics pipelines, data processing tasks, or any other command line operation, `condathis` ensures a hassle-free experience.
 
 ## Key Features of `condathis`
 
