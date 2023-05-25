@@ -13,7 +13,7 @@ build_micromamba_image(
 \arguments{
 \item{dockerfile_path}{Character. Path to Dockerfile.}
 
-\item{image_name}{Character. Image name used for the contaier image.
+\item{image_name}{Character. Image name used for the contanier image.
 Defaults to \code{"condathis-micromamba:latest"}.}
 
 \item{force}{Logical. Should image be removed before building.
