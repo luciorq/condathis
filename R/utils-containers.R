@@ -37,6 +37,18 @@ build_micromamba_image <- function(dockerfile_path = NULL,
   return(invisible(px_res))
 }
 
+
+#' Format user string for Docker
+#'
+format_user_arg_string <- function() {
+  user_arg <- "--user=dockerthis"
+  if (isTRUE(Sys.info()["sysname"] == "Linux")) {
+    user_id <- system("id -u", intern = TRUE)
+    user_group_id <- system("id -g", intern = TRUE)
+    user_arg = paste0("--user=", user_id, ":", user_group_id)
+  }
+  return(user_arg)
+}
 # run_cmd_umamba_docker <- function () {
 #
 # }
