@@ -149,3 +149,55 @@ create_env_internal_docker <- function(packages = NULL,
   )
   return(invisible(px_res))
 }
+
+#' @param sif_image_path Character. Path to SIF image file.
+#' @inheritParams create_env
+create_env_internal_singularity <- function(packages = NULL,
+                                            env_file = NULL,
+                                            env_name = "condathis-env",
+                                            channels = c(
+                                              "bioconda",
+                                              "conda-forge",
+                                              "defaults"
+                                            ),
+                                            sif_image_path = NULL) {
+  invisible(is_singularity_available())
+  env_root_dir <- get_install_dir()
+  env_root_dir <- fs::path(paste0(env_root_dir, "-docker"))
+  if (isFALSE(fs::dir_exists(env_root_dir))) {
+    fs::dir_create(env_root_dir)
+    fs::dir_create(env_root_dir, "home")
+  }
+  sif_dir <- fs::path(env_root_dir, "sif")
+  if (!fs::dir_exists(sif_dir)) {
+    fs::dir_create(sif_dir)
+  }
+  if (is.null(sif_image_path)) {
+    sif_image_path <- fs::path(sif_dir, "condathis-micromamba", ext = "sif")
+  }
+
+  channels_arg <- c()
+  for (channel in channels) {
+    channels_arg <- c(channels_arg, "-c", channel)
+  }
+  env_file_path <- NULL
+  if (!is.null(env_file)) {
+    if (fs::file_exists(env_file)) {
+      packages = c("-f", env_file_path)
+    }
+  }
+
+  px_res <- singularity_cmd(
+    "micromamba",
+    "create",
+    "-r",
+    env_root_dir,
+    "-n",
+    env_name,
+    "--yes",
+    # "--quiet",
+    channels_arg,
+    packages
+  )
+  return(invisible(px_res))
+}
