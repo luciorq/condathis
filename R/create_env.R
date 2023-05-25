@@ -85,9 +85,9 @@ create_env <- function(packages = NULL,
       image_name = "luciorq/condathis-micromamba:latest"
     )
   } else if (isTRUE(method_to_use == "singularity")) {
-    cli::cli_abort(c(
-      `x` = "Method {.code \"singularity\"} is not implemented yet."
-    ))
+    # cli::cli_abort(c(
+    #   `x` = "Method {.code \"singularity\"} is not implemented yet."
+    # ))
     create_env_internal_singularity(
       packages = packages,
       env_file = env_file,
