@@ -43,11 +43,18 @@ run <- function(cmd,
   }
   if (isTRUE(method_to_use == "native")) {
     px_res <- run_internal_native(
-      cmd = cmd, ..., env_name = env_name
+      cmd = cmd,
+      ...,
+      env_name = env_name
     )
   } else if (isTRUE(method_to_use == "docker")) {
     px_res <- run_internal_docker(
-      cmd = cmd, ..., env_name = env_name
+      cmd = cmd,
+      ...,
+      env_name = env_name,
+      container_name = container_name,
+      image_name = image_name,
+      mount_paths = mount_paths
     )
   } else if (isTRUE(method_to_use == "singularity")) {
     cli::cli_abort(c(
@@ -114,12 +121,14 @@ run_internal_docker <- function(cmd,
     docker_args = c(
       "-e",
       paste0("HOME=", env_root_dir, "/home"),
+      paste0("--workdir=", fs::path_wd()),
       "--platform=linux/amd64",
       user_arg,
       "--rm"
     ),
     mount_paths = c(
       env_root_dir,
+      fs::path_wd(),
       mount_paths
     )
   )
