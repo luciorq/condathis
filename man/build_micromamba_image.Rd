@@ -6,8 +6,9 @@
 \usage{
 build_micromamba_image(
   dockerfile_path = NULL,
-  image_name = "condathis-micromamba:latest",
-  force = FALSE
+  image_name = "luciorq/condathis-micromamba:latest",
+  force = FALSE,
+  method = "docker"
 )
 }
 \arguments{
@@ -18,6 +19,8 @@ Defaults to \code{"condathis-micromamba:latest"}.}
 
 \item{force}{Logical. Should image be removed before building.
 Defaults to FALSE.}
+
+\item{method}{Character. One of \code{c("docker", "singularity")}.}
 }
 \description{
 Build Micromamba Container Image
