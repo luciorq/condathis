@@ -33,12 +33,22 @@ run("samtools", "view", "--help", env_name = "samtools-env")
 
 #### Example with Singularity containers
 
-Singularity container backend is especially suited for HPC environments.
+`condathis` supports running conda using Singularity containers.
+Singularity containers are especially suited for HPC environments,
+and most time the required tools are already installed in the systems.
 
 ``` r
 bam_file <- system.file("extdata", "example.bam", package = "condathis")
 create_env("samtools", env_name = "samtools-env", method = "singularity")
 run("samtools", "view", bam_file, env_name = "samtools-env", method = "singularity")
+```
+
+#### Example with Docker containers
+
+``` r
+bam_file <- system.file("extdata", "example.bam", package = "condathis")
+create_env("samtools", env_name = "samtools-env", method = "docker")
+run("samtools", "view", bam_file, env_name = "samtools-env", method = "docker")
 ```
 
 ---
