@@ -195,9 +195,14 @@ create_env_internal_singularity <- function(packages = NULL,
       packages = c("-f", env_file_path)
     }
   }
-
   px_res <- singularity_cmd(
     "exec",
+    "-e",
+    "-H",
+    paste0(env_root_dir, "/home"),
+    "-W",
+    fs::path_wd(),
+    sif_image_path,
     "micromamba",
     "create",
     "-r",
