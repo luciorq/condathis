@@ -88,7 +88,7 @@ create_env <- function(packages = NULL,
     # cli::cli_abort(c(
     #   `x` = "Method {.code \"singularity\"} is not implemented yet."
     # ))
-    create_env_internal_singularity(
+    px_res <- create_env_internal_singularity(
       packages = packages,
       env_file = env_file,
       env_name = env_name,

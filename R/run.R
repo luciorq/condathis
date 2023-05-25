@@ -156,6 +156,12 @@ run_internal_singularity <- function(cmd,
     fs::dir_create(env_root_dir, "home")
   }
   sif_dir <- fs::path(env_root_dir, "sif")
+  if (isFALSE(fs::dir_exists(sif_dir))) {
+    fs::dir_create(sif_dir)
+  }
+  if (is.null(sif_image_path)) {
+    sif_image_path <- fs::path(sif_dir, "condathis-micromamba", ext = "sif")
+  }
 
   mount_path_arg <- c()
   if (isFALSE(is.null(mount_paths))) {
