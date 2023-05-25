@@ -24,6 +24,14 @@ create_env("python=3.8")
 run("python3", "-c", "import os; print(os.getcwd())")
 ```
 
+Create Conda environment from YAML file
+
+``` r
+create_env(env_file = env_yaml_file, env_name = "condathis-yaml-env")
+run("python3", "-c", "import os; print(os.getcwd())", env_name = "condathis-yaml-env")
+```
+
+
 #### Bioinformatics example
 
 ``` r
@@ -39,6 +47,7 @@ and most time the required tools are already installed in the systems.
 
 ``` r
 bam_file <- system.file("extdata", "example.bam", package = "condathis")
+build_micromamba_image(method = "singularity")
 create_env("samtools", env_name = "samtools-env", method = "singularity")
 run("samtools", "view", bam_file, env_name = "samtools-env", method = "singularity")
 ```
@@ -47,6 +56,7 @@ run("samtools", "view", bam_file, env_name = "samtools-env", method = "singulari
 
 ``` r
 bam_file <- system.file("extdata", "example.bam", package = "condathis")
+build_micromamba_image(method = "docker")
 create_env("samtools", env_name = "samtools-env", method = "docker")
 run("samtools", "view", bam_file, env_name = "samtools-env", method = "docker")
 ```
