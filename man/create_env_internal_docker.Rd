@@ -10,7 +10,8 @@ create_env_internal_docker(
   env_name = "condathis-env",
   channels = c("bioconda", "conda-forge", "defaults"),
   container_name = "condathis-micromamba-base",
-  image_name = "luciorq/condathis-micromamba:latest"
+  image_name = "luciorq/condathis-micromamba:latest",
+  additional_channels = NULL
 )
 }
 \arguments{
@@ -19,7 +20,7 @@ version strings if necessary, e.g. 'python=3.11'. The use of the \code{packages}
 argument assumes that env_file is not used.}
 
 \item{env_file}{Character. Path to the YAML file with Conda Environment
-discription. If this argument is used, the \code{packages} argument should not
+description. If this argument is used, the \code{packages} argument should not
 be included in the command.}
 
 \item{env_name}{Character. Name of the Conda environment where the packages
@@ -35,6 +36,9 @@ Defaults to \code{"condathis-micromamba-base"}.}
 \item{image_name}{Character. Name of the Docker Image used, it will try
 to pull it automatically if internet connection is available.
 Defaults to \code{"luciorq/condathis-micromamba:latest"}.}
+
+\item{additional_channels}{Character. Additional Channels to be added to the
+default ones.}
 }
 \description{
 Create Environment Using Docker

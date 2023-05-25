@@ -54,13 +54,12 @@ create_env <- function(packages = NULL,
   channels_arg <- format_channels_args(channels, additional_channels)
   # TODO: Implement auto mode.
   method_to_use <- method[1]
-  if (method_to_use == "auto") {
-    # method_to_use <- define_method_to_use()
-    cli::cli_inform(c(
-      `!` = "{.code method = \"auto\"} is not implemented yet.",
-      `v` = "Using {.code method = \"native\"} instead."
-    ))
-    method_to_use <- "native"
+  if (isTRUE(method_to_use == "auto")) {
+    method_to_use <- define_method_to_use(
+      packages = packages,
+      channels = channels,
+      additional_channels = additional_channels
+    )
   }
   if (isTRUE(method_to_use == "native")) {
     px_res <- processx::run(

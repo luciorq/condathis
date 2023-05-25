@@ -34,12 +34,8 @@ run <- function(cmd,
                 image_name = "luciorq/condathis-micromamba:latest",
                 mount_paths = NULL) {
   method_to_use <- method[1]
-  if (method_to_use == "auto") {
-    cli::cli_inform(c(
-      `!` = "{.code method = \"auto\"} is not implemented yet.",
-      `v` = "Using {.code method = \"native\"} instead."
-    ))
-    method_to_use <- "native"
+  if (isTRUE(method_to_use == "auto")) {
+    method_to_use <- define_method_to_use()
   }
   if (isTRUE(method_to_use == "native")) {
     px_res <- run_internal_native(

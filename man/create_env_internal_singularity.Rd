@@ -9,7 +9,8 @@ create_env_internal_singularity(
   env_file = NULL,
   env_name = "condathis-env",
   channels = c("bioconda", "conda-forge", "defaults"),
-  sif_image_path = NULL
+  sif_image_path = NULL,
+  additional_channels = NULL
 )
 }
 \arguments{
@@ -18,7 +19,7 @@ version strings if necessary, e.g. 'python=3.11'. The use of the \code{packages}
 argument assumes that env_file is not used.}
 
 \item{env_file}{Character. Path to the YAML file with Conda Environment
-discription. If this argument is used, the \code{packages} argument should not
+description. If this argument is used, the \code{packages} argument should not
 be included in the command.}
 
 \item{env_name}{Character. Name of the Conda environment where the packages
@@ -29,6 +30,9 @@ By default 'c("bioconda", "conda-forge", "defaults")' are used for solving
 dependencies.}
 
 \item{sif_image_path}{Character. Path to SIF image file.}
+
+\item{additional_channels}{Character. Additional Channels to be added to the
+default ones.}
 }
 \description{
 Create Environment Using Singularity / Apptainer
