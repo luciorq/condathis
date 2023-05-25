@@ -109,6 +109,8 @@ run_internal_docker <- function(cmd,
     env_name,
     "--yes",
     # "--quiet",
+    cmd,
+    ...,
     container_name = container_name,
     image_name = image_name,
     docker_args = c(
