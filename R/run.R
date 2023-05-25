@@ -98,7 +98,6 @@ run_internal_docker <- function(cmd,
   stop_if_not_installed("dockerthis")
   env_root_dir <- get_install_dir()
   env_root_dir <- fs::path(paste0(env_root_dir, "-docker"))
-  additional_mount_paths <- mount_paths
   user_arg <- format_user_arg_string()
   px_res <- dockerthis::docker_run(
     "micromamba",
@@ -122,7 +121,7 @@ run_internal_docker <- function(cmd,
     ),
     mount_paths = c(
       env_root_dir,
-      additional_mount_paths,
+      mount_paths
     )
   )
   return(invisible(px_res))
