@@ -4,7 +4,15 @@
 \alias{run}
 \title{Run Command Line tools in a Conda environment.}
 \usage{
-run(cmd, ..., env_name = "condathis-env")
+run(
+  cmd,
+  ...,
+  env_name = "condathis-env",
+  method = "auto",
+  container_name = "condathis-micromamba-base",
+  image_name = "luciorq/condathis-micromamba:latest",
+  mount_paths = NULL
+)
 }
 \arguments{
 \item{cmd}{Character. The main command to be executed in the Conda environment.}
@@ -13,6 +21,14 @@ run(cmd, ..., env_name = "condathis-env")
 File paths should not contain special character or spaces.}
 
 \item{env_name}{Character. The name of the Conda environment where the tool will be run. Defaults to 'condathis-env'. If the specified environment does not exist, it will be created automatically using create_env() function from the \code{condathis} package.}
+
+\item{method}{Character. Beckend method to run \code{micromamba}, the default is
+"auto" running nativelly "native" with the \code{micromamba} binaries installed
+by \code{condathis}. Additional methods are supported for using Docker Linux Containers
+"docker" and Singularity Containers "singularity" as the beckends,
+those are especially useful if running on systems where the conda
+recipes are not available for the OS or CPU architecture in place.
+The container based backends leverage \code{dockerthis} R package.}
 }
 \description{
 This function allows the execution of command line tools within a specific Conda environment.
