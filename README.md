@@ -10,7 +10,7 @@ Run any CLI tool that is available through conda environments.
 
 ### Get started
 
-```r
+``` r
 remotes::install_github("luciorq/condathis")
 ```
 
@@ -18,7 +18,7 @@ remotes::install_github("luciorq/condathis")
 
 #### General Command line tool
 
-```r
+``` r
 library(condathis)
 create_env("python=3.8")
 run("python3", "-c", "import os; print(os.getcwd())")
@@ -26,11 +26,22 @@ run("python3", "-c", "import os; print(os.getcwd())")
 
 #### Bioinformatics example
 
-```r
-library(condathis)
+``` r
 create_env("samtools", env_name = "samtools-env")
-run("samtools", "--help", env_name = "samtools-env")
+run("samtools", "view", "--help", env_name = "samtools-env")
 ```
+
+#### Example with Singularity containers
+
+Singularity container backend is especially suited for HPC environments.
+
+``` r
+bam_file <- system.file("extdata", "example.bam", package = "condathis")
+create_env("samtools", env_name = "samtools-env", method = "singularity")
+run("samtools", "view", bam_file, env_name = "samtools-env", method = "singularity")
+```
+
+---
 
 `condathis` is a powerful R package designed to simplify the execution of command line tools within isolated conda environments. Built with efficiency and flexibility in mind, `condathis` seamlessly integrates the world of conda environments with the versatility of R programming.
 
