@@ -197,6 +197,7 @@ create_env_internal_singularity <- function(packages = NULL,
   }
 
   px_res <- singularity_cmd(
+    "exec",
     "micromamba",
     "create",
     "-r",
