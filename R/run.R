@@ -12,6 +12,8 @@
 #'
 #' @param env_name Character. The name of the Conda environment where the tool will be run. Defaults to 'condathis-env'. If the specified environment does not exist, it will be created automatically using create_env() function from the `condathis` package.
 #'
+#' @inheritParams create_env
+#'
 #' @examples
 #' ## Run a simple command in the default Conda environment
 #' run("ls", "-l")
@@ -24,7 +26,41 @@
 #' @seealso
 #' \code{\link{install_micromamba}}, \code{\link{create_env}}
 #' @export
-run <- function(cmd, ..., env_name = "condathis-env") {
+run <- function(cmd,
+                ...,
+                env_name = "condathis-env",
+                method = "auto",
+                container_name = "condathis-micromamba-base",
+                image_name = "luciorq/condathis-micromamba:latest",
+                mount_paths = NULL) {
+  method_to_use <- method[1]
+  if (method_to_use == "auto") {
+    cli::cli_inform(c(
+      `!` = "{.code method = \"auto\"} is not implemented yet.",
+      `v` = "Using {.code method = \"native\"} instead."
+    ))
+    method_to_use <- "native"
+  }
+  if (isTRUE(method_to_use == "native")) {
+    px_res <- run_internal_native(
+      cmd = cmd, ..., env_name = env_name
+    )
+  } else if (isTRUE(method_to_use == "docker")) {
+    px_res <- run_internal_docker(
+      cmd = cmd, ..., env_name = env_name
+    )
+  } else if (isTRUE(method_to_use == "singularity")) {
+    cli::cli_abort(c(
+      `x` = "Method {.code \"singularity\"} is not implemented yet."
+    ))
+  }
+  return(invisible(px_res))
+}
+
+#' @inheritParams run
+run_internal_native <- function(cmd,
+                                ...,
+                                env_name = "condathis-env") {
   umamba_bin_path <- micromamba_bin_path()
   env_root_dir <- get_install_dir()
 
@@ -47,6 +83,45 @@ run <- function(cmd, ..., env_name = "condathis-env") {
       ...
     ),
     spinner = TRUE
+  )
+  return(invisible(px_res))
+}
+
+#' @inheritParams run
+run_internal_docker <- function(cmd,
+                                ...,
+                                env_name = "condathis-env",
+                                container_name = "condathis-micromamba-base",
+                                image_name = "luciorq/condathis-micromamba:latest",
+                                mount_paths = NULL
+                                ) {
+  stop_if_not_installed("dockerthis")
+  env_root_dir <- get_install_dir()
+  env_root_dir <- fs::path(paste0(env_root_dir, "-docker"))
+  additional_mount_paths <- mount_paths
+  user_arg <- format_user_arg_string()
+  px_res <- dockerthis::docker_run(
+    "micromamba",
+    "run",
+    "-r",
+    env_root_dir,
+    "-n",
+    env_name,
+    "--yes",
+    # "--quiet",
+    container_name = container_name,
+    image_name = image_name,
+    docker_args = c(
+      "-e",
+      paste0("HOME=", env_root_dir, "/home"),
+      "--platform=linux/amd64",
+      user_arg,
+      "--rm"
+    ),
+    mount_paths = c(
+      env_root_dir,
+      additional_mount_paths,
+    )
   )
   return(invisible(px_res))
 }

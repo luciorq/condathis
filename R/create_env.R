@@ -76,7 +76,7 @@ create_env <- function(packages = NULL,
       echo_cmd = TRUE
     )
   } else if (isTRUE(method_to_use == "docker")) {
-    px_res <- create_env_docker(
+    px_res <- create_env_internal_docker(
       packages = packages,
       env_file = env_file,
       env_name = env_name,
@@ -93,7 +93,7 @@ create_env <- function(packages = NULL,
 }
 
 #' @inheritParams create_env
-create_env_docker <- function(packages = NULL,
+create_env_internal_docker <- function(packages = NULL,
                               env_file = NULL,
                               env_name = "condathis-env",
                               channels = c(
