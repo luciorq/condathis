@@ -57,9 +57,16 @@ run <- function(cmd,
       mount_paths = mount_paths
     )
   } else if (isTRUE(method_to_use == "singularity")) {
-    cli::cli_abort(c(
-      `x` = "Method {.code \"singularity\"} is not implemented yet."
-    ))
+    #cli::cli_abort(c(
+    #  `x` = "Method {.code \"singularity\"} is not implemented yet."
+    #))
+    px_res <- run_internal_singularity(
+      cmd = cmd,
+      ...,
+      env_name = env_name,
+      sif_image_path = NULL,
+      mount_paths = mount_paths
+    )
   }
   return(invisible(px_res))
 }
@@ -131,6 +138,71 @@ run_internal_docker <- function(cmd,
       fs::path_wd(),
       mount_paths
     )
+  )
+  return(invisible(px_res))
+}
+
+#' @inheritParams run
+run_internal_singularity <- function(cmd,
+                                ...,
+                                env_name = "condathis-env",
+                                sif_image_path = NULL,
+                                mount_paths = NULL) {
+  invisible(is_singularity_available())
+  env_root_dir <- get_install_dir()
+  env_root_dir <- fs::path(paste0(env_root_dir, "-docker"))
+  if (isFALSE(fs::dir_exists(env_root_dir))) {
+    fs::dir_create(env_root_dir)
+    fs::dir_create(env_root_dir, "home")
+  }
+  sif_dir <- fs::path(env_root_dir, "sif")
+
+  mount_path_arg <- c()
+  if (isFALSE(is.null(mount_paths))) {
+    for (mount_path in mount_paths) {
+      if (isTRUE(stringr::str_detect(mount_path, pattern = ":"))) {
+        mount_temp_vec <- unlist(stringr::str_split(mount_path, pattern = ":"))
+        if (isFALSE(fs::dir_exists(mount_temp_vec[1]))) {
+          cli::cli_abort(c(
+            `x` = "{.path {mount_temp_vec[1]}} do not exist."
+          ))
+        }
+        mount_path_abs <- fs::path_abs(mount_temp_vec[1])
+        mount_path_target <- fs::path_abs(mount_temp_vec[2])
+      } else {
+        if (isFALSE(fs::dir_exists(mount_path))) {
+          cli::cli_abort(c(
+            `x` = "{.path {mount_path}} do not exist."
+          ))
+        }
+        mount_path_abs <- fs::path_abs(mount_path)
+        mount_path_target <- mount_path_abs
+      }
+      mount_path_arg <- c(
+        mount_path_arg,
+        "--bind",
+        paste0(mount_path_abs,":", mount_path_target)
+      )
+    }
+  }
+  px_res <- singularity_cmd(
+    "exec",
+    "-e",
+    "-H",
+    paste0(env_root_dir, "/home"),
+    "-W",
+    fs::path_wd(),
+    mount_path_arg,
+    sif_image_path,
+    "micromamba",
+    "run",
+    "-r",
+    env_root_dir,
+    "-n",
+    env_name,
+    # "--quiet",
+    cmd,
+    ...
   )
   return(invisible(px_res))
 }

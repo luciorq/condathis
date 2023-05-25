@@ -54,7 +54,7 @@ build_micromamba_image_singularity <- function(image_name = "luciorq/condathis-m
     fs::dir_create(sif_dir)
   }
   sif_image_path <- fs::path(sif_dir, "condathis-micromamba", ext = "sif")
-  remote_image_path <- paste0(hub_name, "://", image_name)
+  remote_image_path <- paste0(registry_name, "://", image_name)
   px_res <- singularity_cmd(
     "build",
     sif_image_path,
