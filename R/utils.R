@@ -53,6 +53,13 @@ micromamba_bin_path <- function() {
 #' @param ... Character. Channels to be used by `micromamba`.
 format_channels_args <- function(...) {
   channels <- c(...)
+  if (is.null(channels)) {
+    channels <- c(
+      "bioconda",
+      "conda-forge",
+      "defaults"
+    )
+  }
   channels_arg <- c()
   for (channel in channels) {
     channels_arg <- c(channels_arg, "-c", channel)

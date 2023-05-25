@@ -5,18 +5,29 @@ define_method_to_use <- function(packages = NULL,
                                  channels = NULL,
                                  additional_channels = NULL) {
 
+  # TODO(luciorq): Implement step by step approach
+  # + First check if native is fully functional, only then check next method.
   singularity_avail <- try({is_singularity_available()}, silent = TRUE)
   docker_avail <- try({dockerthis::is_docker_available()}, silent = TRUE)
   umamba_avail <- try({is_micromamba_available_for_arch()}, silent = TRUE)
 
+  # TODO(luciorq): Check if environment already exists and tool is on PATH
+  # + before searching for packages
+
+  # TODO(luciorq): Search packages on container methods
+
   if (isTRUE(class(umamba_avail) == "character")) {
+    umamba_bin_path <- micromamba_bin_path()
+    if (isFALSE(fs::file_exists(umamba_bin_path))) {
+      install_micromamba(force = TRUE)
+    }
     if (isFALSE(is.null(packages)) & isFALSE(is.null(channels))) {
       pkgs_available <- packages_search(
         packages = packages,
         channels = channels,
         additional_channels = additional_channels
       )
-    } else{
+    } else {
       pkgs_available <- TRUE
     }
     if (isTRUE(pkgs_available)) {
@@ -36,7 +47,6 @@ define_method_to_use <- function(packages = NULL,
   return(method_to_use)
 }
 
-
 #' Search For Package in Channels
 #'
 #' Search if Package is available in required Channels
@@ -50,6 +60,7 @@ packages_search <- function(packages,
                                          "docker",
                                          "singularity"),
                               additional_channels = NULL) {
+  # TODO(luciorq): Implement methods
   umamba_bin_path <- micromamba_bin_path()
   withr::local_envvar(list(CONDA_SHLVL = 0))
 
