@@ -4,7 +4,10 @@
 \alias{is_micromamba_available_for_arch}
 \title{Check if Micromamba is Available for OS and CPU architecture}
 \usage{
-is_micromamba_available_for_arch()
+is_micromamba_available_for_arch(sys_arch = NULL)
+}
+\arguments{
+\item{sys_arch}{Default: NULL.}
 }
 \description{
 Check if Micromamba is Available for OS and CPU architecture

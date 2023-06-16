@@ -32,10 +32,37 @@ run <- function(cmd,
                 method = "auto",
                 container_name = "condathis-micromamba-base",
                 image_name = "luciorq/condathis-micromamba:latest",
-                mount_paths = NULL) {
+                mount_paths = NULL,
+                packages = NULL,
+                channels = c("bioconda",
+                             "conda-forge",
+                             "defaults"),
+                additional_channels = NULL,
+                sif_image_path = NULL) {
+
+  if (is.null(cmd)) {
+    cli::cli_abort(c(
+      `x` = "{.field cmd} need to be a {.code character} string."
+    ))
+  }
+
   method_to_use <- method[1]
+
+  if (is.null(packages)) {
+    packages_to_search <- cmd
+  } else {
+    packages_to_search <- packages
+  }
+
   if (isTRUE(method_to_use == "auto")) {
-    method_to_use <- define_method_to_use()
+    method_to_use <- define_method_to_use(
+      packages = packages_to_search,
+      channels = channels,
+      additional_channels = additional_channels,
+      container_name = container_name,
+      image_name = image_name,
+      sif_image_path = sif_image_path
+    )
   }
   if (isTRUE(method_to_use == "native")) {
     px_res <- run_internal_native(
@@ -57,7 +84,7 @@ run <- function(cmd,
       cmd = cmd,
       ...,
       env_name = env_name,
-      sif_image_path = NULL,
+      sif_image_path = sif_image_path,
       mount_paths = mount_paths
     )
   }

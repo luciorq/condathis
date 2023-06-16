@@ -40,6 +40,9 @@ create_env <- function(packages = NULL,
                                   "native",
                                   "docker",
                                   "singularity"),
+                       container_name = "condathis-micromamba-base",
+                       image_name = "luciorq/condathis-micromamba:latest",
+                       sif_image_path = NULL,
                        additional_channels = NULL) {
   umamba_bin_path <- micromamba_bin_path()
   env_root_dir <- get_install_dir()
@@ -56,9 +59,12 @@ create_env <- function(packages = NULL,
   method_to_use <- method[1]
   if (isTRUE(method_to_use == "auto")) {
     method_to_use <- define_method_to_use(
-      packages = packages,
+      packages = packages_to_search,
       channels = channels,
-      additional_channels = additional_channels
+      additional_channels = additional_channels,
+      container_name = container_name,
+      image_name = image_name,
+      sif_image_path = sif_image_path
     )
   }
   if (isTRUE(method_to_use == "native")) {

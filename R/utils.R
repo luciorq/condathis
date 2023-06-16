@@ -116,3 +116,17 @@ list_packages <- function(env_name = "condathis-env") {
     return(px_res)
   )
 }
+
+#' Check If Environment Names Already exists
+env_exists <- function(env_name = "condathis-env") {
+  env_root_dir <- get_install_dir()
+  available_envs <- condathis::list_envs()
+
+  condathis_env_path <- fs::path(env_root_dir, "envs", env_name)
+
+  if (isTRUE(condathis_env_path %in% available_envs)) {
+    return(TRUE)
+  } else {
+    return(FALSE)
+  }
+}
