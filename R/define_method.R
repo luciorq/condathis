@@ -150,13 +150,12 @@ packages_search_docker <- function(packages,
         paste0("HOME=", env_root_dir, "/home"),
         paste0("--workdir=", fs::path_wd()),
         "--platform=linux/amd64",
-       user_arg,
+       # user_arg,
         "--rm"
       ),
       mount_paths = c(
         env_root_dir,
-        fs::path_wd(),
-        mount_paths
+        fs::path_wd()
       ),
       verbose = FALSE
     )
