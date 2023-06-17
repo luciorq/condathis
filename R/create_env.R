@@ -59,7 +59,7 @@ create_env <- function(packages = NULL,
   method_to_use <- method[1]
   if (isTRUE(method_to_use == "auto")) {
     method_to_use <- define_method_to_use(
-      packages = packages_to_search,
+      packages = packages,
       channels = channels,
       additional_channels = additional_channels,
       container_name = container_name,
