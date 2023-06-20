@@ -148,7 +148,7 @@ run_internal_docker <- function(cmd,
   env_root_dir <- fs::path(paste0(env_root_dir, "-docker"))
   user_arg <- format_user_arg_string()
   if (isTRUE(gpu_container)) {
-    gpu_args <- "--gpus"
+    gpu_args <- c("--gpus", "all")
   } else {
     gpu_args <- NULL
   }
@@ -239,7 +239,7 @@ run_internal_singularity <- function(cmd,
   }
   px_res <- singularity_cmd(
     "exec",
-    gpu_arg,
+    gpu_args,
     "-e",
     "-H",
     paste0(env_root_dir, "/home"),
