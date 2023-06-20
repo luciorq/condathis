@@ -172,7 +172,6 @@ create_env_internal_docker <- function(packages = NULL,
       "-n", env_name
     )
   }
-
   user_arg <- format_user_arg_string()
   px_res <- dockerthis::docker_run(
     "micromamba",
@@ -232,6 +231,13 @@ create_env_internal_singularity <- function(packages = NULL,
   if (is.null(sif_image_path)) {
     sif_image_path <- fs::path(sif_dir, "condathis-micromamba", ext = "sif")
   }
+
+  if (isTRUE(sif_image_path == fs::path(sif_dir, "condathis-micromamba", ext = "sif"))) {
+    if (isFALSE(fs::file_exists(sif_image_path))) {
+      build_container_image_singularity()
+    }
+  }
+
   channels_arg <- format_channels_args(additional_channels, channels)
   env_file_path <- NULL
   if (isFALSE(is.null(env_file))) {

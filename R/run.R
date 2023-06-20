@@ -203,7 +203,11 @@ run_internal_singularity <- function(cmd,
   if (is.null(sif_image_path)) {
     sif_image_path <- fs::path(sif_dir, "condathis-micromamba", ext = "sif")
   }
-
+  if (isTRUE(sif_image_path == fs::path(sif_dir, "condathis-micromamba", ext = "sif"))) {
+    if (isFALSE(fs::file_exists(sif_image_path))) {
+      build_container_image_singularity()
+    }
+  }
   mount_path_arg <- c()
   if (isFALSE(is.null(mount_paths))) {
     for (mount_path in mount_paths) {
