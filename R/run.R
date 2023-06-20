@@ -39,7 +39,6 @@ run <- function(cmd,
                              "defaults"),
                 additional_channels = NULL,
                 sif_image_path = NULL) {
-
   if (is.null(cmd)) {
     cli::cli_abort(c(
       `x` = "{.field cmd} need to be a {.code character} string."
@@ -53,6 +52,11 @@ run <- function(cmd,
   } else {
     packages_to_search <- packages
   }
+
+  method_to_use <- read_cache_env_method(
+    env_name = env_name,
+    method = method
+  )
 
   if (isTRUE(method_to_use == "auto")) {
     method_to_use <- define_method_to_use(
@@ -88,6 +92,12 @@ run <- function(cmd,
       mount_paths = mount_paths
     )
   }
+
+  write_cache_env_method(
+    env_name = env_name,
+    method_to_use = method_to_use,
+    cmd = cmd
+  )
   return(invisible(px_res))
 }
 

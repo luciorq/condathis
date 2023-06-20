@@ -106,6 +106,14 @@ create_env <- function(packages = NULL,
       additional_channels = additional_channels
     )
   }
+
+  # Write to cache
+  write_cache_env_method(
+    env_name = env_name,
+    method_to_use = method_to_use,
+    cmd = NULL,
+    overwrite = TRUE
+  )
   return(invisible(px_res))
 }
 
