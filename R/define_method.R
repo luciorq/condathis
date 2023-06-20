@@ -91,7 +91,7 @@ packages_search_native <- function(packages,
   umamba_bin_path <- micromamba_bin_path()
   withr::local_envvar(list(CONDA_SHLVL = 0))
 
-  channels_arg <- format_channels_args(channels, additional_channels)
+  channels_arg <- format_channels_args(additional_channels, channels)
 
   available_vector <- c()
   for (pkg in packages) {
@@ -133,7 +133,7 @@ packages_search_docker <- function(packages,
   env_root_dir <- get_install_dir()
   env_root_dir <- fs::path(paste0(env_root_dir, "-docker"))
   # user_arg <- format_user_arg_string()
-  channels_arg <- format_channels_args(channels, additional_channels)
+  channels_arg <- format_channels_args(additional_channels, channels)
   available_vector <- c()
   for (pkg in packages) {
     px_res <- dockerthis::docker_run(
@@ -197,7 +197,7 @@ packages_search_singularity <- function(packages,
   if (isFALSE(fs::file_exists(sif_image_path))) {
     build_container_image_singularity()
   }
-  channels_arg <- format_channels_args(channels, additional_channels)
+  channels_arg <- format_channels_args(additional_channels, channels)
   available_vector <- c()
   for (pkg in packages) {
     px_res <- singularity_cmd(

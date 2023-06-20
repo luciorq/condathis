@@ -58,7 +58,7 @@ create_env <- function(packages = NULL,
       packages = c("-f", env_file_path)
     }
   }
-  channels_arg <- format_channels_args(channels, additional_channels)
+  channels_arg <- format_channels_args(additional_channels, channels)
   method_to_use <- method[1]
   if (isTRUE(method_to_use == "auto")) {
     method_to_use <- define_method_to_use(
@@ -149,7 +149,7 @@ create_env_internal_docker <- function(packages = NULL,
     fs::dir_create(env_root_dir)
     fs::dir_create(env_root_dir, "home")
   }
-  channels_arg <- format_channels_args(channels, additional_channels)
+  channels_arg <- format_channels_args(additional_channels, channels)
   env_file_path <- NULL
   if (isFALSE(is.null(env_file))) {
     if (fs::file_exists(env_file)) {
@@ -232,8 +232,8 @@ create_env_internal_singularity <- function(packages = NULL,
   if (is.null(sif_image_path)) {
     sif_image_path <- fs::path(sif_dir, "condathis-micromamba", ext = "sif")
   }
-  channels_arg <- format_channels_args(channels, additional_channels)
-    env_file_path <- NULL
+  channels_arg <- format_channels_args(additional_channels, channels)
+  env_file_path <- NULL
   if (isFALSE(is.null(env_file))) {
     if (fs::file_exists(env_file)) {
       packages = c("-f", env_file_path)
