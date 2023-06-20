@@ -12,7 +12,7 @@ write_cache_env_method <- function(env_name,
   }
   previous_names <- names(envs_list)
   if (isTRUE(env_name %in% previous_names) | isTRUE(overwrite)) {
-    env_to_add$env_name <- env_name
+    envs_list[[env_name]]$env_name <- env_name
     envs_list[[env_name]]$method <- method_to_use
     envs_list[[env_name]]$cmd <- unique(c(envs_list[[env_name]]$cmd, cmd))
   } else {
