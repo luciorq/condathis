@@ -10,6 +10,9 @@ create_env(
   env_name = "condathis-env",
   channels = c("bioconda", "conda-forge", "defaults"),
   method = c("auto", "native", "docker", "singularity"),
+  container_name = "condathis-micromamba-base",
+  image_name = "luciorq/condathis-micromamba:latest",
+  sif_image_path = NULL,
   additional_channels = NULL
 )
 }

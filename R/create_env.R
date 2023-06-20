@@ -55,7 +55,6 @@ create_env <- function(packages = NULL,
     }
   }
   channels_arg <- format_channels_args(channels, additional_channels)
-  # TODO: Implement auto mode.
   method_to_use <- method[1]
   if (isTRUE(method_to_use == "auto")) {
     method_to_use <- define_method_to_use(
@@ -145,15 +144,35 @@ create_env_internal_docker <- function(packages = NULL,
       packages = c("-f", env_file_path)
     }
   }
+
+  # NOTE(luciorq): Fix for case insensitive file systems
+  sys_arch <- get_sys_arch()
+  if (isTRUE(stringr::str_detect(sys_arch, "^[Darwin|Windows]"))) {
+    prefix_args <- c(
+      "-r",
+      "/home/dockerthis",
+      "-p",
+      fs::path(env_root_dir, "envs", env_name)
+    )
+  } else {
+    prefix_args <- c(
+      "-r", env_root_dir,
+      "-n", env_name
+    )
+  }
+
   user_arg <- format_user_arg_string()
   px_res <- dockerthis::docker_run(
     "micromamba",
     "create",
-    "-r",
-    env_root_dir,
-    "-n",
-    env_name,
+    prefix_args,
     "--yes",
+    "--experimental",
+    "--no-extra-safety-checks",
+    "--always-copy",
+    #"--no-always-copy",
+    #"--no-allow-softlinks",
+    "--safety-checks", "0",
     # "--quiet",
     channels_arg,
     packages,

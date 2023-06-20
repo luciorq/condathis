@@ -103,7 +103,7 @@ run_internal_native <- function(cmd,
   # }
 
   withr::local_envvar(list(CONDA_SHLVL = 0))
-  # withr::local_envvar(list(CONDARC = paste0(Sys.getenv("HOME"),".config/conda/condarc")))
+  # withr::local_envvar(list(CONDARC = fs::path(Sys.getenv("HOME"),".config","conda", "condarc")))
   px_res <- processx::run(
     command = fs::path_real(umamba_bin_path),
     args = c(
