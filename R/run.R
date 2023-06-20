@@ -38,7 +38,8 @@ run <- function(cmd,
                              "conda-forge",
                              "defaults"),
                 additional_channels = NULL,
-                sif_image_path = NULL) {
+                sif_image_path = NULL,
+                gpu_container = FALSE) {
   if (is.null(cmd)) {
     cli::cli_abort(c(
       `x` = "{.field cmd} need to be a {.code character} string."
@@ -81,7 +82,8 @@ run <- function(cmd,
       env_name = env_name,
       container_name = container_name,
       image_name = image_name,
-      mount_paths = mount_paths
+      mount_paths = mount_paths,
+      gpu_container = gpu_container
     )
   } else if (isTRUE(method_to_use == "singularity")) {
     px_res <- run_internal_singularity(
@@ -89,7 +91,8 @@ run <- function(cmd,
       ...,
       env_name = env_name,
       sif_image_path = sif_image_path,
-      mount_paths = mount_paths
+      mount_paths = mount_paths,
+      gpu_container = gpu_container
     )
   }
 
@@ -137,12 +140,18 @@ run_internal_docker <- function(cmd,
                                 env_name = "condathis-env",
                                 container_name = "condathis-micromamba-base",
                                 image_name = "luciorq/condathis-micromamba:latest",
-                                mount_paths = NULL
+                                mount_paths = NULL,
+                                gpu_container = FALSE
                                 ) {
   stop_if_not_installed("dockerthis")
   env_root_dir <- get_install_dir()
   env_root_dir <- fs::path(paste0(env_root_dir, "-docker"))
   user_arg <- format_user_arg_string()
+  if (isTRUE(gpu_container)) {
+    gpu_args <- "--gpus"
+  } else {
+    gpu_args <- NULL
+  }
   px_res <- dockerthis::docker_run(
     "micromamba",
     "run",
@@ -161,7 +170,8 @@ run_internal_docker <- function(cmd,
       paste0("--workdir=", fs::path_wd()),
       "--platform=linux/amd64",
       user_arg,
-      "--rm"
+      "--rm",
+      gpu_args
     ),
     mount_paths = c(
       env_root_dir,
@@ -177,7 +187,8 @@ run_internal_singularity <- function(cmd,
                                 ...,
                                 env_name = "condathis-env",
                                 sif_image_path = NULL,
-                                mount_paths = NULL) {
+                                mount_paths = NULL,
+                                gpu_container = FALSE) {
   invisible(is_singularity_available())
   env_root_dir <- get_install_dir()
   env_root_dir <- fs::path(paste0(env_root_dir, "-docker"))
@@ -221,8 +232,14 @@ run_internal_singularity <- function(cmd,
       )
     }
   }
+  if (isTRUE(gpu_container)) {
+    gpu_args <- "--nv"
+  } else {
+    gpu_args <- NULL
+  }
   px_res <- singularity_cmd(
     "exec",
+    gpu_arg,
     "-e",
     "-H",
     paste0(env_root_dir, "/home"),

@@ -22,13 +22,16 @@
 #'   default ones.
 #'
 #' @param method Character. Beckend method to run `micromamba`, the default is
-#'   "auto" running nativelly "native" with the `micromamba` binaries installed
+#'   "auto" running "native" with the `micromamba` binaries installed
 #'   by `condathis`. Additional methods are supported for using Docker Linux Containers
 #'   "docker" and Singularity Containers "singularity" as the beckends,
 #'   those are especially useful if running on systems where the conda
 #'   recipes are not available for the OS or CPU architecture in place.
 #'   The container based backends leverage `dockerthis` R package.
 #'
+#' @param gpu_container Logical. GPU support for Container Beckend `methods`.
+#'   This argument is not necessary if running native.
+#'   Default to FALSE.
 #' @export
 create_env <- function(packages = NULL,
                        env_file = NULL,
@@ -43,7 +46,8 @@ create_env <- function(packages = NULL,
                        container_name = "condathis-micromamba-base",
                        image_name = "luciorq/condathis-micromamba:latest",
                        sif_image_path = NULL,
-                       additional_channels = NULL) {
+                       additional_channels = NULL,
+                       gpu_container = FALSE) {
   umamba_bin_path <- micromamba_bin_path()
   env_root_dir <- get_install_dir()
 

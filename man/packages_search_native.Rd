@@ -21,7 +21,7 @@ By default 'c("bioconda", "conda-forge", "defaults")' are used for solving
 dependencies.}
 
 \item{method}{Character. Beckend method to run \code{micromamba}, the default is
-"auto" running nativelly "native" with the \code{micromamba} binaries installed
+"auto" running "native" with the \code{micromamba} binaries installed
 by \code{condathis}. Additional methods are supported for using Docker Linux Containers
 "docker" and Singularity Containers "singularity" as the beckends,
 those are especially useful if running on systems where the conda

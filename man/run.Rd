@@ -15,7 +15,8 @@ run(
   packages = NULL,
   channels = c("bioconda", "conda-forge", "defaults"),
   additional_channels = NULL,
-  sif_image_path = NULL
+  sif_image_path = NULL,
+  gpu_container = FALSE
 )
 }
 \arguments{
@@ -27,7 +28,7 @@ File paths should not contain special character or spaces.}
 \item{env_name}{Character. The name of the Conda environment where the tool will be run. Defaults to 'condathis-env'. If the specified environment does not exist, it will be created automatically using create_env() function from the \code{condathis} package.}
 
 \item{method}{Character. Beckend method to run \code{micromamba}, the default is
-"auto" running nativelly "native" with the \code{micromamba} binaries installed
+"auto" running "native" with the \code{micromamba} binaries installed
 by \code{condathis}. Additional methods are supported for using Docker Linux Containers
 "docker" and Singularity Containers "singularity" as the beckends,
 those are especially useful if running on systems where the conda
@@ -44,6 +45,10 @@ dependencies.}
 
 \item{additional_channels}{Character. Additional Channels to be added to the
 default ones.}
+
+\item{gpu_container}{Logical. GPU support for Container Beckend \code{methods}.
+This argument is not necessary if running native.
+Default to FALSE.}
 }
 \description{
 This function allows the execution of command line tools within a specific Conda environment.

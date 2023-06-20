@@ -13,7 +13,8 @@ create_env(
   container_name = "condathis-micromamba-base",
   image_name = "luciorq/condathis-micromamba:latest",
   sif_image_path = NULL,
-  additional_channels = NULL
+  additional_channels = NULL,
+  gpu_container = FALSE
 )
 }
 \arguments{
@@ -33,7 +34,7 @@ By default 'c("bioconda", "conda-forge", "defaults")' are used for solving
 dependencies.}
 
 \item{method}{Character. Beckend method to run \code{micromamba}, the default is
-"auto" running nativelly "native" with the \code{micromamba} binaries installed
+"auto" running "native" with the \code{micromamba} binaries installed
 by \code{condathis}. Additional methods are supported for using Docker Linux Containers
 "docker" and Singularity Containers "singularity" as the beckends,
 those are especially useful if running on systems where the conda
@@ -42,6 +43,10 @@ The container based backends leverage \code{dockerthis} R package.}
 
 \item{additional_channels}{Character. Additional Channels to be added to the
 default ones.}
+
+\item{gpu_container}{Logical. GPU support for Container Beckend \code{methods}.
+This argument is not necessary if running native.
+Default to FALSE.}
 }
 \description{
 Create Conda Environment with specific packages
