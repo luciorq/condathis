@@ -5,10 +5,10 @@ Authors@R: c(
     person("Lucio Rezende", "Queiroz", , "luciorqueiroz@gmail.com", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0002-6090-1834"))
   )
-Description: Condathis is an R package that simplifies the execution of command 
+Description: Condathis is an R package that simplifies the execution of command
     line tools within isolated conda environments.
-    It enables users to effortlessly manage conda environments, 
-    execute command line tools, handle dependencies, and ensure reproducibility 
+    It enables users to effortlessly manage conda environments,
+    execute command line tools, handle dependencies, and ensure reproducibility
     in their data analysis workflows.
 License: MIT + file LICENSE
 Encoding: UTF-8
@@ -24,9 +24,9 @@ Imports:
     rappdirs,
     stringr,
     utils,
-    withr
+    withr,
+    dockerthis
 Suggests:
-    dockerthis,
     testthat (>= 3.0.0)
 Remotes:
     github::luciorq/dockerthis

@@ -30,7 +30,6 @@ is_singularity_available <- function() {
   return(singularity_bin_path)
 }
 
-
 singularity_cmd <- function(..., verbose = TRUE) {
   singularity_bin_path <- is_singularity_available()
   px_res <- processx::run(
@@ -50,7 +49,7 @@ format_user_arg_string <- function() {
   if (isTRUE(Sys.info()["sysname"] == "Linux")) {
     user_id <- system("id -u", intern = TRUE)
     user_group_id <- system("id -g", intern = TRUE)
-    user_arg = paste0("--user=", user_id, ":", user_group_id)
+    user_arg <- paste0("--user=", user_id, ":", user_group_id)
   }
   return(user_arg)
 }

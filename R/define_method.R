@@ -15,7 +15,10 @@ define_method_to_use <- function(packages = NULL,
   # + First check if native is fully functional, only then check next method.
   singularity_avail <- try({is_singularity_available()}, silent = TRUE)
   docker_avail <- try({dockerthis::is_docker_available()}, silent = TRUE)
+  # TODO: Add podman wrapper
   umamba_avail <- try({is_micromamba_available_for_arch()}, silent = TRUE)
+
+
 
   # TODO(luciorq): Check if environment already exists and tool is on PATH
   # + before searching for packages
