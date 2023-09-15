@@ -80,6 +80,7 @@ run <- function(cmd,
       cmd = cmd,
       ...,
       echo = echo,
+      stdout = stdout,
       env_name = env_name
     )
   } else if (isTRUE(method_to_use == "docker")) {
@@ -90,7 +91,9 @@ run <- function(cmd,
       container_name = container_name,
       image_name = image_name,
       mount_paths = mount_paths,
-      gpu_container = gpu_container
+      gpu_container = gpu_container,
+      verbose = echo,
+      stdout = stdout
     )
   } else if (isTRUE(method_to_use == "singularity")) {
     px_res <- run_internal_singularity(
@@ -99,7 +102,9 @@ run <- function(cmd,
       env_name = env_name,
       sif_image_path = sif_image_path,
       mount_paths = mount_paths,
-      gpu_container = gpu_container
+      gpu_container = gpu_container,
+      stdout = stdout,
+      echo = echo
     )
   }
 
