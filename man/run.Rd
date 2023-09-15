@@ -8,7 +8,7 @@ run(
   cmd,
   ...,
   env_name = "condathis-env",
-  method = "auto",
+  method = "native",
   container_name = "condathis-micromamba-base",
   image_name = "luciorq/condathis-micromamba:latest",
   mount_paths = NULL,
