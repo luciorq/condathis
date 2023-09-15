@@ -97,21 +97,38 @@ format_channels_args <- function(...) {
 list_envs <- function() {
   umamba_bin_path <- micromamba_bin_path()
   env_root_dir <- get_install_dir()
-  px_res <- processx::run(
-    command = fs::path_real(umamba_bin_path),
-    args = c(
-      "env",
-      "list",
-      "-r",
-      env_root_dir,
-      "-q",
-      "--json"
+  withr::with_envvar(
+    new = list(
+      CONDA_ENVS_PATH = "",
+      CONDA_ROOT_PREFIX = "",
+      CONDA_SHLVL = 0,
+      MAMBA_ENVS_PATH = "",
+      MAMBA_ROOT_PREFIX = "",
+      CONDARC = ""
     ),
-    spinner = TRUE
+    code = {
+      px_res <- processx::run(
+        command = fs::path_real(umamba_bin_path),
+        args = c(
+          "env",
+          "list",
+          "-r",
+          env_root_dir,
+          "-q",
+          "--json"
+        ),
+        spinner = TRUE
+      )
+    }
   )
   if (isTRUE(px_res$status == 0)) {
     envs_list <- jsonlite::fromJSON(px_res$stdout)
-    return(envs_list$envs)
+    envs_str <- envs_list$envs
+
+    envs_str <- envs_str[stringr::str_detect(c(envs_str), env_root_dir)]
+    envs_to_return <- basename(envs_str)
+    envs_to_return <- envs_to_return[!envs_to_return %in% "condathis"]
+    return(envs_to_return)
   } else {
     return(px_res$status)
   }
@@ -144,11 +161,11 @@ list_packages <- function(env_name = "condathis-env") {
 
 #' Check If Environment Names Already exists
 env_exists <- function(env_name = "condathis-env") {
-  env_root_dir <- get_install_dir()
+  # env_root_dir <- get_install_dir()
   available_envs <- condathis::list_envs()
 
-  condathis_env_path <- fs::path(env_root_dir, "envs", env_name)
-
+  # condathis_env_path <- fs::path(env_root_dir, "envs", env_name)
+  condathis_env_path <- env_name
   if (isTRUE(condathis_env_path %in% available_envs)) {
     return(TRUE)
   } else {
