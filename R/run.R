@@ -12,6 +12,10 @@
 #'
 #' @param env_name Character. The name of the Conda environment where the tool will be run. Defaults to 'condathis-env'. If the specified environment does not exist, it will be created automatically using create_env() function from the `condathis` package.
 #'
+#' @param stdout Default: "|" keep stdout to the R object
+#'   returned by `run()`.
+#'   A character string can be used to define a file path to be used as standard output. e.g: "output.txt".
+#'
 #' @inheritParams create_env
 #'
 #' @examples
@@ -40,7 +44,8 @@ run <- function(cmd,
                 additional_channels = NULL,
                 sif_image_path = NULL,
                 gpu_container = FALSE,
-                echo = TRUE) {
+                echo = TRUE,
+                stdout = "|") {
   if (is.null(cmd)) {
     cli::cli_abort(c(
       `x` = "{.field cmd} need to be a {.code character} string."
@@ -110,7 +115,8 @@ run <- function(cmd,
 run_internal_native <- function(cmd,
                                 ...,
                                 env_name = "condathis-env",
-                                echo = TRUE) {
+                                echo = TRUE,
+                                stdout = "|") {
   umamba_bin_path <- micromamba_bin_path()
   env_root_dir <- get_install_dir()
 
@@ -133,7 +139,8 @@ run_internal_native <- function(cmd,
       ...
     ),
     spinner = TRUE,
-    echo = echo
+    echo = echo,
+    stdout = stdout
   )
   return(invisible(px_res))
 }
@@ -145,7 +152,9 @@ run_internal_docker <- function(cmd,
                                 container_name = "condathis-micromamba-base",
                                 image_name = "luciorq/condathis-micromamba:latest",
                                 mount_paths = NULL,
-                                gpu_container = FALSE
+                                gpu_container = FALSE,
+                                echo = TRUE,
+                                stdout = "|"
                                 ) {
   stop_if_not_installed("dockerthis")
   env_root_dir <- get_install_dir()
@@ -192,7 +201,9 @@ run_internal_singularity <- function(cmd,
                                 env_name = "condathis-env",
                                 sif_image_path = NULL,
                                 mount_paths = NULL,
-                                gpu_container = FALSE) {
+                                gpu_container = FALSE,
+                                echo = TRUE,
+                                stdout = "|") {
   invisible(is_singularity_available())
   env_root_dir <- get_install_dir()
   env_root_dir <- fs::path(paste0(env_root_dir, "-docker"))

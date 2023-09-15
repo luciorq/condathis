@@ -17,7 +17,8 @@ run(
   additional_channels = NULL,
   sif_image_path = NULL,
   gpu_container = FALSE,
-  echo = TRUE
+  echo = TRUE,
+  stdout = "|"
 )
 }
 \arguments{
@@ -50,6 +51,10 @@ default ones.}
 \item{gpu_container}{Logical. GPU support for Container Beckend \code{methods}.
 This argument is not necessary if running native.
 Default to FALSE.}
+
+\item{stdout}{Default: "|" keep stdout to the R object
+returned by \code{run()}.
+A character string can be used to define a file path to be used as standard output. e.g: "output.txt".}
 }
 \description{
 This function allows the execution of command line tools within a specific Conda environment.
