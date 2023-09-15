@@ -39,7 +39,8 @@ run <- function(cmd,
                              "defaults"),
                 additional_channels = NULL,
                 sif_image_path = NULL,
-                gpu_container = FALSE) {
+                gpu_container = FALSE,
+                echo = TRUE) {
   if (is.null(cmd)) {
     cli::cli_abort(c(
       `x` = "{.field cmd} need to be a {.code character} string."
@@ -73,6 +74,7 @@ run <- function(cmd,
     px_res <- run_internal_native(
       cmd = cmd,
       ...,
+      echo = echo,
       env_name = env_name
     )
   } else if (isTRUE(method_to_use == "docker")) {
@@ -107,7 +109,8 @@ run <- function(cmd,
 #' @inheritParams run
 run_internal_native <- function(cmd,
                                 ...,
-                                env_name = "condathis-env") {
+                                env_name = "condathis-env",
+                                echo = TRUE) {
   umamba_bin_path <- micromamba_bin_path()
   env_root_dir <- get_install_dir()
 
@@ -129,7 +132,8 @@ run_internal_native <- function(cmd,
       cmd,
       ...
     ),
-    spinner = TRUE
+    spinner = TRUE,
+    echo = echo
   )
   return(invisible(px_res))
 }

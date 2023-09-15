@@ -16,7 +16,8 @@ run(
   channels = c("bioconda", "conda-forge", "defaults"),
   additional_channels = NULL,
   sif_image_path = NULL,
-  gpu_container = FALSE
+  gpu_container = FALSE,
+  echo = TRUE
 )
 }
 \arguments{
