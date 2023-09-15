@@ -13,11 +13,11 @@ test_that("conda env is created", {
     stringr::str_detect(run_res$stdout, "R version 4.1.3"),
     TRUE
   )
-  px_res <- install_packages(
+  install_res <- install_packages(
     packages = c("python=3.8.16"),
     env_name = "condathis-test-env"
   )
-  expect_equal(px_res$status, 0)
+  expect_equal(install_res, 0)
 
   inst_res <- run("python", "--version", env_name = "condathis-test-env")
 

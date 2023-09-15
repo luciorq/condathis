@@ -1,7 +1,8 @@
 test_that("conda env is created in docker", {
 
   if ("condathis-micromamba-base" %in% dockerthis::docker_list_containers()) {
-    dockerthis::docker_remove_container("condathis-micromamba-base")
+    try(dockerthis:::docker_client_cmd("stop", "condathis-micromamba-base"), silent = TRUE)
+    try(dockerthis::docker_remove_container("condathis-micromamba-base"), silent = TRUE)
   }
   px_res <- create_env(
     packages = c(
