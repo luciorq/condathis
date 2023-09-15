@@ -2,6 +2,7 @@
 
 export(build_container_image)
 export(create_env)
+export(get_install_dir)
 export(install_micromamba)
 export(install_packages)
 export(list_envs)

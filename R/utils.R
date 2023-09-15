@@ -6,6 +6,7 @@ get_sys_arch <- function() {
 }
 
 #' Retrieve `condathis` Data Creation Path
+#' @export
 get_install_dir <- function() {
   sys_arch <- get_sys_arch()
   # TODO(luciorq): On MacOS micromamba run fail if there is space in the path
