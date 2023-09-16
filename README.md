@@ -110,6 +110,7 @@ This tool can even be used for running R scripts in separate environments.
 
 Special characters in CLI commands are interpreted as literals and not expanded.
 
+<<<<<<< HEAD
  - It is not supported the use of output redirections in commands, e.g. "|" or ">".
   - Instead of redirects (e.g. ">"), use the argument `stdout = "<FILENAME>.txt"`.
   - Instead of Pipes ("|"), simple run multiple calls to `condathis::run()`,
@@ -117,6 +118,18 @@ Special characters in CLI commands are interpreted as literals and not expanded.
  - File paths should not use special characters for relative paths, e.g. "~", ".", "..".
   - Expand file paths directly in R, using `base` functions
     or functions from the `fs` package.
+||||||| parent of e1b0a8d (docs: add workaround tips in readme)
+ - It is not supported the use of output redirections in commands, e.g. "|" or ">".
+ - File paths should not use special characters for relative paths, e.g. "~", ".", "..".
+=======
+- It is not supported the use of output redirections in commands, e.g. "|" or ">".
+  - Instead of redirects (e.g. ">"), use the argument `stdout = "<FILENAME>.txt"`.
+   Instead of Pipes ("|"), simple run multiple calls to `condathis::run()`,
+    using `stdout` argument to control the output and input of each command.
+- File paths should not use special characters for relative paths, e.g. "~", ".", "..".
+  - Expand file paths directly in R, using `base` functions
+    or functions from the `fs` package.
+>>>>>>> e1b0a8d (docs: add workaround tips in readme)
 
 ---
 
