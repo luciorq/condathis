@@ -17,7 +17,7 @@ run(
   additional_channels = NULL,
   sif_image_path = NULL,
   gpu_container = FALSE,
-  echo = TRUE,
+  verbose = TRUE,
   stdout = "|"
 )
 }
@@ -50,7 +50,11 @@ default ones.}
 
 \item{gpu_container}{Logical. GPU support for Container Beckend \code{methods}.
 This argument is not necessary if running native.
-Default to FALSE.}
+Default to FALSE.
+
+@param verbose Logical. Should command and messages be print to
+the console.
+defaults to TRUE.}
 
 \item{stdout}{Default: "|" keep stdout to the R object
 returned by \code{run()}.

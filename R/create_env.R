@@ -32,6 +32,11 @@
 #' @param gpu_container Logical. GPU support for Container Beckend `methods`.
 #'   This argument is not necessary if running native.
 #'   Default to FALSE.
+#'
+#'  @param verbose Logical. Should command and messages be print to
+#'    the console.
+#'    defaults to TRUE.
+#'
 #' @export
 create_env <- function(packages = NULL,
                        env_file = NULL,
@@ -47,7 +52,8 @@ create_env <- function(packages = NULL,
                        image_name = "luciorq/condathis-micromamba:latest",
                        sif_image_path = NULL,
                        additional_channels = NULL,
-                       gpu_container = FALSE) {
+                       gpu_container = FALSE,
+                       verbose = TRUE) {
   umamba_bin_path <- micromamba_bin_path()
   env_root_dir <- get_install_dir()
 
@@ -85,7 +91,7 @@ create_env <- function(packages = NULL,
        packages
       ),
       spinner = TRUE,
-      echo_cmd = TRUE
+      echo_cmd = verbose
     )
   } else if (isTRUE(method_to_use == "docker")) {
     px_res <- create_env_internal_docker(
@@ -216,7 +222,8 @@ create_env_internal_singularity <- function(packages = NULL,
                                               "defaults"
                                             ),
                                             sif_image_path = NULL,
-                                            additional_channels = NULL) {
+                                            additional_channels = NULL,
+                                            verbose = TRUE) {
   invisible(is_singularity_available())
   env_root_dir <- get_install_dir()
   env_root_dir <- fs::path(paste0(env_root_dir, "-docker"))

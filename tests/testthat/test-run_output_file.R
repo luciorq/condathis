@@ -1,8 +1,8 @@
 test_that("Output redirection to file", {
   temp_output_file <- fs::file_temp("test_output", ext = "txt")
-  px_res <- condathis::run(
+  px_res <- run(
     "ls", "-lah",
-    echo = FALSE,
+    verbose = FALSE,
     stdout = temp_output_file
   )
   testthat::expect_equal(
@@ -20,9 +20,9 @@ test_that("Output redirection to file", {
 })
 
 test_that("Internal output", {
-  px_res <- condathis::run(
+  px_res <- run(
     "echo", "Hello World!",
-    echo = FALSE,
+    verbose = FALSE,
     stdout = "|"
   )
   testthat::expect_equal(

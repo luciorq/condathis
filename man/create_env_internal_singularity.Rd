@@ -10,7 +10,8 @@ create_env_internal_singularity(
   env_name = "condathis-env",
   channels = c("bioconda", "conda-forge", "defaults"),
   sif_image_path = NULL,
-  additional_channels = NULL
+  additional_channels = NULL,
+  verbose = TRUE
 )
 }
 \arguments{

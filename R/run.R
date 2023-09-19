@@ -44,7 +44,7 @@ run <- function(cmd,
                 additional_channels = NULL,
                 sif_image_path = NULL,
                 gpu_container = FALSE,
-                echo = TRUE,
+                verbose = TRUE,
                 stdout = "|") {
   if (is.null(cmd)) {
     cli::cli_abort(c(
@@ -79,7 +79,7 @@ run <- function(cmd,
     px_res <- run_internal_native(
       cmd = cmd,
       ...,
-      echo = echo,
+      verbose = verbose,
       stdout = stdout,
       env_name = env_name
     )
@@ -92,7 +92,7 @@ run <- function(cmd,
       image_name = image_name,
       mount_paths = mount_paths,
       gpu_container = gpu_container,
-      verbose = echo,
+      verbose = verbose,
       stdout = stdout
     )
   } else if (isTRUE(method_to_use == "singularity")) {
@@ -103,8 +103,8 @@ run <- function(cmd,
       sif_image_path = sif_image_path,
       mount_paths = mount_paths,
       gpu_container = gpu_container,
-      stdout = stdout,
-      echo = echo
+      verbose = verbose,
+      stdout = stdout
     )
   }
 
@@ -158,7 +158,7 @@ run_internal_docker <- function(cmd,
                                 image_name = "luciorq/condathis-micromamba:latest",
                                 mount_paths = NULL,
                                 gpu_container = FALSE,
-                                echo = TRUE,
+                                verbose = TRUE,
                                 stdout = "|"
                                 ) {
   stop_if_not_installed("dockerthis")
@@ -207,7 +207,7 @@ run_internal_singularity <- function(cmd,
                                 sif_image_path = NULL,
                                 mount_paths = NULL,
                                 gpu_container = FALSE,
-                                echo = TRUE,
+                                verbose = TRUE,
                                 stdout = "|") {
   invisible(is_singularity_available())
   env_root_dir <- get_install_dir()

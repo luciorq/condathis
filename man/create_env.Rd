@@ -14,7 +14,8 @@ create_env(
   image_name = "luciorq/condathis-micromamba:latest",
   sif_image_path = NULL,
   additional_channels = NULL,
-  gpu_container = FALSE
+  gpu_container = FALSE,
+  verbose = TRUE
 )
 }
 \arguments{
@@ -46,7 +47,11 @@ default ones.}
 
 \item{gpu_container}{Logical. GPU support for Container Beckend \code{methods}.
 This argument is not necessary if running native.
-Default to FALSE.}
+Default to FALSE.
+
+@param verbose Logical. Should command and messages be print to
+the console.
+defaults to TRUE.}
 }
 \description{
 Create Conda Environment with specific packages

@@ -31,16 +31,15 @@ is_singularity_available <- function() {
 }
 
 singularity_cmd <- function(...,
-                            echo = TRUE,
+                            verbose = TRUE,
                             stdout = "|") {
   singularity_bin_path <- is_singularity_available()
   px_res <- processx::run(
     command = singularity_bin_path,
     args = c(...),
-    # echo = verbose,
-    echo_cmd = TRUE,
+    echo = verbose,
+    echo_cmd = verbose,
     spinner = TRUE,
-    echo = TRUE,
     stdout = "|"
   )
   return(invisible(px_res))
