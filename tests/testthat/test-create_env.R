@@ -10,10 +10,8 @@ test_that("conda env is created", {
 
   expect_equal(run_res$status, 0)
 
-  expect_equal(
-    stringr::str_detect(run_res$stdout, "R version 4.1.3"),
-    TRUE
-  )
+  expect_true(stringr::str_detect(run_res$stdout, "R version 4.1.3"))
+
   install_res <- install_packages(
     packages = c("python=3.8.16"),
     env_name = "condathis-test-env",
@@ -29,6 +27,10 @@ test_that("conda env is created", {
     stringr::str_detect(inst_res$stdout, "Python 3.8.16"),
     TRUE
   )
+
+  px_res <- remove_env(env_name = "condathis-test-env", verbose = FALSE)
+
+  expect_equal(px_res$status, 0)
 })
 
 test_that("Create conda env from file", {
@@ -39,4 +41,17 @@ test_that("Create conda env from file", {
     verbose = FALSE
   )
   expect_equal(px_res$status, 0)
+
+  current_envs <- list_envs()
+
+  expect_true("condathis-test-env" %in% current_envs)
+
+  px_res <- remove_env(env_name = "condathis-test-env", verbose = FALSE)
+
+  expect_equal(px_res$status, 0)
+
+  current_envs <- list_envs()
+
+  expect_false("condathis-test-env" %in% current_envs)
+
 })
