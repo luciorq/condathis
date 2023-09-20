@@ -120,31 +120,18 @@ run <- function(cmd,
 run_internal_native <- function(cmd,
                                 ...,
                                 env_name = "condathis-env",
-                                echo = TRUE,
+                                verbose = TRUE,
                                 stdout = "|") {
-  umamba_bin_path <- micromamba_bin_path()
-  env_root_dir <- get_install_dir()
-
-  # if (!any(stringr::str_detect(list_envs(), paste0(env_name, "$")))) {
-  #  create_env(packages = cmd, env_name = env_name)
-  # }
-
-  withr::local_envvar(list(CONDA_SHLVL = 0))
-  # withr::local_envvar(list(CONDARC = fs::path(Sys.getenv("HOME"),".config","conda", "condarc")))
-  px_res <- processx::run(
-    command = fs::path_real(umamba_bin_path),
-    args = c(
-      "run",
+  px_res <- native_cmd(
+    conda_cmd = "run",
+    conda_args = c(
       "--clean-env",
-      "-r",
-      env_root_dir,
       "-n",
-      env_name,
-      cmd,
-      ...
+      env_name
     ),
-    spinner = TRUE,
-    echo = echo,
+    cmd = cmd,
+    ...,
+    verbose = verbose,
     stdout = stdout
   )
   return(invisible(px_res))

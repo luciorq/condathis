@@ -6,7 +6,7 @@
 
 ## `condathis` R package
 
-Run any CLI tool that is available through conda environments.
+Run any CLI tool that is available through Conda environments.
 
 ### Get started
 
