@@ -20,15 +20,14 @@ native_cmd <- function(conda_cmd,
   env_root_dir <- get_install_dir()
   withr::local_envvar(
     .new = list(
-      CONDA_SHLVL = 0
-      # CONDA_ENVS_PATH = "",
-      # CONDA_ROOT_PREFIX = "",
-      # MAMBA_ENVS_PATH = "",
-      # MAMBA_ROOT_PREFIX = "",
-      # CONDARC = ""
+      CONDA_SHLVL = 0,
+      CONDA_ENVS_PATH = "",
+      CONDA_ROOT_PREFIX = "",
+      MAMBA_ENVS_PATH = "",
+      MAMBA_ROOT_PREFIX = "",
+      CONDARC = ""
     )
   )
-  # withr::local_envvar(list(CONDARC = fs::path(Sys.getenv("HOME"),".config","conda", "condarc")))
   px_res <- processx::run(
     command = fs::path_real(umamba_bin_path),
     args = c(
@@ -43,4 +42,5 @@ native_cmd <- function(conda_cmd,
     echo = verbose,
     stdout = stdout
   )
+  return(px_res)
 }

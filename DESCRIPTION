@@ -1,13 +1,13 @@
 Package: condathis
 Title: Condathis: run any CLI tool on a Conda Environment
-Version: 0.0.3.9009
+Version: 0.0.3.9010
 Authors@R: c(
     person("Lucio Rezende", "Queiroz", , "luciorqueiroz@gmail.com", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0002-6090-1834"))
   )
 Description: Condathis is an R package that simplifies the execution of command
     line tools within isolated conda environments.
-    It enables users to effortlessly manage conda environments,
+    It enables users to effortlessly manage Conda environments,
     execute command line tools, handle dependencies, and ensure reproducibility
     in their data analysis workflows.
 License: MIT + file LICENSE
