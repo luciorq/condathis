@@ -18,8 +18,6 @@ define_method_to_use <- function(packages = NULL,
   # TODO: Add podman wrapper
   umamba_avail <- try({is_micromamba_available_for_arch()}, silent = TRUE)
 
-
-
   # TODO(luciorq): Check if environment already exists and tool is on PATH
   # + before searching for packages
 
@@ -90,24 +88,23 @@ packages_search_native <- function(packages,
                                          "docker",
                                          "singularity"),
                               additional_channels = NULL) {
-  # TODO(luciorq): Implement methods
-  umamba_bin_path <- micromamba_bin_path()
-  withr::local_envvar(list(CONDA_SHLVL = 0))
-
-  channels_arg <- format_channels_args(additional_channels, channels)
-
+  # TODO(luciorq): Implement support to other methods
+  # + beyond "native".
+  channels_arg <- format_channels_args(
+    additional_channels,
+    channels
+  )
   available_vector <- c()
-  for (pkg in packages) {
-    px_res <- processx::run(
-      command = fs::path_real(umamba_bin_path),
-      args = c(
-        "search",
+  for (pkg_query in packages) {
+    px_res <- native_cmd(
+      conda_cmd = "search",
+      conda_args = c(
         "--yes",
         "--json",
         channels_arg,
-        packages
+        pkg_query
       ),
-      spinner = TRUE
+      verbose = FALSE
     )
     if (isTRUE(px_res$status == 0)) {
       json_output <- jsonlite::fromJSON(px_res$stdout)

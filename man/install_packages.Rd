@@ -4,7 +4,13 @@
 \alias{install_packages}
 \title{Install Packages in a Existing Conda Environment}
 \usage{
-install_packages(packages, env_name = "condathis-env")
+install_packages(
+  packages,
+  env_name = "condathis-env",
+  channels = c("bioconda", "conda-forge", "defaults"),
+  additional_channels = NULL,
+  verbose = TRUE
+)
 }
 \arguments{
 \item{packages}{Character vector with the names of the packages and
@@ -12,6 +18,13 @@ version strings if necessary.}
 
 \item{env_name}{Name of the Conda environment where the packages are
 going to be installed. Defaults to 'condathis-env'.}
+
+\item{channels}{Character vector. Names of the channels to be included.
+By default 'c("bioconda", "conda-forge", "defaults")' are used for solving
+dependencies.}
+
+\item{additional_channels}{Character. Additional Channels to be added to the
+default ones.}
 }
 \description{
 Install Packages in a Existing Conda Environment

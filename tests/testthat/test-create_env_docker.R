@@ -1,5 +1,4 @@
 test_that("conda env is created in docker", {
-
   if ("condathis-micromamba-base" %in% dockerthis::docker_list_containers()) {
     try(dockerthis:::docker_client_cmd("stop", "condathis-micromamba-base"), silent = TRUE)
     try(dockerthis::docker_remove_container("condathis-micromamba-base"), silent = TRUE)
@@ -9,7 +8,8 @@ test_that("conda env is created in docker", {
       "samtools"
     ),
     env_name = "condathis-docker-test-env",
-    method = "docker"
+    method = "docker",
+    verbose = FALSE
   )
   expect_equal(px_res$status, 0)
 

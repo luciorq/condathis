@@ -54,9 +54,6 @@ create_env <- function(packages = NULL,
                        additional_channels = NULL,
                        gpu_container = FALSE,
                        verbose = TRUE) {
-  umamba_bin_path <- micromamba_bin_path()
-  env_root_dir <- get_install_dir()
-
   env_file_path <- NULL
   if (!is.null(env_file)) {
     if (fs::file_exists(env_file)) {
@@ -64,7 +61,10 @@ create_env <- function(packages = NULL,
       packages = c("-f", env_file_path)
     }
   }
-  channels_arg <- format_channels_args(additional_channels, channels)
+  channels_arg <- format_channels_args(
+    additional_channels,
+    channels
+  )
   method_to_use <- method[1]
   if (isTRUE(method_to_use == "auto")) {
     method_to_use <- define_method_to_use(
@@ -77,12 +77,9 @@ create_env <- function(packages = NULL,
     )
   }
   if (isTRUE(method_to_use == "native")) {
-    px_res <- processx::run(
-      command = fs::path_real(umamba_bin_path),
-      args = c(
-        "create",
-        "-r",
-        env_root_dir,
+    px_res <- native_cmd(
+      conda_cmd = "create",
+      conda_args = c(
         channels_arg,
         "-n",
         env_name,
@@ -90,8 +87,7 @@ create_env <- function(packages = NULL,
         "--quiet",
        packages
       ),
-      spinner = TRUE,
-      echo_cmd = verbose
+      verbose = verbose
     )
   } else if (isTRUE(method_to_use == "docker")) {
     px_res <- create_env_internal_docker(
@@ -101,7 +97,8 @@ create_env <- function(packages = NULL,
       channels = channels,
       container_name = "condathis-micromamba-base",
       image_name = "luciorq/condathis-micromamba:latest",
-      additional_channels = additional_channels
+      additional_channels = additional_channels,
+      verbose = verbose
     )
   } else if (isTRUE(method_to_use == "singularity")) {
     # cli::cli_abort(c(
@@ -147,7 +144,9 @@ create_env_internal_docker <- function(packages = NULL,
                               ),
                               container_name = "condathis-micromamba-base",
                               image_name = "luciorq/condathis-micromamba:latest",
-                              additional_channels = NULL) {
+                              additional_channels = NULL,
+                              verbose = TRUE
+                              ) {
   stop_if_not_installed("dockerthis")
   env_root_dir <- get_install_dir()
   env_root_dir <- fs::path(paste0(env_root_dir, "-docker"))
@@ -206,7 +205,8 @@ create_env_internal_docker <- function(packages = NULL,
     mount_paths = c(
       env_root_dir,
       env_file_path
-    )
+    ),
+    verbose = verbose
   )
   return(invisible(px_res))
 }
@@ -245,7 +245,6 @@ create_env_internal_singularity <- function(packages = NULL,
       build_container_image_singularity()
     }
   }
-
   channels_arg <- format_channels_args(additional_channels, channels)
   env_file_path <- NULL
   if (isFALSE(is.null(env_file))) {

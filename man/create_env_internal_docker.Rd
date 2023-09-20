@@ -11,7 +11,8 @@ create_env_internal_docker(
   channels = c("bioconda", "conda-forge", "defaults"),
   container_name = "condathis-micromamba-base",
   image_name = "luciorq/condathis-micromamba:latest",
-  additional_channels = NULL
+  additional_channels = NULL,
+  verbose = TRUE
 )
 }
 \arguments{
