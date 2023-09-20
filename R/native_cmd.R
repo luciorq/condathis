@@ -9,8 +9,6 @@
 #'   the Conda command.
 #'
 #' @inheritParams run
-#'
-#' @export
 native_cmd <- function(conda_cmd,
                        conda_args = NULL,
                        ...,
@@ -18,6 +16,9 @@ native_cmd <- function(conda_cmd,
                        stdout = "|") {
   umamba_bin_path <- micromamba_bin_path()
   env_root_dir <- get_install_dir()
+  if (isFALSE(fs::file_exists(umamba_bin_path))) {
+    install_micromamba(force = TRUE)
+  }
   withr::local_envvar(
     .new = list(
       CONDA_SHLVL = 0,
