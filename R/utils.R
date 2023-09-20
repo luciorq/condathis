@@ -95,36 +95,19 @@ format_channels_args <- function(...) {
 #' List Installed Environments
 #' @export
 list_envs <- function() {
-  umamba_bin_path <- micromamba_bin_path()
   env_root_dir <- get_install_dir()
-  withr::with_envvar(
-    new = list(
-      CONDA_ENVS_PATH = "",
-      CONDA_ROOT_PREFIX = "",
-      CONDA_SHLVL = 0,
-      MAMBA_ENVS_PATH = "",
-      MAMBA_ROOT_PREFIX = "",
-      CONDARC = ""
+  px_res <- native_cmd(
+    conda_cmd = "env",
+    conda_args = c(
+      "list",
+      "-q",
+      "--json"
     ),
-    code = {
-      px_res <- processx::run(
-        command = fs::path_real(umamba_bin_path),
-        args = c(
-          "env",
-          "list",
-          "-r",
-          env_root_dir,
-          "-q",
-          "--json"
-        ),
-        spinner = TRUE
-      )
-    }
+    verbose = FALSE
   )
   if (isTRUE(px_res$status == 0)) {
     envs_list <- jsonlite::fromJSON(px_res$stdout)
     envs_str <- envs_list$envs
-
     envs_str <- envs_str[stringr::str_detect(c(envs_str), env_root_dir)]
     envs_to_return <- basename(envs_str)
     envs_to_return <- envs_to_return[!envs_to_return %in% "condathis"]
@@ -138,18 +121,13 @@ list_envs <- function() {
 #' @inheritParams run
 #' @export
 list_packages <- function(env_name = "condathis-env") {
-  umamba_bin_path <- micromamba_bin_path()
-  env_root_dir <- get_install_dir()
-  px_res <- processx::run(
-    command = fs::path_real(umamba_bin_path),
-    args = c(
-      "list",
-      "-r",
-      env_root_dir,
+  px_res <- native_cmd(
+    conda_cmd = "list",
+    conda_args = c(
       "-n",
       env_name
     ),
-    spinner = TRUE
+    verbose = FALSE
   )
   if (isTRUE(px_res$status == 0)) {
     cat(px_res$stdout)
@@ -161,10 +139,7 @@ list_packages <- function(env_name = "condathis-env") {
 
 #' Check If Environment Names Already exists
 env_exists <- function(env_name = "condathis-env") {
-  # env_root_dir <- get_install_dir()
-  available_envs <- condathis::list_envs()
-
-  # condathis_env_path <- fs::path(env_root_dir, "envs", env_name)
+  available_envs <- list_envs()
   condathis_env_path <- env_name
   if (isTRUE(condathis_env_path %in% available_envs)) {
     return(TRUE)

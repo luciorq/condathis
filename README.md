@@ -24,7 +24,7 @@ create_env("python=3.8")
 run("python3", "-c", "import os; print(os.getcwd())")
 ```
 
-Create Conda environment from YAML file
+Create Conda environment from a environment description YAML file.
 
 ``` r
 create_env(env_file = env_yaml_file, env_name = "condathis-yaml-env")

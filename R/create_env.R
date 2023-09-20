@@ -163,7 +163,8 @@ create_env_internal_docker <- function(packages = NULL,
     }
   }
 
-  # NOTE(luciorq): Fix for case insensitive file systems
+  # TODO(luciorq): Fix for case insensitive FS still not working
+  # NOTE(luciorq): Fix for case insensitive file systems below
   sys_arch <- get_sys_arch()
   if (isTRUE(stringr::str_detect(sys_arch, "^[Darwin|Windows]"))) {
     prefix_args <- c(
@@ -198,7 +199,7 @@ create_env_internal_docker <- function(packages = NULL,
     docker_args = c(
       "-e",
       paste0("HOME=", env_root_dir, "/home"),
-      "--platform=linux/amd64",
+      "--platform", "linux/amd64",
       user_arg,
       "--rm"
     ),
