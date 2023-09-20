@@ -108,11 +108,11 @@ run <- function(cmd,
     )
   }
 
-  write_cache_env_method(
-    env_name = env_name,
-    method_to_use = method_to_use,
-    cmd = cmd
-  )
+  # write_cache_env_method(
+  #   env_name = env_name,
+  #   method_to_use = method_to_use,
+  #   cmd = cmd
+  # )
   return(invisible(px_res))
 }
 
