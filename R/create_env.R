@@ -103,9 +103,9 @@ create_env <- function(packages = NULL,
         "-n",
         env_name,
         "--yes",
-        "--quiet",
-        packages
+        "--quiet"
       ),
+      packages,
       verbose = verbose
     )
   } else if (isTRUE(method_to_use == "docker")) {

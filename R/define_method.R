@@ -120,9 +120,9 @@ packages_search_native <- function(packages,
       conda_args = c(
         "--yes",
         "--json",
-        channels_arg,
-        pkg_query
+        channels_arg
       ),
+      pkg_query,
       verbose = FALSE
     )
     if (isTRUE(px_res$status == 0)) {

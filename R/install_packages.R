@@ -35,9 +35,9 @@ install_packages <- function(packages,
       env_name,
       "--yes",
       "--quiet",
-      channels_arg,
-      packages
+      channels_arg
     ),
+    packages,
     verbose = verbose
   )
   px_res$stdout |>

@@ -120,14 +120,14 @@ list_envs <- function() {
 #' List Packages Installed Inside Environment
 #' @inheritParams run
 #' @export
-list_packages <- function(env_name = "condathis-env") {
+list_packages <- function(env_name = "condathis-env", verbose = FALSE) {
   px_res <- native_cmd(
     conda_cmd = "list",
     conda_args = c(
       "-n",
       env_name
     ),
-    verbose = FALSE
+    verbose = verbose
   )
   if (isTRUE(px_res$status == 0)) {
     cat(px_res$stdout)
