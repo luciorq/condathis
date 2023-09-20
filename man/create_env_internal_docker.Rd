@@ -40,6 +40,10 @@ Defaults to \code{"luciorq/condathis-micromamba:latest"}.}
 
 \item{additional_channels}{Character. Additional Channels to be added to the
 default ones.}
+
+\item{verbose}{Logical. Should command and messages be print to
+the console.
+defaults to TRUE.}
 }
 \description{
 Create Environment Using Docker

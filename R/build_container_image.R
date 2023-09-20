@@ -11,14 +11,15 @@
 #'
 #' @export
 build_container_image <- function(dockerfile_path = NULL,
-                                   image_name = "luciorq/condathis-micromamba:latest",
-                                   force = FALSE,
-                                   method = "docker") {
+                                  image_name = "luciorq/condathis-micromamba:latest",
+                                  force = FALSE,
+                                  method = "docker") {
   if (isTRUE(method == "docker")) {
     stop_if_not_installed("dockerthis")
     if (is.null(dockerfile_path)) {
       dockerfile_path <- fs::path_package(
-        "dockerthis", "dockerfiles", "micromamba", ext = "dockerfile"
+        "dockerthis", "dockerfiles", "micromamba",
+        ext = "dockerfile"
       )
     }
     px_res <- dockerthis::docker_build_image(
@@ -44,7 +45,7 @@ build_container_image <- function(dockerfile_path = NULL,
 #' @param registry_name Character. Container Registry where image already
 #'   exists. Defaults to `"docker"` (Docker Hub).
 build_container_image_singularity <- function(image_name = "luciorq/condathis-micromamba:latest",
-                                               registry_name = "docker") {
+                                              registry_name = "docker") {
   # singularity build img.sif docker://luciorq/condathis-micromamba:latest
   invisible(is_singularity_available())
   env_root_dir <- get_install_dir()

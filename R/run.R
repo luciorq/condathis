@@ -1,4 +1,3 @@
-
 #' Run Command Line tools in a Conda environment.
 #'
 #' This function allows the execution of command line tools within a specific Conda environment.
@@ -16,9 +15,12 @@
 #'   returned by `run()`.
 #'   A character string can be used to define a file path to be used as standard output. e.g: "output.txt".
 #'
+#' @param mount_paths Character vector. Host paths to be mounted in container.
+#'
 #' @inheritParams create_env
 #'
 #' @examples
+#' \dontrun{
 #' ## Run a simple command in the default Conda environment
 #' run("ls", "-l")
 #'
@@ -27,8 +29,10 @@
 #'
 #' ## Run a command with additional arguments
 #' run("my-command", "--arg1", "--arg2=value", env_name = "my-conda-env")
+#' }
 #' @seealso
 #' \code{\link{install_micromamba}}, \code{\link{create_env}}
+#'
 #' @export
 run <- function(cmd,
                 ...,
@@ -38,9 +42,11 @@ run <- function(cmd,
                 image_name = "luciorq/condathis-micromamba:latest",
                 mount_paths = NULL,
                 packages = NULL,
-                channels = c("bioconda",
-                             "conda-forge",
-                             "defaults"),
+                channels = c(
+                  "bioconda",
+                  "conda-forge",
+                  "defaults"
+                ),
                 additional_channels = NULL,
                 sif_image_path = NULL,
                 gpu_container = FALSE,
@@ -60,10 +66,12 @@ run <- function(cmd,
     packages_to_search <- packages
   }
 
-  method_to_use <- read_cache_env_method(
-    env_name = env_name,
-    method = method
-  )
+  # method_to_use <- read_cache_env_method(
+  #   env_name = env_name,
+  #   method = method
+  # )
+
+  method_to_use <- method
 
   if (isTRUE(method_to_use == "auto")) {
     method_to_use <- define_method_to_use(
@@ -146,8 +154,7 @@ run_internal_docker <- function(cmd,
                                 mount_paths = NULL,
                                 gpu_container = FALSE,
                                 verbose = TRUE,
-                                stdout = "|"
-                                ) {
+                                stdout = "|") {
   stop_if_not_installed("dockerthis")
   env_root_dir <- get_install_dir()
   env_root_dir <- fs::path(paste0(env_root_dir, "-docker"))
@@ -189,13 +196,13 @@ run_internal_docker <- function(cmd,
 
 #' @inheritParams run
 run_internal_singularity <- function(cmd,
-                                ...,
-                                env_name = "condathis-env",
-                                sif_image_path = NULL,
-                                mount_paths = NULL,
-                                gpu_container = FALSE,
-                                verbose = TRUE,
-                                stdout = "|") {
+                                     ...,
+                                     env_name = "condathis-env",
+                                     sif_image_path = NULL,
+                                     mount_paths = NULL,
+                                     gpu_container = FALSE,
+                                     verbose = TRUE,
+                                     stdout = "|") {
   invisible(is_singularity_available())
   env_root_dir <- get_install_dir()
   env_root_dir <- fs::path(paste0(env_root_dir, "-docker"))
@@ -239,7 +246,7 @@ run_internal_singularity <- function(cmd,
       mount_path_arg <- c(
         mount_path_arg,
         "--bind",
-        paste0(mount_path_abs,":", mount_path_target)
+        paste0(mount_path_abs, ":", mount_path_target)
       )
     }
   }

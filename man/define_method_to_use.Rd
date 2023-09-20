@@ -24,6 +24,15 @@ dependencies.}
 
 \item{additional_channels}{Character. Additional Channels to be added to the
 default ones.}
+
+\item{container_name}{Character. Name of the Container created by Docker.
+Defaults to \code{"condathis-micromamba-base"}.}
+
+\item{image_name}{Character. Name of the Docker Image used, it will try
+to pull it automatically if internet connection is available.
+Defaults to \code{"luciorq/condathis-micromamba:latest"}.}
+
+\item{sif_image_path}{Character. Path to SIF image file.}
 }
 \description{
 Automatically Find Suitable Infrastrucure to Run CLI Tools

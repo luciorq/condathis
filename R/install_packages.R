@@ -9,14 +9,15 @@
 #' @export
 install_packages <- function(packages,
                              env_name = "condathis-env",
-                             channels = c("bioconda",
-                                          "conda-forge",
-                                          "defaults"),
+                             channels = c(
+                               "bioconda",
+                               "conda-forge",
+                               "defaults"
+                             ),
                              additional_channels = NULL,
-                             verbose = TRUE
-                             ) {
+                             verbose = TRUE) {
   if (!any(list_envs() %in% env_name)) {
-   create_env(
+    create_env(
       packages = NULL,
       env_name = env_name,
       verbose = verbose

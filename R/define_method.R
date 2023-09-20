@@ -2,27 +2,42 @@
 #' Automatically Find Suitable Infrastrucure to Run CLI Tools
 #' @inheritParams create_env
 define_method_to_use <- function(packages = NULL,
-                                 channels = c("bioconda",
-                                              "conda-forge",
-                                              "defaults"),
+                                 channels = c(
+                                   "bioconda",
+                                   "conda-forge",
+                                   "defaults"
+                                 ),
                                  additional_channels = NULL,
                                  container_name = "condathis-micromamba-base",
                                  image_name = "luciorq/condathis-micromamba:latest",
-                                 sif_image_path = NULL
-                                 ) {
-
+                                 sif_image_path = NULL) {
   # TODO(luciorq): Implement step by step approach
   # + First check if native is fully functional, only then check next method.
-  singularity_avail <- try({is_singularity_available()}, silent = TRUE)
-  docker_avail <- try({dockerthis::is_docker_available()}, silent = TRUE)
+  singularity_avail <- try(
+    {
+      is_singularity_available()
+    },
+    silent = TRUE
+  )
+  docker_avail <- try(
+    {
+      dockerthis::is_docker_available()
+    },
+    silent = TRUE
+  )
   # TODO: Add podman wrapper
-  umamba_avail <- try({is_micromamba_available_for_arch()}, silent = TRUE)
+  umamba_avail <- try(
+    {
+      is_micromamba_available_for_arch()
+    },
+    silent = TRUE
+  )
 
   # TODO(luciorq): Check if environment already exists and tool is on PATH
   # + before searching for packages
 
   # TODO(luciorq): Search packages on container methods
-  method_to_use = NULL
+  method_to_use <- NULL
   if (isTRUE(class(umamba_avail) == "character")) {
     umamba_bin_path <- micromamba_bin_path()
     if (isFALSE(fs::file_exists(umamba_bin_path))) {
@@ -54,11 +69,11 @@ define_method_to_use <- function(packages = NULL,
     }
   } else if (isFALSE("try-error" %in% class(docker_avail))) {
     pkgs_available <- packages_search_docker(
-     packages = packages,
-     channels = channels,
-     additional_channels = additional_channels,
-     container_name = container_name,
-     image_name = image_name
+      packages = packages,
+      channels = channels,
+      additional_channels = additional_channels,
+      container_name = container_name,
+      image_name = image_name
     )
     if (isTRUE(pkgs_available)) {
       method_to_use <- "docker"
@@ -81,13 +96,17 @@ define_method_to_use <- function(packages = NULL,
 #'
 #' @inheritParams create_env
 packages_search_native <- function(packages,
-                              channels = c("bioconda",
-                                           "conda-forge",
-                                           "defaults"),
-                              method = c("native",
-                                         "docker",
-                                         "singularity"),
-                              additional_channels = NULL) {
+                                   channels = c(
+                                     "bioconda",
+                                     "conda-forge",
+                                     "defaults"
+                                   ),
+                                   method = c(
+                                     "native",
+                                     "docker",
+                                     "singularity"
+                                   ),
+                                   additional_channels = NULL) {
   # TODO(luciorq): Implement support to other methods
   # + beyond "native".
   channels_arg <- format_channels_args(
@@ -121,14 +140,16 @@ packages_search_native <- function(packages,
 }
 
 #' Search for Packages in Channels using Docker
+#' @inheritParams create_env
 packages_search_docker <- function(packages,
-                                   channels = c("bioconda",
-                                                "conda-forge",
-                                                "defaults"),
+                                   channels = c(
+                                     "bioconda",
+                                     "conda-forge",
+                                     "defaults"
+                                   ),
                                    additional_channels = NULL,
                                    container_name = "condathis-micromamba-base",
-                                   image_name = "luciorq/condathis-micromamba:latest"
-                                   ) {
+                                   image_name = "luciorq/condathis-micromamba:latest") {
   stop_if_not_installed("dockerthis")
   env_root_dir <- get_install_dir()
   env_root_dir <- fs::path(paste0(env_root_dir, "-docker"))
@@ -150,7 +171,7 @@ packages_search_docker <- function(packages,
         paste0("HOME=", env_root_dir, "/home"),
         paste0("--workdir=", fs::path_wd()),
         "--platform=linux/amd64",
-       # user_arg,
+        # user_arg,
         "--rm"
       ),
       mount_paths = c(
@@ -174,12 +195,15 @@ packages_search_docker <- function(packages,
 }
 
 #' Search for packages in Channels using Singularity
+#' @inheritParams create_env
 packages_search_singularity <- function(packages,
-                                   channels = c("bioconda",
-                                                "conda-forge",
-                                                "defaults"),
-                                   additional_channels = NULL,
-                                   sif_image_path = NULL) {
+                                        channels = c(
+                                          "bioconda",
+                                          "conda-forge",
+                                          "defaults"
+                                        ),
+                                        additional_channels = NULL,
+                                        sif_image_path = NULL) {
   invisible(is_singularity_available())
   env_root_dir <- get_install_dir()
   env_root_dir <- fs::path(paste0(env_root_dir, "-docker"))

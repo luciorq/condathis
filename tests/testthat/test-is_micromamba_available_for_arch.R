@@ -20,6 +20,8 @@ test_that("Micromamba availability for different architectures", {
   expect_equal(is_micromamba_available_for_arch("Linux-ppc64le"), "linux-ppc64le")
 
   # Test case for unsupported architecture
-  expect_error(is_micromamba_available_for_arch("unsupported-arch"), 
-               "micromamba is not available for unsupported-arch CPU architecture.")
+  expect_error(
+    is_micromamba_available_for_arch("unsupported-arch"),
+    "micromamba is not available for unsupported-arch CPU architecture."
+  )
 })

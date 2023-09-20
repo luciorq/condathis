@@ -12,5 +12,4 @@ micromamba_user_installed <- function() {
     return(invisible(umamba_bin_path))
   }
   return(fs::path(umamba_bin_path))
-
 }

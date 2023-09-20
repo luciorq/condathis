@@ -3,8 +3,8 @@
 #' Test the required methods to check if command line tool is available on PATH,
 #'   Before trying to execute it.
 #'
-#' @inheritParams create_env
+#' @inheritParams run
 is_cmd_available <- function(cmd) {
-  method_to_use = "none"
+  method_to_use <- "none"
   return(method_to_use)
 }

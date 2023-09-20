@@ -33,9 +33,18 @@ File paths should not contain special character or spaces.}
 "auto" running "native" with the \code{micromamba} binaries installed
 by \code{condathis}. Additional methods are supported for using Docker Linux Containers
 "docker" and Singularity Containers "singularity" as the beckends,
-those are especially useful if running on systems where the conda
+those are especially useful if running on systems where the Conda
 recipes are not available for the OS or CPU architecture in place.
-The container based backends leverage \code{dockerthis} R package.}
+The container-based backends leverage \code{dockerthis} R package.}
+
+\item{container_name}{Character. Name of the Container created by Docker.
+Defaults to \code{"condathis-micromamba-base"}.}
+
+\item{image_name}{Character. Name of the Docker Image used, it will try
+to pull it automatically if internet connection is available.
+Defaults to \code{"luciorq/condathis-micromamba:latest"}.}
+
+\item{mount_paths}{Character vector. Host paths to be mounted in container.}
 
 \item{packages}{Character vector. Names of the packages, and
 version strings if necessary, e.g. 'python=3.11'. The use of the \code{packages}
@@ -48,11 +57,13 @@ dependencies.}
 \item{additional_channels}{Character. Additional Channels to be added to the
 default ones.}
 
+\item{sif_image_path}{Character. Path to SIF image file.}
+
 \item{gpu_container}{Logical. GPU support for Container Beckend \code{methods}.
 This argument is not necessary if running native.
-Default to FALSE.
+Default to FALSE.}
 
-@param verbose Logical. Should command and messages be print to
+\item{verbose}{Logical. Should command and messages be print to
 the console.
 defaults to TRUE.}
 
@@ -66,6 +77,7 @@ It runs the provided cmd command in the designated Conda environment,
 using the Micromamba binaries managed by the \code{condathis} package.
 }
 \examples{
+\dontrun{
 ## Run a simple command in the default Conda environment
 run("ls", "-l")
 
@@ -74,6 +86,7 @@ run("python script.py", env_name = "my-conda-env")
 
 ## Run a command with additional arguments
 run("my-command", "--arg1", "--arg2=value", env_name = "my-conda-env")
+}
 }
 \seealso{
 \code{\link{install_micromamba}}, \code{\link{create_env}}

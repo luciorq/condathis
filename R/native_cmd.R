@@ -2,6 +2,12 @@
 #'
 #' Run a command using micromamba executable in the native backend.
 #'
+#' @param conda_cmd Character. Conda subcommand to be run.
+#'   E.g. "create", "install", "env", "--help", "--version".
+#'
+#' @param conda_args Character vector. Additional arguments passed to
+#'   the Conda command.
+#'
 #' @inheritParams run
 #'
 #' @export

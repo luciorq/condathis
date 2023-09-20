@@ -7,8 +7,18 @@
 native_cmd(conda_cmd, conda_args = NULL, ..., verbose = TRUE, stdout = "|")
 }
 \arguments{
+\item{conda_cmd}{Character. Conda subcommand to be run.
+E.g. "create", "install", "env", "--help", "--version".}
+
+\item{conda_args}{Character vector. Additional arguments passed to
+the Conda command.}
+
 \item{...}{Additional arguments to be used in the command. These arguments will be passed directly to the command executed in the Conda environment.
 File paths should not contain special character or spaces.}
+
+\item{verbose}{Logical. Should command and messages be print to
+the console.
+defaults to TRUE.}
 
 \item{stdout}{Default: "|" keep stdout to the R object
 returned by \code{run()}.

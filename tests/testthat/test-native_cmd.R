@@ -16,5 +16,4 @@ test_that("Native run conda command", {
     object = px_res$status,
     expected = 0
   )
-
 })

@@ -2,7 +2,7 @@
 % Please edit documentation in R/create_env.R
 \name{create_env}
 \alias{create_env}
-\title{Create Conda Environment with specific packages}
+\title{Create a Conda Environment}
 \usage{
 create_env(
   packages = NULL,
@@ -38,21 +38,30 @@ dependencies.}
 "auto" running "native" with the \code{micromamba} binaries installed
 by \code{condathis}. Additional methods are supported for using Docker Linux Containers
 "docker" and Singularity Containers "singularity" as the beckends,
-those are especially useful if running on systems where the conda
+those are especially useful if running on systems where the Conda
 recipes are not available for the OS or CPU architecture in place.
-The container based backends leverage \code{dockerthis} R package.}
+The container-based backends leverage \code{dockerthis} R package.}
+
+\item{container_name}{Character. Name of the Container created by Docker.
+Defaults to \code{"condathis-micromamba-base"}.}
+
+\item{image_name}{Character. Name of the Docker Image used, it will try
+to pull it automatically if internet connection is available.
+Defaults to \code{"luciorq/condathis-micromamba:latest"}.}
+
+\item{sif_image_path}{Character. Path to SIF image file.}
 
 \item{additional_channels}{Character. Additional Channels to be added to the
 default ones.}
 
 \item{gpu_container}{Logical. GPU support for Container Beckend \code{methods}.
 This argument is not necessary if running native.
-Default to FALSE.
+Default to FALSE.}
 
-@param verbose Logical. Should command and messages be print to
+\item{verbose}{Logical. Should command and messages be print to
 the console.
 defaults to TRUE.}
 }
 \description{
-Create Conda Environment with specific packages
+Create Conda Environment with specific packages installed to be used by \code{run()}.
 }

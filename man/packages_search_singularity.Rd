@@ -11,6 +11,20 @@ packages_search_singularity(
   sif_image_path = NULL
 )
 }
+\arguments{
+\item{packages}{Character vector. Names of the packages, and
+version strings if necessary, e.g. 'python=3.11'. The use of the \code{packages}
+argument assumes that env_file is not used.}
+
+\item{channels}{Character vector. Names of the channels to be included.
+By default 'c("bioconda", "conda-forge", "defaults")' are used for solving
+dependencies.}
+
+\item{additional_channels}{Character. Additional Channels to be added to the
+default ones.}
+
+\item{sif_image_path}{Character. Path to SIF image file.}
+}
 \description{
 Search for packages in Channels using Singularity
 }

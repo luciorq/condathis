@@ -6,6 +6,10 @@
 \usage{
 env_exists(env_name = "condathis-env")
 }
+\arguments{
+\item{env_name}{Character. Name of the Conda environment where the packages
+are going to be installed. Defaults to 'condathis-env'.}
+}
 \description{
 Check If Environment Names Already exists
 }

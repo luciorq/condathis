@@ -132,12 +132,15 @@ list_packages <- function(env_name = "condathis-env") {
   if (isTRUE(px_res$status == 0)) {
     cat(px_res$stdout)
     invisible(px_res)
-  } else(
-    return(px_res)
-  )
+  } else {
+    (
+      return(px_res)
+    )
+  }
 }
 
 #' Check If Environment Names Already exists
+#' @inheritParams create_env
 env_exists <- function(env_name = "condathis-env") {
   available_envs <- list_envs()
   condathis_env_path <- env_name

@@ -24,9 +24,9 @@ dependencies.}
 "auto" running "native" with the \code{micromamba} binaries installed
 by \code{condathis}. Additional methods are supported for using Docker Linux Containers
 "docker" and Singularity Containers "singularity" as the beckends,
-those are especially useful if running on systems where the conda
+those are especially useful if running on systems where the Conda
 recipes are not available for the OS or CPU architecture in place.
-The container based backends leverage \code{dockerthis} R package.}
+The container-based backends leverage \code{dockerthis} R package.}
 
 \item{additional_channels}{Character. Additional Channels to be added to the
 default ones.}

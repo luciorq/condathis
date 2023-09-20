@@ -1,7 +1,6 @@
-# TODO(luciorq): Add unique identifier to `container_name` to reduce potential
-# + locks on all docker exec
-
-#' Create Conda Environment with specific packages
+#' Create a Conda Environment
+#'
+#' Create Conda Environment with specific packages installed to be used by `run()`.
 #'
 #' @param packages Character vector. Names of the packages, and
 #'   version strings if necessary, e.g. 'python=3.11'. The use of the `packages`
@@ -25,15 +24,31 @@
 #'   "auto" running "native" with the `micromamba` binaries installed
 #'   by `condathis`. Additional methods are supported for using Docker Linux Containers
 #'   "docker" and Singularity Containers "singularity" as the beckends,
-#'   those are especially useful if running on systems where the conda
+#'   those are especially useful if running on systems where the Conda
 #'   recipes are not available for the OS or CPU architecture in place.
-#'   The container based backends leverage `dockerthis` R package.
+#'   The container-based backends leverage `dockerthis` R package.
 #'
 #' @param gpu_container Logical. GPU support for Container Beckend `methods`.
 #'   This argument is not necessary if running native.
 #'   Default to FALSE.
 #'
-#'  @param verbose Logical. Should command and messages be print to
+#' @param container_name Character. Name of the Container created by Docker.
+#'   Defaults to `"condathis-micromamba-base"`.
+#'
+#' @param image_name Character. Name of the Docker Image used, it will try
+#'   to pull it automatically if internet connection is available.
+#'   Defaults to `"luciorq/condathis-micromamba:latest"`.
+#'
+#' @param container_name Character. Name of the Container created by Docker.
+#'   Defaults to `"condathis-micromamba-base"`.
+#'
+#' @param image_name Character. Name of the Docker Image used, it will try
+#'   to pull it automatically if internet connection is available.
+#'   Defaults to `"luciorq/condathis-micromamba:latest"`.
+#'
+#' @param sif_image_path Character. Path to SIF image file.
+#'
+#' @param verbose Logical. Should command and messages be print to
 #'    the console.
 #'    defaults to TRUE.
 #'
@@ -41,13 +56,17 @@
 create_env <- function(packages = NULL,
                        env_file = NULL,
                        env_name = "condathis-env",
-                       channels = c("bioconda",
-                                    "conda-forge",
-                                    "defaults"),
-                       method = c("native",
-                                  "auto",
-                                  "docker",
-                                  "singularity"),
+                       channels = c(
+                         "bioconda",
+                         "conda-forge",
+                         "defaults"
+                       ),
+                       method = c(
+                         "native",
+                         "auto",
+                         "docker",
+                         "singularity"
+                       ),
                        container_name = "condathis-micromamba-base",
                        image_name = "luciorq/condathis-micromamba:latest",
                        sif_image_path = NULL,
@@ -58,7 +77,7 @@ create_env <- function(packages = NULL,
   if (!is.null(env_file)) {
     if (fs::file_exists(env_file)) {
       env_file_path <- fs::path(env_file)
-      packages = c("-f", env_file_path)
+      packages <- c("-f", env_file_path)
     }
   }
   channels_arg <- format_channels_args(
@@ -85,7 +104,7 @@ create_env <- function(packages = NULL,
         env_name,
         "--yes",
         "--quiet",
-       packages
+        packages
       ),
       verbose = verbose
     )
@@ -114,39 +133,31 @@ create_env <- function(packages = NULL,
     )
   }
 
-  # Write to cache
-  write_cache_env_method(
-    env_name = env_name,
-    method_to_use = method_to_use,
-    cmd = NULL,
-    overwrite = TRUE
-  )
+  # # Write to cache
+  # write_cache_env_method(
+  #   env_name = env_name,
+  #   method_to_use = method_to_use,
+  #   cmd = NULL,
+  #   overwrite = TRUE
+  # )
   return(invisible(px_res))
 }
 
 #' Create Environment Using Docker
 #'
-#' @param container_name Character. Name of the Container created by Docker.
-#'   Defaults to `"condathis-micromamba-base"`.
-#'
-#' @param image_name Character. Name of the Docker Image used, it will try
-#'   to pull it automatically if internet connection is available.
-#'   Defaults to `"luciorq/condathis-micromamba:latest"`.
-#'
 #' @inheritParams create_env
 create_env_internal_docker <- function(packages = NULL,
-                              env_file = NULL,
-                              env_name = "condathis-env",
-                              channels = c(
-                                "bioconda",
-                                "conda-forge",
-                                "defaults"
-                              ),
-                              container_name = "condathis-micromamba-base",
-                              image_name = "luciorq/condathis-micromamba:latest",
-                              additional_channels = NULL,
-                              verbose = TRUE
-                              ) {
+                                       env_file = NULL,
+                                       env_name = "condathis-env",
+                                       channels = c(
+                                         "bioconda",
+                                         "conda-forge",
+                                         "defaults"
+                                       ),
+                                       container_name = "condathis-micromamba-base",
+                                       image_name = "luciorq/condathis-micromamba:latest",
+                                       additional_channels = NULL,
+                                       verbose = TRUE) {
   stop_if_not_installed("dockerthis")
   env_root_dir <- get_install_dir()
   env_root_dir <- fs::path(paste0(env_root_dir, "-docker"))
@@ -158,7 +169,7 @@ create_env_internal_docker <- function(packages = NULL,
   env_file_path <- NULL
   if (isFALSE(is.null(env_file))) {
     if (fs::file_exists(env_file)) {
-      packages = c("-f", env_file_path)
+      packages <- c("-f", env_file_path)
     }
   }
 
@@ -187,8 +198,8 @@ create_env_internal_docker <- function(packages = NULL,
     "--experimental",
     "--no-extra-safety-checks",
     "--always-copy",
-    #"--no-always-copy",
-    #"--no-allow-softlinks",
+    # "--no-always-copy",
+    # "--no-allow-softlinks",
     "--safety-checks", "0",
     # "--quiet",
     channels_arg,
@@ -212,7 +223,6 @@ create_env_internal_docker <- function(packages = NULL,
 }
 
 #' Create Environment Using Singularity / Apptainer
-#' @param sif_image_path Character. Path to SIF image file.
 #' @inheritParams create_env
 create_env_internal_singularity <- function(packages = NULL,
                                             env_file = NULL,
@@ -249,7 +259,7 @@ create_env_internal_singularity <- function(packages = NULL,
   env_file_path <- NULL
   if (isFALSE(is.null(env_file))) {
     if (fs::file_exists(env_file)) {
-      packages = c("-f", env_file_path)
+      packages <- c("-f", env_file_path)
     }
   }
   px_res <- singularity_cmd(
