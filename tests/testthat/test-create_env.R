@@ -46,6 +46,8 @@ test_that("Create conda env from file", {
 
   expect_true("condathis-test-env" %in% current_envs)
 
+  expect_true(env_exists(env_name = "condathis-test-env"))
+
   px_res <- remove_env(env_name = "condathis-test-env", verbose = FALSE)
 
   expect_equal(px_res$status, 0)
@@ -54,4 +56,5 @@ test_that("Create conda env from file", {
 
   expect_false("condathis-test-env" %in% current_envs)
 
+  expect_false(env_exists(env_name = "condathis-test-env"))
 })

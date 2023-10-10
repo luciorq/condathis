@@ -2,13 +2,13 @@
 % Please edit documentation in R/define_platform.R
 \name{define_platform}
 \alias{define_platform}
-\title{Define Platform to be used by \code{create_env()}}
+\title{Define Platform to be used by \code{create_env()}.}
 \usage{
 define_platform(
   packages,
   platform = NULL,
-  channels = channels,
-  additional_channels = additional_channels
+  channels = c("bioconda", "conda-forge", "defaults"),
+  additional_channels = NULL
 )
 }
 \arguments{
@@ -30,5 +30,5 @@ dependencies.}
 default ones.}
 }
 \description{
-Define Platform to be used by \code{create_env()}
+Define Platform to be used by \code{create_env()}.
 }

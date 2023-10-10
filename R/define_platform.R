@@ -3,8 +3,12 @@
 #' @inheritParams create_env
 define_platform <- function(packages,
                             platform = NULL,
-                            channels = channels,
-                            additional_channels = additional_channels) {
+                            channels = c(
+                              "bioconda",
+                              "conda-forge",
+                              "defaults"
+                            ),
+                            additional_channels = NULL) {
   if (is.null(platform)) {
     platform_args <- NULL
   } else {

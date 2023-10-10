@@ -84,8 +84,14 @@ create_env <- function(packages = NULL,
   if (!is.null(env_file)) {
     if (fs::file_exists(env_file)) {
       env_file_path <- fs::path(env_file)
-      packages <- c("-f", env_file_path)
+      packages_arg <- c("-f", env_file_path)
+    } else {
+      cli::cli_abort(c(
+        `x` = "The file {.code \"env_file\"} does not exist."
+      ))
     }
+  } else {
+    packages_arg <- packages
   }
   channels_arg <- format_channels_args(
     additional_channels,
@@ -104,12 +110,16 @@ create_env <- function(packages = NULL,
   }
 
 
-  platform_args <- define_platform(
-    packages = packages,
-    platform = platform,
-    channels = channels,
-    additional_channels = additional_channels
-  )
+  if (isFALSE(is.null(packages))) {
+    platform_args <- define_platform(
+      packages = packages,
+      platform = platform,
+      channels = channels,
+      additional_channels = additional_channels
+    )
+  } else {
+    platform_args <- NULL
+  }
 
 
   if (isTRUE(method_to_use == "native")) {
@@ -123,12 +133,12 @@ create_env <- function(packages = NULL,
         "--quiet",
         platform_args
       ),
-      packages,
+      packages_arg,
       verbose = verbose
     )
   } else if (isTRUE(method_to_use == "docker")) {
     px_res <- create_env_internal_docker(
-      packages = packages,
+      packages = packages_arg,
       env_file = env_file,
       env_name = env_name,
       channels = channels,
@@ -142,7 +152,7 @@ create_env <- function(packages = NULL,
     #   `x` = "Method {.code \"singularity\"} is not implemented yet."
     # ))
     px_res <- create_env_internal_singularity(
-      packages = packages,
+      packages = packages_arg,
       env_file = env_file,
       env_name = env_name,
       channels = channels,
