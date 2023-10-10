@@ -103,19 +103,14 @@ create_env <- function(packages = NULL,
     )
   }
 
-  if (is.null(platform)) {
-    platform_args <- NULL
-  } else {
-    platform_args <- c("--platform", platform)
-  }
 
-  sys_arch <- get_sys_arch()
+  platform_args <- define_platform(
+    packages = packages,
+    platform = platform,
+    channels = channels,
+    additional_channels = additional_channels
+  )
 
-  # TODO(luciorq): Check if Rosetta 2 is enabled before using platform "osx-64".
-  # + Additionally, check if packages are available in native platform first.
-  if (isTRUE(sys_arch == "Darwin-arm64") & is.null(platform)) {
-    platform_args <- c("--platform", "osx-64")
-  }
 
   if (isTRUE(method_to_use == "native")) {
     px_res <- native_cmd(

@@ -8,6 +8,7 @@ packages_search_native(
   packages,
   channels = c("bioconda", "conda-forge", "defaults"),
   method = c("native", "docker", "singularity"),
+  platform = NULL,
   additional_channels = NULL
 )
 }
@@ -27,6 +28,12 @@ by \code{condathis}. Additional methods are supported for using Docker Linux Con
 those are especially useful if running on systems where the Conda
 recipes are not available for the OS or CPU architecture in place.
 The container-based backends leverage \code{dockerthis} R package.}
+
+\item{platform}{Character. Platform to search for \code{packages}.
+Defaults to \code{NULL} which will use the current platform.
+E.g. "linux-64", "linux-32", "osx-64", "win-64", "win-32", "noarch".
+Note: on Apple Silicon MacOS will use "osx-64" instead of "osx-arm64"
+if Rosetta 2 is available.}
 
 \item{additional_channels}{Character. Additional Channels to be added to the
 default ones.}

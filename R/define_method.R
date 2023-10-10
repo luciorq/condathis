@@ -25,7 +25,7 @@ define_method_to_use <- function(packages = NULL,
     },
     silent = TRUE
   )
-  # TODO: Add podman wrapper
+  # TODO(luciorq): Add podman wrapper
   umamba_avail <- try(
     {
       is_micromamba_available_for_arch()
@@ -106,6 +106,7 @@ packages_search_native <- function(packages,
                                      "docker",
                                      "singularity"
                                    ),
+                                   platform = NULL,
                                    additional_channels = NULL) {
   # TODO(luciorq): Implement support to other methods
   # + beyond "native".
@@ -113,6 +114,11 @@ packages_search_native <- function(packages,
     additional_channels,
     channels
   )
+  if (is.null(platform)) {
+    platform_args <- NULL
+  } else {
+    platform_args <- c("--platform", platform)
+  }
   available_vector <- c()
   for (pkg_query in packages) {
     px_res <- native_cmd(
@@ -120,7 +126,8 @@ packages_search_native <- function(packages,
       conda_args = c(
         "--yes",
         "--json",
-        channels_arg
+        channels_arg,
+        platform_args
       ),
       pkg_query,
       verbose = FALSE
