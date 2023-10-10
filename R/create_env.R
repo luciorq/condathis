@@ -48,6 +48,12 @@
 #'
 #' @param sif_image_path Character. Path to SIF image file.
 #'
+#' @param platform Character. Platform to search for `packages`.
+#'   Defaults to `NULL` which will use the current platform.
+#'   E.g. "linux-64", "linux-32", "osx-64", "win-64", "win-32", "noarch".
+#'   Note: on Apple Silicon MacOS will use "osx-64" instead of "osx-arm64"
+#'     if Rosetta 2 is available.
+#'
 #' @param verbose Logical. Should command and messages be print to
 #'    the console.
 #'    defaults to TRUE.
@@ -72,6 +78,7 @@ create_env <- function(packages = NULL,
                        sif_image_path = NULL,
                        additional_channels = NULL,
                        gpu_container = FALSE,
+                       platform = NULL,
                        verbose = TRUE) {
   env_file_path <- NULL
   if (!is.null(env_file)) {
@@ -95,6 +102,21 @@ create_env <- function(packages = NULL,
       sif_image_path = sif_image_path
     )
   }
+
+  if (is.null(platform)) {
+    platform_args <- NULL
+  } else {
+    platform_args <- c("--platform", platform)
+  }
+
+  sys_arch <- get_sys_arch()
+
+  # TODO(luciorq): Check if Rosetta 2 is enabled before using platform "osx-64".
+  # + Additionally, check if packages are available in native platform first.
+  if (isTRUE(sys_arch == "Darwin-arm64") & is.null(platform)) {
+    platform_args <- c("--platform", "osx-64")
+  }
+
   if (isTRUE(method_to_use == "native")) {
     px_res <- native_cmd(
       conda_cmd = "create",
@@ -103,7 +125,8 @@ create_env <- function(packages = NULL,
         "-n",
         env_name,
         "--yes",
-        "--quiet"
+        "--quiet",
+        platform_args
       ),
       packages,
       verbose = verbose

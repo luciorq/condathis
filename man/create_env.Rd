@@ -15,6 +15,7 @@ create_env(
   sif_image_path = NULL,
   additional_channels = NULL,
   gpu_container = FALSE,
+  platform = NULL,
   verbose = TRUE
 )
 }
@@ -57,6 +58,12 @@ default ones.}
 \item{gpu_container}{Logical. GPU support for Container Beckend \code{methods}.
 This argument is not necessary if running native.
 Default to FALSE.}
+
+\item{platform}{Character. Platform to search for \code{packages}.
+Defaults to \code{NULL} which will use the current platform.
+E.g. "linux-64", "linux-32", "osx-64", "win-64", "win-32", "noarch".
+Note: on Apple Silicon MacOS will use "osx-64" instead of "osx-arm64"
+if Rosetta 2 is available.}
 
 \item{verbose}{Logical. Should command and messages be print to
 the console.
