@@ -8,7 +8,7 @@ is_micromamba_available_for_arch <- function(sys_arch = NULL) {
     sys_arch_str <- "linux-64"
   } else if (sys_arch == "Darwin-x86_64" | sys_arch == "MacOSX-x86_64") {
     sys_arch_str <- "osx-64"
-  } else if (sys_arch == "Windows-x86_64") {
+  } else if (sys_arch == "Windows-x86_64" | sys_arch == "Windows-x86-64") {
     sys_arch_str <- "win-64"
   } else if (sys_arch == "Darwin-arm64" | sys_arch == "MacOSX-arm64") {
     sys_arch_str <- "osx-arm64"

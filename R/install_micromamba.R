@@ -27,7 +27,18 @@ install_micromamba <- function(timeout_limit = 3600,
     ))
     return(invisible(umamba_bin_path))
   }
+
+  # TODO: @luciorq Native windows support is not working.
+  # + The output of `get_sys_arch()` is "Windows-x86-64" replace with `win-64`
   sys_arch_str <- is_micromamba_available_for_arch()
+
+
+  # TODO: @luciorq Replace with GitHub releases URL:
+  # + <https://github.com/mamba-org/micromamba-releases/releases/>
+  # + Also implemented in `luciorq/shell-lib` as:
+  # + `conda_platform="$(get_conda_platform)";`
+  # + `download_url="https://github.com/mamba-org/micromamba-releases/releases/latest/download/micromamba-${conda_platform}";`
+  # base_url <- "https://micromamba.snakepit.net/api/micromamba/"
   base_url <- "https://micromamba.snakepit.net/api/micromamba/"
   download_url <- paste0(base_url, sys_arch_str, "/latest")
 
