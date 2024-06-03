@@ -1,3 +1,5 @@
 ^condathis\.Rproj$
 ^\.Rproj\.user$
 ^LICENSE\.md$
+^justfile$
+^data-raw$

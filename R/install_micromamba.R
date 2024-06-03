@@ -21,7 +21,7 @@ install_micromamba <- function(timeout_limit = 3600,
                                download_method = "auto",
                                force = FALSE) {
   umamba_bin_path <- micromamba_bin_path()
-  if (isTRUE(fs::file_exists(umamba_bin_path)) & isFALSE(force)) {
+  if (isTRUE(fs::file_exists(umamba_bin_path)) && isFALSE(force)) {
     cli::cli_inform(c(
       "i" = "{.pkg micromamba} is already installed at {.path {umamba_bin_path}}."
     ))
@@ -32,13 +32,18 @@ install_micromamba <- function(timeout_limit = 3600,
   # + The output of `get_sys_arch()` is "Windows-x86-64" replace with `win-64`
   sys_arch_str <- is_micromamba_available_for_arch()
 
-
   # TODO: @luciorq Replace with GitHub releases URL:
   # + <https://github.com/mamba-org/micromamba-releases/releases/>
   # + Also implemented in `luciorq/shell-lib` as:
   # + `conda_platform="$(get_conda_platform)";`
   # + `download_url="https://github.com/mamba-org/micromamba-releases/releases/latest/download/micromamba-${conda_platform}";`
+  # + <https://github.com/mamba-org/micromamba-releases>
   # base_url <- "https://micromamba.snakepit.net/api/micromamba/"
+
+
+  # TODO: @luciorq check if GitHub URL is reachable, otherwise use
+  # + snakepit URL
+  # + Set main download to be from GitHub releases
   base_url <- "https://micromamba.snakepit.net/api/micromamba/"
   download_url <- paste0(base_url, sys_arch_str, "/latest")
 
@@ -81,13 +86,13 @@ install_micromamba <- function(timeout_limit = 3600,
     fs::file_delete(full_dl_path)
   }
 
-  # TODO(luciorq): Check for necessity of changing permissions on Unix/Linux
+  # TODO: (@luciorq) Check for necessity of changing permissions on Unix/Linux
   # if (fs::file_exists(full_output_path)) {
   #  fs::file_chmod(full_output_path, mode = "u+x")
   # }
 
   # umamba_bin_path <- micromamba_bin_path()
-  if (isTRUE(dl_res == 0) & fs::file_exists(umamba_bin_path)) {
+  if (isTRUE(dl_res == 0) && fs::file_exists(umamba_bin_path)) {
     cli::cli_inform(
       c(
         `v` = "{.pkg micromamba} successfully downloaded."
