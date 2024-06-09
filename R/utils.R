@@ -1,8 +1,8 @@
 #' Return OS and CPU Architecture
 get_sys_arch <- function() {
-  os <- Sys.info()["sysname"]
-  cpu_arch <- Sys.info()["machine"]
-  return(paste0(os, "-", cpu_arch))
+  os <- base::Sys.info()["sysname"]
+  cpu_arch <- base::Sys.info()["machine"]
+  return(base::paste0(os, "-", cpu_arch))
 }
 
 #' Retrieve `condathis` Data Creation Path
