@@ -1,4 +1,5 @@
 #' Return OS and CPU Architecture
+#' @export
 get_sys_arch <- function() {
   os <- base::Sys.info()["sysname"]
   cpu_arch <- base::Sys.info()["machine"]
@@ -9,9 +10,9 @@ get_sys_arch <- function() {
 #' @export
 get_install_dir <- function() {
   sys_arch <- get_sys_arch()
-  # TODO(luciorq): On MacOS micromamba run fail if there is space in the path
-  # + as in ~/Library/Application Support/condathis"
-  # + That is why we are using unix style for macos
+  # TODO: @luciorq On MacOS `micromamba run` fail if there is space in the path
+  # + as in "~/Library/Application Support/condathis"
+  # + That is why we are using Unix style for MacOS
   if (isTRUE(stringr::str_detect(sys_arch, "^Darwin"))) {
     dir_path <- rappdirs::user_data_dir(
       appname = "condathis",

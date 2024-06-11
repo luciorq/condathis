@@ -27,7 +27,8 @@ Imports:
     withr
 Suggests:
     testthat (>= 3.0.0),
-    dockerthis
+    dockerthis,
+    curl
 Remotes:
     github::luciorq/dockerthis
 Config/testthat/edition: 3

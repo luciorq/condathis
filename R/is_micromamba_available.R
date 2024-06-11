@@ -17,9 +17,12 @@ is_micromamba_available_for_arch <- function(sys_arch = NULL) {
   } else if (sys_arch == "Linux-ppc64le") {
     sys_arch_str <- "linux-ppc64le"
   } else {
-    cli::cli_abort(c(
-      `x` = "{.pkg micromamba} is not available for {.field {sys_arch}} CPU architecture."
-    ))
+    cli::cli_abort(
+      message = c(
+        `x` = "{.pkg micromamba} is not available for {.field {sys_arch}} CPU architecture."
+      ),
+      class = "condathis_umamba_not_available_for_arch"
+    )
   }
   return(sys_arch_str)
 }
