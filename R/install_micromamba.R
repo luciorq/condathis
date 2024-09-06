@@ -84,7 +84,7 @@ install_micromamba <- function(timeout_limit = 3600,
   }
 
   # TODO: @luciorq GitHub release binaries will also remove
-  # + the need to umcompress the bundle
+  # + the need to uncompress the bundle
   utils::untar(
     tarfile = full_dl_path,
     exdir = fs::path_expand(untar_dir)
@@ -106,6 +106,11 @@ install_micromamba <- function(timeout_limit = 3600,
         `v` = "{.pkg micromamba} successfully downloaded."
       )
     )
+  }
+
+  # create base env if don't exist
+  if (isFALSE(env_exists(env_name = "condathis-env"))) {
+    create_env(env_name = "condathis-env", verbose = FALSE)
   }
   invisible(umamba_bin_path)
 }
