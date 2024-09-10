@@ -10,6 +10,8 @@ Run any CLI tool that is available through Conda environments.
 
 ### Get started
 
+#### Installing the development version
+
 ``` r
 remotes::install_github("luciorq/condathis")
 ```
