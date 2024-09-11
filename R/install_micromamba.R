@@ -40,7 +40,7 @@ install_micromamba <- function(timeout_limit = 3600,
   # + <https://github.com/mamba-org/micromamba-releases>
   # base_url <- "https://micromamba.snakepit.net/api/micromamba/"
 
-  # TODO: @luciorq Additional URL on Anaconda server
+  # TODO: @luciorq Additional URL on conda.anaconda.org server
   # + MacOS ARM64: <https://conda.anaconda.org/conda-forge/osx-arm64/micromamba-1.5.8-0.tar.bz2>
   # + Linux AMD64: <https://conda.anaconda.org/conda-forge/linux-64/micromamba-1.5.8-0.tar.bz2>
   # + Windows AMD64: <https://conda.anaconda.org/conda-forge/win-64/micromamba-1.5.8-0.tar.bz2>

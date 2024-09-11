@@ -13,3 +13,4 @@
 ^Meta$
 ^justfile$
 ^data-raw$
+^vignettes/*_files$
