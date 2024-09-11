@@ -132,9 +132,9 @@ run_internal_native <- function(cmd,
   px_res <- native_cmd(
     conda_cmd = "run",
     conda_args = c(
-      "--clean-env",
       "-n",
-      env_name
+      env_name,
+      "--clean-env"
     ),
     cmd = cmd,
     ...,
@@ -166,6 +166,7 @@ run_internal_docker <- function(cmd,
   px_res <- dockerthis::docker_run(
     "micromamba",
     "run",
+    "--clean-env",
     "-r",
     env_root_dir,
     "-n",
@@ -271,6 +272,7 @@ run_internal_singularity <- function(cmd,
     "-n",
     env_name,
     # "--quiet",
+   "--clean-env",
     cmd,
     ...
   )
