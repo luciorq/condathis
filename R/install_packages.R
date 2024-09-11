@@ -11,8 +11,7 @@ install_packages <- function(packages,
                              env_name = "condathis-env",
                              channels = c(
                                "bioconda",
-                               "conda-forge",
-                               "defaults"
+                               "conda-forge"
                              ),
                              additional_channels = NULL,
                              verbose = TRUE) {
@@ -35,6 +34,8 @@ install_packages <- function(packages,
       env_name,
       "--yes",
       "--quiet",
+      "--override-channels",
+      "--channel-priority=0",
       channels_arg
     ),
     packages,

@@ -44,8 +44,7 @@ run <- function(cmd,
                 packages = NULL,
                 channels = c(
                   "bioconda",
-                  "conda-forge",
-                  "defaults"
+                  "conda-forge"
                 ),
                 additional_channels = NULL,
                 sif_image_path = NULL,

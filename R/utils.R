@@ -82,8 +82,7 @@ format_channels_args <- function(...) {
   if (is.null(channels)) {
     channels <- c(
       "bioconda",
-      "conda-forge",
-      "defaults"
+      "conda-forge"
     )
   }
   channels_arg <- c()

@@ -14,7 +14,7 @@
 #'   are going to be installed. Defaults to 'condathis-env'.
 #'
 #' @param channels Character vector. Names of the channels to be included.
-#'   By default 'c("bioconda", "conda-forge", "defaults")' are used for solving
+#'   By default 'c("bioconda", "conda-forge")' are used for solving
 #'   dependencies.
 #'
 #' @param additional_channels Character. Additional Channels to be added to the
@@ -59,27 +59,27 @@
 #'    defaults to TRUE.
 #'
 #' @export
-create_env <- function(packages = NULL,
-                       env_file = NULL,
-                       env_name = "condathis-env",
-                       channels = c(
-                         "bioconda",
-                         "conda-forge",
-                         "defaults"
-                       ),
-                       method = c(
-                         "native",
-                         "auto",
-                         "docker",
-                         "singularity"
-                       ),
-                       container_name = "condathis-micromamba-base",
-                       image_name = "luciorq/condathis-micromamba:latest",
-                       sif_image_path = NULL,
-                       additional_channels = NULL,
-                       gpu_container = FALSE,
-                       platform = NULL,
-                       verbose = TRUE) {
+create_env <- function(
+    packages = NULL,
+    env_file = NULL,
+    env_name = "condathis-env",
+    channels = c(
+      "bioconda",
+      "conda-forge"
+    ),
+    method = c(
+      "native",
+      "auto",
+      "docker",
+      "singularity"
+    ),
+    container_name = "condathis-micromamba-base",
+    image_name = "luciorq/condathis-micromamba:latest",
+    sif_image_path = NULL,
+    additional_channels = NULL,
+    gpu_container = FALSE,
+    platform = NULL,
+    verbose = TRUE) {
   env_file_path <- NULL
   if (!is.null(env_file)) {
     if (fs::file_exists(env_file)) {
@@ -109,7 +109,6 @@ create_env <- function(packages = NULL,
     )
   }
 
-
   if (isFALSE(is.null(packages))) {
     platform_args <- define_platform(
       packages = packages,
@@ -120,7 +119,6 @@ create_env <- function(packages = NULL,
   } else {
     platform_args <- NULL
   }
-
 
   if (isTRUE(method_to_use == "native")) {
     px_res <- native_cmd(
@@ -175,18 +173,18 @@ create_env <- function(packages = NULL,
 #' Create Environment Using Docker
 #'
 #' @inheritParams create_env
-create_env_internal_docker <- function(packages = NULL,
-                                       env_file = NULL,
-                                       env_name = "condathis-env",
-                                       channels = c(
-                                         "bioconda",
-                                         "conda-forge",
-                                         "defaults"
-                                       ),
-                                       container_name = "condathis-micromamba-base",
-                                       image_name = "luciorq/condathis-micromamba:latest",
-                                       additional_channels = NULL,
-                                       verbose = TRUE) {
+create_env_internal_docker <- function(
+    packages = NULL,
+    env_file = NULL,
+    env_name = "condathis-env",
+    channels = c(
+      "bioconda",
+      "conda-forge"
+    ),
+    container_name = "condathis-micromamba-base",
+    image_name = "luciorq/condathis-micromamba:latest",
+    additional_channels = NULL,
+    verbose = TRUE) {
   stop_if_not_installed("dockerthis")
   env_root_dir <- get_install_dir()
   env_root_dir <- fs::path(paste0(env_root_dir, "-docker"))
@@ -253,18 +251,19 @@ create_env_internal_docker <- function(packages = NULL,
 }
 
 #' Create Environment Using Singularity / Apptainer
+#'
 #' @inheritParams create_env
-create_env_internal_singularity <- function(packages = NULL,
-                                            env_file = NULL,
-                                            env_name = "condathis-env",
-                                            channels = c(
-                                              "bioconda",
-                                              "conda-forge",
-                                              "defaults"
-                                            ),
-                                            sif_image_path = NULL,
-                                            additional_channels = NULL,
-                                            verbose = TRUE) {
+create_env_internal_singularity <- function(
+    packages = NULL,
+    env_file = NULL,
+    env_name = "condathis-env",
+    channels = c(
+      "bioconda",
+      "conda-forge"
+    ),
+    sif_image_path = NULL,
+    additional_channels = NULL,
+    verbose = TRUE) {
   invisible(is_singularity_available())
   env_root_dir <- get_install_dir()
   env_root_dir <- fs::path(paste0(env_root_dir, "-docker"))

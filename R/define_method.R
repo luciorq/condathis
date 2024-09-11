@@ -4,8 +4,7 @@
 define_method_to_use <- function(packages = NULL,
                                  channels = c(
                                    "bioconda",
-                                   "conda-forge",
-                                   "defaults"
+                                   "conda-forge"
                                  ),
                                  additional_channels = NULL,
                                  container_name = "condathis-micromamba-base",
@@ -98,8 +97,7 @@ define_method_to_use <- function(packages = NULL,
 packages_search_native <- function(packages,
                                    channels = c(
                                      "bioconda",
-                                     "conda-forge",
-                                     "defaults"
+                                     "conda-forge"
                                    ),
                                    method = c(
                                      "native",
@@ -151,8 +149,7 @@ packages_search_native <- function(packages,
 packages_search_docker <- function(packages,
                                    channels = c(
                                      "bioconda",
-                                     "conda-forge",
-                                     "defaults"
+                                     "conda-forge"
                                    ),
                                    additional_channels = NULL,
                                    container_name = "condathis-micromamba-base",
@@ -206,8 +203,7 @@ packages_search_docker <- function(packages,
 packages_search_singularity <- function(packages,
                                         channels = c(
                                           "bioconda",
-                                          "conda-forge",
-                                          "defaults"
+                                          "conda-forge"
                                         ),
                                         additional_channels = NULL,
                                         sif_image_path = NULL) {

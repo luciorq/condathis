@@ -5,8 +5,7 @@ define_platform <- function(packages,
                             platform = NULL,
                             channels = c(
                               "bioconda",
-                              "conda-forge",
-                              "defaults"
+                              "conda-forge"
                             ),
                             additional_channels = NULL) {
   if (is.null(platform)) {
