@@ -11,9 +11,8 @@ github_org := 'luciorq'
 @test:
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
-  R -q -e 'devtools::load_all();';
-  R -q -e 'devtools::document();';
-  R -q -e 'devtools::test();';
+  R -q -e 'devtools::load_all();devtools::document();';
+  R -q -e 'devtools::load_all();devtools::test();';
 
 @check:
   #!/usr/bin/env bash
