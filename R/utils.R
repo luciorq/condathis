@@ -94,16 +94,17 @@ format_channels_args <- function(...) {
 
 #' List Installed Environments
 #' @export
-list_envs <- function() {
+list_envs <- function(verbose = FALSE) {
   env_root_dir <- get_install_dir()
   px_res <- native_cmd(
     conda_cmd = "env",
     conda_args = c(
       "list",
+      "--no-rc",
       "-q",
       "--json"
     ),
-    verbose = FALSE
+    verbose = verbose
   )
   if (isTRUE(px_res$status == 0)) {
     envs_list <- jsonlite::fromJSON(px_res$stdout)
@@ -124,6 +125,7 @@ list_packages <- function(env_name = "condathis-env", verbose = FALSE) {
   px_res <- native_cmd(
     conda_cmd = "list",
     conda_args = c(
+      "--no-rc",
       "-n",
       env_name
     ),

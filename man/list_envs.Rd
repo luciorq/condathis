@@ -4,7 +4,7 @@
 \alias{list_envs}
 \title{List Installed Environments}
 \usage{
-list_envs()
+list_envs(verbose = FALSE)
 }
 \description{
 List Installed Environments
