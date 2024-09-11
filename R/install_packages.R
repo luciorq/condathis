@@ -34,6 +34,8 @@ install_packages <- function(packages,
       env_name,
       "--yes",
       "--quiet",
+      "--no-rc",
+      "--no-channel-priority",
       "--override-channels",
       "--channel-priority=0",
       channels_arg
