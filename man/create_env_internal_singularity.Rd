@@ -8,7 +8,7 @@ create_env_internal_singularity(
   packages = NULL,
   env_file = NULL,
   env_name = "condathis-env",
-  channels = c("bioconda", "conda-forge", "defaults"),
+  channels = c("bioconda", "conda-forge"),
   sif_image_path = NULL,
   additional_channels = NULL,
   verbose = TRUE
@@ -27,7 +27,7 @@ be included in the command.}
 are going to be installed. Defaults to 'condathis-env'.}
 
 \item{channels}{Character vector. Names of the channels to be included.
-By default 'c("bioconda", "conda-forge", "defaults")' are used for solving
+By default 'c("bioconda", "conda-forge")' are used for solving
 dependencies.}
 
 \item{sif_image_path}{Character. Path to SIF image file.}

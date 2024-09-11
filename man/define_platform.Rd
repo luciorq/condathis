@@ -7,7 +7,7 @@
 define_platform(
   packages,
   platform = NULL,
-  channels = c("bioconda", "conda-forge", "defaults"),
+  channels = c("bioconda", "conda-forge"),
   additional_channels = NULL
 )
 }
@@ -23,7 +23,7 @@ Note: on Apple Silicon MacOS will use "osx-64" instead of "osx-arm64"
 if Rosetta 2 is available.}
 
 \item{channels}{Character vector. Names of the channels to be included.
-By default 'c("bioconda", "conda-forge", "defaults")' are used for solving
+By default 'c("bioconda", "conda-forge")' are used for solving
 dependencies.}
 
 \item{additional_channels}{Character. Additional Channels to be added to the

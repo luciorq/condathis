@@ -7,7 +7,7 @@
 install_packages(
   packages,
   env_name = "condathis-env",
-  channels = c("bioconda", "conda-forge", "defaults"),
+  channels = c("bioconda", "conda-forge"),
   additional_channels = NULL,
   verbose = TRUE
 )
@@ -20,7 +20,7 @@ version strings if necessary.}
 going to be installed. Defaults to 'condathis-env'.}
 
 \item{channels}{Character vector. Names of the channels to be included.
-By default 'c("bioconda", "conda-forge", "defaults")' are used for solving
+By default 'c("bioconda", "conda-forge")' are used for solving
 dependencies.}
 
 \item{additional_channels}{Character. Additional Channels to be added to the

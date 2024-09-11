@@ -6,7 +6,7 @@
 \usage{
 define_method_to_use(
   packages = NULL,
-  channels = c("bioconda", "conda-forge", "defaults"),
+  channels = c("bioconda", "conda-forge"),
   additional_channels = NULL,
   container_name = "condathis-micromamba-base",
   image_name = "luciorq/condathis-micromamba:latest",
@@ -19,7 +19,7 @@ version strings if necessary, e.g. 'python=3.11'. The use of the \code{packages}
 argument assumes that env_file is not used.}
 
 \item{channels}{Character vector. Names of the channels to be included.
-By default 'c("bioconda", "conda-forge", "defaults")' are used for solving
+By default 'c("bioconda", "conda-forge")' are used for solving
 dependencies.}
 
 \item{additional_channels}{Character. Additional Channels to be added to the

@@ -8,7 +8,7 @@ create_env(
   packages = NULL,
   env_file = NULL,
   env_name = "condathis-env",
-  channels = c("bioconda", "conda-forge", "defaults"),
+  channels = c("bioconda", "conda-forge"),
   method = c("native", "auto", "docker", "singularity"),
   container_name = "condathis-micromamba-base",
   image_name = "luciorq/condathis-micromamba:latest",
@@ -32,7 +32,7 @@ be included in the command.}
 are going to be installed. Defaults to 'condathis-env'.}
 
 \item{channels}{Character vector. Names of the channels to be included.
-By default 'c("bioconda", "conda-forge", "defaults")' are used for solving
+By default 'c("bioconda", "conda-forge")' are used for solving
 dependencies.}
 
 \item{method}{Character. Beckend method to run \code{micromamba}, the default is
