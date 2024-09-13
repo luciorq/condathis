@@ -1,11 +1,13 @@
 #' Stop execution if `dockerthis` package is not installed.
 #' @param pkg_name Character. Name of the R package to check.
-stop_if_not_installed <- function(pkg_name = "dockerthis") {
+#' @param org_name Character. Name of the Remote organization
+#'   where development version of package is hosted.
+stop_if_not_installed <- function(pkg_name = "dockerthis", org_name = "luciorq") {
   if (!requireNamespace(pkg_name, quietly = TRUE)) {
     cli::cli_abort(c(
       `x` = "{.pkg {pkg_name}} is not installed.",
-      `!` = "Install with using {.code install.packages('{pkgname}', repos = c('https://luciorq.r-universe.dev', 'https://cloud.r-project.org'))}.",
-      `!` = "Or from GitHub using {.code remotes::install_github('luciorq/{pkg_name}')}."
+      `!` = "Install with: {.code install.packages('{pkg_name}', repos = c('https://{org_name}.r-universe.dev', getOption('repos'))}.",
+      `!` = "Or from GitHub using: {.code remotes::install_github('{org_name}/{pkg_name}')}."
     ))
   }
 }

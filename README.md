@@ -1,4 +1,3 @@
-
 # condathis
 
 <!-- badges: start -->
@@ -9,6 +8,12 @@
 Run any CLI tool that is available through Conda environments.
 
 ### Get started
+
+Install package from [R-Universe](https://luciorq.r-universe.dev/condathis):
+
+```r
+install.packages("condathis", repos = c("https://luciorq.r-universe.dev", getOption("repos")))
+```
 
 #### Installing the development version
 
