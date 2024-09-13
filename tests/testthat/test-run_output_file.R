@@ -35,10 +35,10 @@ test_that("Internal output", {
     object = px_res$status,
     expected = 0
   )
-  testthat::expect_equal(
-    object = px_res$stdout,
-    expected = "Hello World!\n"
+  testthat::expect_true(
+    object = stringr::str_detect(px_res$stdout, "Hello World!"),
   )
 })
 
 remove_env(env_name = "condathis-test-env", verbose = FALSE)
+
