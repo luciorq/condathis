@@ -4,10 +4,13 @@
 \alias{stop_if_not_installed}
 \title{Stop execution if \code{dockerthis} package is not installed.}
 \usage{
-stop_if_not_installed(pkg_name = "dockerthis")
+stop_if_not_installed(pkg_name = "dockerthis", org_name = "luciorq")
 }
 \arguments{
 \item{pkg_name}{Character. Name of the R package to check.}
+
+\item{org_name}{Character. Name of the Remote organization
+where development version of package is hosted.}
 }
 \description{
 Stop execution if \code{dockerthis} package is not installed.

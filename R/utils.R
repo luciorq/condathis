@@ -93,6 +93,9 @@ format_channels_args <- function(...) {
 }
 
 #' List Installed Environments
+#'
+#' @inheritParams create_env
+#'
 #' @export
 list_envs <- function(verbose = FALSE) {
   env_root_dir <- get_install_dir()
