@@ -61,6 +61,8 @@ install_micromamba <- function(timeout_limit = 3600,
   }
   full_dl_path <- as.character(fs::path(output_dir, "micromamba-dl.tar.bz2"))
 
+  # NOTE: @luciorq Windows needs `mode = "wb"` for
+  # + downloading binary files.
   withr::with_options(
     new = base::list(
       timeout = base::max(
@@ -72,7 +74,8 @@ install_micromamba <- function(timeout_limit = 3600,
       dl_res <- utils::download.file(
         url = download_url,
         destfile = full_dl_path,
-        method = download_method
+        method = download_method,
+        mode = "wb"
       )
     }
   )

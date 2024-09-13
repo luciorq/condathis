@@ -4,7 +4,8 @@ stop_if_not_installed <- function(pkg_name = "dockerthis") {
   if (!requireNamespace(pkg_name, quietly = TRUE)) {
     cli::cli_abort(c(
       `x` = "{.pkg {pkg_name}} is not installed.",
-      `!` = "Install from GitHub using {.code remotes::install_github(\"luciorq/{pkg_name}\")}."
+      `!` = "Install with using {.code install.packages('{pkgname}', repos = c('https://luciorq.r-universe.dev', 'https://cloud.r-project.org'))}.",
+      `!` = "Or from GitHub using {.code remotes::install_github('luciorq/{pkg_name}')}."
     ))
   }
 }
