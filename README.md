@@ -127,7 +127,7 @@ Special characters in CLI commands are interpreted as literals and not expanded.
 
 ---
 
-[conda-env-ref]: https://conda.io/projects/conda/en/latest/user-guide/getting-started.html
+[conda-env-ref]: https://docs.conda.io/projects/conda/en/latest/user-guide/getting-started.html
 [micromamba-ref]: https://mamba.readthedocs.io/en/latest/user_guide/micromamba.html
 [reticulate-ref]: https://rstudio.github.io/reticulate/
 [basilisk-ref]: https://www.bioconductor.org/packages/release/bioc/html/basilisk.html

@@ -4,9 +4,9 @@
 \name{condathis-package}
 \alias{condathis}
 \alias{condathis-package}
-\title{condathis: Condathis: run any CLI tool on a Conda Environment}
+\title{condathis: Run Any CLI Tool on a Conda Environment}
 \description{
-Condathis is an R package that simplifies the execution of command line tools within isolated conda environments. It enables users to effortlessly manage Conda environments, execute command line tools, handle dependencies, and ensure reproducibility in their data analysis workflows.
+Simplifies the execution of command line tools within isolated and reproducible environments. It enables users to effortlessly manage Conda environments, execute command line tools, handle dependencies, and ensure reproducibility in their data analysis workflows.
 }
 \seealso{
 Useful links:
