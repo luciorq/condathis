@@ -16,7 +16,7 @@ define_platform <- function(packages,
 
   sys_arch <- get_sys_arch()
 
-  if (isTRUE(sys_arch == "Darwin-arm64") & is.null(platform)) {
+  if (isTRUE(sys_arch == "Darwin-arm64") && is.null(platform)) {
     native_res <- packages_search_native(
       packages = packages,
       channels = channels,

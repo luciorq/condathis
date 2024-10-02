@@ -35,3 +35,4 @@ github_org := 'luciorq'
   conda create -n {{ package_name }}-env -y --override-channels -c bioconda -c conda-forge r-base r-devtools r-rlang r-pak r-tidyverse;
   conda run -n {{ package_name }}-env R -q -e 'pak::pkg_install("github::{{ github_org }}/{{ package_name }}@{{ tag_version }},ask=FALSE")';
   conda run -n {{ package_name }}-env R -q -e 'utils::packageVersion("{{ package_name }}")';
+  conda run -n {{ package_name }}-env R -q -e 'condathis::create_env("r-base", "condathis-test-env"),condathis::run("R","-s", "-q","--version", "condathis-test-env"';

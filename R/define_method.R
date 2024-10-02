@@ -42,7 +42,7 @@ define_method_to_use <- function(packages = NULL,
     if (isFALSE(fs::file_exists(umamba_bin_path))) {
       install_micromamba(force = TRUE)
     }
-    if (isFALSE(is.null(packages)) & isFALSE(is.null(channels))) {
+    if (isFALSE(is.null(packages)) && isFALSE(is.null(channels))) {
       pkgs_available <- packages_search_native(
         packages = packages,
         channels = channels,
@@ -122,14 +122,14 @@ packages_search_native <- function(packages,
     px_res <- native_cmd(
       conda_cmd = "search",
       conda_args = c(
-        "--no-rc",
         "--no-channel-priority",
         "--override-channels",
         "--channel-priority=0",
         "--yes",
         "--json",
         channels_arg,
-        platform_args
+        platform_args,
+        "-n", "condathis-env"
       ),
       pkg_query,
       verbose = FALSE
@@ -167,8 +167,9 @@ packages_search_docker <- function(packages,
   for (pkg in packages) {
     px_res <- dockerthis::docker_run(
       "micromamba",
-      "search",
       "--no-rc",
+      "--no-env",
+      "search",
       "--no-channel-priority",
       "--override-channels",
       "--channel-priority=0",
@@ -244,9 +245,10 @@ packages_search_singularity <- function(packages,
       fs::path_wd(),
       sif_image_path,
       "micromamba",
+      "--no-rc",
+      "--no-env",
       "search",
       "--yes",
-      "--no-rc",
       "--no-channel-priority",
       "--override-channels",
       "--channel-priority=0",

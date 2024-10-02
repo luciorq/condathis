@@ -22,16 +22,23 @@ native_cmd <- function(conda_cmd,
   withr::local_envvar(
     .new = list(
       CONDA_SHLVL = 0,
+      MAMBA_SHLVL = 0,
       CONDA_ENVS_PATH = "",
       CONDA_ROOT_PREFIX = "",
+      CONDA_PREFIX = "",
       MAMBA_ENVS_PATH = "",
       MAMBA_ROOT_PREFIX = "",
-      CONDARC = ""
+      MAMBA_PREFIX = "",
+      CONDARC = "",
+      MAMBARC = ""
     )
   )
   px_res <- processx::run(
     command = fs::path_real(umamba_bin_path),
     args = c(
+      "--no-rc",
+      "--no-env",
+      # "--log-level", "3",
       conda_cmd,
       conda_args,
       "-r",

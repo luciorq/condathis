@@ -10,3 +10,6 @@
 
 * Fix path handling in Windows (v0.0.3.9023).
 *  Add `mode = "wb"` to internal `download.file()` for handling binary downloads in Windows (v0.0.3.9023).
+
+* Add support for `micromamba` versions above v2.0 v(0.0.3.9024).
+* Move `--no-rc` and `--no-env` arguments to `native_cmd()` v(0.0.3.9024).

@@ -103,7 +103,6 @@ list_envs <- function(verbose = FALSE) {
     conda_cmd = "env",
     conda_args = c(
       "list",
-      "--no-rc",
       "-q",
       "--json"
     ),
@@ -128,7 +127,6 @@ list_packages <- function(env_name = "condathis-env", verbose = FALSE) {
   px_res <- native_cmd(
     conda_cmd = "list",
     conda_args = c(
-      "--no-rc",
       "-n",
       env_name
     ),
@@ -156,5 +154,12 @@ env_exists <- function(env_name = "condathis-env") {
     return(TRUE)
   } else {
     return(FALSE)
+  }
+}
+
+create_base_env <- function() {
+  # create base env if don't exist
+  if (isFALSE(env_exists(env_name = "condathis-env"))) {
+    create_env(env_name = "condathis-env", verbose = FALSE)
   }
 }

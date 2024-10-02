@@ -111,9 +111,7 @@ install_micromamba <- function(timeout_limit = 3600,
     )
   }
 
-  # create base env if don't exist
-  if (isFALSE(env_exists(env_name = "condathis-env"))) {
-    create_env(env_name = "condathis-env", verbose = FALSE)
-  }
+  create_base_env()
+
   invisible(umamba_bin_path)
 }
