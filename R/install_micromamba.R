@@ -5,6 +5,9 @@
 #'   implementation of the Conda package manager and provides an efficient way
 #'   to create and manage conda environments.
 #'
+#' @param micromamba_version Character. Version string used for downloading 
+#'   `micromamba`.
+#'
 #' @param timeout_limit Numeric. Timeout limit for downloading the Micromamba
 #'   binaries, in seconds. Defaults to 3600 seconds (1 hour).
 #'
@@ -17,7 +20,8 @@
 #'   system or `condathis` controlled path. Defaults to FALSE.
 #'
 #' @export
-install_micromamba <- function(timeout_limit = 3600,
+install_micromamba <- function(micromamba_version = "2.0.1-0",
+                               timeout_limit = 3600,
                                download_method = "auto",
                                force = FALSE) {
   umamba_bin_path <- micromamba_bin_path()
@@ -37,6 +41,7 @@ install_micromamba <- function(timeout_limit = 3600,
   # + Also implemented in `luciorq/shell-lib` as:
   # + `conda_platform="$(get_conda_platform)";`
   # + `download_url="https://github.com/mamba-org/micromamba-releases/releases/latest/download/micromamba-${conda_platform}";`
+  # + Versioned URL: <https://github.com/mamba-org/micromamba-releases/releases/download/2.0.1-0/micromamba-linux-64.tar.bz2>
   # + <https://github.com/mamba-org/micromamba-releases>
   # base_url <- "https://micromamba.snakepit.net/api/micromamba/"
 
@@ -50,8 +55,17 @@ install_micromamba <- function(timeout_limit = 3600,
   # TODO: @luciorq check if GitHub URL is reachable, otherwise use
   # + snakepit URL
   # + Set main download to be from GitHub releases
-  base_url <- "https://micromamba.snakepit.net/api/micromamba/"
-  download_url <- paste0(base_url, sys_arch_str, "/latest")
+
+  # Snakepit URLs
+  # base_url <- "https://micromamba.snakepit.net/api/micromamba/"
+  # download_url <- paste0(base_url, sys_arch_str, "/latest")
+
+  # GitHub URLs
+  base_url <- "https://github.com/mamba-org/micromamba-releases/releases/download/"
+  umamba_version <- micromamba_version
+  download_url <- paste0(
+    base_url, umamba_version , "/micromamba-", sys_arch_str, ".tar.bz2"
+  )
 
   output_dir <- get_install_dir()
   output_dir <- fs::path_abs(output_dir)

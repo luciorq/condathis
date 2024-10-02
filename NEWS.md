@@ -11,5 +11,9 @@
 * Fix path handling in Windows (v0.0.3.9023).
 *  Add `mode = "wb"` to internal `download.file()` for handling binary downloads in Windows (v0.0.3.9023).
 
-* Add support for `micromamba` versions above v2.0 v(0.0.3.9024).
-* Move `--no-rc` and `--no-env` arguments to `native_cmd()` v(0.0.3.9024).
+* Add support for `micromamba` versions above v2.0 (v0.0.3.9024).
+* Move `--no-rc` and `--no-env` arguments to `native_cmd()` (v0.0.3.9024).
+
+* Fixate `micromamba` version to "2.0.1-0" (v0.0.3.9025).
+* Add `micromamba_version` argument to `install_micromamba()` (v0.0.3.9025).
+* Use GitHub releases as the primary URL for installing `micromamba` (v0.0.3.9025).
