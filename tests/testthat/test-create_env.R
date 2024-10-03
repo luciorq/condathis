@@ -20,6 +20,25 @@ test_that("conda env is created", {
   }
   expect_true(stringr::str_detect(r_version_output, "R version 4.1.3"))
 
+  withr::with_envvar(
+    new = list(`MY_VAR_1` = "HELLO FROM OUTSIDE"),
+    code = {
+      px_res <- run(
+        "R", "-q", "-s", "-e", 'print(Sys.getenv("MY_VAR_1"))',
+        env_name = "r-env",
+        verbose = FALSE
+      )
+    }
+  )
+  testthat::expect_equal(px_res$status, 0)
+  envvar_output <- px_res$stdout
+  if (isFALSE(nzchar(envvar_output))) {
+    r_version_output <- px_res$stderr
+  }
+  testthat::expect_true(
+    stringr::str_detect(px_res$stdout, "HELLO FROM OUTSIDE")
+  )
+
   install_res <- install_packages(
     packages = c("python=3.8.16"),
     env_name = "condathis-test-env",
@@ -35,10 +54,7 @@ test_that("conda env is created", {
 
   expect_equal(inst_res$status, 0)
 
-  expect_equal(
-    stringr::str_detect(inst_res$stdout, "Python 3.8.16"),
-    TRUE
-  )
+  expect_true(stringr::str_detect(inst_res$stdout, "Python 3.8.16"))
 
   expect_true(env_exists(env_name = "condathis-test-env"))
 
