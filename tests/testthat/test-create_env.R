@@ -25,7 +25,7 @@ test_that("conda env is created", {
     code = {
       px_res <- run(
         "R", "-q", "-s", "-e", 'print(Sys.getenv("MY_VAR_1"))',
-        env_name = "r-env",
+        env_name = "condathis-test-env",
         verbose = FALSE
       )
     }
