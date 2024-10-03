@@ -19,3 +19,5 @@
 * Use GitHub releases as the primary URL for installing `micromamba` (v0.0.3.9025).
 
 * Fix [#11](https://github.com/luciorq/condathis/issues/11) by renaming the "BAT" file used by `micromamba run` on Windows (v0.0.3.9026).
+
+* Fix standardize argument order passed to `micromamba`, since v2.0, order of some arguments starts to conflict (v0.0.3.9027).

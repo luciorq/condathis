@@ -1,6 +1,6 @@
 Package: condathis
 Title: Run Any CLI Tool on a Conda Environment
-Version: 0.0.3.9026
+Version: 0.0.3.9027
 Authors@R: c(
     person("Lucio Rezende", "Queiroz", , "luciorqueiroz@gmail.com", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0002-6090-1834"))
