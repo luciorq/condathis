@@ -20,7 +20,7 @@
 #'   system or `condathis` controlled path. Defaults to FALSE.
 #'
 #' @export
-install_micromamba <- function(micromamba_version = "2.0.1-0",
+install_micromamba <- function(micromamba_version = "2.0.2-0",
                                timeout_limit = 3600,
                                download_method = "auto",
                                force = FALSE) {

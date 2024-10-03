@@ -21,3 +21,5 @@
 * Fix [#11](https://github.com/luciorq/condathis/issues/11) by renaming the "BAT" file used by `micromamba run` on Windows (v0.0.3.9026).
 
 * Fix standardize argument order passed to `micromamba`, since v2.0, order of some arguments starts to conflict (v0.0.3.9027).
+
+* Update version of `micromamba` to "2.0.2-0", fixes warnings about missing prefix (v0.0.3.9028).
