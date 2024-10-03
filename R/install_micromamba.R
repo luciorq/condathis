@@ -67,12 +67,14 @@ install_micromamba <- function(micromamba_version = "2.0.1-0",
     base_url, umamba_version , "/micromamba-", sys_arch_str, ".tar.bz2"
   )
 
+
   output_dir <- get_install_dir()
   output_dir <- fs::path_abs(output_dir)
 
-  if (!fs::dir_exists(output_dir)) {
+  if (isFALSE(fs::dir_exists(output_dir))) {
     fs::dir_create(output_dir)
   }
+
   full_dl_path <- as.character(fs::path(output_dir, "micromamba-dl.tar.bz2"))
 
   # NOTE: @luciorq Windows needs `mode = "wb"` for

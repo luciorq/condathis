@@ -17,3 +17,5 @@
 * Fixate `micromamba` version to "2.0.1-0" (v0.0.3.9025).
 * Add `micromamba_version` argument to `install_micromamba()` (v0.0.3.9025).
 * Use GitHub releases as the primary URL for installing `micromamba` (v0.0.3.9025).
+
+* Fix [#11](https://github.com/luciorq/condathis/issues/11) by renaming the "BAT" file used by `micromamba run` on Windows (v0.0.3.9026).

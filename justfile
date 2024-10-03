@@ -17,7 +17,7 @@ github_org := 'luciorq'
 @check:
   #!/usr/bin/env -vS bash -i
   \builtin set -euxo pipefail;
-  R -q -e 'rcmdcheck::rcmdcheck("--as-cran");';
+  R -q -e 'rcmdcheck::rcmdcheck(args="--as-cran");';
 
 # Use R package version on the Description file to tag latest commit of the git repo
 @git-tag:
