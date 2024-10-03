@@ -124,7 +124,6 @@ create_env <- function(
     px_res <- native_cmd(
       conda_cmd = "create",
       conda_args = c(
-        channels_arg,
         "-n",
         env_name,
         "--yes",
@@ -132,6 +131,7 @@ create_env <- function(
         "--no-channel-priority",
         "--override-channels",
         "--channel-priority=0",
+        channels_arg,
         platform_args
       ),
       packages_arg,

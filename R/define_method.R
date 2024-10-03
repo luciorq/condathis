@@ -122,14 +122,15 @@ packages_search_native <- function(packages,
     px_res <- native_cmd(
       conda_cmd = "search",
       conda_args = c(
+        "-n",
+        "--yes",
+        "--json",
+        "condathis-env",
         "--no-channel-priority",
         "--override-channels",
         "--channel-priority=0",
-        "--yes",
-        "--json",
         channels_arg,
-        platform_args,
-        "-n", "condathis-env"
+        platform_args
       ),
       pkg_query,
       verbose = FALSE
