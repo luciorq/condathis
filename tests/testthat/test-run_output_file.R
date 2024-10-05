@@ -41,4 +41,3 @@ test_that("Internal output", {
 })
 
 remove_env(env_name = "condathis-test-env", verbose = FALSE)
-

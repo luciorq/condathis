@@ -28,7 +28,10 @@ define_platform <- function(packages,
       px_res <- processx::run(
         command = Sys.which("pgrep"),
         args = "oahd",
-        error_on_status = FALSE
+        error_on_status = FALSE,
+        spinner = FALSE,
+        echo = FALSE,
+        echo_cmd = FALSE
       )
       if (isTRUE(px_res$status == 0)) {
         rosetta_res <- packages_search_native(

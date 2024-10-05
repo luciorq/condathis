@@ -149,9 +149,6 @@ create_env <- function(
       verbose = verbose
     )
   } else if (isTRUE(method_to_use == "singularity")) {
-    # cli::cli_abort(c(
-    #   `x` = "Method {.code \"singularity\"} is not implemented yet."
-    # ))
     px_res <- create_env_internal_singularity(
       packages = packages_arg,
       env_file = env_file,
@@ -161,14 +158,6 @@ create_env <- function(
       additional_channels = additional_channels
     )
   }
-
-  # # Write to cache
-  # write_cache_env_method(
-  #   env_name = env_name,
-  #   method_to_use = method_to_use,
-  #   cmd = NULL,
-  #   overwrite = TRUE
-  # )
   return(invisible(px_res))
 }
 
@@ -202,8 +191,8 @@ create_env_internal_docker <- function(
     }
   }
 
-  # TODO(luciorq): Fix for case insensitive FS still not working
-  # NOTE(luciorq): Fix for case insensitive file systems below
+  # TODO: @luciorq Fix for case insensitive FS still not working
+  # NOTE: @luciorq Fix for case insensitive file systems below
   sys_arch <- get_sys_arch()
   if (isTRUE(stringr::str_detect(sys_arch, "^[Darwin|Windows]"))) {
     prefix_args <- c(
@@ -225,17 +214,15 @@ create_env_internal_docker <- function(
     "--no-env",
     "create",
     prefix_args,
+    "--quiet",
     "--yes",
     "--experimental",
     "--no-extra-safety-checks",
     "--always-copy",
-    # "--no-always-copy",
-    # "--no-allow-softlinks",
     "--safety-checks", "0",
     "--no-channel-priority",
     "--override-channels",
     "--channel-priority=0",
-    # "--quiet",
     channels_arg,
     packages,
     container_name = container_name,
@@ -314,7 +301,7 @@ create_env_internal_singularity <- function(
     "-n",
     env_name,
     "--yes",
-    # "--quiet",
+    "--quiet",
     "--no-channel-priority",
     "--override-channels",
     "--channel-priority=0",

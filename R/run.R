@@ -65,11 +65,6 @@ run <- function(cmd,
     packages_to_search <- packages
   }
 
-  # method_to_use <- read_cache_env_method(
-  #   env_name = env_name,
-  #   method = method
-  # )
-
   method_to_use <- method
 
   if (isTRUE(method_to_use == "auto")) {
@@ -115,11 +110,6 @@ run <- function(cmd,
     )
   }
 
-  # write_cache_env_method(
-  #   env_name = env_name,
-  #   method_to_use = method_to_use,
-  #   cmd = cmd
-  # )
   return(invisible(px_res))
 }
 
@@ -129,7 +119,6 @@ run_internal_native <- function(cmd,
                                 env_name = "condathis-env",
                                 verbose = TRUE,
                                 stdout = "|") {
-
   if (isTRUE(base::Sys.info()["sysname"] == "Windows")) {
     micromamba_bat_path <- fs::path(get_install_dir(), "condabin", "micromamba", ext = "bat")
     if (isFALSE(fs::file_exists(micromamba_bat_path))) {
@@ -144,7 +133,7 @@ run_internal_native <- function(cmd,
       )
       mamba_bat_path <- fs::path(get_install_dir(), "condabin", "mamba", ext = "bat")
       if (isTRUE(fs::file_exists(mamba_bat_path)) &&
-          isFALSE(fs::file_exists(micromamba_bat_path))) {
+        isFALSE(fs::file_exists(micromamba_bat_path))) {
         fs::file_copy(mamba_bat_path, micromamba_bat_path, overwrite = TRUE)
       }
     }
@@ -184,6 +173,8 @@ run_internal_docker <- function(cmd,
   }
   px_res <- dockerthis::docker_run(
     "micromamba",
+    "--no-env",
+    "--no-rc",
     "run",
     "-r",
     env_root_dir,
@@ -284,6 +275,8 @@ run_internal_singularity <- function(cmd,
     mount_path_arg,
     sif_image_path,
     "micromamba",
+    "--no-env",
+    "--no-rc",
     "run",
     "-r",
     env_root_dir,

@@ -5,7 +5,7 @@
 #'   implementation of the Conda package manager and provides an efficient way
 #'   to create and manage conda environments.
 #'
-#' @param micromamba_version Character. Version string used for downloading 
+#' @param micromamba_version Character. Version string used for downloading
 #'   `micromamba`.
 #'
 #' @param timeout_limit Numeric. Timeout limit for downloading the Micromamba
@@ -64,7 +64,7 @@ install_micromamba <- function(micromamba_version = "2.0.2-0",
   base_url <- "https://github.com/mamba-org/micromamba-releases/releases/download/"
   umamba_version <- micromamba_version
   download_url <- paste0(
-    base_url, umamba_version , "/micromamba-", sys_arch_str, ".tar.bz2"
+    base_url, umamba_version, "/micromamba-", sys_arch_str, ".tar.bz2"
   )
 
 
@@ -108,6 +108,17 @@ install_micromamba <- function(micromamba_version = "2.0.2-0",
     tarfile = full_dl_path,
     exdir = fs::path_expand(untar_dir)
   )
+
+  # if (fs::file_exists(Sys.getenv("R_BZIPCMD"))) {
+  # } else {
+  #   output_bin_dir <- fs::path(output_dir, "micromamba", "bin")
+  #   if (isFALSE(fs::dir_exists(output_bin_dir))) {
+  #
+  #   }
+  #   full_dl_path <- as.character(fs::path(output_bin_dir, "micromamba"))
+  #
+  # }
+  #
 
   if (fs::file_exists(full_dl_path)) {
     fs::file_delete(full_dl_path)

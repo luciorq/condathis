@@ -31,37 +31,10 @@ get_install_dir <- function() {
   return(fs::path_real(dir_path))
 }
 
-# Retrieve `condathis` Cache Directory Path
-# get_cache_dir <- function() {
-#   sys_arch <- get_sys_arch()
-#   # TODO(luciorq): On MacOS micromamba run fail if there is space in the path
-#   # + as in ~/Library/Application Support/condathis"
-#   # + That is why we are using unix style for macos
-#   if (isTRUE(stringr::str_detect(sys_arch, "^Darwin"))) {
-#     dir_path <- rappdirs::user_cache_dir(
-#       appname = "condathis",
-#       appauthor = "luciorq",
-#       os = "unix"
-#     )
-#   } else {
-#     dir_path <- rappdirs::user_cache_dir(
-#       appname = "condathis",
-#       appauthor = "luciorq"
-#     )
-#   }
-#   if (isFALSE(fs::dir_exists(dir_path))) {
-#     fs::dir_create(dir_path)
-#   }
-#   return(fs::path_real(dir_path))
-# }
 
 #' Retrieve the path to the `condathis` managed installation of `micromamba`.
 #' @export
 micromamba_bin_path <- function() {
-  # umamba_bin_path <- micromamba_user_installed()
-  # if (isFALSE(umamba_bin_path == "")) {
-  #   return(umamba_bin_path)
-  # }
   sys_arch <- get_sys_arch()
 
   output_dir <- get_install_dir()
@@ -157,8 +130,8 @@ env_exists <- function(env_name = "condathis-env") {
   }
 }
 
+#' Create Package Base Env
 create_base_env <- function() {
-  # create base env if don't exist
   if (isFALSE(env_exists(env_name = "condathis-env"))) {
     create_env(env_name = "condathis-env", verbose = FALSE)
   }

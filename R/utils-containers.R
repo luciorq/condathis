@@ -17,8 +17,6 @@ stop_if_not_installed <- function(pkg_name = "dockerthis", org_name = "luciorq")
 #' Test if Singularity or Apptainer CLIs are available on PATH.
 #'
 is_singularity_available <- function() {
-  # TODO(luciorq): Add support for `apptainer`
-  # + from: <https://github.com/apptainer/apptainer>
   singularity_bin_path <- Sys.which("singularity")
   if (isTRUE(singularity_bin_path == "")) {
     singularity_bin_path <- Sys.which("apptainer")

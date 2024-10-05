@@ -2,7 +2,7 @@
 % Please edit documentation in R/define_method.R
 \name{define_method_to_use}
 \alias{define_method_to_use}
-\title{Automatically Find Suitable Infrastrucure to Run CLI Tools}
+\title{Automatically Find Suitable Infrastructure to Run CLI Tools}
 \usage{
 define_method_to_use(
   packages = NULL,
@@ -35,5 +35,5 @@ Defaults to \code{"luciorq/condathis-micromamba:latest"}.}
 \item{sif_image_path}{Character. Path to SIF image file.}
 }
 \description{
-Automatically Find Suitable Infrastrucure to Run CLI Tools
+Automatically Find Suitable Infrastructure to Run CLI Tools
 }

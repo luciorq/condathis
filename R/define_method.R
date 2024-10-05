@@ -1,5 +1,5 @@
-# TODO(luciorq): This function should go on `runthis` package.
-#' Automatically Find Suitable Infrastrucure to Run CLI Tools
+# TODO: @luciorq This function should go on `runthis` package.
+#' Automatically Find Suitable Infrastructure to Run CLI Tools
 #' @inheritParams create_env
 define_method_to_use <- function(packages = NULL,
                                  channels = c(
@@ -18,13 +18,14 @@ define_method_to_use <- function(packages = NULL,
     },
     silent = TRUE
   )
+  # TODO: @luciorq Add WSL/WSL2 support
   docker_avail <- try(
     {
       dockerthis::is_docker_available()
     },
     silent = TRUE
   )
-  # TODO(luciorq): Add podman wrapper
+  # TODO: @luciorq Add podman wrapper
   umamba_avail <- try(
     {
       is_micromamba_available_for_arch()
@@ -32,10 +33,11 @@ define_method_to_use <- function(packages = NULL,
     silent = TRUE
   )
 
-  # TODO(luciorq): Check if environment already exists and tool is on PATH
+  # TODO: @luciorq Check if environment already exists and tool is on PATH
   # + before searching for packages
 
-  # TODO(luciorq): Search packages on container methods
+  # TODO: @luciorq Search packages on container methods
+
   method_to_use <- NULL
   if (isTRUE(class(umamba_avail) == "character")) {
     umamba_bin_path <- micromamba_bin_path()
@@ -99,15 +101,9 @@ packages_search_native <- function(packages,
                                      "bioconda",
                                      "conda-forge"
                                    ),
-                                   method = c(
-                                     "native",
-                                     "docker",
-                                     "singularity"
-                                   ),
                                    platform = NULL,
-                                   additional_channels = NULL) {
-  # TODO(luciorq): Implement support to other methods
-  # + beyond "native".
+                                   additional_channels = NULL,
+                                   verbose = FALSE) {
   channels_arg <- format_channels_args(
     additional_channels,
     channels
@@ -122,10 +118,9 @@ packages_search_native <- function(packages,
     px_res <- native_cmd(
       conda_cmd = "search",
       conda_args = c(
-        "-n",
+        "-n", "condathis-env",
         "--yes",
         "--json",
-        "condathis-env",
         "--no-channel-priority",
         "--override-channels",
         "--channel-priority=0",
@@ -133,7 +128,7 @@ packages_search_native <- function(packages,
         platform_args
       ),
       pkg_query,
-      verbose = FALSE
+      verbose = verbose
     )
     if (isTRUE(px_res$status == 0)) {
       json_output <- jsonlite::fromJSON(px_res$stdout)
@@ -249,10 +244,10 @@ packages_search_singularity <- function(packages,
       "--no-rc",
       "--no-env",
       "search",
-      "--yes",
       "--no-channel-priority",
       "--override-channels",
       "--channel-priority=0",
+      "--yes",
       "--json",
       channels_arg,
       packages
