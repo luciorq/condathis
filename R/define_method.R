@@ -82,11 +82,14 @@ define_method_to_use <- function(packages = NULL,
   }
 
   if (is.null(method_to_use)) {
-    cli::cli_abort(c(
-      `x` = "No method available!",
-      `!` = "{.code method = \"auto\"} could not detect a possible {.field method}.",
-      `!` = "Try manually defining a method if it should be one."
-    ))
+    cli::cli_abort(
+      message = c(
+        `x` = "No method available!",
+        `!` = "{.code method = \"auto\"} could not detect a possible {.field method}.",
+        `!` = "Try manually defining a method if it should be one."
+      ),
+      class = "condathis_method_not_available"
+    )
   }
   return(method_to_use)
 }

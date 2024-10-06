@@ -4,11 +4,14 @@
 #'   where development version of package is hosted.
 stop_if_not_installed <- function(pkg_name = "dockerthis", org_name = "luciorq") {
   if (!requireNamespace(pkg_name, quietly = TRUE)) {
-    cli::cli_abort(c(
-      `x` = "{.pkg {pkg_name}} is not installed.",
-      `!` = "Install with: {.code install.packages('{pkg_name}', repos = c('https://{org_name}.r-universe.dev', getOption('repos'))}.",
-      `!` = "Or from GitHub using: {.code remotes::install_github('{org_name}/{pkg_name}')}."
-    ))
+    cli::cli_abort(
+      c(
+        `x` = "{.pkg {pkg_name}} is not installed.",
+        `!` = "Install with: {.code install.packages('{pkg_name}', repos = c('https://{org_name}.r-universe.dev', getOption('repos'))}.",
+        `!` = "Or from GitHub using: {.code remotes::install_github('{org_name}/{pkg_name}')}."
+      ),
+      class = "condathis_missing_suggest"
+    )
   }
 }
 
@@ -22,10 +25,13 @@ is_singularity_available <- function() {
     singularity_bin_path <- Sys.which("apptainer")
   }
   if (!fs::file_exists(singularity_bin_path)) {
-    cli::cli_abort(c(
-      `x` = "{.pkg singularity} or {.pkg apptainer} command-line interfaces are not available.",
-      `!` = "Check {.url https://sylabs.io/docs/} or {.url https://github.com/apptainer/apptainer} for more information."
-    ))
+    cli::cli_abort(
+      c(
+        `x` = "{.pkg singularity} or {.pkg apptainer} command-line interfaces are not available.",
+        `!` = "Check {.url https://sylabs.io/docs/} or {.url https://github.com/apptainer/apptainer} for more information."
+      ),
+      class = "condathis_singularity_not_installed"
+    )
   }
   singularity_bin_path <- fs::path(singularity_bin_path)
   return(singularity_bin_path)

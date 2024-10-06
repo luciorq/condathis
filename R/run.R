@@ -52,9 +52,12 @@ run <- function(cmd,
                 verbose = TRUE,
                 stdout = "|") {
   if (is.null(cmd)) {
-    cli::cli_abort(c(
-      `x` = "{.field cmd} need to be a {.code character} string."
-    ))
+    cli::cli_abort(
+      message = c(
+        `x` = "{.field cmd} need to be a {.code character} string."
+      ),
+      class = "condathis_run_null_cmd"
+    )
   }
 
   method_to_use <- method[1]
@@ -237,17 +240,23 @@ run_internal_singularity <- function(cmd,
       if (isTRUE(stringr::str_detect(mount_path, pattern = ":"))) {
         mount_temp_vec <- unlist(stringr::str_split(mount_path, pattern = ":"))
         if (isFALSE(fs::dir_exists(mount_temp_vec[1]))) {
-          cli::cli_abort(c(
-            `x` = "{.path {mount_temp_vec[1]}} do not exist."
-          ))
+          cli::cli_abort(
+            message = c(
+              `x` = "{.path {mount_temp_vec[1]}} do not exist."
+            ),
+            class = "condathis_run_singularity_missing_mount_path"
+          )
         }
         mount_path_abs <- fs::path_abs(mount_temp_vec[1])
         mount_path_target <- fs::path_abs(mount_temp_vec[2])
       } else {
         if (isFALSE(fs::dir_exists(mount_path))) {
-          cli::cli_abort(c(
-            `x` = "{.path {mount_path}} do not exist."
-          ))
+          cli::cli_abort(
+            message = c(
+              `x` = "{.path {mount_path}} do not exist."
+            ),
+            class = "condathis_run_singularity_missing_mount_path"
+          )
         }
         mount_path_abs <- fs::path_abs(mount_path)
         mount_path_target <- mount_path_abs

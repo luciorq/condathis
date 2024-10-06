@@ -49,6 +49,7 @@ native_cmd <- function(conda_cmd,
     echo_cmd = verbose,
     echo = verbose,
     stdout = stdout
+    # error_on_status = FALSE
   )
   return(px_res)
 }

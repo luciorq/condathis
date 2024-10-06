@@ -86,9 +86,12 @@ create_env <- function(
       env_file_path <- fs::path(env_file)
       packages_arg <- c("-f", env_file_path)
     } else {
-      cli::cli_abort(c(
-        `x` = "The file {.code \"env_file\"} does not exist."
-      ))
+      cli::cli_abort(
+        message = c(
+          `x` = "The file {.code \"env_file\"} does not exist."
+        ),
+        class = "condathis_create_missing_env_file"
+      )
     }
   } else {
     packages_arg <- packages
