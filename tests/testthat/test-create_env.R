@@ -24,7 +24,7 @@ test_that("conda env is created", {
     new = list(`MY_VAR_1` = "HELLO FROM OUTSIDE"),
     code = {
       px_res <- run(
-        "R", "-q", "-s", "-e", 'print(Sys.getenv("MY_VAR_1"))',
+        "R", "-q", "-s", "-e", "print(Sys.getenv('MY_VAR_1'))",
         env_name = "condathis-test-env",
         verbose = FALSE
       )
