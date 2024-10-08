@@ -20,6 +20,14 @@ test_that("conda env is created", {
   }
   expect_true(stringr::str_detect(r_version_output, "R version 4.1.3"))
 
+  pkgs_list_res <- list_packages(env_name = "condathis-test-env")
+
+  testthat::expect_equal(ncol(pkgs_list_res), 8)
+
+  testthat::expect_true("r-base" %in% pkgs_list_res$name)
+
+  testthat::expect_true("4.1.3" %in% pkgs_list_res$version)
+
   withr::with_envvar(
     new = list(`MY_VAR_1` = "HELLO FROM OUTSIDE"),
     code = {
