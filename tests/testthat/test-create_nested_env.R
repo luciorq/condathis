@@ -1,0 +1,26 @@
+test_that("create nested environment", {
+  create_res <- create_env(
+    packages = NULL,
+    env_name = "test-nested-env",
+    verbose = FALSE
+  )
+  testthat::expect_true(env_exists("test-nested-env"))
+
+  nested_create_res <- run(
+    cmd = micromamba_bin_path(),
+    "--no-rc",
+    "--no-env",
+    "create",
+    "--quiet",
+    "--yes",
+    "-r", get_install_dir(),
+    "-n", "test-inside-env",
+    env_name = "test-nested-env",
+    verbose = FALSE
+  )
+  testthat::expect_true(env_exists("test-inside-env"))
+  remove_env("test-nested-env", verbose = FALSE)
+  remove_env("test-inside-env", verbose = FALSE)
+
+  testthat::expect_false(any(c("test-nested-env", "test-inside-env") %in% list_envs()))
+})
