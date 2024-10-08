@@ -65,7 +65,7 @@ Default to FALSE.}
 
 \item{verbose}{Logical. Should command and messages be print to
 the console.
-defaults to TRUE.}
+Defaults to \code{TRUE}.}
 
 \item{stdout}{Default: "|" keep stdout to the R object
 returned by \code{run()}.

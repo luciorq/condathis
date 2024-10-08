@@ -25,3 +25,6 @@
 * Update version of `micromamba` to "2.0.2-0", fixes warnings about missing prefix (v0.0.3.9028).
 
 * Add additional Environmental Variables to `native_cmd()` for removing warnings when calling nested `micromamba run` v(0.0.3.9029).
+
+* Breaking Change: Add `overwrite = FALSE` argument to `create_env()` v(0.0.3.9030).
+  - Since the previous behavior would allow for `create_env()` to always overwrite environment, this is a breaking change.

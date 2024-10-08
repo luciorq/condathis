@@ -55,8 +55,11 @@
 #'     if Rosetta 2 is available.
 #'
 #' @param verbose Logical. Should command and messages be print to
-#'    the console.
-#'    defaults to TRUE.
+#'     the console.
+#'     Defaults to `TRUE`.
+#'
+#' @param overwrite Logical. Should environment always be overwritten?
+#'     Defaults to `FALSE`.
 #'
 #' @export
 create_env <- function(
@@ -79,7 +82,8 @@ create_env <- function(
     additional_channels = NULL,
     gpu_container = FALSE,
     platform = NULL,
-    verbose = TRUE) {
+    verbose = TRUE,
+    overwrite = FALSE) {
   env_file_path <- NULL
 
   # ===========================================================================
@@ -138,6 +142,27 @@ create_env <- function(
   }
 
   if (isTRUE(method_to_use == "native")) {
+    if (env_exists(env_name = env_name) && isFALSE(overwrite)) {
+      pkg_list_res <- list_packages(env_name = env_name, verbose = verbose)
+
+      pkg_present_vector <- vector(mode = "logical", length = length(packages))
+      for (i in seq_along(packages)) {
+        pkg_name_str <- stringr::str_remove(packages[i], "[=<>~!].*")
+        if (pkg_name_str %in% pkg_list_res$name) {
+          pkg_present_vector[i] <- TRUE
+        } else {
+          pkg_present_vector[i] <- FALSE
+        }
+        # TODO: @luciorq It is checking just for package name
+        # + to expand functionality to leverage version
+        # + check: "Package match specifications" <https://docs.conda.io/projects/conda-build/en/latest/resources/package-spec.html>
+        # if (isTRUE(stringr::str_detect(pkg_str, "[=<>~!].*")))) { }
+      }
+
+      if (isTRUE(all(pkg_present_vector))) {
+        return(list(status = 0L, stdout = "", stderr = "", timeout = FALSE))
+      }
+    }
     px_res <- native_cmd(
       conda_cmd = "create",
       conda_args = c(

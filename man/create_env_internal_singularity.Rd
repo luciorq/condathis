@@ -37,7 +37,7 @@ default ones.}
 
 \item{verbose}{Logical. Should command and messages be print to
 the console.
-defaults to TRUE.}
+Defaults to \code{TRUE}.}
 }
 \description{
 Create Environment Using Singularity / Apptainer

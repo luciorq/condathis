@@ -16,7 +16,8 @@ create_env(
   additional_channels = NULL,
   gpu_container = FALSE,
   platform = NULL,
-  verbose = TRUE
+  verbose = TRUE,
+  overwrite = FALSE
 )
 }
 \arguments{
@@ -67,7 +68,10 @@ if Rosetta 2 is available.}
 
 \item{verbose}{Logical. Should command and messages be print to
 the console.
-defaults to TRUE.}
+Defaults to \code{TRUE}.}
+
+\item{overwrite}{Logical. Should environment always be overwritten?
+Defaults to \code{FALSE}.}
 }
 \description{
 Create Conda Environment with specific packages installed to be used by \code{run()}.

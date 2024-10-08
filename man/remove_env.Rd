@@ -12,7 +12,7 @@ are going to be installed. Defaults to 'condathis-env'.}
 
 \item{verbose}{Logical. Should command and messages be print to
 the console.
-defaults to TRUE.}
+Defaults to \code{TRUE}.}
 }
 \description{
 Remove a Conda environment previously created by \code{create_env()}.

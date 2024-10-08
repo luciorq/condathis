@@ -32,7 +32,7 @@ default ones.}
 
 \item{verbose}{Logical. Should command and messages be print to
 the console.
-defaults to TRUE.}
+Defaults to \code{TRUE}.}
 }
 \description{
 Search if Package is available in required Channels

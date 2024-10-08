@@ -9,7 +9,7 @@ list_envs(verbose = FALSE)
 \arguments{
 \item{verbose}{Logical. Should command and messages be print to
 the console.
-defaults to TRUE.}
+Defaults to \code{TRUE}.}
 }
 \description{
 List Installed Environments

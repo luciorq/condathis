@@ -4,7 +4,7 @@ test_that("conda env is created", {
     env_name = "condathis-test-env",
     verbose = FALSE
   )
-  expect_equal(px_res$status, 0)
+  expect_equal(px_res$status, 0L)
 
   run_res <- run(
     "R", "-s", "-q", "--version",
@@ -12,7 +12,7 @@ test_that("conda env is created", {
     verbose = FALSE
   )
 
-  expect_equal(run_res$status, 0)
+  expect_equal(run_res$status, 0L)
 
   r_version_output <- run_res$stdout
   if (isFALSE(nzchar(r_version_output))) {
