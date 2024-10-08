@@ -93,28 +93,6 @@ list_envs <- function(verbose = FALSE) {
   }
 }
 
-#' List Packages Installed Inside Environment
-#' @inheritParams run
-#' @export
-list_packages <- function(env_name = "condathis-env", verbose = FALSE) {
-  px_res <- native_cmd(
-    conda_cmd = "list",
-    conda_args = c(
-      "-n",
-      env_name
-    ),
-    verbose = verbose
-  )
-  if (isTRUE(px_res$status == 0)) {
-    cat(px_res$stdout)
-    invisible(px_res)
-  } else {
-    (
-      return(px_res)
-    )
-  }
-}
-
 #' Check If Environment Names Already exists
 #'
 #' @inheritParams create_env
