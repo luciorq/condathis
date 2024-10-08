@@ -81,6 +81,11 @@ create_env <- function(
     platform = NULL,
     verbose = TRUE) {
   env_file_path <- NULL
+
+  if (isFALSE(fs::dir_exists(fs::path_home(".mamba", "pkgs")))) {
+    fs::dir_create(fs::path_home(".mamba", "pkgs"))
+  }
+
   if (!is.null(env_file)) {
     if (fs::file_exists(env_file)) {
       env_file_path <- fs::path(env_file)

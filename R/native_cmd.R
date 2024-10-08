@@ -30,7 +30,11 @@ native_cmd <- function(conda_cmd,
       MAMBA_ROOT_PREFIX = "",
       MAMBA_PREFIX = "",
       CONDARC = "",
-      MAMBARC = ""
+      MAMBARC = "",
+      CONDA_PROMPT_MODIFIER = "",
+      MAMBA_PROMPT_MODIFIER = "",
+      CONDA_DEFAULT_ENV = "",
+      MAMBA_DEFAULT_ENV = ""
     )
   )
   px_res <- processx::run(

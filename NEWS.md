@@ -1,4 +1,4 @@
-# condathis (development version)
+# condathis 0.0.4
 
 * Add `--no-channel-priority` to `create_env_*()`, `packages_search_*()`, and `install_packages()` (v0.0.3.9019).
 
@@ -23,3 +23,5 @@
 * Fix standardize argument order passed to `micromamba`, since v2.0, order of some arguments starts to conflict (v0.0.3.9027).
 
 * Update version of `micromamba` to "2.0.2-0", fixes warnings about missing prefix (v0.0.3.9028).
+
+* Add additional Environmental Variables to `native_cmd()` for removing warnings when calling nested `micromamba run` v(0.0.3.9029).
