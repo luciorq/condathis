@@ -60,11 +60,23 @@ install_micromamba <- function(micromamba_version = "2.0.2-0",
   # base_url <- "https://micromamba.snakepit.net/api/micromamba/"
   # download_url <- paste0(base_url, sys_arch_str, "/latest")
 
+
   # GitHub URLs
-  base_url <- "https://github.com/mamba-org/micromamba-releases/releases/download/"
+  base_url <- "https://github.com/mamba-org/micromamba-releases/releases/"
+
+  # base_base_url <- "https://github.com"
+  if (isFALSE(check_connection(base_base_url))) {
+    cli::cli_abort(
+      message = c(
+        `x` = "{.url {base_url}} is not reachable."
+      ),
+      class = "condathis_github_not_reachable"
+    )
+  }
+
   umamba_version <- micromamba_version
   download_url <- paste0(
-    base_url, umamba_version, "/micromamba-", sys_arch_str, ".tar.bz2"
+    base_url, "download/", umamba_version, "/micromamba-", sys_arch_str, ".tar.bz2"
   )
 
 
