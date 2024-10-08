@@ -82,9 +82,18 @@ create_env <- function(
     verbose = TRUE) {
   env_file_path <- NULL
 
-  if (isFALSE(fs::dir_exists(fs::path_home(".mamba", "pkgs")))) {
-    fs::dir_create(fs::path_home(".mamba", "pkgs"))
+  # ===========================================================================
+  # TODO: @luciorq Temporary solution for #<Issue Number>
+  pkgs_dir <- fs::path_home(".mamba", "pkgs")
+  if (isTRUE(stringr::str_detect(get_sys_arch(), "^Windows"))) {
+    pkgs_dir <- fs::path_home("AppData", "Roaming", ".mamba", "pkgs")
+    if (isFALSE(fs::dir_exists(pkgs_dir))) {
+      fs::dir_create(pkgs_dir)
+    }
+  } else if (isFALSE(fs::dir_exists(pkgs_dir))) {
+    fs::dir_create(pkgs_dir)
   }
+  # ===========================================================================
 
   if (!is.null(env_file)) {
     if (fs::file_exists(env_file)) {
