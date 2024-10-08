@@ -65,7 +65,7 @@ install_micromamba <- function(micromamba_version = "2.0.2-0",
   base_url <- "https://github.com/mamba-org/micromamba-releases/releases/"
 
   # base_base_url <- "https://github.com"
-  if (isFALSE(check_connection(base_base_url))) {
+  if (isFALSE(check_connection(base_url))) {
     cli::cli_abort(
       message = c(
         `x` = "{.url {base_url}} is not reachable."
