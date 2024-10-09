@@ -8,6 +8,8 @@
 
 ## New features
 
+* New `get_env_dir()` retrieves path to environment v(0.0.3.9032).
+
 * `create_env()` now has `overwrite = FALSE` argument v(0.0.3.9030).
 
 * `install_micromamba()` now has `micromamba_version` argument (v0.0.3.9025).
