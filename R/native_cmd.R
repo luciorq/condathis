@@ -12,7 +12,7 @@
 native_cmd <- function(conda_cmd,
                        conda_args = NULL,
                        ...,
-                       verbose = TRUE,
+                       verbose = FALSE,
                        stdout = "|") {
   umamba_bin_path <- micromamba_bin_path()
   env_root_dir <- get_install_dir()

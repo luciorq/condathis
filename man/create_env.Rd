@@ -16,7 +16,7 @@ create_env(
   additional_channels = NULL,
   gpu_container = FALSE,
   platform = NULL,
-  verbose = TRUE,
+  verbose = FALSE,
   overwrite = FALSE
 )
 }

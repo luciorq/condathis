@@ -82,7 +82,7 @@ create_env <- function(
     additional_channels = NULL,
     gpu_container = FALSE,
     platform = NULL,
-    verbose = TRUE,
+    verbose = FALSE,
     overwrite = FALSE) {
   # ===========================================================================
   # TODO: @luciorq Temporary solution for <https://github.com/luciorq/condathis/issues/13>
@@ -218,7 +218,7 @@ create_env_internal_docker <- function(
     container_name = "condathis-micromamba-base",
     image_name = "luciorq/condathis-micromamba:latest",
     additional_channels = NULL,
-    verbose = TRUE) {
+    verbose = FALSE) {
   stop_if_not_installed("dockerthis")
   env_root_dir <- get_install_dir()
   env_root_dir <- fs::path(paste0(env_root_dir, "-docker"))
@@ -299,7 +299,7 @@ create_env_internal_singularity <- function(
     ),
     sif_image_path = NULL,
     additional_channels = NULL,
-    verbose = TRUE) {
+    verbose = FALSE) {
   invisible(is_singularity_available())
   env_root_dir <- get_install_dir()
   env_root_dir <- fs::path(paste0(env_root_dir, "-docker"))

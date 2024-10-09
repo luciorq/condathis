@@ -14,7 +14,7 @@ install_packages <- function(packages,
                                "conda-forge"
                              ),
                              additional_channels = NULL,
-                             verbose = TRUE) {
+                             verbose = FALSE) {
   if (!any(list_envs() %in% env_name)) {
     create_env(
       packages = NULL,

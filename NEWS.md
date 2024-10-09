@@ -4,6 +4,8 @@
 
 * `create_env()` new argument default `overwrite = FALSE`, since the previous behavior would allow for the environment to always be overwritten. For previous behavior use `overwrite = TRUE`.
 
+* Across the entire package `verbose = FALSE` is default.
+
 ## New features
 
 * `create_env()` now has `overwrite = FALSE` argument v(0.0.3.9030).

@@ -54,7 +54,7 @@ run <- function(cmd,
                 additional_channels = NULL,
                 sif_image_path = NULL,
                 gpu_container = FALSE,
-                verbose = TRUE,
+                verbose = FALSE,
                 stdout = "|") {
   if (is.null(cmd)) {
     cli::cli_abort(
@@ -125,7 +125,7 @@ run <- function(cmd,
 run_internal_native <- function(cmd,
                                 ...,
                                 env_name = "condathis-env",
-                                verbose = TRUE,
+                                verbose = FALSE,
                                 stdout = "|") {
   if (isTRUE(base::Sys.info()["sysname"] == "Windows")) {
     micromamba_bat_path <- fs::path(get_install_dir(), "condabin", "micromamba", ext = "bat")
@@ -218,7 +218,7 @@ run_internal_singularity <- function(cmd,
                                      sif_image_path = NULL,
                                      mount_paths = NULL,
                                      gpu_container = FALSE,
-                                     verbose = TRUE,
+                                     verbose = FALSE,
                                      stdout = "|") {
   invisible(is_singularity_available())
   env_root_dir <- get_install_dir()

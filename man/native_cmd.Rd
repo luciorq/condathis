@@ -4,7 +4,7 @@
 \alias{native_cmd}
 \title{Run Micromamba Command}
 \usage{
-native_cmd(conda_cmd, conda_args = NULL, ..., verbose = TRUE, stdout = "|")
+native_cmd(conda_cmd, conda_args = NULL, ..., verbose = FALSE, stdout = "|")
 }
 \arguments{
 \item{conda_cmd}{Character. Conda subcommand to be run.

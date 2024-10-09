@@ -9,7 +9,7 @@ install_packages(
   env_name = "condathis-env",
   channels = c("bioconda", "conda-forge"),
   additional_channels = NULL,
-  verbose = TRUE
+  verbose = FALSE
 )
 }
 \arguments{

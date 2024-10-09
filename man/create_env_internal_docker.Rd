@@ -12,7 +12,7 @@ create_env_internal_docker(
   container_name = "condathis-micromamba-base",
   image_name = "luciorq/condathis-micromamba:latest",
   additional_channels = NULL,
-  verbose = TRUE
+  verbose = FALSE
 )
 }
 \arguments{

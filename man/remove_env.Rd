@@ -4,7 +4,7 @@
 \alias{remove_env}
 \title{Remove a Conda Environment}
 \usage{
-remove_env(env_name = "condathis-env", verbose = TRUE)
+remove_env(env_name = "condathis-env", verbose = FALSE)
 }
 \arguments{
 \item{env_name}{Character. Name of the Conda environment where the packages

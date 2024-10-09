@@ -17,7 +17,7 @@ run(
   additional_channels = NULL,
   sif_image_path = NULL,
   gpu_container = FALSE,
-  verbose = TRUE,
+  verbose = FALSE,
   stdout = "|"
 )
 }
