@@ -1,11 +1,3 @@
-#' Return OS and CPU Architecture
-#' @export
-get_sys_arch <- function() {
-  os <- base::Sys.info()["sysname"]
-  cpu_arch <- base::Sys.info()["machine"]
-  return(base::paste0(os, "-", cpu_arch))
-}
-
 #' Retrieve `condathis` Data Creation Path
 #' @export
 get_install_dir <- function() {
@@ -63,34 +55,6 @@ format_channels_args <- function(...) {
     channels_arg <- c(channels_arg, "-c", channel)
   }
   return(channels_arg)
-}
-
-#' List Installed Environments
-#'
-#' @inheritParams create_env
-#'
-#' @export
-list_envs <- function(verbose = FALSE) {
-  env_root_dir <- get_install_dir()
-  px_res <- native_cmd(
-    conda_cmd = "env",
-    conda_args = c(
-      "list",
-      "-q",
-      "--json"
-    ),
-    verbose = verbose
-  )
-  if (isTRUE(px_res$status == 0)) {
-    envs_list <- jsonlite::fromJSON(px_res$stdout)
-    envs_str <- fs::path_real(envs_list$envs)
-    envs_str <- envs_str[stringr::str_detect(c(envs_str), env_root_dir)]
-    envs_to_return <- base::basename(envs_str)
-    envs_to_return <- envs_to_return[!envs_to_return %in% "condathis"]
-    return(envs_to_return)
-  } else {
-    return(px_res$status)
-  }
 }
 
 #' Check If Environment Names Already exists

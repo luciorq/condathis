@@ -10,10 +10,15 @@
 #' @param method Character. One of `c("docker", "singularity")`.
 #'
 #' @export
-build_container_image <- function(dockerfile_path = NULL,
-                                  image_name = "luciorq/condathis-micromamba:latest",
-                                  force = FALSE,
-                                  method = "docker") {
+build_container_image <- function(
+    dockerfile_path = NULL,
+    image_name = "luciorq/condathis-micromamba:latest",
+    force = FALSE,
+    method = c(
+      "docker",
+      "singularity"
+    )) {
+  method <- rlang::arg_match(method)
   if (isTRUE(method == "docker")) {
     stop_if_not_installed("dockerthis")
     if (is.null(dockerfile_path)) {

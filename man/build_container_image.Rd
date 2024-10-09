@@ -8,7 +8,7 @@ build_container_image(
   dockerfile_path = NULL,
   image_name = "luciorq/condathis-micromamba:latest",
   force = FALSE,
-  method = "docker"
+  method = c("docker", "singularity")
 )
 }
 \arguments{

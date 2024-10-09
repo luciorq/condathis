@@ -37,7 +37,12 @@
 run <- function(cmd,
                 ...,
                 env_name = "condathis-env",
-                method = "native",
+                method = c(
+                  "native",
+                  "auto",
+                  "docker",
+                  "singularity"
+                ),
                 container_name = "condathis-micromamba-base",
                 image_name = "luciorq/condathis-micromamba:latest",
                 mount_paths = NULL,
@@ -60,15 +65,14 @@ run <- function(cmd,
     )
   }
 
-  method_to_use <- method[1]
+  method <- rlang::arg_match(method)
+  method_to_use <- method
 
   if (is.null(packages)) {
     packages_to_search <- cmd
   } else {
     packages_to_search <- packages
   }
-
-  method_to_use <- method
 
   if (isTRUE(method_to_use == "auto")) {
     method_to_use <- define_method_to_use(
@@ -80,6 +84,7 @@ run <- function(cmd,
       sif_image_path = sif_image_path
     )
   }
+
   if (isTRUE(method_to_use == "native")) {
     px_res <- run_internal_native(
       cmd = cmd,

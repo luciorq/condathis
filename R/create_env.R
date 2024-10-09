@@ -84,10 +84,8 @@ create_env <- function(
     platform = NULL,
     verbose = TRUE,
     overwrite = FALSE) {
-  env_file_path <- NULL
-
   # ===========================================================================
-  # TODO: @luciorq Temporary solution for #<Issue Number>
+  # TODO: @luciorq Temporary solution for <https://github.com/luciorq/condathis/issues/13>
   pkgs_dir <- fs::path_home(".mamba", "pkgs")
   if (isTRUE(stringr::str_detect(get_sys_arch(), "^Windows"))) {
     pkgs_dir <- fs::path_home("AppData", "Roaming", ".mamba", "pkgs")
@@ -99,6 +97,9 @@ create_env <- function(
   }
   # ===========================================================================
 
+  method <- rlang::arg_match(method)
+
+  env_file_path <- NULL
   if (!is.null(env_file)) {
     if (fs::file_exists(env_file)) {
       env_file_path <- fs::path(env_file)
