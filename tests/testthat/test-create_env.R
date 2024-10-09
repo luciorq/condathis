@@ -1,3 +1,27 @@
+test_that("create_env invalid method arg", {
+  testthat::expect_error(
+    object = {
+      create_env(NULL, method = NA)
+    },
+    class = "rlang_error"
+  )
+  # partial matching
+  testthat::expect_error(
+    object = {
+      create_env(NULL, method = "na")
+    },
+    class = "rlang_error"
+  )
+
+  # invalid method
+  testthat::expect_error(
+    object = {
+      create_env(NULL, method = "NonExisting")
+    },
+    class = "rlang_error"
+  )
+})
+
 test_that("conda env is created", {
   px_res <- create_env(
     packages = c("r-base=4.1.3", "r-devtools"),
