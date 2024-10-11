@@ -2,7 +2,7 @@
 % Please edit documentation in R/run.R
 \name{run}
 \alias{run}
-\title{Run Command Line tools in a Conda environment.}
+\title{Run Command-Line Tools in a Conda Environment}
 \usage{
 run(
   cmd,
@@ -18,64 +18,60 @@ run(
   sif_image_path = NULL,
   gpu_container = FALSE,
   verbose = FALSE,
-  stdout = "|"
+  error = c("cancel", "continue"),
+  stdout = "|",
+  stderr = "|"
 )
 }
 \arguments{
 \item{cmd}{Character. The main command to be executed in the Conda environment.}
 
-\item{...}{Additional arguments to be used in the command. These arguments will be passed directly to the command executed in the Conda environment.
-File paths should not contain special character or spaces.}
+\item{...}{Additional arguments to be passed to the command. These arguments will be passed directly to the command executed in the Conda environment.
+File paths should not contain special characters or spaces.}
 
-\item{env_name}{Character. The name of the Conda environment where the tool will be run. Defaults to 'condathis-env'.
-If the specified environment does not exist, it will be created automatically using \code{create_env()} function from the \code{condathis} package.}
+\item{env_name}{Character. The name of the Conda environment where the tool will be run. Defaults to \code{"condathis-env"}.
+If the specified environment does not exist, it will be created automatically using \code{create_env()}.}
 
-\item{method}{Character. Beckend method to run \code{micromamba}, the default is
-"auto" running "native" with the \code{micromamba} binaries installed
-by \code{condathis}. Additional methods are supported for using Docker Linux Containers
-"docker" and Singularity Containers "singularity" as the beckends,
-those are especially useful if running on systems where the Conda
-recipes are not available for the OS or CPU architecture in place.
-The container-based backends leverage \code{dockerthis} R package.}
+\item{method}{Character string. The method to use for running the command. Options are \code{"native"}, \code{"auto"}, \code{"docker"}, or \code{"singularity"}. Defaults to \code{"native"}.
+If \code{"auto"} is selected, the function will automatically choose the appropriate method based on the system and available resources.}
 
-\item{container_name}{Character. Name of the Container created by Docker.
-Defaults to \code{"condathis-micromamba-base"}.}
+\item{container_name}{Character string. The name of the container to be used when running the command via Docker or Singularity. Defaults to \code{"condathis-micromamba-base"}.}
 
-\item{image_name}{Character. Name of the Docker Image used, it will try
-to pull it automatically if internet connection is available.
-Defaults to \code{"luciorq/condathis-micromamba:latest"}.}
+\item{image_name}{Character string. The name of the Docker image to use when the method is \code{"docker"}. Defaults to \code{"luciorq/condathis-micromamba:latest"}.}
 
-\item{mount_paths}{Character vector. Host paths to be mounted in container.}
+\item{mount_paths}{Character vector. Host paths to be mounted in the container. Useful when using Docker or Singularity methods.}
 
-\item{packages}{Character vector. Names of the packages, and
-version strings if necessary, e.g. 'python=3.11'. The use of the \code{packages}
-argument assumes that env_file is not used.}
+\item{packages}{Character vector. Additional Conda packages to install in the environment before running the command.}
 
-\item{channels}{Character vector. Names of the channels to be included.
-By default 'c("bioconda", "conda-forge")' are used for solving
-dependencies.}
+\item{channels}{Character vector. Conda channels to use when installing packages. Defaults to \code{c("bioconda", "conda-forge")}.}
 
-\item{additional_channels}{Character. Additional Channels to be added to the
-default ones.}
+\item{additional_channels}{Character vector. Additional Conda channels to include when installing packages.}
 
-\item{sif_image_path}{Character. Path to SIF image file.}
+\item{sif_image_path}{Character string. The file path to the Singularity image file (\code{.sif}) to use when the method is \code{"singularity"}.}
 
-\item{gpu_container}{Logical. GPU support for Container Beckend \code{methods}.
-This argument is not necessary if running native.
-Default to FALSE.}
+\item{gpu_container}{Logical. Whether to enable GPU support in the container. Defaults to \code{FALSE}.}
 
-\item{verbose}{Logical. Should command and messages be print to
-the console.
-Defaults to \code{TRUE}.}
+\item{verbose}{Logical. Whether to display detailed output messages. Defaults to \code{FALSE}.}
+
+\item{error}{Character string. How to handle errors. Options are \code{"cancel"} or \code{"continue"}. Defaults to \code{"cancel"}.}
 
 \item{stdout}{Default: "|" keep stdout to the R object
 returned by \code{run()}.
 A character string can be used to define a file path to be used as standard output. e.g: "output.txt".}
 }
+\value{
+An object of class \code{list} representing the result of the command execution.
+Contains information about the standard output, standard error, and exit status of the command.
+}
 \description{
-This function allows the execution of command line tools within a specific Conda environment.
-It runs the provided cmd command in the designated Conda environment,
-using the Micromamba binaries managed by the \code{condathis} package.
+This function allows the execution of command-line tools within a specified Conda environment.
+It runs the provided command in the designated Conda environment using the Micromamba binaries managed by the \code{condathis} package.
+The function supports multiple execution methods, including native execution, Docker containers, and Singularity containers.
+}
+\details{
+The \code{run()} function provides a flexible way to execute command-line tools within Conda environments.
+It leverages Micromamba for environment management and supports execution via native methods or containerization technologies like Docker and Singularity.
+This is particularly useful for reproducible research and ensuring that specific versions of tools are used.
 }
 \examples{
 \dontrun{
@@ -87,6 +83,12 @@ run("python script.py", env_name = "my-conda-env")
 
 ## Run a command with additional arguments
 run("my-command", "--arg1", "--arg2=value", env_name = "my-conda-env")
+
+## Run a command using Docker
+run("python script.py", method = "docker")
+
+## Run a command with GPU support in a container
+run("my-gpu-command", gpu_container = TRUE)
 }
 }
 \seealso{

@@ -31,9 +31,31 @@ test_that("conda env is created", {
   expect_equal(px_res$status, 0L)
 
   run_res <- run(
+    "Rmissing",
+    env_name = "condathis-test-env",
+    verbose = FALSE,
+    error = "continue"
+  )
+  expect_true(run_res$status != 0L)
+
+  testthat::expect_error(
+    object = {
+      run(
+        "Rmissing",
+        env_name = "condathis-test-env",
+        verbose = FALSE,
+        error = "cancel"
+      )
+    },
+    class = "rlib_error"
+    # class = "condathis_error_run"
+  )
+
+  run_res <- run(
     "R", "-s", "-q", "--version",
     env_name = "condathis-test-env",
-    verbose = FALSE
+    verbose = FALSE,
+    error = "continue"
   )
 
   expect_equal(run_res$status, 0L)

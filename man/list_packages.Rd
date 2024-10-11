@@ -7,12 +7,10 @@
 list_packages(env_name = "condathis-env", verbose = FALSE)
 }
 \arguments{
-\item{env_name}{Character. The name of the Conda environment where the tool will be run. Defaults to 'condathis-env'.
-If the specified environment does not exist, it will be created automatically using \code{create_env()} function from the \code{condathis} package.}
+\item{env_name}{Character. The name of the Conda environment where the tool will be run. Defaults to \code{"condathis-env"}.
+If the specified environment does not exist, it will be created automatically using \code{create_env()}.}
 
-\item{verbose}{Logical. Should command and messages be print to
-the console.
-Defaults to \code{TRUE}.}
+\item{verbose}{Logical. Whether to display detailed output messages. Defaults to \code{FALSE}.}
 }
 \description{
 List Packages Installed Inside Environment

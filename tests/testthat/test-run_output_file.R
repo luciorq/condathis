@@ -40,4 +40,27 @@ test_that("Internal output", {
   )
 })
 
+test_that("Error/warning redirection to file", {
+  temp_output_file <- fs::file_temp("test_stderr", ext = "txt")
+  px_res <- run(
+    "ls", "-lah", "MissingFILE",
+    env_name = "condathis-test-env",
+    verbose = FALSE,
+    stderr = temp_output_file,
+    error = "continue"
+  )
+  testthat::expect_true(
+    object = px_res$status != 1L,
+  )
+  testthat::expect_true(
+    fs::file_exists(temp_output_file)
+  )
+  testthat::expect_equal(
+    px_res$stderr,
+    NULL
+  )
+  fs::file_delete(temp_output_file)
+})
+
+
 remove_env(env_name = "condathis-test-env", verbose = FALSE)

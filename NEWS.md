@@ -1,3 +1,16 @@
+# condathis 0.0.5
+
+## Breaking changes
+
+## New features
+
+* `run()` now has `error` argument.
+
+## Minor improvements and fixes
+
+* `run()` output now has class `"condathis_run_output"` with custom print method.
+* `run()` now exposes `stderr`.
+
 # condathis 0.0.4
 
 ## Breaking changes

@@ -1,24 +1,43 @@
-#' Run Command Line tools in a Conda environment.
+#' Run Command-Line Tools in a Conda Environment
 #'
-#' This function allows the execution of command line tools within a specific Conda environment.
-#'   It runs the provided cmd command in the designated Conda environment,
-#'   using the Micromamba binaries managed by the `condathis` package.
+#' This function allows the execution of command-line tools within a specified Conda environment.
+#' It runs the provided command in the designated Conda environment using the Micromamba binaries managed by the `condathis` package.
+#' The function supports multiple execution methods, including native execution, Docker containers, and Singularity containers.
 #'
 #' @param cmd Character. The main command to be executed in the Conda environment.
 #'
-#' @param ... Additional arguments to be used in the command. These arguments will be passed directly to the command executed in the Conda environment.
-#'   File paths should not contain special character or spaces.
+#' @param ... Additional arguments to be passed to the command. These arguments will be passed directly to the command executed in the Conda environment.
+#'   File paths should not contain special characters or spaces.
 #'
-#' @param env_name Character. The name of the Conda environment where the tool will be run. Defaults to 'condathis-env'.
-#'    If the specified environment does not exist, it will be created automatically using `create_env()` function from the `condathis` package.
+#' @param env_name Character. The name of the Conda environment where the tool will be run. Defaults to `"condathis-env"`.
+#'   If the specified environment does not exist, it will be created automatically using `create_env()`.
+#'
+#' @param method Character string. The method to use for running the command. Options are `"native"`, `"auto"`, `"docker"`, or `"singularity"`. Defaults to `"native"`.
+#'   If `"auto"` is selected, the function will automatically choose the appropriate method based on the system and available resources.
+#' @param container_name Character string. The name of the container to be used when running the command via Docker or Singularity. Defaults to `"condathis-micromamba-base"`.
+#' @param image_name Character string. The name of the Docker image to use when the method is `"docker"`. Defaults to `"luciorq/condathis-micromamba:latest"`.
+#' @param mount_paths Character vector. Host paths to be mounted in the container. Useful when using Docker or Singularity methods.
+#' @param packages Character vector. Additional Conda packages to install in the environment before running the command.
+#' @param channels Character vector. Conda channels to use when installing packages. Defaults to `c("bioconda", "conda-forge")`.
+#' @param additional_channels Character vector. Additional Conda channels to include when installing packages.
+#' @param sif_image_path Character string. The file path to the Singularity image file (`.sif`) to use when the method is `"singularity"`.
+#' @param gpu_container Logical. Whether to enable GPU support in the container. Defaults to `FALSE`.
+#' @param verbose Logical. Whether to display detailed output messages. Defaults to `FALSE`.
+#' @param error Character string. How to handle errors. Options are `"cancel"` or `"continue"`. Defaults to `"cancel"`.
+#' @param stdout Character string or `"|"`. Standard output option. Defaults to `"|"`, which keeps stdout in the R object returned by `run()`.
+#'   A character string can be used to define a file path to be used as standard output (e.g., `"output.txt"`).
 #'
 #' @param stdout Default: "|" keep stdout to the R object
 #'   returned by `run()`.
 #'   A character string can be used to define a file path to be used as standard output. e.g: "output.txt".
 #'
-#' @param mount_paths Character vector. Host paths to be mounted in container.
+#' @return An object of class `list` representing the result of the command execution.
+#'   Contains information about the standard output, standard error, and exit status of the command.
 #'
-#' @inheritParams create_env
+#' @details
+#' The `run()` function provides a flexible way to execute command-line tools within Conda environments.
+#' It leverages Micromamba for environment management and supports execution via native methods or containerization technologies like Docker and Singularity.
+#' This is particularly useful for reproducible research and ensuring that specific versions of tools are used.
 #'
 #' @examples
 #' \dontrun{
@@ -30,6 +49,12 @@
 #'
 #' ## Run a command with additional arguments
 #' run("my-command", "--arg1", "--arg2=value", env_name = "my-conda-env")
+#'
+#' ## Run a command using Docker
+#' run("python script.py", method = "docker")
+#'
+#' ## Run a command with GPU support in a container
+#' run("my-gpu-command", gpu_container = TRUE)
 #' }
 #' @seealso
 #' \code{\link{install_micromamba}}, \code{\link{create_env}}
@@ -56,7 +81,11 @@ run <- function(cmd,
                 sif_image_path = NULL,
                 gpu_container = FALSE,
                 verbose = FALSE,
-                stdout = "|") {
+                error = c("cancel", "continue"),
+                stdout = "|",
+                stderr = "|") {
+  rlang::check_required(cmd)
+
   if (is.null(cmd)) {
     cli::cli_abort(
       message = c(
@@ -66,7 +95,11 @@ run <- function(cmd,
     )
   }
 
+
+  error <- rlang::arg_match(error)
+
   method <- rlang::arg_match(method)
+
   method_to_use <- method
 
   if (is.null(packages)) {
@@ -90,9 +123,11 @@ run <- function(cmd,
     px_res <- run_internal_native(
       cmd = cmd,
       ...,
+      env_name = env_name,
       verbose = verbose,
+      error = error,
       stdout = stdout,
-      env_name = env_name
+      stderr = stderr
     )
   } else if (isTRUE(method_to_use == "docker")) {
     px_res <- run_internal_docker(
@@ -122,12 +157,18 @@ run <- function(cmd,
   return(invisible(px_res))
 }
 
+#' Run Command Using Native Method
+#'
+#' Internal function to run a command in a Conda environment using the native method.
+#'
 #' @inheritParams run
 run_internal_native <- function(cmd,
                                 ...,
                                 env_name = "condathis-env",
                                 verbose = FALSE,
-                                stdout = "|") {
+                                error = c("cancel", "continue"),
+                                stdout = "|",
+                                stderr = "|") {
   if (isTRUE(base::Sys.info()["sysname"] == "Windows")) {
     micromamba_bat_path <- fs::path(get_install_dir(), "condabin", "micromamba", ext = "bat")
     if (isFALSE(fs::file_exists(micromamba_bat_path))) {
@@ -156,11 +197,17 @@ run_internal_native <- function(cmd,
     cmd = cmd,
     ...,
     verbose = verbose,
-    stdout = stdout
+    error = error,
+    stdout = stdout,
+    stderr = stderr
   )
   return(invisible(px_res))
 }
 
+#' Run Command Using Docker
+#'
+#' Internal function to run a command in a Conda environment using Docker.
+#'
 #' @inheritParams run
 run_internal_docker <- function(cmd,
                                 ...,
@@ -212,6 +259,10 @@ run_internal_docker <- function(cmd,
   return(invisible(px_res))
 }
 
+#' Run Command Using Singularity
+#'
+#' Internal function to run a command in a Conda environment using Singularity.
+#'
 #' @inheritParams run
 run_internal_singularity <- function(cmd,
                                      ...,
