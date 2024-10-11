@@ -27,7 +27,8 @@ run(
 \item{...}{Additional arguments to be used in the command. These arguments will be passed directly to the command executed in the Conda environment.
 File paths should not contain special character or spaces.}
 
-\item{env_name}{Character. The name of the Conda environment where the tool will be run. Defaults to 'condathis-env'. If the specified environment does not exist, it will be created automatically using create_env() function from the \code{condathis} package.}
+\item{env_name}{Character. The name of the Conda environment where the tool will be run. Defaults to 'condathis-env'.
+If the specified environment does not exist, it will be created automatically using \code{create_env()} function from the \code{condathis} package.}
 
 \item{method}{Character. Beckend method to run \code{micromamba}, the default is
 "auto" running "native" with the \code{micromamba} binaries installed

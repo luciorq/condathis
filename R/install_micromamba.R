@@ -139,7 +139,7 @@ install_micromamba <- function(micromamba_version = "2.0.2-0",
     fs::file_delete(full_dl_path)
   }
 
-  # TODO: (@luciorq) Check for necessity of changing permissions on Unix/Linux
+  # TODO: @luciorq Check for necessity of changing permissions on Unix/Linux
   # if (fs::file_exists(full_output_path)) {
   #  fs::file_chmod(full_output_path, mode = "u+x")
   # }

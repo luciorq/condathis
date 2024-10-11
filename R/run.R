@@ -9,7 +9,8 @@
 #' @param ... Additional arguments to be used in the command. These arguments will be passed directly to the command executed in the Conda environment.
 #'   File paths should not contain special character or spaces.
 #'
-#' @param env_name Character. The name of the Conda environment where the tool will be run. Defaults to 'condathis-env'. If the specified environment does not exist, it will be created automatically using create_env() function from the `condathis` package.
+#' @param env_name Character. The name of the Conda environment where the tool will be run. Defaults to 'condathis-env'.
+#'    If the specified environment does not exist, it will be created automatically using `create_env()` function from the `condathis` package.
 #'
 #' @param stdout Default: "|" keep stdout to the R object
 #'   returned by `run()`.

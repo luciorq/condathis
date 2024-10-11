@@ -52,8 +52,8 @@ native_cmd <- function(conda_cmd,
     spinner = TRUE,
     echo_cmd = verbose,
     echo = verbose,
-    stdout = stdout
-    # error_on_status = FALSE
+    stdout = stdout,
+    error_on_status = TRUE
   )
-  return(px_res)
+  return(invisible(px_res))
 }

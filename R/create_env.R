@@ -161,7 +161,7 @@ create_env <- function(
       }
 
       if (isTRUE(all(pkg_present_vector))) {
-        return(list(status = 0L, stdout = "", stderr = "", timeout = FALSE))
+        return(invisible(list(status = 0L, stdout = "", stderr = "", timeout = FALSE)))
       }
     }
     px_res <- native_cmd(

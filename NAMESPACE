@@ -3,6 +3,7 @@
 export(build_container_image)
 export(create_env)
 export(env_exists)
+export(get_env_dir)
 export(get_install_dir)
 export(get_sys_arch)
 export(install_micromamba)
