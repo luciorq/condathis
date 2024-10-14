@@ -50,7 +50,7 @@ test_that("Error/warning redirection to file", {
     error = "continue"
   )
   testthat::expect_true(
-    object = px_res$status != 1L,
+    object = px_res$status != 0L,
   )
   testthat::expect_true(
     fs::file_exists(temp_output_file)
