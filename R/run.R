@@ -30,6 +30,10 @@
 #' @param stdout Default: "|" keep stdout to the R object
 #'   returned by `run()`.
 #'   A character string can be used to define a file path to be used as standard output. e.g: "output.txt".
+#'   
+#' @param stdout Default: "|" keep stderr to the R object
+#'   returned by `run()`.
+#'   A character string can be used to define a file path to be used as standard error. e.g: "error.txt".
 #'
 #' @return An object of class `list` representing the result of the command execution.
 #'   Contains information about the standard output, standard error, and exit status of the command.

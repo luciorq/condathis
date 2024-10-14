@@ -28,9 +28,9 @@ File paths should not contain special characters or spaces.}
 
 \item{error}{Character string. How to handle errors. Options are \code{"cancel"} or \code{"continue"}. Defaults to \code{"cancel"}.}
 
-\item{stdout}{Default: "|" keep stdout to the R object
+\item{stdout}{Default: "|" keep stderr to the R object
 returned by \code{run()}.
-A character string can be used to define a file path to be used as standard output. e.g: "output.txt".}
+A character string can be used to define a file path to be used as standard error. e.g: "error.txt".}
 }
 \description{
 Run a command using micromamba executable in the native backend.
