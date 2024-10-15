@@ -8,7 +8,7 @@ native_cmd(
   conda_cmd,
   conda_args = NULL,
   ...,
-  verbose = FALSE,
+  verbose = "silent",
   error = c("cancel", "continue"),
   stdout = "|",
   stderr = "|"
@@ -24,11 +24,23 @@ the Conda command.}
 \item{...}{Additional arguments to be passed to the command. These arguments will be passed directly to the command executed in the Conda environment.
 File paths should not contain special characters or spaces.}
 
-\item{verbose}{Logical. Whether to display detailed output messages. Defaults to \code{FALSE}.}
+\item{verbose}{Character string specifying the verbosity level of the function's output. Acceptable values are:
+\itemize{
+\item \strong{"silent"}: Suppress all output from internal command-line tools. Equivalent to \code{FALSE}.
+\item \strong{"cmd"}: Print the internal command(s) passed to the command-line tool.
+\item \strong{"output"}: Print the standard output and error from the command-line tool to the screen. Note that the order of the standard output and error lines may not be correct, as standard output is typically buffered. If the standard output and/or error is redirected to a file or they are ignored, they will not be echoed.
+\item \strong{"full"}: Print both the internal command(s) (\code{"cmd"}) and their standard output and error (\code{"output"}). Equivalent to \code{TRUE}.
+}
+
+Logical values \code{FALSE} and \code{TRUE} are also accepted for backward compatibility but are \emph{soft-deprecated}. Please use \code{"silent"} and \code{"full"} respectively instead.}
 
 \item{error}{Character string. How to handle errors. Options are \code{"cancel"} or \code{"continue"}. Defaults to \code{"cancel"}.}
 
-\item{stdout}{Default: "|" keep stderr to the R object
+\item{stdout}{Default: "|" keep stdout to the R object
+returned by \code{run()}.
+A character string can be used to define a file path to be used as standard output. e.g: "output.txt".}
+
+\item{stderr}{Default: "|" keep stderr to the R object
 returned by \code{run()}.
 A character string can be used to define a file path to be used as standard error. e.g: "error.txt".}
 }

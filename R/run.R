@@ -22,7 +22,17 @@
 #' @param additional_channels Character vector. Additional Conda channels to include when installing packages.
 #' @param sif_image_path Character string. The file path to the Singularity image file (`.sif`) to use when the method is `"singularity"`.
 #' @param gpu_container Logical. Whether to enable GPU support in the container. Defaults to `FALSE`.
-#' @param verbose Logical. Whether to display detailed output messages. Defaults to `FALSE`.
+#'
+#' @param verbose Character string specifying the verbosity level of the function's output. Acceptable values are:
+#'
+#' - **"silent"**: Suppress all output from internal command-line tools. Equivalent to `FALSE`.
+#' - **"cmd"**: Print the internal command(s) passed to the command-line tool.
+#' - **"output"**: Print the standard output and error from the command-line tool to the screen. Note that the order of the standard output and error lines may not be correct, as standard output is typically buffered. If the standard output and/or error is redirected to a file or they are ignored, they will not be echoed.
+#' - **"full"**: Print both the internal command(s) (`"cmd"`) and their standard output and error (`"output"`). Equivalent to `TRUE`.
+#'
+#' Logical values `FALSE` and `TRUE` are also accepted for backward compatibility but are *soft-deprecated*. Please use `"silent"` and `"full"` respectively instead.
+#'
+#'
 #' @param error Character string. How to handle errors. Options are `"cancel"` or `"continue"`. Defaults to `"cancel"`.
 #' @param stdout Character string or `"|"`. Standard output option. Defaults to `"|"`, which keeps stdout in the R object returned by `run()`.
 #'   A character string can be used to define a file path to be used as standard output (e.g., `"output.txt"`).
@@ -31,7 +41,7 @@
 #'   returned by `run()`.
 #'   A character string can be used to define a file path to be used as standard output. e.g: "output.txt".
 #'
-#' @param stdout Default: "|" keep stderr to the R object
+#' @param stderr Default: "|" keep stderr to the R object
 #'   returned by `run()`.
 #'   A character string can be used to define a file path to be used as standard error. e.g: "error.txt".
 #'
@@ -84,7 +94,9 @@ run <- function(cmd,
                 additional_channels = NULL,
                 sif_image_path = NULL,
                 gpu_container = FALSE,
-                verbose = FALSE,
+                verbose = c(
+                  "silent", "cmd", "output", "full", FALSE, TRUE
+                ),
                 error = c("cancel", "continue"),
                 stdout = "|",
                 stderr = "|") {
@@ -99,10 +111,10 @@ run <- function(cmd,
     )
   }
 
-
   error <- rlang::arg_match(error)
-
   method <- rlang::arg_match(method)
+  # verbose <- rlang::arg_match(verbose)
+  invisible_res <- parse_strategy_verbose(strategy = verbose)
 
   method_to_use <- method
 

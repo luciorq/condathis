@@ -1,9 +1,9 @@
 #' List Installed Environments
 #'
-#' @inheritParams create_env
+#' @inheritParams run
 #'
 #' @export
-list_envs <- function(verbose = FALSE) {
+list_envs <- function(verbose = "silent") {
   env_root_dir <- get_install_dir()
   px_res <- native_cmd(
     conda_cmd = "env",

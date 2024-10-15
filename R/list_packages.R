@@ -1,7 +1,7 @@
 #' List Packages Installed Inside Environment
 #' @inheritParams run
 #' @export
-list_packages <- function(env_name = "condathis-env", verbose = FALSE) {
+list_packages <- function(env_name = "condathis-env", verbose = "silent") {
   px_res <- native_cmd(
     conda_cmd = "list",
     conda_args = c(

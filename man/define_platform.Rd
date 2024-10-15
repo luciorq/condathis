@@ -20,7 +20,8 @@ argument assumes that env_file is not used.}
 Defaults to \code{NULL} which will use the current platform.
 E.g. "linux-64", "linux-32", "osx-64", "win-64", "win-32", "noarch".
 Note: on Apple Silicon MacOS will use "osx-64" instead of "osx-arm64"
-if Rosetta 2 is available.}
+if Rosetta 2 is available and any of the \code{packages} is not available
+for "osx-arm64".}
 
 \item{channels}{Character vector. Names of the channels to be included.
 By default 'c("bioconda", "conda-forge")' are used for solving

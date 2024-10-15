@@ -12,7 +12,7 @@
 native_cmd <- function(conda_cmd,
                        conda_args = NULL,
                        ...,
-                       verbose = FALSE,
+                       verbose = "silent",
                        error = c("cancel", "continue"),
                        stdout = "|",
                        stderr = "|") {
@@ -49,9 +49,12 @@ native_cmd <- function(conda_cmd,
       R_HOME = ""
     )
   )
+  verbose_list <- parse_strategy_verbose(strategy = verbose)
+  verbose_cmd <- verbose_list$cmd
+  verbose_output <- verbose_list$output
 
   if (isFALSE(stderr %in% c("|", ""))) {
-    verbose <- FALSE
+    verbose_output <- FALSE
   }
   callback_fun_out <- NULL
   callback_fun_err <- NULL
@@ -76,8 +79,8 @@ native_cmd <- function(conda_cmd,
       ...
     ),
     spinner = TRUE,
-    echo_cmd = verbose,
-    echo = verbose,
+    echo_cmd = verbose_cmd,
+    echo = verbose_output,
     stdout = stdout,
     stdout_line_callback = callback_fun_out,
     stderr = stderr,

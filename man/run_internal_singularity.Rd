@@ -30,11 +30,19 @@ If the specified environment does not exist, it will be created automatically us
 
 \item{gpu_container}{Logical. Whether to enable GPU support in the container. Defaults to \code{FALSE}.}
 
-\item{verbose}{Logical. Whether to display detailed output messages. Defaults to \code{FALSE}.}
+\item{verbose}{Character string specifying the verbosity level of the function's output. Acceptable values are:
+\itemize{
+\item \strong{"silent"}: Suppress all output from internal command-line tools. Equivalent to \code{FALSE}.
+\item \strong{"cmd"}: Print the internal command(s) passed to the command-line tool.
+\item \strong{"output"}: Print the standard output and error from the command-line tool to the screen. Note that the order of the standard output and error lines may not be correct, as standard output is typically buffered. If the standard output and/or error is redirected to a file or they are ignored, they will not be echoed.
+\item \strong{"full"}: Print both the internal command(s) (\code{"cmd"}) and their standard output and error (\code{"output"}). Equivalent to \code{TRUE}.
+}
 
-\item{stdout}{Default: "|" keep stderr to the R object
+Logical values \code{FALSE} and \code{TRUE} are also accepted for backward compatibility but are \emph{soft-deprecated}. Please use \code{"silent"} and \code{"full"} respectively instead.}
+
+\item{stdout}{Default: "|" keep stdout to the R object
 returned by \code{run()}.
-A character string can be used to define a file path to be used as standard error. e.g: "error.txt".}
+A character string can be used to define a file path to be used as standard output. e.g: "output.txt".}
 }
 \description{
 Internal function to run a command in a Conda environment using Singularity.

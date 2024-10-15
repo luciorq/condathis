@@ -2,6 +2,8 @@
 
 ## Breaking changes
 
+* `verbose`, levels `TRUE` and `FALSE` are now soft deprecated. For previous functionality `"full"` and `"silent"` should be used respectively.
+
 ## New features
 
 * `run()` now has `error` argument.
@@ -10,6 +12,7 @@
 
 * `run()` output now has class `"condathis_run_output"` with custom print method.
 * `run()` now exposes `stderr`.
+* `verbose`now accept any of `c("silent", "full", "cmd", "output")`. `TRUE` and `FALSE` are deprecated but still kept for compatibility.
 
 # condathis 0.0.4
 

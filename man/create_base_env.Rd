@@ -2,10 +2,11 @@
 % Please edit documentation in R/utils.R
 \name{create_base_env}
 \alias{create_base_env}
-\title{Create Package Base Env}
+\title{Create Package Base Environment}
 \usage{
 create_base_env()
 }
 \description{
-Create Package Base Env
+Create Package Base Environment
 }
+\keyword{internal}

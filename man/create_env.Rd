@@ -16,7 +16,7 @@ create_env(
   additional_channels = NULL,
   gpu_container = FALSE,
   platform = NULL,
-  verbose = FALSE,
+  verbose = "silent",
   overwrite = FALSE
 )
 }
@@ -64,11 +64,18 @@ Default to FALSE.}
 Defaults to \code{NULL} which will use the current platform.
 E.g. "linux-64", "linux-32", "osx-64", "win-64", "win-32", "noarch".
 Note: on Apple Silicon MacOS will use "osx-64" instead of "osx-arm64"
-if Rosetta 2 is available.}
+if Rosetta 2 is available and any of the \code{packages} is not available
+for "osx-arm64".}
 
-\item{verbose}{Logical. Should command and messages be print to
-the console.
-Defaults to \code{TRUE}.}
+\item{verbose}{Character string specifying the verbosity level of the function's output. Acceptable values are:
+\itemize{
+\item \strong{"silent"}: Suppress all output from internal command-line tools. Equivalent to \code{FALSE}.
+\item \strong{"cmd"}: Print the internal command(s) passed to the command-line tool.
+\item \strong{"output"}: Print the standard output and error from the command-line tool to the screen. Note that the order of the standard output and error lines may not be correct, as standard output is typically buffered. If the standard output and/or error is redirected to a file or they are ignored, they will not be echoed.
+\item \strong{"full"}: Print both the internal command(s) (\code{"cmd"}) and their standard output and error (\code{"output"}). Equivalent to \code{TRUE}.
+}
+
+Logical values \code{FALSE} and \code{TRUE} are also accepted for backward compatibility but are \emph{soft-deprecated}. Please use \code{"silent"} and \code{"full"} respectively instead.}
 
 \item{overwrite}{Logical. Should environment always be overwritten?
 Defaults to \code{FALSE}.}

@@ -6,7 +6,7 @@
 #'
 #' @export
 remove_env <- function(env_name = "condathis-env",
-                       verbose = FALSE) {
+                       verbose = "silent") {
   px_res <- native_cmd(
     conda_cmd = "env",
     conda_args = c(

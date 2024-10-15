@@ -52,11 +52,10 @@
 #'   Defaults to `NULL` which will use the current platform.
 #'   E.g. "linux-64", "linux-32", "osx-64", "win-64", "win-32", "noarch".
 #'   Note: on Apple Silicon MacOS will use "osx-64" instead of "osx-arm64"
-#'     if Rosetta 2 is available.
+#'     if Rosetta 2 is available and any of the `packages` is not available
+#'     for "osx-arm64".
 #'
-#' @param verbose Logical. Should command and messages be print to
-#'     the console.
-#'     Defaults to `TRUE`.
+#' @inheritParams run
 #'
 #' @param overwrite Logical. Should environment always be overwritten?
 #'     Defaults to `FALSE`.
@@ -82,7 +81,7 @@ create_env <- function(
     additional_channels = NULL,
     gpu_container = FALSE,
     platform = NULL,
-    verbose = FALSE,
+    verbose = "silent",
     overwrite = FALSE) {
   # ===========================================================================
   # TODO: @luciorq Temporary solution for <https://github.com/luciorq/condathis/issues/13>
@@ -178,7 +177,8 @@ create_env <- function(
         platform_args
       ),
       packages_arg,
-      verbose = verbose
+      verbose = verbose,
+      error = "cancel"
     )
   } else if (isTRUE(method_to_use == "docker")) {
     px_res <- create_env_internal_docker(

@@ -3,6 +3,7 @@ library(testthat)
 create_env(env_name = "condathis-test-env", verbose = FALSE)
 
 test_that("Output redirection to file", {
+  create_env(env_name = "condathis-test-env", verbose = "silent")
   temp_output_file <- fs::file_temp("test_output", ext = "txt")
   px_res <- run(
     "ls", "-lah",
