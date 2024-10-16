@@ -28,26 +28,6 @@
 #'   recipes are not available for the OS or CPU architecture in place.
 #'   The container-based backends leverage `dockerthis` R package.
 #'
-#' @param gpu_container Logical. GPU support for Container Beckend `methods`.
-#'   This argument is not necessary if running native.
-#'   Default to FALSE.
-#'
-#' @param container_name Character. Name of the Container created by Docker.
-#'   Defaults to `"condathis-micromamba-base"`.
-#'
-#' @param image_name Character. Name of the Docker Image used, it will try
-#'   to pull it automatically if internet connection is available.
-#'   Defaults to `"luciorq/condathis-micromamba:latest"`.
-#'
-#' @param container_name Character. Name of the Container created by Docker.
-#'   Defaults to `"condathis-micromamba-base"`.
-#'
-#' @param image_name Character. Name of the Docker Image used, it will try
-#'   to pull it automatically if internet connection is available.
-#'   Defaults to `"luciorq/condathis-micromamba:latest"`.
-#'
-#' @param sif_image_path Character. Path to SIF image file.
-#'
 #' @param platform Character. Platform to search for `packages`.
 #'   Defaults to `NULL` which will use the current platform.
 #'   E.g. "linux-64", "linux-32", "osx-64", "win-64", "win-32", "noarch".
@@ -75,11 +55,11 @@ create_env <- function(
       "docker",
       "singularity"
     ),
-    container_name = "condathis-micromamba-base",
-    image_name = "luciorq/condathis-micromamba:latest",
-    sif_image_path = NULL,
+    # container_name = "condathis-micromamba-base",
+    # image_name = "luciorq/condathis-micromamba:latest",
+    # sif_image_path = NULL,
+    # gpu_container = FALSE,
     additional_channels = NULL,
-    gpu_container = FALSE,
     platform = NULL,
     verbose = "silent",
     overwrite = FALSE) {
@@ -119,16 +99,16 @@ create_env <- function(
     channels
   )
   method_to_use <- method[1]
-  if (isTRUE(method_to_use == "auto")) {
-    method_to_use <- define_method_to_use(
-      packages = packages,
-      channels = channels,
-      additional_channels = additional_channels,
-      container_name = container_name,
-      image_name = image_name,
-      sif_image_path = sif_image_path
-    )
-  }
+  # if (isTRUE(method_to_use == "auto")) {
+  #   method_to_use <- define_method_to_use(
+  #     packages = packages,
+  #     channels = channels,
+  #     additional_channels = additional_channels,
+  #     container_name = container_name,
+  #     image_name = image_name,
+  #     sif_image_path = sif_image_path
+  #   )
+  # }
 
   if (isFALSE(is.null(packages))) {
     platform_args <- define_platform(
@@ -180,176 +160,27 @@ create_env <- function(
       verbose = verbose,
       error = "cancel"
     )
-  } else if (isTRUE(method_to_use == "docker")) {
-    px_res <- create_env_internal_docker(
-      packages = packages_arg,
-      env_file = env_file,
-      env_name = env_name,
-      channels = channels,
-      container_name = "condathis-micromamba-base",
-      image_name = "luciorq/condathis-micromamba:latest",
-      additional_channels = additional_channels,
-      verbose = verbose
-    )
-  } else if (isTRUE(method_to_use == "singularity")) {
-    px_res <- create_env_internal_singularity(
-      packages = packages_arg,
-      env_file = env_file,
-      env_name = env_name,
-      channels = channels,
-      sif_image_path = NULL,
-      additional_channels = additional_channels
-    )
   }
-  return(invisible(px_res))
-}
-
-#' Create Environment Using Docker
-#'
-#' @inheritParams create_env
-create_env_internal_docker <- function(
-    packages = NULL,
-    env_file = NULL,
-    env_name = "condathis-env",
-    channels = c(
-      "bioconda",
-      "conda-forge"
-    ),
-    container_name = "condathis-micromamba-base",
-    image_name = "luciorq/condathis-micromamba:latest",
-    additional_channels = NULL,
-    verbose = FALSE) {
-  stop_if_not_installed("dockerthis")
-  env_root_dir <- get_install_dir()
-  env_root_dir <- fs::path(paste0(env_root_dir, "-docker"))
-  if (isFALSE(fs::dir_exists(env_root_dir))) {
-    fs::dir_create(env_root_dir)
-    fs::dir_create(env_root_dir, "home")
-  }
-  channels_arg <- format_channels_args(additional_channels, channels)
-  env_file_path <- NULL
-  if (isFALSE(is.null(env_file))) {
-    if (fs::file_exists(env_file)) {
-      packages <- c("-f", env_file_path)
-    }
-  }
-
-  # TODO: @luciorq Fix for case insensitive FS still not working
-  # NOTE: @luciorq Fix for case insensitive file systems below
-  sys_arch <- get_sys_arch()
-  if (isTRUE(stringr::str_detect(sys_arch, "^[Darwin|Windows]"))) {
-    prefix_args <- c(
-      "-r",
-      "/home/dockerthis",
-      "-p",
-      fs::path(env_root_dir, "envs", env_name)
-    )
-  } else {
-    prefix_args <- c(
-      "-r", env_root_dir,
-      "-n", env_name
-    )
-  }
-  user_arg <- format_user_arg_string()
-  px_res <- dockerthis::docker_run(
-    "micromamba",
-    "--no-rc",
-    "--no-env",
-    "create",
-    prefix_args,
-    "--quiet",
-    "--yes",
-    "--experimental",
-    "--no-extra-safety-checks",
-    "--always-copy",
-    "--safety-checks", "0",
-    "--no-channel-priority",
-    "--override-channels",
-    "--channel-priority=0",
-    channels_arg,
-    packages,
-    container_name = container_name,
-    image_name = image_name,
-    docker_args = c(
-      "-e",
-      paste0("HOME=", env_root_dir, "/home"),
-      "--platform", "linux/amd64",
-      user_arg,
-      "--rm"
-    ),
-    mount_paths = c(
-      env_root_dir,
-      env_file_path
-    ),
-    verbose = verbose
-  )
-  return(invisible(px_res))
-}
-
-#' Create Environment Using Singularity / Apptainer
-#'
-#' @inheritParams create_env
-create_env_internal_singularity <- function(
-    packages = NULL,
-    env_file = NULL,
-    env_name = "condathis-env",
-    channels = c(
-      "bioconda",
-      "conda-forge"
-    ),
-    sif_image_path = NULL,
-    additional_channels = NULL,
-    verbose = FALSE) {
-  invisible(is_singularity_available())
-  env_root_dir <- get_install_dir()
-  env_root_dir <- fs::path(paste0(env_root_dir, "-docker"))
-  if (isFALSE(fs::dir_exists(env_root_dir))) {
-    fs::dir_create(env_root_dir)
-    fs::dir_create(env_root_dir, "home")
-  }
-  sif_dir <- fs::path(env_root_dir, "sif")
-  if (isFALSE(fs::dir_exists(sif_dir))) {
-    fs::dir_create(sif_dir)
-  }
-  if (is.null(sif_image_path)) {
-    sif_image_path <- fs::path(sif_dir, "condathis-micromamba", ext = "sif")
-  }
-
-  if (isTRUE(sif_image_path == fs::path(sif_dir, "condathis-micromamba", ext = "sif"))) {
-    if (isFALSE(fs::file_exists(sif_image_path))) {
-      build_container_image_singularity()
-    }
-  }
-  channels_arg <- format_channels_args(additional_channels, channels)
-  env_file_path <- NULL
-  if (isFALSE(is.null(env_file))) {
-    if (fs::file_exists(env_file)) {
-      packages <- c("-f", env_file_path)
-    }
-  }
-  px_res <- singularity_cmd(
-    "exec",
-    "-e",
-    "-H",
-    paste0(env_root_dir, "/home"),
-    "-W",
-    fs::path_wd(),
-    sif_image_path,
-    "micromamba",
-    "--no-rc",
-    "--no-env",
-    "create",
-    "-r",
-    env_root_dir,
-    "-n",
-    env_name,
-    "--yes",
-    "--quiet",
-    "--no-channel-priority",
-    "--override-channels",
-    "--channel-priority=0",
-    channels_arg,
-    packages
-  )
+  # else if (isTRUE(method_to_use == "docker")) {
+  #   px_res <- create_env_internal_docker(
+  #     packages = packages_arg,
+  #     env_file = env_file,
+  #     env_name = env_name,
+  #     channels = channels,
+  #     container_name = "condathis-micromamba-base",
+  #     image_name = "luciorq/condathis-micromamba:latest",
+  #     additional_channels = additional_channels,
+  #     verbose = verbose
+  #   )
+  # } else if (isTRUE(method_to_use == "singularity")) {
+  #   px_res <- create_env_internal_singularity(
+  #     packages = packages_arg,
+  #     env_file = env_file,
+  #     env_name = env_name,
+  #     channels = channels,
+  #     sif_image_path = NULL,
+  #     additional_channels = additional_channels
+  #   )
+  # }
   return(invisible(px_res))
 }

@@ -14,14 +14,12 @@
 #'
 #' @param method Character string. The method to use for running the command. Options are `"native"`, `"auto"`, `"docker"`, or `"singularity"`. Defaults to `"native"`.
 #'   If `"auto"` is selected, the function will automatically choose the appropriate method based on the system and available resources.
-#' @param container_name Character string. The name of the container to be used when running the command via Docker or Singularity. Defaults to `"condathis-micromamba-base"`.
-#' @param image_name Character string. The name of the Docker image to use when the method is `"docker"`. Defaults to `"luciorq/condathis-micromamba:latest"`.
-#' @param mount_paths Character vector. Host paths to be mounted in the container. Useful when using Docker or Singularity methods.
+#'
 #' @param packages Character vector. Additional Conda packages to install in the environment before running the command.
+#'
 #' @param channels Character vector. Conda channels to use when installing packages. Defaults to `c("bioconda", "conda-forge")`.
+#'
 #' @param additional_channels Character vector. Additional Conda channels to include when installing packages.
-#' @param sif_image_path Character string. The file path to the Singularity image file (`.sif`) to use when the method is `"singularity"`.
-#' @param gpu_container Logical. Whether to enable GPU support in the container. Defaults to `FALSE`.
 #'
 #' @param verbose Character string specifying the verbosity level of the function's output. Acceptable values are:
 #'
@@ -83,17 +81,17 @@ run <- function(cmd,
                   "docker",
                   "singularity"
                 ),
-                container_name = "condathis-micromamba-base",
-                image_name = "luciorq/condathis-micromamba:latest",
-                mount_paths = NULL,
                 packages = NULL,
                 channels = c(
                   "bioconda",
                   "conda-forge"
                 ),
                 additional_channels = NULL,
-                sif_image_path = NULL,
-                gpu_container = FALSE,
+                # container_name = "condathis-micromamba-base",
+                # image_name = "luciorq/condathis-micromamba:latest",
+                # mount_paths = NULL,
+                # sif_image_path = NULL,
+                # gpu_container = FALSE,
                 verbose = c(
                   "silent", "cmd", "output", "full", FALSE, TRUE
                 ),
@@ -124,16 +122,16 @@ run <- function(cmd,
     packages_to_search <- packages
   }
 
-  if (isTRUE(method_to_use == "auto")) {
-    method_to_use <- define_method_to_use(
-      packages = packages_to_search,
-      channels = channels,
-      additional_channels = additional_channels,
-      container_name = container_name,
-      image_name = image_name,
-      sif_image_path = sif_image_path
-    )
-  }
+  # if (isTRUE(method_to_use == "auto")) {
+  #   method_to_use <- define_method_to_use(
+  #     packages = packages_to_search,
+  #     channels = channels,
+  #     additional_channels = additional_channels,
+  #     container_name = container_name,
+  #     image_name = image_name,
+  #     sif_image_path = sif_image_path
+  #   )
+  # }
 
   if (isTRUE(method_to_use == "native")) {
     px_res <- run_internal_native(
@@ -145,30 +143,31 @@ run <- function(cmd,
       stdout = stdout,
       stderr = stderr
     )
-  } else if (isTRUE(method_to_use == "docker")) {
-    px_res <- run_internal_docker(
-      cmd = cmd,
-      ...,
-      env_name = env_name,
-      container_name = container_name,
-      image_name = image_name,
-      mount_paths = mount_paths,
-      gpu_container = gpu_container,
-      verbose = verbose,
-      stdout = stdout
-    )
-  } else if (isTRUE(method_to_use == "singularity")) {
-    px_res <- run_internal_singularity(
-      cmd = cmd,
-      ...,
-      env_name = env_name,
-      sif_image_path = sif_image_path,
-      mount_paths = mount_paths,
-      gpu_container = gpu_container,
-      verbose = verbose,
-      stdout = stdout
-    )
   }
+  # else if (isTRUE(method_to_use == "docker")) {
+  #   px_res <- run_internal_docker(
+  #     cmd = cmd,
+  #     ...,
+  #     env_name = env_name,
+  #     container_name = container_name,
+  #     image_name = image_name,
+  #     mount_paths = mount_paths,
+  #     gpu_container = gpu_container,
+  #     verbose = verbose,
+  #     stdout = stdout
+  #   )
+  # } else if (isTRUE(method_to_use == "singularity")) {
+  #   px_res <- run_internal_singularity(
+  #     cmd = cmd,
+  #     ...,
+  #     env_name = env_name,
+  #     sif_image_path = sif_image_path,
+  #     mount_paths = mount_paths,
+  #     gpu_container = gpu_container,
+  #     verbose = verbose,
+  #     stdout = stdout
+  #   )
+  # }
 
   return(invisible(px_res))
 }
@@ -216,157 +215,6 @@ run_internal_native <- function(cmd,
     error = error,
     stdout = stdout,
     stderr = stderr
-  )
-  return(invisible(px_res))
-}
-
-#' Run Command Using Docker
-#'
-#' Internal function to run a command in a Conda environment using Docker.
-#'
-#' @inheritParams run
-run_internal_docker <- function(cmd,
-                                ...,
-                                env_name = "condathis-env",
-                                container_name = "condathis-micromamba-base",
-                                image_name = "luciorq/condathis-micromamba:latest",
-                                mount_paths = NULL,
-                                gpu_container = FALSE,
-                                verbose = TRUE,
-                                stdout = "|") {
-  stop_if_not_installed("dockerthis")
-  env_root_dir <- get_install_dir()
-  env_root_dir <- fs::path(paste0(env_root_dir, "-docker"))
-  user_arg <- format_user_arg_string()
-  if (isTRUE(gpu_container)) {
-    gpu_args <- c("--gpus", "all")
-  } else {
-    gpu_args <- NULL
-  }
-  px_res <- dockerthis::docker_run(
-    "micromamba",
-    "--no-env",
-    "--no-rc",
-    "run",
-    "-r",
-    env_root_dir,
-    "-n",
-    env_name,
-    # "--quiet",
-    cmd,
-    ...,
-    container_name = container_name,
-    image_name = image_name,
-    docker_args = c(
-      "-e",
-      paste0("HOME=", env_root_dir, "/home"),
-      paste0("--workdir=", fs::path_wd()),
-      "--platform=linux/amd64",
-      user_arg,
-      "--rm",
-      gpu_args
-    ),
-    mount_paths = c(
-      env_root_dir,
-      fs::path_wd(),
-      mount_paths
-    )
-  )
-  return(invisible(px_res))
-}
-
-#' Run Command Using Singularity
-#'
-#' Internal function to run a command in a Conda environment using Singularity.
-#'
-#' @inheritParams run
-run_internal_singularity <- function(cmd,
-                                     ...,
-                                     env_name = "condathis-env",
-                                     sif_image_path = NULL,
-                                     mount_paths = NULL,
-                                     gpu_container = FALSE,
-                                     verbose = FALSE,
-                                     stdout = "|") {
-  invisible(is_singularity_available())
-  env_root_dir <- get_install_dir()
-  env_root_dir <- fs::path(paste0(env_root_dir, "-docker"))
-  if (isFALSE(fs::dir_exists(env_root_dir))) {
-    fs::dir_create(env_root_dir)
-    fs::dir_create(env_root_dir, "home")
-  }
-  sif_dir <- fs::path(env_root_dir, "sif")
-  if (isFALSE(fs::dir_exists(sif_dir))) {
-    fs::dir_create(sif_dir)
-  }
-  if (is.null(sif_image_path)) {
-    sif_image_path <- fs::path(sif_dir, "condathis-micromamba", ext = "sif")
-  }
-  if (isTRUE(sif_image_path == fs::path(sif_dir, "condathis-micromamba", ext = "sif"))) {
-    if (isFALSE(fs::file_exists(sif_image_path))) {
-      build_container_image_singularity()
-    }
-  }
-  mount_path_arg <- c()
-  if (isFALSE(is.null(mount_paths))) {
-    for (mount_path in mount_paths) {
-      if (isTRUE(stringr::str_detect(mount_path, pattern = ":"))) {
-        mount_temp_vec <- unlist(stringr::str_split(mount_path, pattern = ":"))
-        if (isFALSE(fs::dir_exists(mount_temp_vec[1]))) {
-          cli::cli_abort(
-            message = c(
-              `x` = "{.path {mount_temp_vec[1]}} do not exist."
-            ),
-            class = "condathis_run_singularity_missing_mount_path"
-          )
-        }
-        mount_path_abs <- fs::path_abs(mount_temp_vec[1])
-        mount_path_target <- fs::path_abs(mount_temp_vec[2])
-      } else {
-        if (isFALSE(fs::dir_exists(mount_path))) {
-          cli::cli_abort(
-            message = c(
-              `x` = "{.path {mount_path}} do not exist."
-            ),
-            class = "condathis_run_singularity_missing_mount_path"
-          )
-        }
-        mount_path_abs <- fs::path_abs(mount_path)
-        mount_path_target <- mount_path_abs
-      }
-      mount_path_arg <- c(
-        mount_path_arg,
-        "--bind",
-        paste0(mount_path_abs, ":", mount_path_target)
-      )
-    }
-  }
-  if (isTRUE(gpu_container)) {
-    gpu_args <- "--nv"
-  } else {
-    gpu_args <- NULL
-  }
-  px_res <- singularity_cmd(
-    "exec",
-    gpu_args,
-    "-e",
-    "-H",
-    paste0(env_root_dir, "/home"),
-    "-W",
-    fs::path_wd(),
-    mount_path_arg,
-    sif_image_path,
-    "micromamba",
-    "--no-env",
-    "--no-rc",
-    "run",
-    "-r",
-    env_root_dir,
-    "-n",
-    env_name,
-    # "--quiet",
-    cmd,
-    ...
   )
   return(invisible(px_res))
 }

@@ -10,11 +10,7 @@ create_env(
   env_name = "condathis-env",
   channels = c("bioconda", "conda-forge"),
   method = c("native", "auto", "docker", "singularity"),
-  container_name = "condathis-micromamba-base",
-  image_name = "luciorq/condathis-micromamba:latest",
-  sif_image_path = NULL,
   additional_channels = NULL,
-  gpu_container = FALSE,
   platform = NULL,
   verbose = "silent",
   overwrite = FALSE
@@ -44,21 +40,8 @@ those are especially useful if running on systems where the Conda
 recipes are not available for the OS or CPU architecture in place.
 The container-based backends leverage \code{dockerthis} R package.}
 
-\item{container_name}{Character. Name of the Container created by Docker.
-Defaults to \code{"condathis-micromamba-base"}.}
-
-\item{image_name}{Character. Name of the Docker Image used, it will try
-to pull it automatically if internet connection is available.
-Defaults to \code{"luciorq/condathis-micromamba:latest"}.}
-
-\item{sif_image_path}{Character. Path to SIF image file.}
-
 \item{additional_channels}{Character. Additional Channels to be added to the
 default ones.}
-
-\item{gpu_container}{Logical. GPU support for Container Beckend \code{methods}.
-This argument is not necessary if running native.
-Default to FALSE.}
 
 \item{platform}{Character. Platform to search for \code{packages}.
 Defaults to \code{NULL} which will use the current platform.

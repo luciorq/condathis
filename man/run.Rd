@@ -9,14 +9,9 @@ run(
   ...,
   env_name = "condathis-env",
   method = c("native", "auto", "docker", "singularity"),
-  container_name = "condathis-micromamba-base",
-  image_name = "luciorq/condathis-micromamba:latest",
-  mount_paths = NULL,
   packages = NULL,
   channels = c("bioconda", "conda-forge"),
   additional_channels = NULL,
-  sif_image_path = NULL,
-  gpu_container = FALSE,
   verbose = c("silent", "cmd", "output", "full", FALSE, TRUE),
   error = c("cancel", "continue"),
   stdout = "|",
@@ -35,21 +30,11 @@ If the specified environment does not exist, it will be created automatically us
 \item{method}{Character string. The method to use for running the command. Options are \code{"native"}, \code{"auto"}, \code{"docker"}, or \code{"singularity"}. Defaults to \code{"native"}.
 If \code{"auto"} is selected, the function will automatically choose the appropriate method based on the system and available resources.}
 
-\item{container_name}{Character string. The name of the container to be used when running the command via Docker or Singularity. Defaults to \code{"condathis-micromamba-base"}.}
-
-\item{image_name}{Character string. The name of the Docker image to use when the method is \code{"docker"}. Defaults to \code{"luciorq/condathis-micromamba:latest"}.}
-
-\item{mount_paths}{Character vector. Host paths to be mounted in the container. Useful when using Docker or Singularity methods.}
-
 \item{packages}{Character vector. Additional Conda packages to install in the environment before running the command.}
 
 \item{channels}{Character vector. Conda channels to use when installing packages. Defaults to \code{c("bioconda", "conda-forge")}.}
 
 \item{additional_channels}{Character vector. Additional Conda channels to include when installing packages.}
-
-\item{sif_image_path}{Character string. The file path to the Singularity image file (\code{.sif}) to use when the method is \code{"singularity"}.}
-
-\item{gpu_container}{Logical. Whether to enable GPU support in the container. Defaults to \code{FALSE}.}
 
 \item{verbose}{Character string specifying the verbosity level of the function's output. Acceptable values are:
 \itemize{
