@@ -1,4 +1,5 @@
 test_that("create nested environment", {
+  testthat::skip_on_cran()
   create_res <- create_env(
     packages = NULL,
     env_name = "test-nested-env",

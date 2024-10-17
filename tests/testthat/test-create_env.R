@@ -1,4 +1,4 @@
-test_that("create_env invalid method arg", {
+testthat::test_that("create_env invalid method arg", {
   testthat::expect_error(
     object = {
       create_env(NULL, method = NA)
@@ -22,12 +22,28 @@ test_that("create_env invalid method arg", {
   )
 })
 
-test_that("conda env is created", {
+testthat::test_that("conda env is created", {
+  testthat::skip_on_cran()
+
   px_res <- create_env(
     packages = c("r-base=4.1.3", "r-devtools"),
     env_name = "condathis-test-env"
   )
   expect_equal(px_res$status, 0L)
+
+
+  withr::with_path(
+    new = dirname(micromamba_bin_path()),
+    code = {
+      umamba_path <- micromamba_user_installed()
+    },
+    action = "replace"
+  )
+
+  testthat::expect_equal(
+    micromamba_bin_path(),
+    umamba_path
+  )
 
   run_res <- run(
     "Rmissing",
@@ -117,7 +133,9 @@ test_that("conda env is created", {
   expect_false("condathis-test-env" %in% list_envs())
 })
 
-test_that("Create conda env from file", {
+testthat::test_that("Create conda env from file", {
+  testthat::skip_on_cran()
+
   px_res <- create_env(
     env_file = fs::path_package("condathis", "extdata", "stat-env.yml"),
     method = "native",

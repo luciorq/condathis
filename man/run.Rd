@@ -9,9 +9,6 @@ run(
   ...,
   env_name = "condathis-env",
   method = c("native", "auto"),
-  packages = NULL,
-  channels = c("bioconda", "conda-forge"),
-  additional_channels = NULL,
   verbose = c("silent", "cmd", "output", "full", FALSE, TRUE),
   error = c("cancel", "continue"),
   stdout = "|",
@@ -30,21 +27,14 @@ If the specified environment does not exist, it will be created automatically us
 \item{method}{Character string. The method to use for running the command. Options are \code{"native"}, \code{"auto"}. Defaults to \code{"native"}.
 This argument is \strong{soft deprecated} as changing it don't really do anything.}
 
-\item{packages}{Character vector. Additional Conda packages to install in the environment before running the command.}
-
-\item{channels}{Character vector. Conda channels to use when installing packages. Defaults to \code{c("bioconda", "conda-forge")}.}
-
-\item{additional_channels}{Character vector. Additional Conda channels to include when installing packages.}
-
 \item{verbose}{Character string specifying the verbosity level of the function's output. Acceptable values are:
 \itemize{
 \item \strong{"silent"}: Suppress all output from internal command-line tools. Equivalent to \code{FALSE}.
 \item \strong{"cmd"}: Print the internal command(s) passed to the command-line tool.
 \item \strong{"output"}: Print the standard output and error from the command-line tool to the screen. Note that the order of the standard output and error lines may not be correct, as standard output is typically buffered. If the standard output and/or error is redirected to a file or they are ignored, they will not be echoed.
 \item \strong{"full"}: Print both the internal command(s) (\code{"cmd"}) and their standard output and error (\code{"output"}). Equivalent to \code{TRUE}.
-}
-
-Logical values \code{FALSE} and \code{TRUE} are also accepted for backward compatibility but are \emph{soft-deprecated}. Please use \code{"silent"} and \code{"full"} respectively instead.}
+Logical values \code{FALSE} and \code{TRUE} are also accepted for backward compatibility but are \emph{soft-deprecated}. Please use \code{"silent"} and \code{"full"} respectively instead.
+}}
 
 \item{error}{Character string. How to handle errors. Options are \code{"cancel"} or \code{"continue"}. Defaults to \code{"cancel"}.}
 
