@@ -1,3 +1,19 @@
+# condathis 0.0.6
+
+## Breaking changes
+
+* `method = "auto"` no longer exists. For backward compatibility will fall back
+  to `method = "native"`.
+  * All container back-end methods were removed and `method = "native"` is the
+    only `method` supported using just this package.
+  * A method for supplying additional method will be implemented in the future.
+
+## Minor improvements and fixes
+
+* Remove dependency on `dockerthis`.
+  For additional support to container based back-ends follow development at
+  [dockerthis](https://github.com/luciorq/dockerthis) and [runthis](https://github.com/luciorq/runthis) GitHub repositories.
+
 # condathis 0.0.5
 
 ## Breaking changes
