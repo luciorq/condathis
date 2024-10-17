@@ -9,4 +9,7 @@ testthat::test_that("Parse verbose strategy", {
     parse_strategy_verbose("TRUE"),
     class = "condathis_error_invalid_verbose"
   )
+  
+  
+  testthat::expect_equal(parse_strategy_verbose(strategy = c("silent"," full")), list(cmd = FALSE, output = FALSE))
 })
