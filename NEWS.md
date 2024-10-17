@@ -14,6 +14,8 @@
   For additional support to container based back-ends follow development at
   [dockerthis](https://github.com/luciorq/dockerthis) and [runthis](https://github.com/luciorq/runthis) GitHub repositories.
 
+* Fix error in `run()` when `verbose` argument was not supplied.
+
 # condathis 0.0.5
 
 ## Breaking changes
