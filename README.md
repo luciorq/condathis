@@ -45,6 +45,7 @@ create_env("samtools", env_name = "samtools-env", method = "native")
 run("samtools", "view", "--help", env_name = "samtools-env", method = "native")
 ```
 
+<!--
 #### Example with Singularity containers
 
 `condathis` supports running Conda using Singularity containers.
@@ -71,6 +72,8 @@ build_container_image(method = "docker")
 create_env("samtools", env_name = "samtools-env", method = "docker")
 run("samtools", "view", bam_file, env_name = "samtools-env", method = "docker")
 ```
+-->
+
 
 ---
 
@@ -80,7 +83,7 @@ With `condathis`, you can effortlessly create and manage isolated Conda environm
 
 ## Key Features of `condathis`
 
-Conda Environment Management: `condathis` allows you to easily create conda environments, empowering you to work with different tool configurations for each step of analysis or project.
+Conda Environment Management: `condathis` allows you to easily create Conda environments, empowering you to work with different tool configurations for each step of analysis or project.
 This ensures that your workflows remain isolated and reproducible.
 
 Command Line Tool Execution: The package offers a seamless interface for executing command line tools directly from your R code.

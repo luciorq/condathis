@@ -2,7 +2,6 @@
 #'
 #' This function allows the execution of command-line tools within a specified Conda environment.
 #' It runs the provided command in the designated Conda environment using the Micromamba binaries managed by the `condathis` package.
-#' The function supports multiple execution methods, including native execution, Docker containers, and Singularity containers.
 #'
 #' @param cmd Character. The main command to be executed in the Conda environment.
 #'
@@ -12,8 +11,8 @@
 #' @param env_name Character. The name of the Conda environment where the tool will be run. Defaults to `"condathis-env"`.
 #'   If the specified environment does not exist, it will be created automatically using `create_env()`.
 #'
-#' @param method Character string. The method to use for running the command. Options are `"native"`, `"auto"`, `"docker"`, or `"singularity"`. Defaults to `"native"`.
-#'   If `"auto"` is selected, the function will automatically choose the appropriate method based on the system and available resources.
+#' @param method Character string. The method to use for running the command. Options are `"native"`, `"auto"`. Defaults to `"native"`.
+#'   This argument is **soft deprecated** as changing it don't really do anything.
 #'
 #' @param packages Character vector. Additional Conda packages to install in the environment before running the command.
 #'
@@ -48,7 +47,6 @@
 #'
 #' @details
 #' The `run()` function provides a flexible way to execute command-line tools within Conda environments.
-#' It leverages Micromamba for environment management and supports execution via native methods or containerization technologies like Docker and Singularity.
 #' This is particularly useful for reproducible research and ensuring that specific versions of tools are used.
 #'
 #' @examples
@@ -61,12 +59,6 @@
 #'
 #' ## Run a command with additional arguments
 #' run("my-command", "--arg1", "--arg2=value", env_name = "my-conda-env")
-#'
-#' ## Run a command using Docker
-#' run("python script.py", method = "docker")
-#'
-#' ## Run a command with GPU support in a container
-#' run("my-gpu-command", gpu_container = TRUE)
 #' }
 #' @seealso
 #' \code{\link{install_micromamba}}, \code{\link{create_env}}
@@ -77,9 +69,7 @@ run <- function(cmd,
                 env_name = "condathis-env",
                 method = c(
                   "native",
-                  "auto",
-                  "docker",
-                  "singularity"
+                  "auto"
                 ),
                 packages = NULL,
                 channels = c(
@@ -87,11 +77,6 @@ run <- function(cmd,
                   "conda-forge"
                 ),
                 additional_channels = NULL,
-                # container_name = "condathis-micromamba-base",
-                # image_name = "luciorq/condathis-micromamba:latest",
-                # mount_paths = NULL,
-                # sif_image_path = NULL,
-                # gpu_container = FALSE,
                 verbose = c(
                   "silent", "cmd", "output", "full", FALSE, TRUE
                 ),
@@ -114,26 +99,18 @@ run <- function(cmd,
   # verbose <- rlang::arg_match(verbose)
   invisible_res <- parse_strategy_verbose(strategy = verbose)
 
-  method_to_use <- method
+  method_to_use <- method[1]
 
+  # TODO: @luciorq `packages` argument is not used anymore since method is
+  # + not defined automatically.
   if (is.null(packages)) {
     packages_to_search <- cmd
   } else {
     packages_to_search <- packages
   }
 
-  # if (isTRUE(method_to_use == "auto")) {
-  #   method_to_use <- define_method_to_use(
-  #     packages = packages_to_search,
-  #     channels = channels,
-  #     additional_channels = additional_channels,
-  #     container_name = container_name,
-  #     image_name = image_name,
-  #     sif_image_path = sif_image_path
-  #   )
-  # }
 
-  if (isTRUE(method_to_use == "native")) {
+  if (isTRUE(method_to_use %in% c("native", "auto"))) {
     px_res <- run_internal_native(
       cmd = cmd,
       ...,
@@ -144,31 +121,6 @@ run <- function(cmd,
       stderr = stderr
     )
   }
-  # else if (isTRUE(method_to_use == "docker")) {
-  #   px_res <- run_internal_docker(
-  #     cmd = cmd,
-  #     ...,
-  #     env_name = env_name,
-  #     container_name = container_name,
-  #     image_name = image_name,
-  #     mount_paths = mount_paths,
-  #     gpu_container = gpu_container,
-  #     verbose = verbose,
-  #     stdout = stdout
-  #   )
-  # } else if (isTRUE(method_to_use == "singularity")) {
-  #   px_res <- run_internal_singularity(
-  #     cmd = cmd,
-  #     ...,
-  #     env_name = env_name,
-  #     sif_image_path = sif_image_path,
-  #     mount_paths = mount_paths,
-  #     gpu_container = gpu_container,
-  #     verbose = verbose,
-  #     stdout = stdout
-  #   )
-  # }
-
   return(invisible(px_res))
 }
 

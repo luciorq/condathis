@@ -22,11 +22,8 @@
 #'
 #' @param method Character. Beckend method to run `micromamba`, the default is
 #'   "auto" running "native" with the `micromamba` binaries installed
-#'   by `condathis`. Additional methods are supported for using Docker Linux Containers
-#'   "docker" and Singularity Containers "singularity" as the beckends,
-#'   those are especially useful if running on systems where the Conda
-#'   recipes are not available for the OS or CPU architecture in place.
-#'   The container-based backends leverage `dockerthis` R package.
+#'   by `condathis`.
+#'   This argument is **soft deprecated** as changing it don't really do anything.
 #'
 #' @param platform Character. Platform to search for `packages`.
 #'   Defaults to `NULL` which will use the current platform.
@@ -51,14 +48,8 @@ create_env <- function(
     ),
     method = c(
       "native",
-      "auto",
-      "docker",
-      "singularity"
+      "auto"
     ),
-    # container_name = "condathis-micromamba-base",
-    # image_name = "luciorq/condathis-micromamba:latest",
-    # sif_image_path = NULL,
-    # gpu_container = FALSE,
     additional_channels = NULL,
     platform = NULL,
     verbose = "silent",
@@ -99,17 +90,6 @@ create_env <- function(
     channels
   )
   method_to_use <- method[1]
-  # if (isTRUE(method_to_use == "auto")) {
-  #   method_to_use <- define_method_to_use(
-  #     packages = packages,
-  #     channels = channels,
-  #     additional_channels = additional_channels,
-  #     container_name = container_name,
-  #     image_name = image_name,
-  #     sif_image_path = sif_image_path
-  #   )
-  # }
-
   if (isFALSE(is.null(packages))) {
     platform_args <- define_platform(
       packages = packages,
@@ -121,7 +101,7 @@ create_env <- function(
     platform_args <- NULL
   }
 
-  if (isTRUE(method_to_use == "native")) {
+  if (isTRUE(method_to_use %in% c("native", "auto"))) {
     if (env_exists(env_name = env_name) && isFALSE(overwrite)) {
       pkg_list_res <- list_packages(env_name = env_name, verbose = verbose)
 
@@ -161,26 +141,5 @@ create_env <- function(
       error = "cancel"
     )
   }
-  # else if (isTRUE(method_to_use == "docker")) {
-  #   px_res <- create_env_internal_docker(
-  #     packages = packages_arg,
-  #     env_file = env_file,
-  #     env_name = env_name,
-  #     channels = channels,
-  #     container_name = "condathis-micromamba-base",
-  #     image_name = "luciorq/condathis-micromamba:latest",
-  #     additional_channels = additional_channels,
-  #     verbose = verbose
-  #   )
-  # } else if (isTRUE(method_to_use == "singularity")) {
-  #   px_res <- create_env_internal_singularity(
-  #     packages = packages_arg,
-  #     env_file = env_file,
-  #     env_name = env_name,
-  #     channels = channels,
-  #     sif_image_path = NULL,
-  #     additional_channels = additional_channels
-  #   )
-  # }
   return(invisible(px_res))
 }

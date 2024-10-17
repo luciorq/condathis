@@ -8,7 +8,7 @@ run(
   cmd,
   ...,
   env_name = "condathis-env",
-  method = c("native", "auto", "docker", "singularity"),
+  method = c("native", "auto"),
   packages = NULL,
   channels = c("bioconda", "conda-forge"),
   additional_channels = NULL,
@@ -27,8 +27,8 @@ File paths should not contain special characters or spaces.}
 \item{env_name}{Character. The name of the Conda environment where the tool will be run. Defaults to \code{"condathis-env"}.
 If the specified environment does not exist, it will be created automatically using \code{create_env()}.}
 
-\item{method}{Character string. The method to use for running the command. Options are \code{"native"}, \code{"auto"}, \code{"docker"}, or \code{"singularity"}. Defaults to \code{"native"}.
-If \code{"auto"} is selected, the function will automatically choose the appropriate method based on the system and available resources.}
+\item{method}{Character string. The method to use for running the command. Options are \code{"native"}, \code{"auto"}. Defaults to \code{"native"}.
+This argument is \strong{soft deprecated} as changing it don't really do anything.}
 
 \item{packages}{Character vector. Additional Conda packages to install in the environment before running the command.}
 
@@ -63,11 +63,9 @@ Contains information about the standard output, standard error, and exit status 
 \description{
 This function allows the execution of command-line tools within a specified Conda environment.
 It runs the provided command in the designated Conda environment using the Micromamba binaries managed by the \code{condathis} package.
-The function supports multiple execution methods, including native execution, Docker containers, and Singularity containers.
 }
 \details{
 The \code{run()} function provides a flexible way to execute command-line tools within Conda environments.
-It leverages Micromamba for environment management and supports execution via native methods or containerization technologies like Docker and Singularity.
 This is particularly useful for reproducible research and ensuring that specific versions of tools are used.
 }
 \examples{
@@ -80,12 +78,6 @@ run("python script.py", env_name = "my-conda-env")
 
 ## Run a command with additional arguments
 run("my-command", "--arg1", "--arg2=value", env_name = "my-conda-env")
-
-## Run a command using Docker
-run("python script.py", method = "docker")
-
-## Run a command with GPU support in a container
-run("my-gpu-command", gpu_container = TRUE)
 }
 }
 \seealso{

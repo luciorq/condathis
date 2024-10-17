@@ -6,7 +6,7 @@
   to `method = "native"`.
   * All container back-end methods were removed and `method = "native"` is the
     only `method` supported using just this package.
-  * A method for supplying additional method will be implemented in the future.
+  * A method for supplying additional backends from other packages is planned to be implemented.
 
 ## Minor improvements and fixes
 

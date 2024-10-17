@@ -25,15 +25,13 @@ test_that("create_env invalid method arg", {
 test_that("conda env is created", {
   px_res <- create_env(
     packages = c("r-base=4.1.3", "r-devtools"),
-    env_name = "condathis-test-env",
-    verbose = FALSE
+    env_name = "condathis-test-env"
   )
   expect_equal(px_res$status, 0L)
 
   run_res <- run(
     "Rmissing",
     env_name = "condathis-test-env",
-    verbose = FALSE,
     error = "continue"
   )
   expect_true(run_res$status != 0L)
@@ -54,7 +52,7 @@ test_that("conda env is created", {
   run_res <- run(
     "R", "-s", "-q", "--version",
     env_name = "condathis-test-env",
-    verbose = FALSE,
+    verbose = "silent",
     error = "continue"
   )
 
@@ -124,7 +122,7 @@ test_that("Create conda env from file", {
     env_file = fs::path_package("condathis", "extdata", "stat-env.yml"),
     method = "native",
     env_name = "condathis-test-env",
-    verbose = FALSE
+    verbose = "silent"
   )
   expect_equal(px_res$status, 0)
 

@@ -9,7 +9,7 @@ create_env(
   env_file = NULL,
   env_name = "condathis-env",
   channels = c("bioconda", "conda-forge"),
-  method = c("native", "auto", "docker", "singularity"),
+  method = c("native", "auto"),
   additional_channels = NULL,
   platform = NULL,
   verbose = "silent",
@@ -34,11 +34,8 @@ dependencies.}
 
 \item{method}{Character. Beckend method to run \code{micromamba}, the default is
 "auto" running "native" with the \code{micromamba} binaries installed
-by \code{condathis}. Additional methods are supported for using Docker Linux Containers
-"docker" and Singularity Containers "singularity" as the beckends,
-those are especially useful if running on systems where the Conda
-recipes are not available for the OS or CPU architecture in place.
-The container-based backends leverage \code{dockerthis} R package.}
+by \code{condathis}.
+This argument is \strong{soft deprecated} as changing it don't really do anything.}
 
 \item{additional_channels}{Character. Additional Channels to be added to the
 default ones.}

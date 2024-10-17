@@ -2,14 +2,14 @@
 #'
 #' @param strategy Character string specifying the verbosity level.
 #' @keywords internal
-parse_strategy_verbose <- function(strategy)  {
+parse_strategy_verbose <- function(strategy) {
   if (isTRUE(strategy)) {
     strategy <- "full"
   }
   if (isFALSE(strategy)) {
     strategy <- "silent"
   }
-  
+
   if (isTRUE(length(strategy) > 1L)) {
     strategy <- strategy[1]
   }
