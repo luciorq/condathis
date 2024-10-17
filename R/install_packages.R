@@ -15,7 +15,7 @@ install_packages <- function(packages,
                              ),
                              additional_channels = NULL,
                              verbose = "silent") {
-  if (!any(list_envs() %in% env_name)) {
+  if (isFALSE(any(list_envs() %in% env_name))) {
     create_env(
       packages = NULL,
       env_name = env_name,

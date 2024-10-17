@@ -14,25 +14,15 @@
 #' @param method Character string. The method to use for running the command. Options are `"native"`, `"auto"`. Defaults to `"native"`.
 #'   This argument is **soft deprecated** as changing it don't really do anything.
 #'
-#' @param packages Character vector. Additional Conda packages to install in the environment before running the command.
-#'
-#' @param channels Character vector. Conda channels to use when installing packages. Defaults to `c("bioconda", "conda-forge")`.
-#'
-#' @param additional_channels Character vector. Additional Conda channels to include when installing packages.
-#'
 #' @param verbose Character string specifying the verbosity level of the function's output. Acceptable values are:
 #'
 #' - **"silent"**: Suppress all output from internal command-line tools. Equivalent to `FALSE`.
 #' - **"cmd"**: Print the internal command(s) passed to the command-line tool.
 #' - **"output"**: Print the standard output and error from the command-line tool to the screen. Note that the order of the standard output and error lines may not be correct, as standard output is typically buffered. If the standard output and/or error is redirected to a file or they are ignored, they will not be echoed.
 #' - **"full"**: Print both the internal command(s) (`"cmd"`) and their standard output and error (`"output"`). Equivalent to `TRUE`.
-#'
 #' Logical values `FALSE` and `TRUE` are also accepted for backward compatibility but are *soft-deprecated*. Please use `"silent"` and `"full"` respectively instead.
 #'
-#'
 #' @param error Character string. How to handle errors. Options are `"cancel"` or `"continue"`. Defaults to `"cancel"`.
-#' @param stdout Character string or `"|"`. Standard output option. Defaults to `"|"`, which keeps stdout in the R object returned by `run()`.
-#'   A character string can be used to define a file path to be used as standard output (e.g., `"output.txt"`).
 #'
 #' @param stdout Default: "|" keep stdout to the R object
 #'   returned by `run()`.
@@ -71,12 +61,6 @@ run <- function(cmd,
                   "native",
                   "auto"
                 ),
-                packages = NULL,
-                channels = c(
-                  "bioconda",
-                  "conda-forge"
-                ),
-                additional_channels = NULL,
                 verbose = c(
                   "silent", "cmd", "output", "full", FALSE, TRUE
                 ),
@@ -97,18 +81,9 @@ run <- function(cmd,
   error <- rlang::arg_match(error)
   method <- rlang::arg_match(method)
   # verbose <- rlang::arg_match(verbose)
-  invisible_res <- parse_strategy_verbose(strategy = verbose)
+  invisible_res <- parse_strategy_verbose(strategy = verbose[1])
 
   method_to_use <- method[1]
-
-  # TODO: @luciorq `packages` argument is not used anymore since method is
-  # + not defined automatically.
-  if (is.null(packages)) {
-    packages_to_search <- cmd
-  } else {
-    packages_to_search <- packages
-  }
-
 
   if (isTRUE(method_to_use %in% c("native", "auto"))) {
     px_res <- run_internal_native(

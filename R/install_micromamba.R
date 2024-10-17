@@ -26,9 +26,6 @@ install_micromamba <- function(micromamba_version = "2.0.2-0",
                                force = FALSE) {
   umamba_bin_path <- micromamba_bin_path()
 
-  # capabilities()
-  # if ()
-
   if (isTRUE(fs::file_exists(umamba_bin_path)) && isFALSE(force)) {
     cli::cli_inform(c(
       "i" = "{.pkg micromamba} is already installed at {.path {umamba_bin_path}}."
