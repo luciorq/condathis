@@ -28,21 +28,21 @@ remotes::install_github("luciorq/condathis")
 ``` r
 library(condathis)
 create_env("python=3.8")
-run("python3", "-c", "import os; print(os.getcwd())")
+run("python", "-c", "import os; print(os.getcwd())")
 ```
 
 Create Conda environment from a environment description YAML file.
 
 ``` r
 create_env(env_file = env_yaml_file, env_name = "condathis-yaml-env")
-run("python3", "-c", "import os; print(os.getcwd())", env_name = "condathis-yaml-env")
+run("python", "-c", "import os; print(os.getcwd())", env_name = "condathis-yaml-env")
 ```
 
 #### Bioinformatics example
 
 ``` r
-create_env("samtools", env_name = "samtools-env", method = "native")
-run("samtools", "view", "--help", env_name = "samtools-env", method = "native")
+create_env("samtools", env_name = "samtools-env")
+run("samtools", "view", "--help", env_name = "samtools-env")
 ```
 
 <!--
