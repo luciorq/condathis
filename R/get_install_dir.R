@@ -1,6 +1,16 @@
-#' Retrieve `condathis` Data Creation Path
+#' Assert `condathis` Data Creation Path
 #' @export
 get_install_dir <- function() {
+  dir_path <- get_condathis_path()
+  if (isFALSE(fs::dir_exists(dir_path))) {
+    fs::dir_create(dir_path)
+  }
+  return(fs::path_real(dir_path))
+}
+
+#' Retrieve System Dependent Data Path
+#' @keywords internal
+get_condathis_path <- function() {
   sys_arch <- get_sys_arch()
   # NOTE: @luciorq On MacOS `micromamba run` fail if there is space in the path
   # + as in "~/Library/Application Support/condathis"
@@ -16,11 +26,6 @@ get_install_dir <- function() {
       appname = "condathis",
       appauthor = "luciorq"
     )
-  }
-
-  dir_path <- fs::path_real(dir_path)
-  if (isFALSE(fs::dir_exists(dir_path))) {
-    fs::dir_create(dir_path)
   }
   return(dir_path)
 }

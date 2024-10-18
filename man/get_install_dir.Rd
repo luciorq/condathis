@@ -2,10 +2,10 @@
 % Please edit documentation in R/get_install_dir.R
 \name{get_install_dir}
 \alias{get_install_dir}
-\title{Retrieve \code{condathis} Data Creation Path}
+\title{Assert \code{condathis} Data Creation Path}
 \usage{
 get_install_dir()
 }
 \description{
-Retrieve \code{condathis} Data Creation Path
+Assert \code{condathis} Data Creation Path
 }
