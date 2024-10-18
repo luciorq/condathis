@@ -25,6 +25,7 @@ native_cmd <- function(conda_cmd,
   }
 
   umamba_bin_path <- micromamba_bin_path()
+  umamba_bin_path <- base::normalizePath(umamba_bin_path)
   env_root_dir <- get_install_dir()
 
   if (isFALSE(fs::file_exists(umamba_bin_path))) {

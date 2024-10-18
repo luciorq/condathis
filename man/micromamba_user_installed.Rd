@@ -9,3 +9,4 @@ micromamba_user_installed()
 \description{
 Checks if user already have \code{micromamba} binaries available on \code{PATH}.
 }
+\keyword{internal}
