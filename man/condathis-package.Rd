@@ -17,7 +17,7 @@ Useful links:
 
 }
 \author{
-\strong{Maintainer}: Lucio Queiroz \email{luciorqueiroz@gmail.com} (\href{https://orcid.org/0000-0002-6090-1834}{ORCID})
+\strong{Maintainer}: Lucio Queiroz \email{luciorqueiroz@gmail.com} (\href{https://orcid.org/0000-0002-6090-1834}{ORCID}) [copyright holder]
 
 }
 \keyword{internal}
