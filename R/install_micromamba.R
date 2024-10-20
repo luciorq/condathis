@@ -1,23 +1,43 @@
-#' Install Micromamba binaries in a `condathis` controlled path.
+#' Install Micromamba Binaries in the `condathis` Controlled Path
 #'
-#' This function downloads and installs the Micromamba binaries in the path
-#'   managed by the `condathis` package. Micromamba is a lightweight
-#'   implementation of the Conda package manager and provides an efficient way
-#'   to create and manage conda environments.
+#' Downloads and installs the Micromamba binaries in the path managed by the `condathis` package.
+#' Micromamba is a lightweight implementation of the Conda package manager and provides an efficient way
+#' to create and manage conda environments.
 #'
-#' @param micromamba_version Character. Version string used for downloading
-#'   `micromamba`.
+#' @param micromamba_version Character string specifying the version of Micromamba to download.
+#'   Defaults to `"2.0.2-1"`.
 #'
-#' @param timeout_limit Numeric. Timeout limit for downloading the Micromamba
-#'   binaries, in seconds. Defaults to 3600 seconds (1 hour).
+#' @param timeout_limit Numeric value specifying the timeout limit for downloading the Micromamba
+#'   binaries, in seconds. Defaults to `3600` seconds (1 hour).
 #'
-#' @param download_method  Character. Argument passed to the `method` argument
-#'   of the `utils::download.file()` function used for downloading the binaries.
-#'   Defaults to "auto".
+#' @param download_method Character string passed to the `method` argument of
+#'   the `utils::download.file()` function used for downloading the binaries.
+#'   Defaults to `"auto"`.
 #'
 #' @param force Logical. If set to TRUE, the download and installation of the
 #'   Micromamba binaries will be forced, even if they already exist in the
 #'   system or `condathis` controlled path. Defaults to FALSE.
+#'
+#' @return
+#' Invisibly returns the path to the installed Micromamba binary.
+#'
+#' @details
+#' This function checks if Micromamba is already installed in the `condathis` controlled path.
+#' If not, it downloads the specified version from the official GitHub releases and installs it.
+#' On Windows, it ensures the binary is downloaded correctly by setting the download mode to `"wb"`.
+#' If the download fails, appropriate error messages are displayed.
+#'
+#' @examples
+#' \dontrun{
+#' # Install the default version of Micromamba
+#' install_micromamba()
+#'
+#' # Install a specific version of Micromamba
+#' install_micromamba(micromamba_version = "2.0.2-1")
+#'
+#' # Force reinstallation of Micromamba
+#' install_micromamba(force = TRUE)
+#' }
 #'
 #' @export
 install_micromamba <- function(micromamba_version = "2.0.2-0",
@@ -32,40 +52,8 @@ install_micromamba <- function(micromamba_version = "2.0.2-0",
     ))
     return(invisible(umamba_bin_path))
   }
-
-  # TODO: @luciorq Native windows support is not working.
-  # + The output of `get_sys_arch()` is "Windows-x86-64" replace with `win-64`
   sys_arch_str <- is_micromamba_available_for_arch()
-
-  # TODO: @luciorq Replace with GitHub releases URL:
-  # + <https://github.com/mamba-org/micromamba-releases/releases/>
-  # + Also implemented in `luciorq/shell-lib` as:
-  # + `conda_platform="$(get_conda_platform)";`
-  # + `download_url="https://github.com/mamba-org/micromamba-releases/releases/latest/download/micromamba-${conda_platform}";`
-  # + Versioned URL: <https://github.com/mamba-org/micromamba-releases/releases/download/2.0.1-0/micromamba-linux-64.tar.bz2>
-  # + <https://github.com/mamba-org/micromamba-releases>
-  # base_url <- "https://micromamba.snakepit.net/api/micromamba/"
-
-  # TODO: @luciorq Additional URL on conda.anaconda.org server
-  # + MacOS ARM64: <https://conda.anaconda.org/conda-forge/osx-arm64/micromamba-1.5.8-0.tar.bz2>
-  # + Linux AMD64: <https://conda.anaconda.org/conda-forge/linux-64/micromamba-1.5.8-0.tar.bz2>
-  # + Windows AMD64: <https://conda.anaconda.org/conda-forge/win-64/micromamba-1.5.8-0.tar.bz2>
-
-  # TODO: @luciorq Also check <https://micro.mamba.pm/api/micromamba/linux-64/latest>
-
-  # TODO: @luciorq check if GitHub URL is reachable, otherwise use
-  # + snakepit URL
-  # + Set main download to be from GitHub releases
-
-  # Snakepit URLs
-  # base_url <- "https://micromamba.snakepit.net/api/micromamba/"
-  # download_url <- paste0(base_url, sys_arch_str, "/latest")
-
-
-  # GitHub URLs
   base_url <- "https://github.com/mamba-org/micromamba-releases/releases/"
-
-  # base_base_url <- "https://github.com"
   if (isFALSE(check_connection(base_url))) {
     cli::cli_abort(
       message = c(
@@ -74,14 +62,11 @@ install_micromamba <- function(micromamba_version = "2.0.2-0",
       class = "condathis_github_not_reachable"
     )
   }
-
-  umamba_version <- micromamba_version
   download_url <- paste0(
-    base_url, "download/", umamba_version, "/micromamba-", sys_arch_str, ".tar.bz2"
+    base_url, "download/", micromamba_version, "/micromamba-", sys_arch_str, ".tar.bz2"
   )
 
-  output_dir <- get_install_dir()
-  output_dir <- fs::path_abs(output_dir)
+  output_dir <- fs::path_abs(get_install_dir())
 
   if (isFALSE(fs::dir_exists(output_dir))) {
     fs::dir_create(output_dir)
@@ -89,8 +74,6 @@ install_micromamba <- function(micromamba_version = "2.0.2-0",
 
   full_dl_path <- as.character(fs::path(output_dir, "micromamba-dl.tar.bz2"))
 
-  # NOTE: @luciorq Windows needs `mode = "wb"` for
-  # + downloading binary files.
   withr::with_options(
     new = base::list(
       timeout = base::max(
@@ -114,34 +97,25 @@ install_micromamba <- function(micromamba_version = "2.0.2-0",
     fs::dir_create(untar_dir)
   }
 
-  # TODO: @luciorq GitHub release binaries will also remove
-  # + the need to uncompress the bundle
   utils::untar(
     tarfile = full_dl_path,
     exdir = fs::path_expand(untar_dir)
   )
 
-  # if (fs::file_exists(Sys.getenv("R_BZIPCMD"))) {
-  # } else {
-  #   output_bin_dir <- fs::path(output_dir, "micromamba", "bin")
-  #   if (isFALSE(fs::dir_exists(output_bin_dir))) {
-  #
-  #   }
-  #   full_dl_path <- as.character(fs::path(output_bin_dir, "micromamba"))
-  #
-  # }
-  #
-
   if (fs::file_exists(full_dl_path)) {
     fs::file_delete(full_dl_path)
   }
 
-  # TODO: @luciorq Check for necessity of changing permissions on Unix/Linux
-  # if (fs::file_exists(full_output_path)) {
-  #  fs::file_chmod(full_output_path, mode = "u+x")
-  # }
+  if (isFALSE(fs::file_exists(umamba_bin_path))) {
+    cli::cli_abort(
+      message = c(
+        `x` = "{.file {umamba_bin_path}} was not extracted succesfully.",
+        `!` = "This error can caused by missing `bzip2` library."
+      ),
+      class = "condathis_install_micromamba_fail"
+    )
+  }
 
-  # umamba_bin_path <- micromamba_bin_path()
   if (isTRUE(dl_res == 0) && fs::file_exists(umamba_bin_path)) {
     cli::cli_inform(
       c(
@@ -150,7 +124,9 @@ install_micromamba <- function(micromamba_version = "2.0.2-0",
     )
   }
 
-  create_base_env()
+  if (isTRUE(fs::file_exists(umamba_bin_path))) {
+    create_base_env()
+  }
 
   invisible(umamba_bin_path)
 }

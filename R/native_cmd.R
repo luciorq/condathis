@@ -12,7 +12,7 @@
 native_cmd <- function(conda_cmd,
                        conda_args = NULL,
                        ...,
-                       verbose = "silent",
+                       verbose = "full",
                        error = c("cancel", "continue"),
                        stdout = "|",
                        stderr = "|") {
