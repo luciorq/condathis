@@ -1,8 +1,9 @@
 Package: condathis
 Title: Run Any CLI Tool on a Conda Environment
-Version: 0.0.6
+Version: 0.0.6.9002
 Authors@R: c(
-    person("Lucio", "Queiroz", , "luciorqueiroz@gmail.com", role = c("aut", "cre",  "cph"),
+    person("Lucio", "Queiroz", , "luciorqueiroz@gmail.com",
+           role = c("aut", "cre", "cph"),
            comment = c(ORCID = "0000-0002-6090-1834"))
   )
 Description: Simplifies the execution of command line tools within isolated and

@@ -1,3 +1,13 @@
+# condathis 0.0.7
+
+## Breaking changes
+
+## New features
+
+## Minor improvements and fixes
+
+* Internal `micromamba` version bump to "2.0.2-1".
+
 # condathis 0.0.6
 
 ## Breaking changes
@@ -11,8 +21,6 @@
 ## Minor improvements and fixes
 
 * Remove dependency on `dockerthis`.
-  For additional support to container based back-ends follow development at
-  [dockerthis](https://github.com/luciorq/dockerthis) and [runthis](https://github.com/luciorq/runthis) GitHub repositories.
 
 * Fix error in `run()` when `verbose` argument was not supplied.
 

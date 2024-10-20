@@ -40,7 +40,7 @@
 #' }
 #'
 #' @export
-install_micromamba <- function(micromamba_version = "2.0.2-0",
+install_micromamba <- function(micromamba_version = "2.0.2-1",
                                timeout_limit = 3600,
                                download_method = "auto",
                                force = FALSE) {

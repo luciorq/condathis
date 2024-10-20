@@ -2,33 +2,54 @@
 % Please edit documentation in R/install_micromamba.R
 \name{install_micromamba}
 \alias{install_micromamba}
-\title{Install Micromamba binaries in a \code{condathis} controlled path.}
+\title{Install Micromamba Binaries in the \code{condathis} Controlled Path}
 \usage{
 install_micromamba(
-  micromamba_version = "2.0.2-0",
+  micromamba_version = "2.0.2-1",
   timeout_limit = 3600,
   download_method = "auto",
   force = FALSE
 )
 }
 \arguments{
-\item{micromamba_version}{Character. Version string used for downloading
-\code{micromamba}.}
+\item{micromamba_version}{Character string specifying the version of Micromamba to download.
+Defaults to \code{"2.0.2-1"}.}
 
-\item{timeout_limit}{Numeric. Timeout limit for downloading the Micromamba
-binaries, in seconds. Defaults to 3600 seconds (1 hour).}
+\item{timeout_limit}{Numeric value specifying the timeout limit for downloading the Micromamba
+binaries, in seconds. Defaults to \code{3600} seconds (1 hour).}
 
-\item{download_method}{Character. Argument passed to the \code{method} argument
-of the \code{utils::download.file()} function used for downloading the binaries.
-Defaults to "auto".}
+\item{download_method}{Character string passed to the \code{method} argument of
+the \code{utils::download.file()} function used for downloading the binaries.
+Defaults to \code{"auto"}.}
 
 \item{force}{Logical. If set to TRUE, the download and installation of the
 Micromamba binaries will be forced, even if they already exist in the
 system or \code{condathis} controlled path. Defaults to FALSE.}
 }
+\value{
+Invisibly returns the path to the installed Micromamba binary.
+}
 \description{
-This function downloads and installs the Micromamba binaries in the path
-managed by the \code{condathis} package. Micromamba is a lightweight
-implementation of the Conda package manager and provides an efficient way
+Downloads and installs the Micromamba binaries in the path managed by the \code{condathis} package.
+Micromamba is a lightweight implementation of the Conda package manager and provides an efficient way
 to create and manage conda environments.
+}
+\details{
+This function checks if Micromamba is already installed in the \code{condathis} controlled path.
+If not, it downloads the specified version from the official GitHub releases and installs it.
+On Windows, it ensures the binary is downloaded correctly by setting the download mode to \code{"wb"}.
+If the download fails, appropriate error messages are displayed.
+}
+\examples{
+\dontrun{
+# Install the default version of Micromamba
+install_micromamba()
+
+# Install a specific version of Micromamba
+install_micromamba(micromamba_version = "2.0.2-1")
+
+# Force reinstallation of Micromamba
+install_micromamba(force = TRUE)
+}
+
 }
