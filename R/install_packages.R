@@ -20,8 +20,7 @@ install_packages <- function(packages,
       packages = NULL,
       env_name = env_name,
       verbose = verbose
-    ) |>
-      invisible()
+    )
   }
   channels_arg <- format_channels_args(
     additional_channels,
@@ -42,7 +41,6 @@ install_packages <- function(packages,
     packages,
     verbose = verbose
   )
-  px_res$stdout |>
-    cat()
+  cat(px_res$stdout)
   invisible(px_res$status)
 }

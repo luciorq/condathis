@@ -64,10 +64,10 @@ This is particularly useful for reproducible research and ensuring that specific
 run("ls", "-l")
 
 ## Run a command in a specific Conda environment
-run("python script.py", env_name = "my-conda-env")
+run("python", "script.py", env_name = "my-python-env")
 
 ## Run a command with additional arguments
-run("my-command", "--arg1", "--arg2=value", env_name = "my-conda-env")
+run("my-command", "--arg1", "--arg2=value", env_name = "my-python-env")
 }
 }
 \seealso{
