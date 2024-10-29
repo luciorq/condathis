@@ -40,7 +40,7 @@
 #' }
 #'
 #' @export
-install_micromamba <- function(micromamba_version = "2.0.2-1",
+install_micromamba <- function(micromamba_version = "2.0.2-2",
                                timeout_limit = 3600,
                                download_method = "auto",
                                force = FALSE) {
@@ -93,7 +93,7 @@ install_micromamba <- function(micromamba_version = "2.0.2-1",
 
   untar_dir <- fs::path(output_dir, "micromamba")
 
-  if (!fs::dir_exists(untar_dir)) {
+  if (isFALSE(fs::dir_exists(untar_dir))) {
     fs::dir_create(untar_dir)
   }
 
@@ -106,13 +106,42 @@ install_micromamba <- function(micromamba_version = "2.0.2-1",
     fs::file_delete(full_dl_path)
   }
 
+  # NOTE: @luciorq Attempt to solver #10 and #14
+  if (isFALSE(nzchar(Sys.which("bzip2")) && fs::file_exists(umamba_bin_path))) {
+    download_url <- paste0(
+      base_url, "download/", micromamba_version, "/micromamba-", sys_arch_str
+    )
+    full_dl_path <- umamba_bin_path
+    base_dl_dir <- fs::path(output_dir, "micromamba", "bin")
+    if (isFALSE(fs::dir_exists(base_dl_dir))) {
+      fs::dir_create(base_dl_dir)
+    }
+    withr::with_options(
+      new = base::list(
+        timeout = base::max(
+          base::unlist(base::options("timeout")),
+          timeout_limit
+        )
+      ),
+      code = {
+        dl_res <- utils::download.file(
+          url = download_url,
+          destfile = full_dl_path,
+          method = download_method,
+          mode = "wb"
+        )
+      }
+    )
+    fs::file_chmod(full_dl_path, mode = "u+x")
+  }
+
   if (isFALSE(fs::file_exists(umamba_bin_path))) {
     cli::cli_abort(
       message = c(
         `x` = "{.file {umamba_bin_path}} was not extracted succesfully.",
-        `!` = "This error can caused by missing `bzip2` library."
+        `!` = "This error can be caused by missing `bzip2` system library."
       ),
-      class = "condathis_install_micromamba_fail"
+      class = "condathis_install_error_missing_bzip2"
     )
   }
 
