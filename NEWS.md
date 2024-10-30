@@ -4,9 +4,12 @@
 
 ## New features
 
+* `install_micromamba()` now tries to download an uncompressed version of the micromamba binary if `untar()` fails
+  because of missing `bzip2` system library. (#10 and #14)
+
 ## Minor improvements and fixes
 
-* Internal `micromamba` version bump to "2.0.2-1".
+* Internal `micromamba` version bump to "2.0.2-2".
 
 # condathis 0.0.6
 

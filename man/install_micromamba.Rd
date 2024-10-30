@@ -13,7 +13,7 @@ install_micromamba(
 }
 \arguments{
 \item{micromamba_version}{Character string specifying the version of Micromamba to download.
-Defaults to \code{"2.0.2-1"}.}
+Defaults to \code{"2.0.2-2"}.}
 
 \item{timeout_limit}{Numeric value specifying the timeout limit for downloading the Micromamba
 binaries, in seconds. Defaults to \code{3600} seconds (1 hour).}

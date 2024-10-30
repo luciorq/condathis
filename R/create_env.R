@@ -70,7 +70,7 @@ create_env <- function(
   method <- rlang::arg_match(method)
 
   env_file_path <- NULL
-  if (!is.null(env_file)) {
+  if (isFALSE(is.null(env_file))) {
     if (fs::file_exists(env_file)) {
       env_file_path <- fs::path(env_file)
       packages_arg <- c("-f", env_file_path)

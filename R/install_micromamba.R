@@ -5,7 +5,7 @@
 #' to create and manage conda environments.
 #'
 #' @param micromamba_version Character string specifying the version of Micromamba to download.
-#'   Defaults to `"2.0.2-1"`.
+#'   Defaults to `"2.0.2-2"`.
 #'
 #' @param timeout_limit Numeric value specifying the timeout limit for downloading the Micromamba
 #'   binaries, in seconds. Defaults to `3600` seconds (1 hour).
@@ -106,7 +106,6 @@ install_micromamba <- function(micromamba_version = "2.0.2-2",
     fs::file_delete(full_dl_path)
   }
 
-  # NOTE: @luciorq Attempt to solver #10 and #14
   if (isFALSE(nzchar(Sys.which("bzip2")) && fs::file_exists(umamba_bin_path))) {
     download_url <- paste0(
       base_url, "download/", micromamba_version, "/micromamba-", sys_arch_str
@@ -139,7 +138,7 @@ install_micromamba <- function(micromamba_version = "2.0.2-2",
     cli::cli_abort(
       message = c(
         `x` = "{.file {umamba_bin_path}} was not extracted succesfully.",
-        `!` = "This error can be caused by missing `bzip2` system library."
+        `!` = "This error may be caused by missing `bzip2` system library."
       ),
       class = "condathis_install_error_missing_bzip2"
     )
