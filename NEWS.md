@@ -4,8 +4,10 @@
 
 ## New features
 
-* `install_micromamba()` now tries to download an uncompressed version of the micromamba binary if `untar()` fails
+* `install_micromamba()` now tries to download an uncompressed version of the 'micromamba' binary if `untar()` fails
   because of missing `bzip2` system library. (#10 and #14)
+
+* New `parse_output()` parse lines output streams from `run()` results into character vectors.
 
 ## Minor improvements and fixes
 
