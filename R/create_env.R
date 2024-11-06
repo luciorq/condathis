@@ -90,6 +90,7 @@ create_env <- function(
     channels
   )
   method_to_use <- method[1]
+  platform_args <- NULL
   if (isFALSE(is.null(packages))) {
     platform_args <- define_platform(
       packages = packages,
@@ -99,6 +100,10 @@ create_env <- function(
     )
   } else {
     platform_args <- NULL
+  }
+
+  if (isFALSE(is.null(platform)) && isTRUE(is.null(platform_args))) {
+    platform_args <- c("--platform", platform)
   }
 
   if (isTRUE(method_to_use %in% c("native", "auto"))) {
