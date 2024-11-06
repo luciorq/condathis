@@ -43,13 +43,12 @@ symlink_micromamba_bin <- function(path = NULL, force = FALSE) {
       new_path = umamba_path,
       symbolic = TRUE
     )
-  }
-
-  umamba_version <- parse_output(processx::run(umamba_path, "--version"), stream = "stdout")
-  cli::cli_inform(
-    message = c(
-      `!` = "Micromambma version symlinked: {.field {umamba_version}}"
+    umamba_version <- parse_output(processx::run(umamba_path, "--version"), stream = "stdout")
+    cli::cli_inform(
+      message = c(
+        `!` = "Micromamba version symlinked: {.field {umamba_version}}"
+      )
     )
-  )
+  }
   return(invisible(umamba_path))
 }
