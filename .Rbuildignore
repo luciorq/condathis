@@ -1,6 +1,9 @@
+^renv$
+^renv\.lock$
 ^condathis\.Rproj$
 ^\.Rproj\.user$
 ^LICENSE\.md$
+^\.Rprofile$
 ^justfile$
 ^data-raw$
 ^.*\.Rproj$
@@ -14,3 +17,5 @@
 ^justfile$
 ^data-raw$
 ^vignettes/*_files$
+^README\.Rmd$
+^README\.html$

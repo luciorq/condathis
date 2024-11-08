@@ -1,136 +1,232 @@
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
 # condathis
 
 <!-- badges: start -->
+
 [![R-CMD-check](https://github.com/luciorq/condathis/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/luciorq/condathis/actions/workflows/R-CMD-check.yaml)
 <!-- badges: end -->
 
-## `condathis` R package
+Run system command line interface (CLI) tools in a **reproducible** and
+**isolated** environment **within R**.
 
-Run any CLI tool that is available through Conda environments.
+## Get started
 
-### Get started
+Install package from
+[R-Universe](https://luciorq.r-universe.dev/condathis):
 
-Install package from [R-Universe](https://luciorq.r-universe.dev/condathis):
-
-```r
+``` r
 install.packages("condathis", repos = c("https://luciorq.r-universe.dev", getOption("repos")))
 ```
 
-#### Installing the development version
+### Installing the development version
 
 ``` r
 remotes::install_github("luciorq/condathis")
 ```
 
-### Try it
-
-#### General Command line tool
-
-``` r
-library(condathis)
-create_env("python=3.8")
-run("python", "-c", "import os; print(os.getcwd())")
-```
-
-Create Conda environment from a environment description YAML file.
-
-``` r
-create_env(env_file = env_yaml_file, env_name = "condathis-yaml-env")
-run("python", "-c", "import os; print(os.getcwd())", env_name = "condathis-yaml-env")
-```
-
-#### Bioinformatics example
-
-``` r
-create_env("samtools", env_name = "samtools-env")
-run("samtools", "view", "--help", env_name = "samtools-env")
-```
-
-<!--
-#### Example with Singularity containers
-
-`condathis` supports running Conda using Singularity containers.
-Singularity containers are especially suited for HPC environments,
-and most time the required tools are already installed in the systems.
-
-``` r
-bam_file <- system.file("extdata", "example.bam", package = "condathis")
-build_container_image(method = "singularity")
-create_env("samtools", env_name = "samtools-env", method = "singularity")
-run("samtools", "view", bam_file, env_name = "samtools-env", method = "singularity")
-```
-
-#### Example with Docker containers
-
-Docker Containers are one of the most used technologies for environment isolation
-and being able to run Linux based tools in other systems.
-Leveraging Docker Containers together with Conda environments is the closest
-thing to being able to run any command-line tool in any system.
-
-``` r
-bam_file <- system.file("extdata", "example.bam", package = "condathis")
-build_container_image(method = "docker")
-create_env("samtools", env_name = "samtools-env", method = "docker")
-run("samtools", "view", bam_file, env_name = "samtools-env", method = "docker")
-```
--->
-
-
----
-
-`condathis` is a powerful R package designed to simplify the execution of command line tools within isolated Conda environments. Built with efficiency and flexibility in mind, `condathis` seamlessly integrates the world of Conda environments with the versatility of R programming.
-
-With `condathis`, you can effortlessly create and manage isolated Conda environments directly from your R scripts. These environments provide a controlled and reproducible setting where you can install and run various command line tools without worrying about conflicts or dependencies. Whether you need to execute bioinformatics pipelines, data processing tasks, or any other command line operation, `condathis` ensures a hassle-free experience.
-
-## Key Features of `condathis`
-
-Conda Environment Management: `condathis` allows you to easily create Conda environments, empowering you to work with different tool configurations for each step of analysis or project.
-This ensures that your workflows remain isolated and reproducible.
-
-Command Line Tool Execution: The package offers a seamless interface for executing command line tools directly from your R code.
-With a simple function call, you can run any command line tool installed within any conda environment, enabling you to leverage the vast ecosystem of command line tools in your R workflows.
-
-Dependency Resolution: `condathis` automatically handles the resolution of dependencies required by the command line tools you want to execute. It ensures that the necessary libraries, packages, and binaries are properly installed within the isolated conda environment, eliminating the need for manual setup and ensuring smooth execution.
-
-`condathis` brings intuitive API and efficient conda environment management, you can streamline your data analysis workflows, enhance reproducibility, and explore a vast range of command line tools — all within the familiar R environment.
-
 ## Motivation
 
-Traditionally, [Conda Environments][conda-env-ref] have been designed to solve a problem related to Python Programming and specially tailored for interactive usage.
+One of the main disadvantages of calling CLI tools within `R` is that
+they are system-specific. This affects the replicability of your code,
+making it dependent on the system it’s run on. Additionally, using
+multiple CLI tools increases the likelihood of encountering version
+conflicts, where different tools require different versions of the same
+library. Therefore, relying on system-specific tools within `R` is
+generally not recommended.
 
-With `condathis` we want to leverage another great functionality of Conda environments that is running CLI software in isolated environments, without affecting (and also not being affected by) the main R environment.
+The package `{condathis}` lets you call CLI tools within R while keeping
+things reproducible and isolated.
 
-This is especially relevant to the Bioinformatics and Computational Biology fields where most of the preprocessing of raw data files is made using Linux/Unix command line tools that benefit from running on isolation.
-Where in the later step data is imported into R for interactive analysis.
+This means you can use `R` alongside other tools without the drawback of
+having system-specific code. It opens up the possibility of creating
+code and pipelines in `R` that integrate multiple CLI tools. This is
+especially useful for bioinformatics and other fields that rely on many
+software tools for conducting complex analysis.
 
-The focus of this package is to support CLI tools installed inside Conda environments.
+## Reproducibility: An Example
 
-Providing an API to call those tools in isolation from the main R process.
+### The issue with `system`
 
-Despite the name, the main interface we use to access software installed in Conda environments is actually [micromamba][micromamba-ref], a lightweight and open-source reimplementation of the Conda package manager.
+Suppose you’re writing a pipeline or just a script for some analysis,
+and you want to use
+[`fastqc`](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/) —
+a program to check the quality of FASTQ files. You’ve installed `fastqc`
+and use `system2` to run it.
 
-Since this package **is not intended to solve the problem of running Python code**,
-`micromamba` has a huge advantage, since it is lighter and does not come with a default version of Python.
-If you intend to run Python code chunks or scripts side by side with R code in activate Conda environments,
-check [reticulate][reticulate-ref] or [basilisk][basilisk-ref], as they were built to provide this exact solution.
+The `fastqc` command synopsis is
+`fastqc <path-to-fastq-file> -o <output-dir>`. The output directory is
+where `fastqc` saves its quality control reports.
 
-This tool can even be used for running R scripts in separate environments.
+``` r
+fastq_file <- system.file("extdata", "sample1_L001_R1_001.fastq.gz", package = "condathis")
+temp_out_dir <- tempdir()
+
+system2(command = "fastqc", args = c(fastq_file, "-o", temp_out_dir))
+```
+
+The `fastqc` program generates several output files, including a zip
+file that is 424KB in size. To get information about one of the output
+files, we can use:
+
+``` r
+library(fs)
+library(dplyr)
+
+file_info(fs::dir_ls(temp_out_dir, glob = "*zip")) |>
+  mutate(file_name = path_file(path)) |>
+  select(file_name, size)
+```
+
+    #> # A tibble: 1 × 2
+    #>   file_name                             size
+    #>   <chr>                          <fs::bytes>
+    #> 1 sample1_L001_R1_001_fastqc.zip        424K
+
+Now, let’s consider the scenario where you share your code with someone
+else or revisit it yourself after a year. There’s no guarantee the code
+will run because it relies on a specific CLI tool installed on the
+system. In the worst case, it might run without throwing any errors but
+produce different results, so you might not even realize that.
+
+The exact same code run on the same system but with an updated version
+of `fastqc` (0.12.1 instead of 0.11.2) generates a different file, and
+its size is different as well: *446k instead of 424k*.
+
+    #> # A tibble: 1 × 2
+    #>   file_name                             size
+    #>   <chr>                          <fs::bytes>
+    #> 1 sample1_L001_R1_001_fastqc.zip        446K
+
+This discrepancy limits the workflow, pipelines, and scripts to using
+only `R` packages!
+
+What can we do about it? We can use `{condathis}`!
+
+The package **`{condathis}`** ensures that the code you share and the
+results from running `fastqc` will be **consistent across different
+systems and over time**!
+
+### The solution with `{condathis}`
+
+We would first create an isolated environment containing a specific
+version of the package `fastqc` (0.12.1). The command automatically
+manages all the library dependencies of `fastqc`, making sure that they
+are compatible with the specific operating system.
+
+``` r
+condathis::create_env(packages = "fastqc==0.12.1", env_name = "fastqc_env", verbose = "output")
+#> ! Environment fastqc_env already exists.
+```
+
+Then we run the command inside the environment just created which
+contains a version 0.12.1 of `fastqc`.
+
+In our temp directory, `fastqc` generated the output files as expected.
+
+``` r
+out
+#> $status
+#> [1] 0
+#> 
+#> $stdout
+#> [1] "application/gzip\nAnalysis complete for sample1_L001_R1_001.fastq.gz\n"
+#> 
+#> $stderr
+#> [1] "Started analysis of sample1_L001_R1_001.fastq.gz\nApprox 90% complete for sample1_L001_R1_001.fastq.gz\n"
+#> 
+#> $timeout
+#> [1] FALSE
+```
+
+In the our temp dir, `fastqc`generated the output files as expected.
+
+``` r
+fs::dir_ls(temp_out_dir_2)
+#> /var/folders/2q/937_bkg10svdwx1x00prs9nm0000gn/T/RtmpptzAZk/sample1_L001_R1_001_fastqc.html
+#> /var/folders/2q/937_bkg10svdwx1x00prs9nm0000gn/T/RtmpptzAZk/sample1_L001_R1_001_fastqc.zip
+```
+
+The code that we created with `{condathis}` **uses a system CLI tool but
+is reproducible**.
+
+## Isolation: an example
+
+Another key feature of `{condathis}` is the ability to run CLI tools in
+**independent, isolated environments**. This allows you to run packages
+within R that would have conflicting dependencies. This makes it
+possible for `{condathis}` to run two versions of the same CLI tool
+simultaneously!
+
+For example, the system’s `curl` is of a specific version:
+
+``` r
+libcurlVersion()
+#> [1] "8.1.2"
+#> attr(,"ssl_version")
+#> [1] "SecureTransport (LibreSSL/3.3.6)"
+#> attr(,"libssh_version")
+#> [1] ""
+#> attr(,"protocols")
+#>  [1] "dict"    "file"    "ftp"     "ftps"    "gopher"  "gophers" "http"   
+#>  [8] "https"   "imap"    "imaps"   "ldap"    "ldaps"   "mqtt"    "pop3"   
+#> [15] "pop3s"   "rtsp"    "smb"     "smbs"    "smtp"    "smtps"   "telnet" 
+#> [22] "tftp"
+```
+
+However, we can choose to use a different version of `curl` run in a
+different environment. Here, for example, we are installing a different
+version of `curl` in a separate environment, and checking the version of
+the newly installed `curl`.
+
+``` r
+condathis::create_env(packages = "curl==8.10.1", env_name = "curl_env", verbose = "output")
+#> ! Environment curl_env already exists.
+
+out <- condathis::run("curl", "--version",
+  env_name = "curl_env" # environment
+)
+
+cat(out$stdout)
+#> curl 8.10.1 (aarch64-apple-darwin20.0.0) libcurl/8.10.1 OpenSSL/3.3.2 (SecureTransport) zlib/1.3.1 zstd/1.5.6 libssh2/1.11.0 nghttp2/1.64.0
+#> Release-Date: 2024-09-18
+#> Protocols: dict file ftp ftps gopher gophers http https imap imaps ipfs ipns mqtt pop3 pop3s rtsp scp sftp smb smbs smtp smtps telnet tftp ws wss
+#> Features: alt-svc AsynchDNS GSS-API HSTS HTTP2 HTTPS-proxy IPv6 Kerberos Largefile libz MultiSSL NTLM SPNEGO SSL threadsafe TLS-SRP UnixSockets zstd
+```
+
+This isolation feature of `{condathis}` allows not only running
+different versions of the same CLI tools but also different tools that
+have **incompatible dependencies**. One common example is CLI tools that
+rely on different versions of Python.
+
+## Details
+
+The package `{condathis}` relies on
+[**`micromamba`**](https://mamba.readthedocs.io/en/latest/user_guide/micromamba.html)
+to bring **reproducibility and isolation**. `micromamba` is a
+lightweight, fast, and efficient package manager that “does not need a
+base environment and does not come with a default version of Python”.
+
+The integration of `micromamba` into `R` is handled using the `processx`
+and `withr` packages. The package `processx` runs external processes and
+manages their input and output, ensuring that commands to `micromamba`
+are executed correctly from within R. The package `withr` temporarily
+modifies environment variables and settings, allowing `micromamba` to
+run smoothly without permanently altering your `R` environment.
 
 ## Known limitations
 
-Special characters in CLI commands are interpreted as literals and not expanded.
+Special characters in CLI commands are interpreted as literals and not
+expanded.
 
-- It is not supported the use of output redirections in commands, e.g. "|" or ">".
-  - Instead of redirects (e.g. ">"), use the argument `stdout = "<FILENAME>.txt"`.
-   Instead of Pipes ("|"), simple run multiple calls to `condathis::run()`,
-    using `stdout` argument to control the output and input of each command.
-- File paths should not use special characters for relative paths, e.g. "~", ".", "..".
-  - Expand file paths directly in R, using `base` functions
-    or functions from the `fs` package.
-
----
-
-[conda-env-ref]: https://docs.conda.io/projects/conda/en/latest/user-guide/getting-started.html
-[micromamba-ref]: https://mamba.readthedocs.io/en/latest/user_guide/micromamba.html
-[reticulate-ref]: https://rstudio.github.io/reticulate/
-[basilisk-ref]: https://www.bioconductor.org/packages/release/bioc/html/basilisk.html
+- It is not supported the use of output redirections in commands,
+  e.g. “\|” or “\>”.
+  - Instead of redirects (e.g. “\>”), use the argument
+    `stdout = "<FILENAME>.txt"`. Instead of Pipes (“\|”), simple run
+    multiple calls to `condathis::run()`, using `stdout` argument to
+    control the output and input of each command.
+- File paths should not use special characters for relative paths,
+  e.g. “~”, “.”, “..”.
+  - Expand file paths directly in R, using `base` functions or functions
+    from the `fs` package.

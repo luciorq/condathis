@@ -3,3 +3,7 @@
 .Rdata
 .httr-oauth
 .DS_Store
+renv
+renv.lock
+.Rprofile
+README.html
