@@ -123,7 +123,8 @@ condathis::create_env(packages = "fastqc==0.12.1", env_name = "fastqc_env", verb
 Then we run the command inside the environment just created which
 contains a version 0.12.1 of `fastqc`.
 
-In our temp directory, `fastqc` generated the output files as expected.
+The `out` object contains info regarding the exit status, standard
+error, standard output, and timeout if any.
 
 ``` r
 out
@@ -144,8 +145,8 @@ In the our temp dir, `fastqc`generated the output files as expected.
 
 ``` r
 fs::dir_ls(temp_out_dir_2)
-#> /var/folders/2q/937_bkg10svdwx1x00prs9nm0000gn/T/RtmpptzAZk/sample1_L001_R1_001_fastqc.html
-#> /var/folders/2q/937_bkg10svdwx1x00prs9nm0000gn/T/RtmpptzAZk/sample1_L001_R1_001_fastqc.zip
+#> /var/folders/2q/937_bkg10svdwx1x00prs9nm0000gn/T/RtmpZmaOFM/sample1_L001_R1_001_fastqc.html
+#> /var/folders/2q/937_bkg10svdwx1x00prs9nm0000gn/T/RtmpZmaOFM/sample1_L001_R1_001_fastqc.zip
 ```
 
 The code that we created with `{condathis}` **uses a system CLI tool but

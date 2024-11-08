@@ -136,7 +136,7 @@ out <- condathis::run("fastqc", fastq_file, "-o", temp_out_dir_2, # command
 )
 ```
 
-In our temp directory, `fastqc` generated the output files as expected.
+The `out` object contains info regarding the exit status, standard error, standard output, and timeout if any.
 
 ```{r}
 out
