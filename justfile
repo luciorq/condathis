@@ -13,6 +13,7 @@ github_org := 'luciorq'
   \builtin set -euxo pipefail;
   R -q -e 'devtools::load_all();styler::style_pkg();';
   R -q -e 'devtools::load_all();devtools::document();';
+  R -q -e 'rmarkdown::render("README.Rmd", encoding = "UTF-8")';
   R -q -e 'devtools::load_all();devtools::test();';
 
 @check:

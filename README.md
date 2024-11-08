@@ -63,7 +63,7 @@ where `fastqc` saves its quality control reports.
 fastq_file <- system.file("extdata", "sample1_L001_R1_001.fastq.gz", package = "condathis")
 temp_out_dir <- tempdir()
 
-system2(command = "fastqc", args = c(fastq_file,  "-o", temp_out_dir))
+system2(command = "fastqc", args = c(fastq_file, "-o", temp_out_dir))
 ```
 
 The `fastqc` program generates several output files, including a zip
@@ -74,8 +74,8 @@ files, we can use:
 library(fs)
 library(dplyr)
 
-file_info(fs::dir_ls(temp_out_dir, glob = "*zip")) |> 
-  mutate(file_name = path_file(path) ) |> 
+file_info(fs::dir_ls(temp_out_dir, glob = "*zip")) |>
+  mutate(file_name = path_file(path)) |>
   select(file_name, size)
 ```
 
@@ -143,11 +143,8 @@ In the our temp dir, `fastqc`generated the output files as expected.
 
 ``` r
 fs::dir_ls(temp_out_dir_2)
-#> /var/folders/bp/fpwcfq1563l21rz5gdcsfcsw0000gn/T/RtmpCGI9Kp/libloc_220_e600d766ecff9728.rds
-#> /var/folders/bp/fpwcfq1563l21rz5gdcsfcsw0000gn/T/RtmpCGI9Kp/libloc_253_f6724fe3a7174438.rds
-#> /var/folders/bp/fpwcfq1563l21rz5gdcsfcsw0000gn/T/RtmpCGI9Kp/libloc_263_425eb536d80dd010.rds
-#> /var/folders/bp/fpwcfq1563l21rz5gdcsfcsw0000gn/T/RtmpCGI9Kp/sample1_L001_R1_001_fastqc.html
-#> /var/folders/bp/fpwcfq1563l21rz5gdcsfcsw0000gn/T/RtmpCGI9Kp/sample1_L001_R1_001_fastqc.zip
+#> /var/folders/2q/937_bkg10svdwx1x00prs9nm0000gn/T/Rtmpn2TjYr/sample1_L001_R1_001_fastqc.html
+#> /var/folders/2q/937_bkg10svdwx1x00prs9nm0000gn/T/Rtmpn2TjYr/sample1_L001_R1_001_fastqc.zip
 ```
 
 The code that we created with `{condathis}` **uses a system CLI tool but
@@ -165,7 +162,7 @@ For example, the system’s `curl` is of a specific version:
 
 ``` r
 libcurlVersion()
-#> [1] "8.4.0"
+#> [1] "8.1.2"
 #> attr(,"ssl_version")
 #> [1] "SecureTransport (LibreSSL/3.3.6)"
 #> attr(,"libssh_version")
@@ -185,12 +182,12 @@ the newly installed `curl`.
 ``` r
 condathis::create_env(packages = "curl==8.10.1", env_name = "curl_env")
 
-out <- condathis::run("curl", "--version", 
-               env_name = "curl_env" # environment
-               )
+out <- condathis::run("curl", "--version",
+  env_name = "curl_env" # environment
+)
 
 cat(out$stdout)
-#> curl 8.10.1 (x86_64-apple-darwin13.4.0) libcurl/8.10.1 OpenSSL/3.3.2 (SecureTransport) zlib/1.3.1 zstd/1.5.6 libssh2/1.11.0 nghttp2/1.64.0
+#> curl 8.10.1 (aarch64-apple-darwin20.0.0) libcurl/8.10.1 OpenSSL/3.3.2 (SecureTransport) zlib/1.3.1 zstd/1.5.6 libssh2/1.11.0 nghttp2/1.64.0
 #> Release-Date: 2024-09-18
 #> Protocols: dict file ftp ftps gopher gophers http https imap imaps ipfs ipns mqtt pop3 pop3s rtsp scp sftp smb smbs smtp smtps telnet tftp ws wss
 #> Features: alt-svc AsynchDNS GSS-API HSTS HTTP2 HTTPS-proxy IPv6 Kerberos Largefile libz MultiSSL NTLM SPNEGO SSL threadsafe TLS-SRP UnixSockets zstd
