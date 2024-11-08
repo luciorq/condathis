@@ -1,3 +1,5 @@
+^renv$
+^renv\.lock$
 ^condathis\.Rproj$
 ^\.Rproj\.user$
 ^LICENSE\.md$
