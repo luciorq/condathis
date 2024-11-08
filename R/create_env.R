@@ -108,8 +108,10 @@ create_env <- function(
 
   if (isTRUE(method_to_use %in% c("native", "auto"))) {
     if (env_exists(env_name = env_name) && isFALSE(overwrite)) {
-      pkg_list_res <- list_packages(env_name = env_name, verbose = verbose)
-
+      pkg_list_res <- list_packages(
+        env_name = env_name,
+        verbose = "silent"
+      )
       pkg_present_vector <- vector(mode = "logical", length = length(packages))
       for (i in seq_along(packages)) {
         pkg_name_str <- stringr::str_remove(packages[i], "[=<>~!].*")
@@ -125,6 +127,13 @@ create_env <- function(
       }
 
       if (isTRUE(all(pkg_present_vector))) {
+        if (isTRUE(verbose %in% c("full", "output"))) {
+          cli::cli_inform(
+            message = c(
+              `!` = "Environment {.field {env_name}} already exists."
+            )
+          )
+        }
         return(invisible(list(status = 0L, stdout = "", stderr = "", timeout = FALSE)))
       }
     }
@@ -144,6 +153,13 @@ create_env <- function(
       packages_arg,
       verbose = verbose,
       error = "cancel"
+    )
+  }
+  if (isTRUE(verbose %in% c("full", "output"))) {
+    cli::cli_inform(
+      message = c(
+        `!` = "Environment {.field {env_name}} succesfully created."
+      )
     )
   }
   return(invisible(px_res))

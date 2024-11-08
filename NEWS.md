@@ -13,6 +13,8 @@
 
 * Internal `micromamba` version bump to "2.0.2-2".
 
+* `create_env()` and `remove_env()` have improved output.
+
 # condathis 0.0.6
 
 ## Breaking changes
