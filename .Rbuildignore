@@ -17,3 +17,5 @@
 ^justfile$
 ^data-raw$
 ^vignettes/*_files$
+^README\.Rmd$
+^README\.html$

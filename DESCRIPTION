@@ -4,8 +4,13 @@ Version: 0.0.6.9007
 Authors@R: c(
     person("Lucio", "Queiroz", , "luciorqueiroz@gmail.com",
            role = c("aut", "cre", "cph"),
-           comment = c(ORCID = "0000-0002-6090-1834"))
-  )
+           comment = c(ORCID = "0000-0002-6090-1834")),
+    person(given = "Claudio",
+           family = "Zanettini",
+           role = c("aut", "ctb"),
+           email = "claudio.zanettini@gmail.com",
+           comment = c(ORCID = "0000-0001-5043-8033")
+    ))
 Description: Simplifies the execution of command line tools within isolated and
     reproducible environments.
     It enables users to effortlessly manage Conda environments,

@@ -123,7 +123,7 @@ rm(temp_out_dir_2)
 
 
 ```{r}
-condathis::create_env(packages = "fastqc==0.12.1", env_name = "fastqc_env")
+condathis::create_env(packages = "fastqc==0.12.1", env_name = "fastqc_env", verbose = "output")
 ```
 
 Then we run the command inside the environment just created which contains a version 0.12.1 of `fastqc`.
@@ -163,7 +163,7 @@ libcurlVersion()
 However, we can choose to use a different version of `curl` run in a different environment. Here, for example, we are installing a different version of `curl` in a separate environment, and checking the version of the newly installed `curl`.
 
 ```{r}
-condathis::create_env(packages = "curl==8.10.1", env_name = "curl_env")
+condathis::create_env(packages = "curl==8.10.1", env_name = "curl_env", verbose = "output")
 
 out <- condathis::run("curl", "--version",
   env_name = "curl_env" # environment

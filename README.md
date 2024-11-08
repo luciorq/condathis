@@ -116,7 +116,8 @@ manages all the library dependencies of `fastqc`, making sure that they
 are compatible with the specific operating system.
 
 ``` r
-condathis::create_env(packages = "fastqc==0.12.1", env_name = "fastqc_env")
+condathis::create_env(packages = "fastqc==0.12.1", env_name = "fastqc_env", verbose = "output")
+#> ! Environment fastqc_env already exists.
 ```
 
 Then we run the command inside the environment just created which
@@ -143,8 +144,8 @@ In the our temp dir, `fastqc`generated the output files as expected.
 
 ``` r
 fs::dir_ls(temp_out_dir_2)
-#> /var/folders/2q/937_bkg10svdwx1x00prs9nm0000gn/T/Rtmpn2TjYr/sample1_L001_R1_001_fastqc.html
-#> /var/folders/2q/937_bkg10svdwx1x00prs9nm0000gn/T/Rtmpn2TjYr/sample1_L001_R1_001_fastqc.zip
+#> /var/folders/2q/937_bkg10svdwx1x00prs9nm0000gn/T/RtmpptzAZk/sample1_L001_R1_001_fastqc.html
+#> /var/folders/2q/937_bkg10svdwx1x00prs9nm0000gn/T/RtmpptzAZk/sample1_L001_R1_001_fastqc.zip
 ```
 
 The code that we created with `{condathis}` **uses a system CLI tool but
@@ -180,7 +181,8 @@ version of `curl` in a separate environment, and checking the version of
 the newly installed `curl`.
 
 ``` r
-condathis::create_env(packages = "curl==8.10.1", env_name = "curl_env")
+condathis::create_env(packages = "curl==8.10.1", env_name = "curl_env", verbose = "output")
+#> ! Environment curl_env already exists.
 
 out <- condathis::run("curl", "--version",
   env_name = "curl_env" # environment
