@@ -3,6 +3,7 @@
 ^condathis\.Rproj$
 ^\.Rproj\.user$
 ^LICENSE\.md$
+^\.Rprofile$
 ^justfile$
 ^data-raw$
 ^.*\.Rproj$
