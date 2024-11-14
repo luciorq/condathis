@@ -9,6 +9,8 @@
 
 * New `parse_output()` parse lines output streams from `run()` results into character vectors.
 
+* New `run_bin()` runs binary installed in a conda environment without using `micromamba run`.
+
 ## Minor improvements and fixes
 
 * Internal `micromamba` version bump to "2.0.2-2".
