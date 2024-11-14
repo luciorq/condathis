@@ -121,7 +121,6 @@ We would first create an isolated environment containing a specific version of t
 rm(temp_out_dir_2)
 ```
 
-
 ```{r}
 condathis::create_env(packages = "fastqc==0.12.1", env_name = "fastqc_env", verbose = "output")
 ```
@@ -131,7 +130,8 @@ Then we run the command inside the environment just created which contains a ver
 ```{r echo=FALSE}
 # dir of output files
 temp_out_dir_2 <- tempdir()
-out <- condathis::run("fastqc", fastq_file, "-o", temp_out_dir_2, # command
+out <- condathis::run(
+  "fastqc", fastq_file, "-o", temp_out_dir_2, # command
   env_name = "fastqc_env" # environment
 )
 ```
@@ -142,10 +142,11 @@ The `out` object contains info regarding the exit status, standard error, standa
 out
 ```
 
-In the our temp dir, `fastqc`generated the output files as expected.
+In the output temporary directory, `fastqc`generated the output files as expected.
 
 ```{r}
-fs::dir_ls(temp_out_dir_2)
+fs::dir_ls(temp_out_dir_2) |>
+  basename()
 ```
 
 The code that we created with `{condathis}` **uses a system CLI tool but is reproducible**.
@@ -165,7 +166,8 @@ However, we can choose to use a different version of `curl` run in a different e
 ```{r}
 condathis::create_env(packages = "curl==8.10.1", env_name = "curl_env", verbose = "output")
 
-out <- condathis::run("curl", "--version",
+out <- condathis::run(
+  "curl", "--version",
   env_name = "curl_env" # environment
 )
 
@@ -191,7 +193,3 @@ Special characters in CLI commands are interpreted as literals and not expanded.
 - File paths should not use special characters for relative paths, e.g. "~", ".", "..".
   - Expand file paths directly in R, using `base` functions
     or functions from the `fs` package.
-
-
-
-

@@ -141,12 +141,13 @@ out
 #> [1] FALSE
 ```
 
-In the our temp dir, `fastqc`generated the output files as expected.
+In the output temporary directory, `fastqc`generated the output files as
+expected.
 
 ``` r
-fs::dir_ls(temp_out_dir_2)
-#> /var/folders/2q/937_bkg10svdwx1x00prs9nm0000gn/T/RtmpZmaOFM/sample1_L001_R1_001_fastqc.html
-#> /var/folders/2q/937_bkg10svdwx1x00prs9nm0000gn/T/RtmpZmaOFM/sample1_L001_R1_001_fastqc.zip
+fs::dir_ls(temp_out_dir_2) |>
+  basename()
+#> [1] "sample1_L001_R1_001_fastqc.html" "sample1_L001_R1_001_fastqc.zip"
 ```
 
 The code that we created with `{condathis}` **uses a system CLI tool but
@@ -185,7 +186,8 @@ the newly installed `curl`.
 condathis::create_env(packages = "curl==8.10.1", env_name = "curl_env", verbose = "output")
 #> ! Environment curl_env already exists.
 
-out <- condathis::run("curl", "--version",
+out <- condathis::run(
+  "curl", "--version",
   env_name = "curl_env" # environment
 )
 
