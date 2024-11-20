@@ -59,6 +59,19 @@ Logical values \code{FALSE} and \code{TRUE} are also accepted for backward compa
 \item{overwrite}{Logical. Should environment always be overwritten?
 Defaults to \code{FALSE}.}
 }
+\value{
+No value is returned; this function is used for its side effect of creating a conda environment.
+}
 \description{
 Create Conda Environment with specific packages installed to be used by \code{run()}.
+}
+\examples{
+\dontrun{
+# Create a Conda environment and install the CLI `fastqc` in it.
+condathis::create_env(packages = "fastqc==0.12.1",
+                      env_name = "fastqc_env",
+                      verbose = "output"
+                      )
+#> ! Environment fastqc_env succesfully created.
+}
 }

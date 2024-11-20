@@ -30,13 +30,13 @@
 #' @examples
 #' \dontrun{
 #' # Install the default version of Micromamba
-#' install_micromamba()
+#' condathis::install_micromamba()
 #'
 #' # Install a specific version of Micromamba
-#' install_micromamba(micromamba_version = "2.0.2-1")
+#' condathis::install_micromamba(micromamba_version = "2.0.2-1")
 #'
 #' # Force reinstallation of Micromamba
-#' install_micromamba(force = TRUE)
+#' condathis::install_micromamba(force = TRUE)
 #' }
 #'
 #' @export

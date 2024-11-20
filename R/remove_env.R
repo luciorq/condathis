@@ -3,7 +3,14 @@
 #' Remove a Conda environment previously created by `create_env()`.
 #'
 #' @inheritParams create_env
-#'
+#' @return No value is returned; this function is used for its side effect of removing a conda environment.
+#' @examples
+#' \dontrun{
+#' condathis::create_env(packages = "fastqc,
+#'                       env_name = "fastqc_env",
+#'                       )
+#' condathis::remove_env(env_name = "fastqc_env)
+#' }
 #' @export
 remove_env <- function(env_name = "condathis-env",
                        verbose = "silent") {

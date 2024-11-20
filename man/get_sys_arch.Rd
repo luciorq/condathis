@@ -6,6 +6,16 @@
 \usage{
 get_sys_arch()
 }
+\value{
+A character vector with one element indicating OS and CPU Architecture.
+}
 \description{
 Return OS and CPU Architecture
+}
+\examples{
+\dontrun{
+# Create a Conda environment with the CLI fastqc
+condathis::get_sys_arch()
+#> [1] "Darwin-x86_64"
+}
 }
