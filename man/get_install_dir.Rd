@@ -22,7 +22,8 @@ as \verb{micromamba run} fails if there are spaces in the path (e.g., in \verb{~
 Therefore, Unix-style paths are used on macOS.
 }
 \examples{
-install_dir <- get_install_dir()
-print(install_dir)
-
+\dontrun{
+condathis::get_install_dir()
+#> /Users/myself/.local/share/condathis
+}
 }

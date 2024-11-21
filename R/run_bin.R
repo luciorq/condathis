@@ -11,10 +11,10 @@
 #' \dontrun{
 #' # Example assumes that 'my_env' exists and contains 'python'
 #' # Run 'python' with a script in 'my_env' environment
-#' run_bin("python", "script.py", env_name = "my_env", verbose = "silent")
+#' condathis::run_bin("python", "script.py", env_name = "my_env", verbose = "silent")
 #'
 #' # Run 'ls' command with additional arguments
-#' run_bin("ls", "-la", env_name = "my_env")
+#' condathis::run_bin("ls", "-la", env_name = "my_env")
 #' }
 #'
 #' @export

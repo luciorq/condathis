@@ -19,6 +19,17 @@ are going to be installed. Defaults to 'condathis-env'.}
 Logical values \code{FALSE} and \code{TRUE} are also accepted for backward compatibility but are \emph{soft-deprecated}. Please use \code{"silent"} and \code{"full"} respectively instead.
 }}
 }
+\value{
+No value is returned; this function is used for its side effect of removing a conda environment.
+}
 \description{
 Remove a Conda environment previously created by \code{create_env()}.
+}
+\examples{
+\dontrun{
+condathis::create_env(packages = "fastqc,
+                      env_name = "fastqc_env",
+                      )
+condathis::remove_env(env_name = "fastqc_env)
+}
 }

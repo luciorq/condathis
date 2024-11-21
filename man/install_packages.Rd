@@ -35,6 +35,19 @@ default ones.}
 Logical values \code{FALSE} and \code{TRUE} are also accepted for backward compatibility but are \emph{soft-deprecated}. Please use \code{"silent"} and \code{"full"} respectively instead.
 }}
 }
+\value{
+No value is returned; this function is used for its side effect of installing packages in a conda environment.
+}
 \description{
 Install Packages in a Existing Conda Environment
+}
+\examples{
+\dontrun{
+condathis::create_env(packages = "fastqc",
+                      env_name = "fastqc_env"
+                      )
+# Install the package `vim` in the `fastqc_env` environment.
+# It is not recommended to install multiple packages in the same environment,
+condathis::install_packages(packages = "vim", env_name = "fastqc_env")
+}
 }

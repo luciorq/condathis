@@ -10,7 +10,16 @@ get_env_dir(env_name = "condathis-env")
 \item{env_name}{Character. Name of the Conda environment where the packages
 are going to be installed. Defaults to 'condathis-env'.}
 }
+\value{
+A character string indicating the path where environments will be created.
+}
 \description{
 Retrieve path to where environment should be created.
 \strong{Note}: It retrieves the Path even if the environment is \strong{not} created yet.
+}
+\examples{
+\dontrun{
+condathis::get_env_dir()
+#> /Users/myself/.local/share/condathis/envs/condathis-env
+}
 }

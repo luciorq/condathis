@@ -10,6 +10,20 @@ env_exists(env_name = "condathis-env")
 \item{env_name}{Character. Name of the Conda environment where the packages
 are going to be installed. Defaults to 'condathis-env'.}
 }
+\value{
+Boolean.
+}
 \description{
 Check If Environment Names Already exists
+}
+\examples{
+\dontrun{
+# Create the environment
+condathis::create_env(packages = "fastqc",
+                      env_name = "fastqc_env"
+                      )
+# Check if exists
+condathis::env_exists("fastqc_env")
+#> [1] TRUE
+}
 }

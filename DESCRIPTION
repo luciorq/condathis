@@ -2,26 +2,17 @@ Package: condathis
 Title: Run Any CLI Tool on a Conda Environment
 Version: 0.0.6.9008
 Authors@R: c(
-    person(given = "Lucio",
-           family = "Queiroz",
-           role = c("aut", "cre", "cph"),
-           email = "luciorqueiroz@gmail.com",
+    person("Lucio", "Queiroz", , "luciorqueiroz@gmail.com", role = c("aut", "cre", "cph"),
            comment = c(ORCID = "0000-0002-6090-1834")),
-    person(given = "Claudio",
-           family = "Zanettini",
-           role = c("aut", "ctb"),
-           email = "claudio.zanettini@gmail.com",
-           comment = c(ORCID = "0000-0001-5043-8033")
-    ))
-Description: Simplifies the execution of command line tools within isolated and
-    reproducible environments.
-    It enables users to effortlessly manage Conda environments,
-    execute command line tools, handle dependencies, and ensure reproducibility
-    in their data analysis workflows.
+    person("Claudio", "Zanettini", , "claudio.zanettini@gmail.com", role = c("aut", "ctb"),
+           comment = c(ORCID = "0000-0001-5043-8033"))
+  )
+Description: Simplifies the execution of command line tools within
+    isolated and reproducible environments.  It enables users to
+    effortlessly manage Conda environments, execute command line tools,
+    handle dependencies, and ensure reproducibility in their data analysis
+    workflows.
 License: MIT + file LICENSE
-Encoding: UTF-8
-Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.2
 URL: https://github.com/luciorq/condathis
 BugReports: https://github.com/luciorq/condathis/issues
 Imports:
@@ -36,7 +27,10 @@ Imports:
     utils,
     withr
 Suggests:
-    testthat (>= 3.0.0),
     curl,
-    dplyr
+    dplyr,
+    testthat (>= 3.0.0)
 Config/testthat/edition: 3
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
