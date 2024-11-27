@@ -13,7 +13,7 @@
 
 ## Minor improvements and fixes
 
-* Internal `micromamba` version bump to "2.0.2-2".
+* Internal `micromamba` version bump to ~~"2.0.2-2"~~ "2.0.4-0".
 
 * `create_env()` and `remove_env()` have improved output.
 
