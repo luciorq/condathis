@@ -117,7 +117,7 @@ are compatible with the specific operating system.
 
 ``` r
 condathis::create_env(packages = "fastqc==0.12.1", env_name = "fastqc_env", verbose = "output")
-#> ! Environment fastqc_env already exists.
+#> ! Environment fastqc_env succesfully created.
 ```
 
 Then we run the command inside the environment just created which
@@ -167,7 +167,7 @@ For example, the system’s `curl` is of a specific version:
 libcurlVersion()
 #> [1] "8.1.2"
 #> attr(,"ssl_version")
-#> [1] "SecureTransport (LibreSSL/3.3.6)"
+#> [1] "(SecureTransport) LibreSSL/3.3.6"
 #> attr(,"libssh_version")
 #> [1] ""
 #> attr(,"protocols")
@@ -184,7 +184,7 @@ the newly installed `curl`.
 
 ``` r
 condathis::create_env(packages = "curl==8.10.1", env_name = "curl_env", verbose = "output")
-#> ! Environment curl_env already exists.
+#> ! Environment curl_env succesfully created.
 
 out <- condathis::run(
   "curl", "--version",
@@ -192,7 +192,7 @@ out <- condathis::run(
 )
 
 cat(out$stdout)
-#> curl 8.10.1 (aarch64-apple-darwin20.0.0) libcurl/8.10.1 OpenSSL/3.3.2 (SecureTransport) zlib/1.3.1 zstd/1.5.6 libssh2/1.11.0 nghttp2/1.64.0
+#> curl 8.10.1 (aarch64-apple-darwin20.0.0) libcurl/8.10.1 OpenSSL/3.4.0 (SecureTransport) zlib/1.3.1 zstd/1.5.6 libssh2/1.11.1 nghttp2/1.64.0
 #> Release-Date: 2024-09-18
 #> Protocols: dict file ftp ftps gopher gophers http https imap imaps ipfs ipns mqtt pop3 pop3s rtsp scp sftp smb smbs smtp smtps telnet tftp ws wss
 #> Features: alt-svc AsynchDNS GSS-API HSTS HTTP2 HTTPS-proxy IPv6 Kerberos Largefile libz MultiSSL NTLM SPNEGO SSL threadsafe TLS-SRP UnixSockets zstd
