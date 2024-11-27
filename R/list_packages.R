@@ -15,9 +15,10 @@
 #' @examples
 #' \dontrun{
 #' # Creates a Conda environment with the CLI `fastqc`
-#' condathis::create_env(packages = "fastqc",
-#'                       env_name = "fastqc_env"
-#'                       )
+#' condathis::create_env(
+#'   packages = "fastqc",
+#'   env_name = "fastqc_env"
+#' )
 #' # Lists the packages in env `fastqc_env`
 #' dat <- condathis::list_packages("fastqc_env")
 #' dim(dat)

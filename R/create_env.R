@@ -40,10 +40,11 @@
 #' @examples
 #' \dontrun{
 #' # Create a Conda environment and install the CLI `fastqc` in it.
-#' condathis::create_env(packages = "fastqc==0.12.1",
-#'                       env_name = "fastqc_env",
-#'                       verbose = "output"
-#'                       )
+#' condathis::create_env(
+#'   packages = "fastqc==0.12.1",
+#'   env_name = "fastqc_env",
+#'   verbose = "output"
+#' )
 #' #> ! Environment fastqc_env succesfully created.
 #' }
 #' @export

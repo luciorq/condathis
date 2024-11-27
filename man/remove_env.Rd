@@ -27,9 +27,10 @@ Remove a Conda environment previously created by \code{create_env()}.
 }
 \examples{
 \dontrun{
-condathis::create_env(packages = "fastqc,
-                      env_name = "fastqc_env",
-                      )
-condathis::remove_env(env_name = "fastqc_env)
+condathis::create_env(
+  # `     packages = "fastqc",
+  env_name = "fastqc_env"
+)
+condathis::remove_env(env_name = "fastqc_env")
 }
 }

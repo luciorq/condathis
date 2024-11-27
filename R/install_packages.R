@@ -9,9 +9,10 @@
 #' @return No value is returned; this function is used for its side effect of installing packages in a conda environment.
 #' @examples
 #' \dontrun{
-#' condathis::create_env(packages = "fastqc",
-#'                       env_name = "fastqc_env"
-#'                       )
+#' condathis::create_env(
+#'   packages = "fastqc",
+#'   env_name = "fastqc_env"
+#' )
 #' # Install the package `vim` in the `fastqc_env` environment.
 #' # It is not recommended to install multiple packages in the same environment,
 #  # as it defeats the purpose of isolation provided by separate environments.

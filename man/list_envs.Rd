@@ -24,13 +24,15 @@ List Installed Environments
 }
 \examples{
 \dontrun{
-#'Create the environments
-condathis::create_env(packages = "fastqc",
-                      env_name = "fastqc_env"
-                      )
-condathis::create_env(packages = "samtool",
-                      env_name = "samtool_env"
-                      )
+#' Create the environments
+condathis::create_env(
+  packages = "fastqc",
+  env_name = "fastqc_env"
+)
+condathis::create_env(
+  packages = "samtool",
+  env_name = "samtool_env"
+)
 # List environments
 condathis::list_envs()
 #> [1] "fastqc-env"  "samtools_env"

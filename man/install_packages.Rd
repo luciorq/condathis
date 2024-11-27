@@ -43,9 +43,10 @@ Install Packages in a Existing Conda Environment
 }
 \examples{
 \dontrun{
-condathis::create_env(packages = "fastqc",
-                      env_name = "fastqc_env"
-                      )
+condathis::create_env(
+  packages = "fastqc",
+  env_name = "fastqc_env"
+)
 # Install the package `vim` in the `fastqc_env` environment.
 # It is not recommended to install multiple packages in the same environment,
 condathis::install_packages(packages = "vim", env_name = "fastqc_env")
