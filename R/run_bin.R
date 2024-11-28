@@ -40,6 +40,10 @@ run_bin <- function(
   env_dir <- get_env_dir(env_name = env_name)
   cmd_path <- fs::path(env_dir, "bin", cmd)
 
+  if (isFALSE(fs::file_exists(cmd_path)) && isTRUE(fs::file_exists(Sys.which(cmd)))) {
+    cmd_path <- normalizePath(Sys.which(cmd))
+  }
+
   withr::local_envvar(
     .new = list(
       CONDA_SHLVL = 0,
