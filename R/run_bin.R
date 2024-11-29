@@ -63,11 +63,16 @@ run_bin <- function(
       R_HOME = ""
     )
   )
+
+  args_vector <- c(...)
+  if (isTRUE(is.null(args_vector))) {
+    args_vector <- character(length = 0L)
+  }
+
   px_res <- processx::run(
-    command = fs::path_real(cmd_path),
-    args = c(
-      ...
-    ),
+    command = cmd_path,
+    # command = fs::path_real(cmd_path),
+    args = args_vector,
     spinner = TRUE,
     echo_cmd = verbose_cmd,
     echo = verbose_output,

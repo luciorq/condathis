@@ -167,7 +167,7 @@ For example, the system’s `curl` is of a specific version:
 libcurlVersion()
 #> [1] "8.1.2"
 #> attr(,"ssl_version")
-#> [1] "(SecureTransport) LibreSSL/3.3.6"
+#> [1] "SecureTransport (LibreSSL/3.3.6)"
 #> attr(,"libssh_version")
 #> [1] ""
 #> attr(,"protocols")
@@ -183,12 +183,12 @@ version of `curl` in a separate environment, and checking the version of
 the newly installed `curl`.
 
 ``` r
-condathis::create_env(packages = "curl==8.10.1", env_name = "curl_env", verbose = "output")
-#> ! Environment curl_env succesfully created.
+condathis::create_env(packages = "curl==8.10.1", env_name = "curl-env", verbose = "output")
+#> ! Environment curl-env succesfully created.
 
 out <- condathis::run(
   "curl", "--version",
-  env_name = "curl_env" # environment
+  env_name = "curl-env" # environment
 )
 
 cat(out$stdout)
