@@ -1,7 +1,5 @@
 # condathis 0.0.7
 
-## Breaking changes
-
 ## New features
 
 * `install_micromamba()` now tries to download an uncompressed version of the 'micromamba' binary if `untar()` fails
@@ -9,7 +7,7 @@
 
 * New `parse_output()` parse lines output streams from `run()` results into character vectors.
 
-* New `run_bin()` runs binary installed in a conda environment without using `micromamba run`.
+* New `run_bin()` runs binary installed in a Conda environment without wrapping in `micromamba run`.
 
 ## Minor improvements and fixes
 
