@@ -2,6 +2,8 @@
 
 ## Breaking changes
 
+* `env_exists()` now error if no argument is supplied.
+
 ## New features
 
 ## Minor improvements and fixes

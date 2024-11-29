@@ -2,9 +2,9 @@
 % Please edit documentation in R/env_exists.R
 \name{env_exists}
 \alias{env_exists}
-\title{Check If Environment Names Already exists}
+\title{Check If Environment Already exists}
 \usage{
-env_exists(env_name = "condathis-env")
+env_exists(env_name)
 }
 \arguments{
 \item{env_name}{Character. Name of the Conda environment where the packages
@@ -14,17 +14,17 @@ are going to be installed. Defaults to 'condathis-env'.}
 Boolean.
 }
 \description{
-Check If Environment Names Already exists
+Check If Environment Already exists
 }
 \examples{
 \dontrun{
 # Create the environment
 condathis::create_env(
   packages = "fastqc",
-  env_name = "fastqc_env"
+  env_name = "fastqc-env"
 )
 # Check if exists
-condathis::env_exists("fastqc_env")
+condathis::env_exists("fastqc-env")
 #> [1] TRUE
 }
 }
