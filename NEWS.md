@@ -1,3 +1,13 @@
+# condathis 0.0.8
+
+## Breaking changes
+
+## New features
+
+## Minor improvements and fixes
+
+* Improved error message in `list_packages()`when env don't exist (#21).
+
 # condathis 0.0.7
 
 ## New features
