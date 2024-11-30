@@ -1,5 +1,9 @@
 #' Check If Environment Already exists
 #'
+#' This function checks whether a specified Conda environment already exists
+#' in the available environments. It returns `TRUE` if the environment exists
+#' and `FALSE` otherwise.
+#'
 #' @inheritParams create_env
 #' @return Boolean.
 #' @examples
@@ -9,10 +13,16 @@
 #'   packages = "fastqc",
 #'   env_name = "fastqc-env"
 #' )
-#' # Check if exists
+#'
+#' # Check if the environment exists
 #' condathis::env_exists("fastqc-env")
 #' #> [1] TRUE
+#'
+#' # Check for a non-existent environment
+#' condathis::env_exists("non-existent-env")
+#' #> [1] FALSE
 #' }
+#'
 #' @export
 env_exists <- function(env_name) {
   rlang::check_required(env_name)

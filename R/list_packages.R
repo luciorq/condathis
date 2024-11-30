@@ -1,5 +1,11 @@
-#' List Packages Installed Inside Environment
+#' List Packages Installed in a Conda Environment
+#'
+#' This function retrieves a list of all packages installed in the specified Conda
+#' environment. The result is returned as a tibble with detailed information about
+#' each package, including its name, version, and source details.
+#'
 #' @inheritParams run
+#'
 #' @return A tibble containing all the packages installed in the specified environment,
 #' with the following columns:
 #' \describe{

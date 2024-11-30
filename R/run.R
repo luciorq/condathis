@@ -41,14 +41,15 @@
 #'
 #' @examples
 #' \dontrun{
-#' ## Run a simple command in the default Conda environment
-#' run("ls", "-l")
+#' ## Create env
+#' create_env("samtools", env_name = "samtools-env")
 #'
 #' ## Run a command in a specific Conda environment
-#' run("python", "script.py", env_name = "my-python-env")
-#'
-#' ## Run a command with additional arguments
-#' run("my-command", "--arg1", "--arg2=value", env_name = "my-python-env")
+#' samtools_res <- run("samtools", "view", fs::path_package("condathis", "extdata", "example.bam"),
+#'   env_name = "samtools-env"
+#' )
+#' parse_output(samtools_res)[1]
+#' #> [1] "SOLEXA-1GA-1_6_FC20ET7:6:92:473:531\t0\tchr1\t10156..."
 #' }
 #' @seealso
 #' \code{\link{install_micromamba}}, \code{\link{create_env}}
@@ -96,52 +97,5 @@ run <- function(cmd,
       stderr = stderr
     )
   }
-  return(invisible(px_res))
-}
-
-#' Run Command Using Native Method
-#'
-#' Internal function to run a command in a Conda environment using the native method.
-#'
-#' @inheritParams run
-run_internal_native <- function(cmd,
-                                ...,
-                                env_name = "condathis-env",
-                                verbose = FALSE,
-                                error = c("cancel", "continue"),
-                                stdout = "|",
-                                stderr = "|") {
-  if (isTRUE(base::Sys.info()["sysname"] == "Windows")) {
-    micromamba_bat_path <- fs::path(get_install_dir(), "condabin", "micromamba", ext = "bat")
-    if (isFALSE(fs::file_exists(micromamba_bat_path))) {
-      catch_res <- rlang::catch_cnd(
-        expr = {
-          native_cmd(
-            conda_cmd = "run",
-            conda_args = c("-n", "condathis-env"),
-            cmd = "dir", verbose = FALSE, stdout = NULL
-          )
-        }
-      )
-      mamba_bat_path <- fs::path(get_install_dir(), "condabin", "mamba", ext = "bat")
-      if (isTRUE(fs::file_exists(mamba_bat_path)) &&
-        isFALSE(fs::file_exists(micromamba_bat_path))) {
-        fs::file_copy(mamba_bat_path, micromamba_bat_path, overwrite = TRUE)
-      }
-    }
-  }
-  px_res <- native_cmd(
-    conda_cmd = "run",
-    conda_args = c(
-      "-n",
-      env_name
-    ),
-    cmd = cmd,
-    ...,
-    verbose = verbose,
-    error = error,
-    stdout = stdout,
-    stderr = stderr
-  )
   return(invisible(px_res))
 }

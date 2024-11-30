@@ -36,7 +36,9 @@
 #'
 #' @param overwrite Logical. Should environment always be overwritten?
 #'     Defaults to `FALSE`.
-#' @return No value is returned; this function is used for its side effect of creating a conda environment.
+#' @return An object of class `list` representing the result of the command execution.
+#'   Contains information about the standard output, standard error, and exit status of the command.
+#'   This function is used for its side effect of creating a Conda environment.
 #' @examples
 #' \dontrun{
 #' # Create a Conda environment and install the CLI `fastqc` in it.
@@ -64,8 +66,6 @@ create_env <- function(
     platform = NULL,
     verbose = "silent",
     overwrite = FALSE) {
-  # ===========================================================================
-  # TODO: @luciorq Temporary solution for <https://github.com/luciorq/condathis/issues/13>
   pkgs_dir <- fs::path_home(".mamba", "pkgs")
   if (isTRUE(stringr::str_detect(get_sys_arch(), "^Windows"))) {
     pkgs_dir <- fs::path_home("AppData", "Roaming", ".mamba", "pkgs")
@@ -75,7 +75,6 @@ create_env <- function(
   } else if (isFALSE(fs::dir_exists(pkgs_dir))) {
     fs::dir_create(pkgs_dir)
   }
-  # ===========================================================================
 
   method <- rlang::arg_match(method)
 
@@ -130,10 +129,6 @@ create_env <- function(
         } else {
           pkg_present_vector[i] <- FALSE
         }
-        # TODO: @luciorq It is checking just for package name
-        # + to expand functionality to leverage version
-        # + check: "Package match specifications" <https://docs.conda.io/projects/conda-build/en/latest/resources/package-spec.html>
-        # if (isTRUE(stringr::str_detect(pkg_str, "[=<>~!].*")))) { }
       }
 
       if (isTRUE(all(pkg_present_vector))) {

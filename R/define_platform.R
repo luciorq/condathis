@@ -1,6 +1,8 @@
 #' Define Platform to be used by `create_env()`.
 #'
 #' @inheritParams create_env
+#'
+#' @keywords internal
 define_platform <- function(packages,
                             platform = NULL,
                             channels = c(

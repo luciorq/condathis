@@ -3,6 +3,8 @@
 #' Search if Package is available in required Channels
 #'
 #' @inheritParams create_env
+#'
+#' @keywords internal
 packages_search_native <- function(packages,
                                    channels = c(
                                      "bioconda",

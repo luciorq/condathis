@@ -1,22 +1,33 @@
-#' List Installed Environments
+#' List Installed Conda Environments
 #'
-#' @inheritParams run
-#' @return Character vector of name of conda environment installed.
+#' This function retrieves a list of Conda environments installed in the Condathis
+#' environment directory. The returned value excludes any environments unrelated
+#' to Condathis, such as the base Conda environment itself.
+#'
+#' @param verbose A character string indicating the verbosity level for the command.
+#'   Defaults to `"silent"`. Options include `"silent"`, `"minimal"`, and `"verbose"`.
+#'   See [condathis::run()] for details.
+#'
+#' @return A character vector containing the names of installed Conda environments.
+#'   If the command fails, the function returns the process exit status as a numeric value.
+#'
 #' @examples
 #' \dontrun{
-#' #' Create the environments
+#' # Create environments
 #' condathis::create_env(
 #'   packages = "fastqc",
-#'   env_name = "fastqc_env"
+#'   env_name = "fastqc-env"
 #' )
 #' condathis::create_env(
-#'   packages = "samtool",
-#'   env_name = "samtool_env"
+#'   packages = "samtools",
+#'   env_name = "samtools-env"
 #' )
+#'
 #' # List environments
 #' condathis::list_envs()
-#' #> [1] "fastqc-env"  "samtools_env"
+#' #> [1] "fastqc-env" "samtools-env"
 #' }
+#'
 #' @export
 list_envs <- function(verbose = "silent") {
   env_root_dir <- get_install_dir()

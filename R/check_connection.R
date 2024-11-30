@@ -1,3 +1,4 @@
+#' @keywords internal
 check_connection <- function(url_to_check) {
   internet_check <- tryCatch(
     {
