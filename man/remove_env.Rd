@@ -20,7 +20,8 @@ Logical values \code{FALSE} and \code{TRUE} are also accepted for backward compa
 }}
 }
 \value{
-No value is returned; this function is used for its side effect of removing a conda environment.
+An object of class \code{list} representing the result of the command execution.
+Contains information about the standard output, standard error, and exit status of the command.
 }
 \description{
 Remove a Conda environment previously created by \code{create_env()}.
@@ -28,9 +29,10 @@ Remove a Conda environment previously created by \code{create_env()}.
 \examples{
 \dontrun{
 condathis::create_env(
-  # `     packages = "fastqc",
-  env_name = "fastqc_env"
+  packages = "fastqc",
+  env_name = "fastqc-env"
 )
-condathis::remove_env(env_name = "fastqc_env")
+condathis::remove_env(env_name = "fastqc-env")
 }
+
 }

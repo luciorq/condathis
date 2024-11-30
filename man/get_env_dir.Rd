@@ -18,8 +18,12 @@ Retrieve path to where environment should be created.
 \strong{Note}: It retrieves the Path even if the environment is \strong{not} created yet.
 }
 \examples{
-\dontrun{
+# Get the default environment directory
 condathis::get_env_dir()
-#> /Users/myself/.local/share/condathis/envs/condathis-env
-}
+#> "/path/to/condathis/envs/condathis-env"
+
+# Get the directory for a specific environment
+condathis::get_env_dir("my-env")
+#> "/path/to/condathis/envs/my-env"
+
 }

@@ -46,3 +46,4 @@ A character string can be used to define a file path to be used as standard erro
 \description{
 Run a command using micromamba executable in the native backend.
 }
+\keyword{internal}

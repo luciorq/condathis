@@ -2,20 +2,22 @@
 % Please edit documentation in R/get_sys_arch.R
 \name{get_sys_arch}
 \alias{get_sys_arch}
-\title{Return OS and CPU Architecture}
+\title{Retrieve Operating System and CPU Architecture}
 \usage{
 get_sys_arch()
 }
 \value{
-A character vector with one element indicating OS and CPU Architecture.
+A character string indicating the operating system and CPU architecture,
+e.g., \code{"Darwin-x86_64"} or \code{"Linux-aarch64"}.
 }
 \description{
-Return OS and CPU Architecture
+This function retrieves the operating system (OS) name and the CPU architecture
+of the current system. The output combines the OS and CPU architecture into
+a single string in the format \code{"<OS>-<Architecture>"}.
 }
 \examples{
-\dontrun{
-# Create a Conda environment with the CLI fastqc
+# Retrieve the system architecture
 condathis::get_sys_arch()
 #> [1] "Darwin-x86_64"
-}
+
 }

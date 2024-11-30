@@ -14,7 +14,9 @@ are going to be installed. Defaults to 'condathis-env'.}
 Boolean.
 }
 \description{
-Check If Environment Already exists
+This function checks whether a specified Conda environment already exists
+in the available environments. It returns \code{TRUE} if the environment exists
+and \code{FALSE} otherwise.
 }
 \examples{
 \dontrun{
@@ -23,8 +25,14 @@ condathis::create_env(
   packages = "fastqc",
   env_name = "fastqc-env"
 )
-# Check if exists
+
+# Check if the environment exists
 condathis::env_exists("fastqc-env")
 #> [1] TRUE
+
+# Check for a non-existent environment
+condathis::env_exists("non-existent-env")
+#> [1] FALSE
 }
+
 }

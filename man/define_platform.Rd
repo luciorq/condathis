@@ -33,3 +33,4 @@ default ones.}
 \description{
 Define Platform to be used by \code{create_env()}.
 }
+\keyword{internal}

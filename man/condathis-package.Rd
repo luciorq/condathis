@@ -6,7 +6,7 @@
 \alias{condathis-package}
 \title{condathis: Run Any CLI Tool on a Conda Environment}
 \description{
-Simplifies the execution of command line tools within isolated and reproducible environments. It enables users to effortlessly manage Conda environments, execute command line tools, handle dependencies, and ensure reproducibility in their data analysis workflows.
+Simplifies the execution of command line interface (CLI) tools within isolated and reproducible environments. It enables users to effortlessly manage 'Conda' environments, execute command line tools, handle dependencies, and ensure reproducibility in their data analysis workflows.
 }
 \seealso{
 Useful links:

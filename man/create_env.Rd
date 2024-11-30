@@ -60,7 +60,9 @@ Logical values \code{FALSE} and \code{TRUE} are also accepted for backward compa
 Defaults to \code{FALSE}.}
 }
 \value{
-No value is returned; this function is used for its side effect of creating a conda environment.
+An object of class \code{list} representing the result of the command execution.
+Contains information about the standard output, standard error, and exit status of the command.
+This function is used for its side effect of creating a Conda environment.
 }
 \description{
 Create Conda Environment with specific packages installed to be used by \code{run()}.

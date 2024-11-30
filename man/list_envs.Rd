@@ -2,39 +2,39 @@
 % Please edit documentation in R/list_envs.R
 \name{list_envs}
 \alias{list_envs}
-\title{List Installed Environments}
+\title{List Installed Conda Environments}
 \usage{
 list_envs(verbose = "silent")
 }
 \arguments{
-\item{verbose}{Character string specifying the verbosity level of the function's output. Acceptable values are:
-\itemize{
-\item \strong{"silent"}: Suppress all output from internal command-line tools. Equivalent to \code{FALSE}.
-\item \strong{"cmd"}: Print the internal command(s) passed to the command-line tool.
-\item \strong{"output"}: Print the standard output and error from the command-line tool to the screen. Note that the order of the standard output and error lines may not be correct, as standard output is typically buffered. If the standard output and/or error is redirected to a file or they are ignored, they will not be echoed.
-\item \strong{"full"}: Print both the internal command(s) (\code{"cmd"}) and their standard output and error (\code{"output"}). Equivalent to \code{TRUE}.
-Logical values \code{FALSE} and \code{TRUE} are also accepted for backward compatibility but are \emph{soft-deprecated}. Please use \code{"silent"} and \code{"full"} respectively instead.
-}}
+\item{verbose}{A character string indicating the verbosity level for the command.
+Defaults to \code{"silent"}. Options include \code{"silent"}, \code{"minimal"}, and \code{"verbose"}.
+See \code{\link[=run]{run()}} for details.}
 }
 \value{
-Character vector of name of conda environment installed.
+A character vector containing the names of installed Conda environments.
+If the command fails, the function returns the process exit status as a numeric value.
 }
 \description{
-List Installed Environments
+This function retrieves a list of Conda environments installed in the Condathis
+environment directory. The returned value excludes any environments unrelated
+to Condathis, such as the base Conda environment itself.
 }
 \examples{
 \dontrun{
-#' Create the environments
+# Create environments
 condathis::create_env(
   packages = "fastqc",
-  env_name = "fastqc_env"
+  env_name = "fastqc-env"
 )
 condathis::create_env(
-  packages = "samtool",
-  env_name = "samtool_env"
+  packages = "samtools",
+  env_name = "samtools-env"
 )
+
 # List environments
 condathis::list_envs()
-#> [1] "fastqc-env"  "samtools_env"
+#> [1] "fastqc-env" "samtools-env"
 }
+
 }

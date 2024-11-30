@@ -43,3 +43,4 @@ Logical values \code{FALSE} and \code{TRUE} are also accepted for backward compa
 \description{
 Search if Package is available in required Channels
 }
+\keyword{internal}

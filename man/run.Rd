@@ -60,14 +60,15 @@ This is particularly useful for reproducible research and ensuring that specific
 }
 \examples{
 \dontrun{
-## Run a simple command in the default Conda environment
-run("ls", "-l")
+## Create env
+create_env("samtools", env_name = "samtools-env")
 
 ## Run a command in a specific Conda environment
-run("python", "script.py", env_name = "my-python-env")
-
-## Run a command with additional arguments
-run("my-command", "--arg1", "--arg2=value", env_name = "my-python-env")
+samtools_res <- run("samtools", "view", fs::path_package("condathis", "extdata", "example.bam"),
+  env_name = "samtools-env"
+)
+parse_output(samtools_res)[1]
+#> [1] "SOLEXA-1GA-1_6_FC20ET7:6:92:473:531\t0\tchr1\t10156..."
 }
 }
 \seealso{

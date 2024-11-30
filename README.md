@@ -13,6 +13,12 @@ Run system command line interface (CLI) tools in a **reproducible** and
 
 ## Get started
 
+Install package from [CRAN](https://cran.r-project.org):
+
+``` r
+install.packages("condathis")
+```
+
 Install package from
 [R-Universe](https://luciorq.r-universe.dev/condathis):
 

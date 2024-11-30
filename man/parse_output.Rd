@@ -2,15 +2,37 @@
 % Please edit documentation in R/parse_output.R
 \name{parse_output}
 \alias{parse_output}
-\title{Parse the output of \code{\link[=run]{run()}}}
+\title{Parse the output of a Condathis command}
 \usage{
 parse_output(res, stream = c("stdout", "stderr"))
 }
 \arguments{
-\item{res}{Result from \code{\link[=run]{run()}}.}
+\item{res}{A list containing the result of \code{\link[=run]{run()}}, typically including
+\code{stdout} and \code{stderr} as character strings.}
 
-\item{stream}{Data stream to parse.}
+\item{stream}{A character string specifying the data stream to parse. Must be either
+\code{"stdout"} or \code{"stderr"}. Defaults to \code{"stdout"}.}
+}
+\value{
+A character vector where each element is a trimmed line from the specified stream.
 }
 \description{
-Parse the output of \code{\link[=run]{run()}}
+This function processes the result of a \code{\link[=run]{run()}} call by parsing
+the specified output stream (\code{stdout} or \code{stderr}) into individual, trimmed lines.
+}
+\examples{
+# Example result object from condathis::run()
+res <- list(
+  stdout = "line1\nline2\nline3\n",
+  stderr = "error1\nerror2\n"
+)
+
+# Parse the standard output
+parse_output(res, stream = "stdout")
+#> [1] "line1" "line2" "line3"
+
+# Parse the standard error
+parse_output(res, stream = "stderr")
+#> [1] "error1" "error2"
+
 }

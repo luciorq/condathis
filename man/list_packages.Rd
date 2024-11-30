@@ -2,7 +2,7 @@
 % Please edit documentation in R/list_packages.R
 \name{list_packages}
 \alias{list_packages}
-\title{List Packages Installed Inside Environment}
+\title{List Packages Installed in a Conda Environment}
 \usage{
 list_packages(env_name = "condathis-env", verbose = "silent")
 }
@@ -34,7 +34,9 @@ with the following columns:
 }
 }
 \description{
-List Packages Installed Inside Environment
+This function retrieves a list of all packages installed in the specified Conda
+environment. The result is returned as a tibble with detailed information about
+each package, including its name, version, and source details.
 }
 \examples{
 \dontrun{
