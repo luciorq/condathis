@@ -13,11 +13,13 @@ Run system command line interface (CLI) tools in a **reproducible** and
 
 ## Get started
 
-Install package from [CRAN](https://cran.r-project.org):
-
+<!--
+When available, install package from [CRAN](https://cran.r-project.org):
+&#10;
 ``` r
 install.packages("condathis")
 ```
+-->
 
 Install package from
 [R-Universe](https://luciorq.r-universe.dev/condathis):
@@ -30,6 +32,8 @@ install.packages("condathis", repos = c("https://luciorq.r-universe.dev", getOpt
 
 ``` r
 remotes::install_github("luciorq/condathis")
+# or
+pak::pkg_install("github::luciorq/condathis")
 ```
 
 ## Motivation
@@ -122,8 +126,8 @@ manages all the library dependencies of `fastqc`, making sure that they
 are compatible with the specific operating system.
 
 ``` r
-condathis::create_env(packages = "fastqc==0.12.1", env_name = "fastqc_env", verbose = "output")
-#> ! Environment fastqc_env succesfully created.
+condathis::create_env(packages = "fastqc==0.12.1", env_name = "fastqc-env", verbose = "output")
+#> ! Environment fastqc-env succesfully created.
 ```
 
 Then we run the command inside the environment just created which

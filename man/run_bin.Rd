@@ -2,7 +2,7 @@
 % Please edit documentation in R/run_bin.R
 \name{run_bin}
 \alias{run_bin}
-\title{Run a Binary from a Conda Environment Without Emvironment Activation}
+\title{Run a Binary from a Conda Environment Without Environment Activation}
 \usage{
 run_bin(
   cmd,
@@ -43,7 +43,9 @@ returned by \code{run()}.
 A character string can be used to define a file path to be used as standard error. e.g: "error.txt".}
 }
 \value{
-An invisible list containing the results from \code{processx::run()}, including standard output and error.
+An object of class \code{list} representing the result of the command
+execution. Contains information about the standard output, standard error,
+and exit status of the command.
 }
 \description{
 Executes a binary command from a specified Conda environment without activating the environment or using its environment variables. This function temporarily clears Conda and Mamba-related environment variables to prevent interference, ensuring that the command runs in a clean environment.
@@ -51,12 +53,12 @@ Usually this is not what the user wants, check \code{\link[=run]{run()}} for the
 }
 \examples{
 \dontrun{
-# Example assumes that 'my_env' exists and contains 'python'
-# Run 'python' with a script in 'my_env' environment
-condathis::run_bin("python", "script.py", env_name = "my_env", verbose = "silent")
+# Example assumes that 'my-env' exists and contains 'python'
+# Run 'python' with a script in 'my-env' environment
+condathis::run_bin("python", "script.py", env_name = "my-env", verbose = "silent")
 
 # Run 'ls' command with additional arguments
-condathis::run_bin("ls", "-la", env_name = "my_env")
+condathis::run_bin("ls", "-la", env_name = "my-env")
 }
 
 }

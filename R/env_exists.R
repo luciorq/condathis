@@ -5,7 +5,7 @@
 #' and `FALSE` otherwise.
 #'
 #' @inheritParams create_env
-#' @return Boolean.
+#' @return Boolean. `TRUE` if the environment exists and `FALSE` otherwise.
 #' @examples
 #' \dontrun{
 #' # Create the environment

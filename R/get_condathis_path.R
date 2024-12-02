@@ -1,6 +1,7 @@
 #' Retrieve System-Dependent Data Path for condathis
 #'
-#' Determines the appropriate user data directory for the `condathis` package based on the operating system. On macOS, it avoids using paths with spaces due to issues with `micromamba run` failing when there are spaces in the path.
+#' Determines the appropriate user data directory for the `condathis` package based on the operating system.
+#'   On macOS, it avoids using paths with spaces due to issues with `micromamba run` failing when there are spaces in the path.
 #'
 #' @details
 #' This function uses the `rappdirs` package to determine the user data directory.

@@ -36,7 +36,9 @@ Logical values \code{FALSE} and \code{TRUE} are also accepted for backward compa
 }}
 }
 \value{
-No value is returned; this function is used for its side effect of installing packages in a conda environment.
+An object of class \code{list} representing the result of the command
+execution. Contains information about the standard output, standard error,
+and exit status of the command.
 }
 \description{
 Install Packages in a Existing Conda Environment
@@ -45,10 +47,10 @@ Install Packages in a Existing Conda Environment
 \dontrun{
 condathis::create_env(
   packages = "fastqc",
-  env_name = "fastqc_env"
+  env_name = "fastqc-env"
 )
-# Install the package `vim` in the `fastqc_env` environment.
+# Install the package `vim` in the `fastqc-env` environment.
 # It is not recommended to install multiple packages in the same environment,
-condathis::install_packages(packages = "vim", env_name = "fastqc_env")
+condathis::install_packages(packages = "vim", env_name = "fastqc-env")
 }
 }

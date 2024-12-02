@@ -36,18 +36,20 @@
 #'
 #' @param overwrite Logical. Should environment always be overwritten?
 #'     Defaults to `FALSE`.
-#' @return An object of class `list` representing the result of the command execution.
-#'   Contains information about the standard output, standard error, and exit status of the command.
-#'   This function is used for its side effect of creating a Conda environment.
+#'
+#' @return An object of class `list` representing the result of the command
+#'   execution. Contains information about the standard output, standard error,
+#'   and exit status of the command.
+#'
 #' @examples
 #' \dontrun{
 #' # Create a Conda environment and install the CLI `fastqc` in it.
 #' condathis::create_env(
 #'   packages = "fastqc==0.12.1",
-#'   env_name = "fastqc_env",
+#'   env_name = "fastqc-env",
 #'   verbose = "output"
 #' )
-#' #> ! Environment fastqc_env succesfully created.
+#' #> ! Environment fastqc-env succesfully created.
 #' }
 #' @export
 create_env <- function(

@@ -11,7 +11,7 @@ env_exists(env_name)
 are going to be installed. Defaults to 'condathis-env'.}
 }
 \value{
-Boolean.
+Boolean. \code{TRUE} if the environment exists and \code{FALSE} otherwise.
 }
 \description{
 This function checks whether a specified Conda environment already exists

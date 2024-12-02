@@ -60,9 +60,9 @@ Logical values \code{FALSE} and \code{TRUE} are also accepted for backward compa
 Defaults to \code{FALSE}.}
 }
 \value{
-An object of class \code{list} representing the result of the command execution.
-Contains information about the standard output, standard error, and exit status of the command.
-This function is used for its side effect of creating a Conda environment.
+An object of class \code{list} representing the result of the command
+execution. Contains information about the standard output, standard error,
+and exit status of the command.
 }
 \description{
 Create Conda Environment with specific packages installed to be used by \code{run()}.
@@ -72,9 +72,9 @@ Create Conda Environment with specific packages installed to be used by \code{ru
 # Create a Conda environment and install the CLI `fastqc` in it.
 condathis::create_env(
   packages = "fastqc==0.12.1",
-  env_name = "fastqc_env",
+  env_name = "fastqc-env",
   verbose = "output"
 )
-#> ! Environment fastqc_env succesfully created.
+#> ! Environment fastqc-env succesfully created.
 }
 }

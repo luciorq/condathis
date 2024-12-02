@@ -4,8 +4,9 @@
 #'
 #' @inheritParams create_env
 #'
-#' @return An object of class `list` representing the result of the command execution.
-#'   Contains information about the standard output, standard error, and exit status of the command.
+#' @return An object of class `list` representing the result of the command
+#'   execution. Contains information about the standard output, standard error,
+#'   and exit status of the command.
 #'
 #' @examples
 #' \dontrun{

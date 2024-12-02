@@ -43,10 +43,10 @@ each package, including its name, version, and source details.
 # Creates a Conda environment with the CLI `fastqc`
 condathis::create_env(
   packages = "fastqc",
-  env_name = "fastqc_env"
+  env_name = "fastqc-env"
 )
-# Lists the packages in env `fastqc_env`
-dat <- condathis::list_packages("fastqc_env")
+# Lists the packages in env `fastqc-env`
+dat <- condathis::list_packages("fastqc-env")
 dim(dat)
 #> [1] 34  8
 }

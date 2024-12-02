@@ -1,20 +1,22 @@
-#' Run a Binary from a Conda Environment Without Emvironment Activation
+#' Run a Binary from a Conda Environment Without Environment Activation
 #'
 #' Executes a binary command from a specified Conda environment without activating the environment or using its environment variables. This function temporarily clears Conda and Mamba-related environment variables to prevent interference, ensuring that the command runs in a clean environment.
 #' Usually this is not what the user wants, check [run()] for the stable function to use.
 #'
 #' @inheritParams run
 #'
-#' @return An invisible list containing the results from `processx::run()`, including standard output and error.
+#' @return An object of class `list` representing the result of the command
+#'   execution. Contains information about the standard output, standard error,
+#'   and exit status of the command.
 #'
 #' @examples
 #' \dontrun{
-#' # Example assumes that 'my_env' exists and contains 'python'
-#' # Run 'python' with a script in 'my_env' environment
-#' condathis::run_bin("python", "script.py", env_name = "my_env", verbose = "silent")
+#' # Example assumes that 'my-env' exists and contains 'python'
+#' # Run 'python' with a script in 'my-env' environment
+#' condathis::run_bin("python", "script.py", env_name = "my-env", verbose = "silent")
 #'
 #' # Run 'ls' command with additional arguments
-#' condathis::run_bin("ls", "-la", env_name = "my_env")
+#' condathis::run_bin("ls", "-la", env_name = "my-env")
 #' }
 #'
 #' @export
