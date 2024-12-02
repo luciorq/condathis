@@ -23,7 +23,7 @@
 
 ## Minor improvements and fixes
 
-* Internal `micromamba` version bump to ~~"2.0.2-2"~~ "2.0.4-0".
+* Internal `micromamba` version bump to "2.0.4-0".
 
 * `create_env()` and `remove_env()` have improved output.
 
@@ -57,7 +57,7 @@
 
 * `run()` output now has class `"condathis_run_output"` with custom print method.
 * `run()` now exposes `stderr`.
-* `verbose`now accept any of `c("silent", "full", "cmd", "output")`. `TRUE` and `FALSE` are deprecated but still kept for compatibility.
+* `verbose` now accept any of `c("silent", "full", "cmd", "output")`. `TRUE` and `FALSE` are deprecated but still kept for compatibility.
 
 # condathis 0.0.4
 

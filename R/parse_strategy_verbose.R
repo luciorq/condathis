@@ -2,6 +2,7 @@
 #'
 #' @param strategy Character string specifying the verbosity level.
 #' @keywords internal
+#' @noRd
 parse_strategy_verbose <- function(strategy) {
   if (isTRUE(strategy)) {
     strategy <- "full"

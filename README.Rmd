@@ -23,23 +23,26 @@ Run system command line interface (CLI) tools in a **reproducible** and **isolat
 
 ## Get started
 
-Install package from [CRAN](https://cran.r-project.org):
+<!--
+When available, install package from [CRAN](https://cran.r-project.org):
 
 ```{r eval=FALSE}
 install.packages("condathis")
 ```
-
+-->
 
 Install package from [R-Universe](https://luciorq.r-universe.dev/condathis):
 
-```r
+```{r eval=FALSE}
 install.packages("condathis", repos = c("https://luciorq.r-universe.dev", getOption("repos")))
 ```
 
 ### Installing the development version
 
-``` r
+```{r eval=FALSE}
 remotes::install_github("luciorq/condathis")
+# or
+pak::pkg_install("github::luciorq/condathis")
 ```
 
 ## Motivation
@@ -129,7 +132,7 @@ rm(temp_out_dir_2)
 ```
 
 ```{r}
-condathis::create_env(packages = "fastqc==0.12.1", env_name = "fastqc_env", verbose = "output")
+condathis::create_env(packages = "fastqc==0.12.1", env_name = "fastqc-env", verbose = "output")
 ```
 
 Then we run the command inside the environment just created which contains a version 0.12.1 of `fastqc`.
@@ -139,7 +142,7 @@ Then we run the command inside the environment just created which contains a ver
 temp_out_dir_2 <- tempdir()
 out <- condathis::run(
   "fastqc", fastq_file, "-o", temp_out_dir_2, # command
-  env_name = "fastqc_env" # environment
+  env_name = "fastqc-env" # environment
 )
 ```
 

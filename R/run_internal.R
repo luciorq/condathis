@@ -5,6 +5,7 @@
 #' @inheritParams run
 #'
 #' @keywords internal
+#' @noRd
 run_internal_native <- function(cmd,
                                 ...,
                                 env_name = "condathis-env",

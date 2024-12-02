@@ -5,6 +5,7 @@
 #' @inheritParams create_env
 #'
 #' @keywords internal
+#' @noRd
 packages_search_native <- function(packages,
                                    channels = c(
                                      "bioconda",

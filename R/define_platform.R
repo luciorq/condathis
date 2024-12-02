@@ -3,6 +3,7 @@
 #' @inheritParams create_env
 #'
 #' @keywords internal
+#' @noRd
 define_platform <- function(packages,
                             platform = NULL,
                             channels = c(

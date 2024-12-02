@@ -13,6 +13,7 @@
 #' @return Invisibly returns the path to the `micromamba` symlink created or verified.
 #'
 #' @keywords internal
+#' @noRd
 symlink_micromamba_bin <- function(path = NULL, force = FALSE) {
   # force <- rlang::arg_match(force)
 

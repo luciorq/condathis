@@ -1,6 +1,7 @@
 #' Format Channels Arguments
 #' @param ... Character. Channels to be used by `micromamba`.
 #' @keywords internal
+#' @noRd
 format_channels_args <- function(...) {
   channels <- c(...)
   if (is.null(channels)) {

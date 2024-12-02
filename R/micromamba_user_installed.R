@@ -3,6 +3,7 @@
 #' Checks if user already have `micromamba` binaries available on `PATH`.
 #'
 #' @keywords internal
+#' @noRd
 micromamba_user_installed <- function() {
   umamba_bin_path <- Sys.which("micromamba")
   if (isTRUE(umamba_bin_path == "")) {

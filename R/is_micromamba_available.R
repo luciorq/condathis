@@ -1,5 +1,7 @@
 #' Check if Micromamba is Available for OS and CPU architecture
 #' @param sys_arch Default: NULL.
+#' @keywords internal
+#' @noRd
 is_micromamba_available_for_arch <- function(sys_arch = NULL) {
   if (is.null(sys_arch)) {
     sys_arch <- get_sys_arch()

@@ -11,6 +11,7 @@
 #' @inheritParams run
 #'
 #' @keywords internal
+#' @noRd
 native_cmd <- function(conda_cmd,
                        conda_args = NULL,
                        ...,

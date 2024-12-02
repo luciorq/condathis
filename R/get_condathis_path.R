@@ -10,6 +10,7 @@
 #' A character string representing the path to the user data directory for `condathis`.
 #'
 #' @keywords internal
+#' @noRd
 get_condathis_path <- function() {
   sys_arch <- get_sys_arch()
   if (isTRUE(stringr::str_detect(sys_arch, "^Darwin"))) {
