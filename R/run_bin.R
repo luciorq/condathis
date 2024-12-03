@@ -43,7 +43,7 @@ run_bin <- function(
   cmd_path <- fs::path(env_dir, "bin", cmd)
 
   if (isFALSE(fs::file_exists(cmd_path)) && isTRUE(fs::file_exists(Sys.which(cmd)))) {
-    cmd_path <- normalizePath(Sys.which(cmd))
+    cmd_path <- normalizePath(Sys.which(cmd), mustWork = FALSE)
   }
 
   withr::local_envvar(

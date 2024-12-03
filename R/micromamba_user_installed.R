@@ -12,6 +12,6 @@ micromamba_user_installed <- function() {
   if (isTRUE(umamba_bin_path == "")) {
     return(invisible(umamba_bin_path))
   }
-  umamba_bin_path <- normalizePath(umamba_bin_path)
+  umamba_bin_path <- normalizePath(umamba_bin_path, mustWork = FALSE)
   return(fs::path(umamba_bin_path))
 }

@@ -177,7 +177,7 @@ For example, the system’s `curl` is of a specific version:
 libcurlVersion()
 #> [1] "8.1.2"
 #> attr(,"ssl_version")
-#> [1] "SecureTransport (LibreSSL/3.3.6)"
+#> [1] "(SecureTransport) LibreSSL/3.3.6"
 #> attr(,"libssh_version")
 #> [1] ""
 #> attr(,"protocols")

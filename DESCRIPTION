@@ -1,6 +1,6 @@
 Package: condathis
 Title: Run Any CLI Tool on a Conda Environment
-Version: 0.0.7.9003
+Version: 0.0.7.9004
 Authors@R: c(
     person("Lucio", "Queiroz", , "luciorqueiroz@gmail.com", role = c("aut", "cre", "cph"),
            comment = c(ORCID = "0000-0002-6090-1834")),
@@ -20,10 +20,10 @@ Imports:
     fs,
     jsonlite,
     processx,
-    rappdirs,
     rlang,
     stringr,
     tibble,
+    tools,
     utils,
     withr
 Suggests:

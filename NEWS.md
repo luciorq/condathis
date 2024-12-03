@@ -4,6 +4,8 @@
 
 * `env_exists()` now error if no argument is supplied.
 
+* The base directory path used for creating the environments is now controlled by `tools::R_R_user_dir()` and accepts `R_USER_DATA_DIR`, and `XDG_DATA_HOME`, respectively as environment variables that can control that path. On Unix/Linux it should be `"${HOME}/.local/share/R/condathis"`.
+
 ## New features
 
 ## Minor improvements and fixes
