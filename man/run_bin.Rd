@@ -55,7 +55,11 @@ Usually this is not what the user wants, check \code{\link[=run]{run()}} for the
 \dontrun{
 # Example assumes that 'my-env' exists and contains 'python'
 # Run 'python' with a script in 'my-env' environment
-condathis::run_bin("python", "script.py", env_name = "my-env", verbose = "silent")
+condathis::run_bin(
+  "python", "-c", "import sys; print(sys.version)",
+  env_name = "my-env",
+  verbose = "output"
+)
 
 # Run 'ls' command with additional arguments
 condathis::run_bin("ls", "-la", env_name = "my-env")
