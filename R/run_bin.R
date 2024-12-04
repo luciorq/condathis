@@ -1,7 +1,13 @@
 #' Run a Binary from a Conda Environment Without Environment Activation
 #'
-#' Executes a binary command from a specified Conda environment without activating the environment or using its environment variables. This function temporarily clears Conda and Mamba-related environment variables to prevent interference, ensuring that the command runs in a clean environment.
-#' Usually this is not what the user wants, check [run()] for the stable function to use.
+#' Executes a binary command from a specified Conda environment without
+#' activating the environment or using its environment variables.
+#' This function temporarily clears Conda and Mamba-related environment
+#' variables to prevent interference, ensuring that the command runs in a clean
+#' environment.
+#' Usually this is not what the user wants as this mode of execution does not
+#' load environment variables and scripts defined in the environment
+#' `activate.d`, check [run()] for the stable function to use.
 #'
 #' @inheritParams run
 #'
@@ -31,8 +37,7 @@ run_bin <- function(
     verbose = "silent",
     error = c("cancel", "continue"),
     stdout = "|",
-    stderr = "|"
-  ) {
+    stderr = "|") {
   error <- rlang::arg_match(error)
   if (isTRUE(identical(error, "cancel"))) {
     error_var <- TRUE
@@ -81,7 +86,6 @@ run_bin <- function(
 
   px_res <- processx::run(
     command = cmd_path,
-    # command = fs::path_real(cmd_path),
     args = args_vector,
     spinner = TRUE,
     echo_cmd = verbose_cmd,

@@ -62,15 +62,6 @@ native_cmd <- function(conda_cmd,
   }
   callback_fun_out <- NULL
   callback_fun_err <- NULL
-  # if (isTRUE(verbose)) {
-  #   callback_fun_out <- function(x, y) {
-  #     cli::cli_inform(x)
-  #   }
-  #   callback_fun_err <- function(x, y) {
-  #     x <- stringr::str_squish(x)
-  #     cli::cli_alert("{.red {x}}")
-  #   }
-  # }
   px_res <- processx::run(
     command = fs::path_real(umamba_bin_path),
     args = c(

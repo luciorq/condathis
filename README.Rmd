@@ -61,7 +61,19 @@ Suppose you're writing a pipeline or just a script for some analysis, and you wa
 
 The `fastqc` command synopsis is `fastqc <path-to-fastq-file> -o <output-dir>`. The output directory is where `fastqc` saves its quality control reports.
 
-
+```{r include=FALSE}
+local_temp_dir <- fs::path_temp("tmp")
+temp_home_dir <- fs::path(local_temp_dir, "home")
+withr::local_envvar(
+  .new = list(
+    `HOME` = temp_home_dir,
+    `XDG_DATA_HOME` = fs::path(temp_home_dir, "data_home"),
+    `USERPROFILE` = temp_home_dir,
+    `LOCALAPPDATA` = fs::path(temp_home_dir, "data_home"),
+    `R_USER_DATA_DIR` = fs::path(temp_home_dir, "data_home")
+  )
+)
+```
 
 ```{r eval=FALSE}
 fastq_file <- system.file("extdata", "sample1_L001_R1_001.fastq.gz", package = "condathis")

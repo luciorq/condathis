@@ -157,7 +157,8 @@ expected.
 ``` r
 fs::dir_ls(temp_out_dir_2) |>
   basename()
-#> [1] "sample1_L001_R1_001_fastqc.html" "sample1_L001_R1_001_fastqc.zip"
+#> [1] "sample1_L001_R1_001_fastqc.html" "sample1_L001_R1_001_fastqc.zip" 
+#> [3] "tmp"
 ```
 
 The code that we created with `{condathis}` **uses a system CLI tool but

@@ -48,8 +48,14 @@ execution. Contains information about the standard output, standard error,
 and exit status of the command.
 }
 \description{
-Executes a binary command from a specified Conda environment without activating the environment or using its environment variables. This function temporarily clears Conda and Mamba-related environment variables to prevent interference, ensuring that the command runs in a clean environment.
-Usually this is not what the user wants, check \code{\link[=run]{run()}} for the stable function to use.
+Executes a binary command from a specified Conda environment without
+activating the environment or using its environment variables.
+This function temporarily clears Conda and Mamba-related environment
+variables to prevent interference, ensuring that the command runs in a clean
+environment.
+Usually this is not what the user wants as this mode of execution does not
+load environment variables and scripts defined in the environment
+\code{activate.d}, check \code{\link[=run]{run()}} for the stable function to use.
 }
 \examples{
 \dontrun{
