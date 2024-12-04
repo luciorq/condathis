@@ -17,9 +17,16 @@ testthat::test_that("get_sys_arch returns correct path for each os", {
 
   with_mocked_bindings(
     get_sys_arch = mock_get_sys_arch("Darwin-x86_64"),
-    expect_equal(
+    testthat::expect_equal(
       get_condathis_path(),
-      tools::R_user_dir("condathis", which = "data")
+      withr::with_envvar(
+        new = list(
+          `XDG_DATA_HOME` = fs::path_home(".local", "share")
+        ),
+        code = {
+          tools::R_user_dir("condathis", which = "data")
+        }
+      )
     )
   )
 
@@ -27,7 +34,14 @@ testthat::test_that("get_sys_arch returns correct path for each os", {
     get_sys_arch = mock_get_sys_arch("Darwin-arm64"),
     testthat::expect_equal(
       get_condathis_path(),
-      tools::R_user_dir("condathis", which = "data")
+      withr::with_envvar(
+        new = list(
+          `XDG_DATA_HOME` = fs::path_home(".local", "share")
+        ),
+        code = {
+          tools::R_user_dir("condathis", which = "data")
+        }
+      )
     )
   )
 
