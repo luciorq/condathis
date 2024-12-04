@@ -23,5 +23,3 @@ get_condathis_path <- function() {
   dir_path <- tools::R_user_dir(package = "condathis", which = "data")
   return(dir_path)
 }
-
-
