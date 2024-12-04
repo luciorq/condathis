@@ -65,7 +65,10 @@ run_bin <- function(
       R_HOME = ""
     )
   )
-
+  withr::local_path(
+    new = list(fs::path(env_dir, "bin")),
+    action = "prefix"
+  )
   args_vector <- c(...)
   if (isTRUE(is.null(args_vector))) {
     args_vector <- character(length = 0L)
