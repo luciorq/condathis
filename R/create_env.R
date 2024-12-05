@@ -76,6 +76,10 @@ create_env <- function(
   if (isFALSE(fs::dir_exists(pkgs_dir))) {
     fs::dir_create(pkgs_dir)
   }
+  withr::defer(expr = {
+    if(fs::dir_exists(pkgs_dir)) fs::dir_delete(pkgs_dir)
+  })
+
   method <- rlang::arg_match(method)
 
   env_file_path <- NULL
