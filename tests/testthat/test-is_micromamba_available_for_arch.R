@@ -1,6 +1,4 @@
 # tests/testthat/test-is_micromamba_available_for_arch.R
-library(testthat)
-
 test_that("is_micromamba_available_for_arch handles custom sys_arch input correctly", {
   # Test case for Linux-x86_64
   expect_equal(is_micromamba_available_for_arch("Linux-x86_64"), "linux-64")

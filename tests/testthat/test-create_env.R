@@ -23,6 +23,7 @@ testthat::test_that("create_env invalid method arg", {
 })
 
 testthat::test_that("conda env is created", {
+  testthat::skip_if_offline()
   testthat::skip_on_cran()
 
   px_res <- create_env(
@@ -144,6 +145,7 @@ testthat::test_that("conda env is created", {
 })
 
 testthat::test_that("Create conda env from file", {
+  testthat::skip_if_offline()
   testthat::skip_on_cran()
 
   px_res <- create_env(

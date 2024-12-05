@@ -1,4 +1,5 @@
 test_that("Micromamba installation", {
+  testthat::skip_if_offline()
   testthat::skip_on_cran()
   withr::local_path(new = list(), action = "replace")
   umamba_bin_path <- install_micromamba(force = FALSE)
@@ -6,6 +7,7 @@ test_that("Micromamba installation", {
 })
 
 test_that("Micromamba already installed", {
+  testthat::skip_if_offline()
   testthat::skip_on_cran()
   testthat::expect_message(
     object = {

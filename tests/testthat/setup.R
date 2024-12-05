@@ -18,5 +18,10 @@ withr::local_envvar(
     `APPDATA` = fs::path_temp("tmp", "home", "data"),
     `R_USER_DATA_DIR` = fs::path_temp("tmp", "home", "data"),
     `XDG_DATA_HOME` = fs::path_temp("tmp", "home", "data")
-  )
+  ),
+  .local_envir = testthat::teardown_env()
 )
+if (isFALSE(fs::dir_exists(fs::path_temp("tmp", "home")))) {
+  fs::dir_create(fs::path_temp("tmp", "home"))
+}
+

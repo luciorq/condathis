@@ -1,7 +1,7 @@
 test_that("GitHub is reachable", {
   testthat::skip_if_offline()
-  testthat::skip_on_ci()
   testthat::skip_on_cran()
+  testthat::skip_on_ci()
 
   github_url <- "https://github.com"
   con_res <- check_connection(url_to_check = github_url)
