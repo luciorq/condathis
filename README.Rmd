@@ -62,22 +62,17 @@ Suppose you're writing a pipeline or just a script for some analysis, and you wa
 The `fastqc` command synopsis is `fastqc <path-to-fastq-file> -o <output-dir>`. The output directory is where `fastqc` saves its quality control reports.
 
 ```{r include=FALSE}
-local_temp_dir <- fs::path_temp("tmp")
-temp_home_dir <- fs::path(local_temp_dir, "home")
 withr::local_envvar(
   .new = list(
-    `HOME` = temp_home_dir,
-    `XDG_DATA_HOME` = fs::path(temp_home_dir, "data_home"),
-    `USERPROFILE` = temp_home_dir,
-    `LOCALAPPDATA` = fs::path(temp_home_dir, "data_home"),
-    `R_USER_DATA_DIR` = fs::path(temp_home_dir, "data_home")
+    `R_USER_DATA_DIR` = fs::path_temp("home", "data")
   )
 )
+fs::dir_create(file.path(tempdir(), "output"))
 ```
 
 ```{r eval=FALSE}
 fastq_file <- system.file("extdata", "sample1_L001_R1_001.fastq.gz", package = "condathis")
-temp_out_dir <- tempdir()
+temp_out_dir <- file.path(tempdir(), "output")
 
 system2(command = "fastqc", args = c(fastq_file, "-o", temp_out_dir))
 ```
@@ -97,7 +92,7 @@ file_info(fs::dir_ls(temp_out_dir, glob = "*zip")) |>
 
 ```{r echo=FALSE, message=FALSE}
 fastq_file <- system.file("extdata", "sample1_L001_R1_001.fastq.gz", package = "condathis")
-temp_out_dir <- tempdir()
+temp_out_dir <- file.path(tempdir(), "output")
 condathis::create_env(packages = "fastqc==0.11.2", env_name = "fastqc-0.11.2")
 condathis::run("fastqc", fastq_file, "-o", temp_out_dir, env_name = "fastqc-0.11.2")
 
@@ -115,7 +110,7 @@ The exact same code run on the same system but with an updated version of `fastq
 
 
 ```{r echo=FALSE}
-temp_out_dir_2 <- tempdir()
+temp_out_dir_2 <- file.path(tempdir(), "output")
 
 condathis::create_env(packages = "fastqc==0.12.1", env_name = "fastqc-0.12.1")
 condathis::run("fastqc", fastq_file, "-o", temp_out_dir, env_name = "fastqc-0.12.1")
@@ -151,7 +146,8 @@ Then we run the command inside the environment just created which contains a ver
 
 ```{r echo=FALSE}
 # dir of output files
-temp_out_dir_2 <- tempdir()
+temp_out_dir_2 <- file.path(tempdir(), "output")
+
 out <- condathis::run(
   "fastqc", fastq_file, "-o", temp_out_dir_2, # command
   env_name = "fastqc-env" # environment

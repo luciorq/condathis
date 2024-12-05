@@ -71,7 +71,7 @@ where `fastqc` saves its quality control reports.
 
 ``` r
 fastq_file <- system.file("extdata", "sample1_L001_R1_001.fastq.gz", package = "condathis")
-temp_out_dir <- tempdir()
+temp_out_dir <- file.path(tempdir(), "output")
 
 system2(command = "fastqc", args = c(fastq_file, "-o", temp_out_dir))
 ```
@@ -157,8 +157,7 @@ expected.
 ``` r
 fs::dir_ls(temp_out_dir_2) |>
   basename()
-#> [1] "sample1_L001_R1_001_fastqc.html" "sample1_L001_R1_001_fastqc.zip" 
-#> [3] "tmp"
+#> [1] "sample1_L001_R1_001_fastqc.html" "sample1_L001_R1_001_fastqc.zip"
 ```
 
 The code that we created with `{condathis}` **uses a system CLI tool but
