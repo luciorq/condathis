@@ -15,8 +15,8 @@ github_org := 'luciorq'
   R -q -e 'devtools::load_all();usethis::use_tidy_description();';
   R -q -e 'devtools::load_all();devtools::document();';
   R -q -e 'devtools::load_all();devtools::run_examples();';
-  R -q -e 'devtools::load_all();rmarkdown::render("README.Rmd", encoding = "UTF-8")';
   R -q -e 'devtools::load_all();devtools::test();';
+  R -q -e 'devtools::load_all();rmarkdown::render("README.Rmd", encoding = "UTF-8")';
 
 @check:
   #!/usr/bin/env -vS bash -i
