@@ -69,16 +69,13 @@ create_env <- function(
     verbose = "silent",
     overwrite = FALSE) {
   pkgs_dir <- fs::path_home(".mamba", "pkgs")
+  if (isTRUE(stringr::str_detect(get_sys_arch(), "^Windows"))) {
+    pkgs_dir <- Sys.getenv("APPDATA", unset = fs::path_home("AppData", "Roaming"))
+    pkgs_dir <- fs::path(pkgs_dir, ".mamba", "pkgs")
+  }
   if (isFALSE(fs::dir_exists(pkgs_dir))) {
     fs::dir_create(pkgs_dir)
   }
-  if (isTRUE(stringr::str_detect(get_sys_arch(), "^Windows"))) {
-    pkgs_dir <- fs::path_home("AppData", "Roaming", ".mamba", "pkgs")
-    if (isFALSE(fs::dir_exists(pkgs_dir))) {
-      fs::dir_create(pkgs_dir)
-    }
-  }
-
   method <- rlang::arg_match(method)
 
   env_file_path <- NULL

@@ -50,6 +50,8 @@ native_cmd <- function(conda_cmd,
       MAMBA_PROMPT_MODIFIER = "",
       CONDA_DEFAULT_ENV = "",
       MAMBA_DEFAULT_ENV = "",
+      CONDA_PKGS_DIRS = "",
+      MAMBA_PKGS_DIRS = "",
       R_HOME = ""
     )
   )
