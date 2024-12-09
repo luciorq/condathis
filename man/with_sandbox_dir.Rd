@@ -7,9 +7,12 @@
 with_sandbox_dir(code, .local_envir = base::parent.frame())
 }
 \arguments{
-\item{code}{Expression.
+\item{code}{\link{expression}
 An expression containing the user-defined code to be executed in the
 temporary environment.}
+
+\item{.local_envir}{\link{environment}
+The environment to use for scoping.}
 }
 \value{
 Returns \code{NULL} invisibly.
@@ -30,6 +33,5 @@ directories are created automatically and cleaned up after execution.
 \examples{
 with_sandbox_dir(print(fs::path_home()))
 with_sandbox_dir(print(tools::R_user_dir("condathis")))
-with_sandbox_dir(print(getwd()))
 
 }

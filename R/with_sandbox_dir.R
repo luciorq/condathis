@@ -13,9 +13,12 @@
 #' used to create an isolated environment during examples and tests. The temporary
 #' directories are created automatically and cleaned up after execution.
 #'
-#' @param code Expression.
+#' @param code [expression]
 #'   An expression containing the user-defined code to be executed in the
 #'   temporary environment.
+#'
+#' @param .local_envir [environment]
+#'  The environment to use for scoping.
 #'
 #' @return
 #' Returns `NULL` invisibly.
@@ -23,7 +26,6 @@
 #' @examples
 #' with_sandbox_dir(print(fs::path_home()))
 #' with_sandbox_dir(print(tools::R_user_dir("condathis")))
-#' with_sandbox_dir(print(getwd()))
 #'
 #' @export
 with_sandbox_dir <- function(code, .local_envir = base::parent.frame()) {
@@ -35,16 +37,12 @@ with_sandbox_dir <- function(code, .local_envir = base::parent.frame()) {
     pattern = "tmp-data",
     .local_envir = .local_envir
   )
-  tmp_wd_path <- fs::path(tmp_home_path, "wd")
 
   if (isFALSE(fs::dir_exists(tmp_home_path))) {
     fs::dir_create(tmp_home_path)
   }
   if (isFALSE(fs::dir_exists(tmp_data_path))) {
     fs::dir_create(tmp_data_path)
-  }
-  if (isFALSE(fs::dir_exists(tmp_wd_path))) {
-    fs::dir_create(tmp_wd_path)
   }
   withr::local_envvar(
     .new = list(
@@ -55,10 +53,6 @@ with_sandbox_dir <- function(code, .local_envir = base::parent.frame()) {
       `R_USER_DATA_DIR` = tmp_data_path,
       `XDG_DATA_HOME` = tmp_data_path
     ),
-    .local_envir = .local_envir
-  )
-  withr::local_dir(
-    new = tmp_wd_path,
     .local_envir = .local_envir
   )
   code <- base::substitute(expr = code)
