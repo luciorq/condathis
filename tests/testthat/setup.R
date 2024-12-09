@@ -16,6 +16,23 @@ tmp_data_path <- withr::local_tempdir(
   .local_envir = testthat::teardown_env()
 )
 
+tmp_wd_path <- fs::path(tmp_home_path, "wd")
+
+if (isFALSE(fs::dir_exists(tmp_home_path))) {
+  fs::dir_create(tmp_home_path)
+}
+if (isFALSE(fs::dir_exists(tmp_data_path))) {
+  fs::dir_create(tmp_data_path)
+}
+if (isFALSE(fs::dir_exists(tmp_wd_path))) {
+  fs::dir_create(tmp_wd_path)
+}
+
+withr::local_dir(
+  new = tmp_wd_path,
+  .local_envir = testthat::teardown_env()
+)
+
 withr::local_envvar(
   .new = list(
     `HOME` = tmp_home_path,
@@ -28,11 +45,6 @@ withr::local_envvar(
   .local_envir = testthat::teardown_env()
 )
 
-if (isFALSE(fs::dir_exists(tmp_home_path))) {
-  fs::dir_create(tmp_home_path)
-}
-if (isFALSE(fs::dir_exists(tmp_data_path))) {
-  fs::dir_create(tmp_data_path)
-}
 base::rm(tmp_home_path)
 base::rm(tmp_data_path)
+base::rm(tmp_wd_path)
