@@ -7,21 +7,32 @@ withr::local_options(
   .local_envir = testthat::teardown_env()
 )
 
-# fs::path(local_temp_dir, "home")
-# fs::path_temp("tmp", "home", "data")
+tmp_home_path <- withr::local_tempdir(
+  pattern = "tmp-home",
+  .local_envir = testthat::teardown_env()
+)
+tmp_data_path <- withr::local_tempdir(
+  pattern = "tmp-data",
+  .local_envir = testthat::teardown_env()
+)
 
 withr::local_envvar(
   .new = list(
-    `HOME` = fs::path_temp("tmp", "home"),
-    `USERPROFILE` = fs::path_temp("tmp", "home"),
-    `LOCALAPPDATA` = fs::path_temp("tmp", "home", "data"),
-    `APPDATA` = fs::path_temp("tmp", "home", "data"),
-    `R_USER_DATA_DIR` = fs::path_temp("tmp", "home", "data"),
-    `XDG_DATA_HOME` = fs::path_temp("tmp", "home", "data")
+    `HOME` = tmp_home_path,
+    `USERPROFILE` = tmp_home_path,
+    `LOCALAPPDATA` = tmp_data_path,
+    `APPDATA` = tmp_data_path,
+    `R_USER_DATA_DIR` = tmp_data_path,
+    `XDG_DATA_HOME` = tmp_data_path
   ),
   .local_envir = testthat::teardown_env()
 )
-if (isFALSE(fs::dir_exists(fs::path_temp("tmp", "home")))) {
-  fs::dir_create(fs::path_temp("tmp", "home"))
-}
 
+if (isFALSE(fs::dir_exists(tmp_home_path))) {
+  fs::dir_create(tmp_home_path)
+}
+if (isFALSE(fs::dir_exists(tmp_data_path))) {
+  fs::dir_create(tmp_data_path)
+}
+base::rm(tmp_home_path)
+base::rm(tmp_data_path)

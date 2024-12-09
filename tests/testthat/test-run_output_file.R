@@ -66,5 +66,3 @@ test_that("Output redirection to file", {
 })
 
 # remove_env(env_name = "condathis-test-env", verbose = FALSE)
-
-
