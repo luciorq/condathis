@@ -123,7 +123,7 @@ testthat::test_that("conda env is created", {
     env_name = "condathis-test-env",
     verbose = FALSE
   )
-  expect_equal(install_res, 0)
+  expect_equal(install_res$status, 0)
 
   inst_res <- run(
     "python", "--version",

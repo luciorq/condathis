@@ -57,6 +57,13 @@ install_packages <- function(packages,
     packages,
     verbose = verbose
   )
-  cat(px_res$stdout)
-  invisible(px_res$status)
+
+  if (isTRUE(verbose %in% c("full", "output") && length(packages) > 0L)) {
+    cli::cli_inform(
+      message = c(
+        `!` = "{cli::qty(packages)}Package{?s} {.field {packages}} succesfully installed in environment {.field {env_name}}."
+      )
+    )
+  }
+  return(invisible(px_res))
 }
