@@ -13,13 +13,12 @@ Run system command line interface (CLI) tools in a **reproducible** and
 
 ## Get started
 
-<!--
-When available, install package from [CRAN](https://cran.r-project.org):
-&#10;
+When available, install release version of the package from
+[CRAN](https://cran.r-project.org):
+
 ``` r
 install.packages("condathis")
 ```
--->
 
 Install package from
 [R-Universe](https://luciorq.r-universe.dev/condathis):
@@ -201,7 +200,7 @@ out <- condathis::run(
   env_name = "curl-env" # environment
 )
 
-cat(out$stdout)
+message(out$stdout)
 #> curl 8.10.1 (aarch64-apple-darwin20.0.0) libcurl/8.10.1 OpenSSL/3.4.0 (SecureTransport) zlib/1.3.1 zstd/1.5.6 libssh2/1.11.1 nghttp2/1.64.0
 #> Release-Date: 2024-09-18
 #> Protocols: dict file ftp ftps gopher gophers http https imap imaps ipfs ipns mqtt pop3 pop3s rtsp scp sftp smb smbs smtp smtps telnet tftp ws wss

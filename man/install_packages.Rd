@@ -49,8 +49,8 @@ condathis::create_env(
   packages = "fastqc",
   env_name = "fastqc-env"
 )
-# Install the package `vim` in the `fastqc-env` environment.
+# Install the package `python` in the `fastqc-env` environment.
 # It is not recommended to install multiple packages in the same environment,
-condathis::install_packages(packages = "vim", env_name = "fastqc-env")
+condathis::install_packages(packages = "python", env_name = "fastqc-env")
 }
 }

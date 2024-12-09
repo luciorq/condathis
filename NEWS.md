@@ -6,11 +6,17 @@
 
 * The base directory path used for creating the environments is now controlled by `tools::R_R_user_dir()` and accepts `R_USER_DATA_DIR`, and `XDG_DATA_HOME`, respectively as environment variables that can control that path. On Unix/Linux it should be `"${HOME}/.local/share/R/condathis"`.
 
+* The default `TMPDIR` for all `run()` and `run_bin()` calls are clean after execution.
+
 ## New features
 
 ## Minor improvements and fixes
 
 * Improved error message in `list_packages()`when env don't exist (#21).
+
+* Improved message in `install_packages()`.
+
+* Spinner is only active when session is interactive.
 
 # condathis 0.0.7
 

@@ -23,13 +23,11 @@ Run system command line interface (CLI) tools in a **reproducible** and **isolat
 
 ## Get started
 
-<!--
-When available, install package from [CRAN](https://cran.r-project.org):
+When available, install release version of the package from [CRAN](https://cran.r-project.org):
 
 ```{r eval=FALSE}
 install.packages("condathis")
 ```
--->
 
 Install package from [R-Universe](https://luciorq.r-universe.dev/condathis):
 
@@ -189,7 +187,7 @@ out <- condathis::run(
   env_name = "curl-env" # environment
 )
 
-cat(out$stdout)
+message(out$stdout)
 ```
 
 This isolation feature of `{condathis}` allows not only running different versions of the same CLI tools but also different tools that have **incompatible dependencies**. One common example is CLI tools that rely on different versions of Python.
