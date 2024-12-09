@@ -151,13 +151,16 @@ create_env <- function(
         return(invisible(list(status = 0L, stdout = "", stderr = "", timeout = FALSE)))
       }
     }
+
+    quiet_flag <- parse_quiet_flag(verbose = verbose)
+
     px_res <- native_cmd(
       conda_cmd = "create",
       conda_args = c(
         "-n",
         env_name,
         "--yes",
-        "--quiet",
+        quiet_flag,
         "--no-channel-priority",
         "--override-channels",
         "--channel-priority=0",

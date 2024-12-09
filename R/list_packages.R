@@ -41,13 +41,13 @@ list_packages <- function(env_name = "condathis-env", verbose = "silent") {
       class = "condathis_list_packages_missing_env"
     )
   }
-
+  quiet_flag <- parse_quiet_flag(verbose = verbose)
   px_res <- native_cmd(
     conda_cmd = "list",
     conda_args = c(
       "-n",
       env_name,
-      "--quiet",
+      quiet_flag,
       "--json"
     ),
     verbose = verbose

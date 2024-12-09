@@ -37,6 +37,7 @@ install_packages <- function(packages,
       verbose = verbose
     )
   }
+  quiet_flag <- parse_quiet_flag(verbose = verbose)
   channels_arg <- format_channels_args(
     additional_channels,
     channels
@@ -47,7 +48,7 @@ install_packages <- function(packages,
       "-n",
       env_name,
       "--yes",
-      "--quiet",
+      quiet_flag,
       "--no-channel-priority",
       "--override-channels",
       "--channel-priority=0",

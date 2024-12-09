@@ -29,6 +29,7 @@ remove_env <- function(env_name = "condathis-env",
       class = "condathis_error_env_remove"
     )
   }
+  quiet_flag <- parse_quiet_flag(verbose = verbose)
   px_res <- native_cmd(
     conda_cmd = "env",
     conda_args = c(
@@ -36,7 +37,7 @@ remove_env <- function(env_name = "condathis-env",
       "-n",
       env_name,
       "--yes",
-      "--quiet"
+      quiet_flag
     ),
     verbose = verbose
   )
