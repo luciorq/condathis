@@ -15,8 +15,6 @@
 #' @keywords internal
 #' @noRd
 symlink_micromamba_bin <- function(path = NULL, force = FALSE) {
-  # force <- rlang::arg_match(force)
-
   if (isTRUE(is.null(path))) {
     user_umamba_path <- micromamba_user_installed()
   } else {

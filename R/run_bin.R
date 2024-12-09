@@ -48,6 +48,7 @@ run_bin <- function(
   verbose_list <- parse_strategy_verbose(strategy = verbose)
   verbose_cmd <- verbose_list$cmd
   verbose_output <- verbose_list$output
+  spinner_flag <- rlang::is_interactive()
 
   env_dir <- get_env_dir(env_name = env_name)
   cmd_path <- fs::path(env_dir, "bin", cmd)
@@ -55,24 +56,25 @@ run_bin <- function(
   if (isFALSE(fs::file_exists(cmd_path)) && isTRUE(fs::file_exists(Sys.which(cmd)))) {
     cmd_path <- normalizePath(Sys.which(cmd), mustWork = FALSE)
   }
-
+  tmp_dir_path <- withr::local_tempdir(pattern = "condathis-tmp")
   withr::local_envvar(
     .new = list(
-      CONDA_SHLVL = 0,
-      MAMBA_SHLVL = 0,
-      CONDA_ENVS_PATH = "",
-      CONDA_ROOT_PREFIX = "",
-      CONDA_PREFIX = "",
-      MAMBA_ENVS_PATH = "",
-      MAMBA_ROOT_PREFIX = "",
-      MAMBA_PREFIX = "",
-      CONDARC = "",
-      MAMBARC = "",
-      CONDA_PROMPT_MODIFIER = "",
-      MAMBA_PROMPT_MODIFIER = "",
-      CONDA_DEFAULT_ENV = "",
-      MAMBA_DEFAULT_ENV = "",
-      R_HOME = ""
+      `TMPDIR` = tmp_dir_path,
+      `CONDA_SHLVL` = "0",
+      `MAMBA_SHLVL` = "0",
+      `CONDA_ENVS_PATH` = "",
+      `CONDA_ROOT_PREFIX` = "",
+      `CONDA_PREFIX` = "",
+      `MAMBA_ENVS_PATH` = "",
+      `MAMBA_ROOT_PREFIX` = "",
+      `MAMBA_PREFIX` = "",
+      `CONDARC` = "",
+      `MAMBARC` = "",
+      `CONDA_PROMPT_MODIFIER` = "",
+      `MAMBA_PROMPT_MODIFIER` = "",
+      `CONDA_DEFAULT_ENV` = "",
+      `MAMBA_DEFAULT_ENV` = "",
+      `R_HOME` = ""
     )
   )
   withr::local_path(
@@ -87,7 +89,7 @@ run_bin <- function(
   px_res <- processx::run(
     command = cmd_path,
     args = args_vector,
-    spinner = TRUE,
+    spinner = spinner_flag,
     echo_cmd = verbose_cmd,
     echo = verbose_output,
     stdout = stdout,
