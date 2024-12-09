@@ -13,19 +13,21 @@
 #'
 #' @examples
 #' \dontrun{
-#' # Create environments
-#' condathis::create_env(
-#'   packages = "fastqc",
-#'   env_name = "fastqc-env"
-#' )
-#' condathis::create_env(
-#'   packages = "samtools",
-#'   env_name = "samtools-env"
-#' )
+#' with_sandbox_dir({
+#'   # Create environments
+#'   condathis::create_env(
+#'     packages = "fastqc",
+#'     env_name = "fastqc-env"
+#'   )
+#'   condathis::create_env(
+#'     packages = "python",
+#'     env_name = "python-env"
+#'   )
 #'
-#' # List environments
-#' condathis::list_envs()
-#' #> [1] "fastqc-env" "samtools-env"
+#'   # List environments
+#'   condathis::list_envs()
+#'   #> [1] "fastqc-env" "python-env"
+#' })
 #' }
 #'
 #' @export

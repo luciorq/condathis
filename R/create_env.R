@@ -43,13 +43,15 @@
 #'
 #' @examples
 #' \dontrun{
-#' # Create a Conda environment and install the CLI `fastqc` in it.
-#' condathis::create_env(
-#'   packages = "fastqc==0.12.1",
-#'   env_name = "fastqc-env",
-#'   verbose = "output"
-#' )
-#' #> ! Environment fastqc-env succesfully created.
+#' with_sandbox_dir({
+#'   # Create a Conda environment and install the CLI `fastqc` in it.
+#'   condathis::create_env(
+#'     packages = "fastqc==0.12.1",
+#'     env_name = "fastqc-env",
+#'     verbose = "output"
+#'   )
+#'   #> ! Environment fastqc-env succesfully created.
+#' })
 #' }
 #' @export
 create_env <- function(

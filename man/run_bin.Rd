@@ -59,16 +59,18 @@ load environment variables and scripts defined in the environment
 }
 \examples{
 \dontrun{
-# Example assumes that 'my-env' exists and contains 'python'
-# Run 'python' with a script in 'my-env' environment
-condathis::run_bin(
-  "python", "-c", "import sys; print(sys.version)",
-  env_name = "my-env",
-  verbose = "output"
-)
+with_sandbox_dir({
+  # Example assumes that 'my-env' exists and contains 'python'
+  # Run 'python' with a script in 'my-env' environment
+  condathis::run_bin(
+    "python", "-c", "import sys; print(sys.version)",
+    env_name = "my-env",
+    verbose = "output"
+  )
 
-# Run 'ls' command with additional arguments
-condathis::run_bin("ls", "-la", env_name = "my-env")
+  # Run 'ls' command with additional arguments
+  condathis::run_bin("ls", "-la", env_name = "my-env")
+})
 }
 
 }

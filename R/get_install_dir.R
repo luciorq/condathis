@@ -15,9 +15,11 @@
 #' A character string representing the normalized, real path to the `condathis` data directory.
 #'
 #' @examples
-#' condathis::get_install_dir()
-#' #> /home/username/.local/share/condathis
-
+#' with_sandbox_dir({
+#'   condathis::get_install_dir()
+#'   #> /home/username/.local/share/condathis
+#' })
+#'
 #' @export
 get_install_dir <- function() {
   dir_path <- get_condathis_path()

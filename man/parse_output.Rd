@@ -29,10 +29,8 @@ res <- list(
 
 # Parse the standard output
 parse_output(res, stream = "stdout")
-#> [1] "line1" "line2" "line3"
 
 # Parse the standard error
 parse_output(res, stream = "stderr")
-#> [1] "error1" "error2"
 
 }

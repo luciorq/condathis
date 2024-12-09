@@ -42,14 +42,16 @@ If the download fails, appropriate error messages are displayed.
 }
 \examples{
 \dontrun{
-# Install the default version of Micromamba
-condathis::install_micromamba()
+with_sandbox_dir({
+  # Install the default version of Micromamba
+  condathis::install_micromamba()
 
-# Install a specific version of Micromamba
-condathis::install_micromamba(micromamba_version = "2.0.2-2")
+  # Install a specific version of Micromamba
+  condathis::install_micromamba(micromamba_version = "2.0.2-2")
 
-# Force reinstallation of Micromamba
-condathis::install_micromamba(force = TRUE)
+  # Force reinstallation of Micromamba
+  condathis::install_micromamba(force = TRUE)
+})
 }
 
 }

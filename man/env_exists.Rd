@@ -20,19 +20,21 @@ and \code{FALSE} otherwise.
 }
 \examples{
 \dontrun{
-# Create the environment
-condathis::create_env(
-  packages = "fastqc",
-  env_name = "fastqc-env"
-)
+with_sandbox_dir({
+  # Create the environment
+  condathis::create_env(
+    packages = "fastqc",
+    env_name = "fastqc-env"
+  )
 
-# Check if the environment exists
-condathis::env_exists("fastqc-env")
-#> [1] TRUE
+  # Check if the environment exists
+  condathis::env_exists("fastqc-env")
+  #> [1] TRUE
 
-# Check for a non-existent environment
-condathis::env_exists("non-existent-env")
-#> [1] FALSE
+  # Check for a non-existent environment
+  condathis::env_exists("non-existent-env")
+  #> [1] FALSE
+})
 }
 
 }

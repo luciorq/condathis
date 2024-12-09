@@ -60,16 +60,19 @@ This is particularly useful for reproducible research and ensuring that specific
 }
 \examples{
 \dontrun{
-## Create env
-create_env("samtools", env_name = "samtools-env")
+with_sandbox_dir({
+  ## Create env
+  create_env("samtools", env_name = "samtools-env")
 
-## Run a command in a specific Conda environment
-samtools_res <- run("samtools", "view", fs::path_package("condathis", "extdata", "example.bam"),
-  env_name = "samtools-env"
-)
-parse_output(samtools_res)[1]
-#> [1] "SOLEXA-1GA-1_6_FC20ET7:6:92:473:531\t0\tchr1\t10156..."
+  ## Run a command in a specific Conda environment
+  samtools_res <- run("samtools", "view", fs::path_package("condathis", "extdata", "example.bam"),
+    env_name = "samtools-env"
+  )
+  parse_output(samtools_res)[1]
+  #> [1] "SOLEXA-1GA-1_6_FC20ET7:6:92:473:531\t0\tchr1\t10156..."
+})
 }
+
 }
 \seealso{
 \code{\link{install_micromamba}}, \code{\link{create_env}}

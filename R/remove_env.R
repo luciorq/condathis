@@ -10,11 +10,13 @@
 #'
 #' @examples
 #' \dontrun{
-#' condathis::create_env(
-#'   packages = "fastqc",
-#'   env_name = "fastqc-env"
-#' )
-#' condathis::remove_env(env_name = "fastqc-env")
+#' with_sandbox_dir({
+#'   condathis::create_env(
+#'     packages = "fastqc",
+#'     env_name = "fastqc-env"
+#'   )
+#'   condathis::remove_env(env_name = "fastqc-env")
+#' })
 #' }
 #'
 #' @export

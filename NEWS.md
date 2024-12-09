@@ -18,6 +18,8 @@
 
 * Spinner is only active when session is interactive.
 
+* New `with_sandbox_dir()` allow for isolated tests and examples.
+
 # condathis 0.0.7
 
 ## New features
