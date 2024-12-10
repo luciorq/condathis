@@ -82,8 +82,12 @@ create_env <- function(
     pkgs_already_exists <- TRUE
   }
   withr::defer(expr = {
-    if (isFALSE(pkgs_already_exists) && fs::dir_exists(pkgs_dir)) {
-      fs::dir_delete(pkgs_dir)
+    if (isFALSE(pkgs_already_exists) && fs::dir_exists(base::dirname(pkgs_dir))) {
+      invisible(rlang::catch_cnd(
+        expr = {
+          fs::dir_delete(base::dirname(pkgs_dir))
+        }
+      ))
     }
   })
 
