@@ -6,6 +6,8 @@
 \alias{condathis-package}
 \title{condathis: Run Any CLI Tool on a 'Conda' Environment}
 \description{
+\if{html}{\figure{logo.png}{options: style='float: right' alt='logo' width='120'}}
+
 Simplifies the execution of command line interface (CLI) tools within isolated and reproducible environments. It enables users to effortlessly manage 'Conda' environments, execute command line tools, handle dependencies, and ensure reproducibility in their data analysis workflows.
 }
 \seealso{
