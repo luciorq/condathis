@@ -88,10 +88,23 @@ file_info(fs::dir_ls(temp_out_dir, glob = "*zip")) |>
   select(file_name, size)
 ```
 
-    #> # A tibble: 1 × 2
-    #>   file_name                             size
-    #>   <chr>                          <fs::bytes>
-    #> 1 sample1_L001_R1_001_fastqc.zip        424K
+``` r
+fastq_file <- system.file("extdata", "sample1_L001_R1_001.fastq.gz", package = "condathis")
+temp_out_dir <- file.path(tempdir(), "output")
+condathis::create_env(packages = "fastqc==0.11.2", env_name = "fastqc-0.11.2")
+condathis::run("fastqc", fastq_file, "-o", temp_out_dir, env_name = "fastqc-0.11.2")
+
+library(fs)
+library(dplyr)
+
+file_info(fs::dir_ls(temp_out_dir, glob = "*zip")) |>
+  mutate(file_name = path_file(path)) |>
+  select(file_name, size)
+#> # A tibble: 1 × 2
+#>   file_name                             size
+#>   <chr>                          <fs::bytes>
+#> 1 sample1_L001_R1_001_fastqc.zip        424K
+```
 
 Now, let’s consider the scenario where you share your code with someone
 else or revisit it yourself after a year. There’s no guarantee the code
@@ -103,10 +116,22 @@ The exact same code run on the same system but with an updated version
 of `fastqc` (0.12.1 instead of 0.11.2) generates a different file, and
 its size is different as well: *446k instead of 424k*.
 
-    #> # A tibble: 1 × 2
-    #>   file_name                             size
-    #>   <chr>                          <fs::bytes>
-    #> 1 sample1_L001_R1_001_fastqc.zip        446K
+``` r
+temp_out_dir_2 <- file.path(tempdir(), "output")
+
+condathis::create_env(packages = "fastqc==0.12.1", env_name = "fastqc-0.12.1")
+condathis::run("fastqc", fastq_file, "-o", temp_out_dir, env_name = "fastqc-0.12.1")
+
+condathis::remove_env("fastqc-0.12.1")
+
+file_info(fs::dir_ls(temp_out_dir_2, glob = "*zip")) |>
+  mutate(file_name = path_file(path)) |>
+  select(file_name, size)
+#> # A tibble: 1 × 2
+#>   file_name                             size
+#>   <chr>                          <fs::bytes>
+#> 1 sample1_L001_R1_001_fastqc.zip        446K
+```
 
 This discrepancy limits the workflow, pipelines, and scripts to using
 only `R` packages!
@@ -132,11 +157,21 @@ condathis::create_env(packages = "fastqc==0.12.1", env_name = "fastqc-env", verb
 Then we run the command inside the environment just created which
 contains a version 0.12.1 of `fastqc`.
 
+``` r
+# dir of output files
+temp_out_dir_2 <- file.path(tempdir(), "output")
+
+out <- condathis::run(
+  "fastqc", fastq_file, "-o", temp_out_dir_2, # command
+  env_name = "fastqc-env" # environment
+)
+```
+
 The `out` object contains info regarding the exit status, standard
 error, standard output, and timeout if any.
 
 ``` r
-out
+print(out)
 #> $status
 #> [1] 0
 #> 

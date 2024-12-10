@@ -88,7 +88,7 @@ file_info(fs::dir_ls(temp_out_dir, glob = "*zip")) |>
 ```
 
 
-```{r echo=FALSE, message=FALSE}
+```{r message=FALSE}
 fastq_file <- system.file("extdata", "sample1_L001_R1_001.fastq.gz", package = "condathis")
 temp_out_dir <- file.path(tempdir(), "output")
 condathis::create_env(packages = "fastqc==0.11.2", env_name = "fastqc-0.11.2")
@@ -107,7 +107,7 @@ Now, let's consider the scenario where you share your code with someone else or 
 The exact same code run on the same system but with an updated version of `fastqc` (0.12.1 instead of 0.11.2) generates a different file, and its size is different as well: *446k instead of 424k*.
 
 
-```{r echo=FALSE}
+```{r}
 temp_out_dir_2 <- file.path(tempdir(), "output")
 
 condathis::create_env(packages = "fastqc==0.12.1", env_name = "fastqc-0.12.1")
@@ -142,7 +142,7 @@ condathis::create_env(packages = "fastqc==0.12.1", env_name = "fastqc-env", verb
 
 Then we run the command inside the environment just created which contains a version 0.12.1 of `fastqc`.
 
-```{r echo=FALSE}
+```{r}
 # dir of output files
 temp_out_dir_2 <- file.path(tempdir(), "output")
 
@@ -155,7 +155,7 @@ out <- condathis::run(
 The `out` object contains info regarding the exit status, standard error, standard output, and timeout if any.
 
 ```{r}
-out
+print(out)
 ```
 
 In the output temporary directory, `fastqc`generated the output files as expected.
