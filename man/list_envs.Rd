@@ -22,7 +22,7 @@ to Condathis, such as the base Conda environment itself.
 }
 \examples{
 \dontrun{
-with_sandbox_dir({
+condathis::with_sandbox_dir({
   # Create environments
   condathis::create_env(
     packages = "fastqc",

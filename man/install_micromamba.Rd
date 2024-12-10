@@ -42,7 +42,7 @@ If the download fails, appropriate error messages are displayed.
 }
 \examples{
 \dontrun{
-with_sandbox_dir({
+condathis::with_sandbox_dir({
   # Install the default version of Micromamba
   condathis::install_micromamba()
 

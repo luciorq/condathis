@@ -60,7 +60,7 @@ This is particularly useful for reproducible research and ensuring that specific
 }
 \examples{
 \dontrun{
-with_sandbox_dir({
+condathis::with_sandbox_dir({
   ## Create env
   create_env("samtools", env_name = "samtools-env")
 

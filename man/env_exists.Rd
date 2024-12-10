@@ -20,7 +20,7 @@ and \code{FALSE} otherwise.
 }
 \examples{
 \dontrun{
-with_sandbox_dir({
+condathis::with_sandbox_dir({
   # Create the environment
   condathis::create_env(
     packages = "fastqc",

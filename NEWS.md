@@ -1,10 +1,14 @@
+# condathis 0.1.0
+
+* Initial submission to CRAN.
+
 # condathis 0.0.8
 
 ## Breaking changes
 
 * `env_exists()` now error if no argument is supplied.
 
-* The base directory path used for creating the environments is now controlled by `tools::R_R_user_dir()` and accepts `R_USER_DATA_DIR`, and `XDG_DATA_HOME`, respectively as environment variables that can control that path. On Unix/Linux it should be `"${HOME}/.local/share/R/condathis"`.
+* The base directory path used for creating the environments is now controlled by `tools::R_user_dir()` and accepts `R_USER_DATA_DIR`, and `XDG_DATA_HOME`, respectively as environment variables that can control that path. On Unix/Linux it should be `"${HOME}/.local/share/R/condathis"`.
 
 * The default `TMPDIR` for all `run()` and `run_bin()` calls are clean after execution.
 

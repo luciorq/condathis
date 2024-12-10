@@ -43,7 +43,7 @@
 #'
 #' @examples
 #' \dontrun{
-#' with_sandbox_dir({
+#' condathis::with_sandbox_dir({
 #'   # Create a Conda environment and install the CLI `fastqc` in it.
 #'   condathis::create_env(
 #'     packages = "fastqc==0.12.1",

@@ -17,7 +17,7 @@
 #'
 #' @examples
 #' \dontrun{
-#' with_sandbox_dir({
+#' condathis::with_sandbox_dir({
 #'   # Example assumes that 'my-env' exists and contains 'python'
 #'   # Run 'python' with a script in 'my-env' environment
 #'   condathis::run_bin(

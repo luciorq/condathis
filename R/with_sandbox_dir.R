@@ -24,8 +24,8 @@
 #' Returns `NULL` invisibly.
 #'
 #' @examples
-#' with_sandbox_dir(print(fs::path_home()))
-#' with_sandbox_dir(print(tools::R_user_dir("condathis")))
+#' condathis::with_sandbox_dir(print(fs::path_home()))
+#' condathis::with_sandbox_dir(print(tools::R_user_dir("condathis")))
 #'
 #' @export
 with_sandbox_dir <- function(code, .local_envir = base::parent.frame()) {

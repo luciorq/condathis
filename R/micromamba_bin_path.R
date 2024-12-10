@@ -12,7 +12,7 @@
 #'   }
 #'
 #' @examples
-#' with_sandbox_dir({
+#' condathis::with_sandbox_dir({
 #'   # Retrieve the path to where micromamba executable is searched
 #'   micromamba_path <- condathis::micromamba_bin_path()
 #'   print(micromamba_path)

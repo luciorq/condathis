@@ -12,7 +12,7 @@
 #'
 #' @examples
 #' \dontrun{
-#' with_sandbox_dir({
+#' condathis::with_sandbox_dir({
 #'   condathis::create_env(
 #'     packages = "fastqc",
 #'     env_name = "fastqc-env"

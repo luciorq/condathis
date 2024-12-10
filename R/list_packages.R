@@ -20,7 +20,7 @@
 #' }
 #' @examples
 #' \dontrun{
-#' with_sandbox_dir({
+#' condathis::with_sandbox_dir({
 #'   # Creates a Conda environment with the CLI `fastqc`
 #'   condathis::create_env(
 #'     packages = "fastqc",

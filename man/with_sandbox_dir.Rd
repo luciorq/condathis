@@ -31,7 +31,7 @@ used to create an isolated environment during examples and tests. The temporary
 directories are created automatically and cleaned up after execution.
 }
 \examples{
-with_sandbox_dir(print(fs::path_home()))
-with_sandbox_dir(print(tools::R_user_dir("condathis")))
+condathis::with_sandbox_dir(print(fs::path_home()))
+condathis::with_sandbox_dir(print(tools::R_user_dir("condathis")))
 
 }

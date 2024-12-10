@@ -7,7 +7,7 @@
 #' @return A character string indicating the path where environments will be created.
 
 #' @examples
-#' with_sandbox_dir({
+#' condathis::with_sandbox_dir({
 #'   # Get the default environment directory
 #'   condathis::get_env_dir()
 #'   #> "/path/to/condathis/envs/condathis-env"

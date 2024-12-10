@@ -41,7 +41,7 @@
 #'
 #' @examples
 #' \dontrun{
-#' with_sandbox_dir({
+#' condathis::with_sandbox_dir({
 #'   ## Create env
 #'   create_env("samtools", env_name = "samtools-env")
 #'

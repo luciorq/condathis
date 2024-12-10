@@ -18,7 +18,7 @@ Retrieve path to where environment should be created.
 \strong{Note}: It retrieves the Path even if the environment is \strong{not} created yet.
 }
 \examples{
-with_sandbox_dir({
+condathis::with_sandbox_dir({
   # Get the default environment directory
   condathis::get_env_dir()
   #> "/path/to/condathis/envs/condathis-env"

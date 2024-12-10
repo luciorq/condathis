@@ -15,7 +15,7 @@
 #' A character string representing the normalized, real path to the `condathis` data directory.
 #'
 #' @examples
-#' with_sandbox_dir({
+#' condathis::with_sandbox_dir({
 #'   condathis::get_install_dir()
 #'   #> /home/username/.local/share/condathis
 #' })
