@@ -8,6 +8,10 @@
 
 * The default `TMPDIR` for all `run()` and `run_bin()` calls are clean after execution.
 
+* All error messages are resurfaced in the exported function call instead of being thrown in the internal `processx` call.
+
+* New classes were added to the error condition in most functions.
+
 ## New features
 
 ## Minor improvements and fixes
