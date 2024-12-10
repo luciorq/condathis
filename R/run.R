@@ -90,6 +90,10 @@ run <- function(cmd,
   method_to_use <- method[1]
 
   if (isTRUE(method_to_use %in% c("native", "auto"))) {
+    if (isFALSE(env_exists(env_name = "condathis-env"))) {
+      create_base_env()
+    }
+
     px_res <- rethrow_error_run(
       expr = {
         run_internal_native(
