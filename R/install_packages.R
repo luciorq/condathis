@@ -45,20 +45,24 @@ install_packages <- function(packages,
     additional_channels,
     channels
   )
-  px_res <- native_cmd(
-    conda_cmd = "install",
-    conda_args = c(
-      "-n",
-      env_name,
-      "--yes",
-      quiet_flag,
-      "--no-channel-priority",
-      "--override-channels",
-      "--channel-priority=0",
-      channels_arg
-    ),
-    packages,
-    verbose = verbose
+  px_res <- rethrow_error_cmd(
+    expr = {
+      native_cmd(
+        conda_cmd = "install",
+        conda_args = c(
+          "-n",
+          env_name,
+          "--yes",
+          quiet_flag,
+          "--no-channel-priority",
+          "--override-channels",
+          "--channel-priority=0",
+          channels_arg
+        ),
+        packages,
+        verbose = verbose
+      )
+    }
   )
 
   if (isTRUE(verbose %in% c("full", "output") && length(packages) > 0L)) {

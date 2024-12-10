@@ -32,16 +32,20 @@ remove_env <- function(env_name = "condathis-env",
     )
   }
   quiet_flag <- parse_quiet_flag(verbose = verbose)
-  px_res <- native_cmd(
-    conda_cmd = "env",
-    conda_args = c(
-      "remove",
-      "-n",
-      env_name,
-      "--yes",
-      quiet_flag
-    ),
-    verbose = verbose
+  px_res <- rethrow_error_cmd(
+    expr = {
+      native_cmd(
+        conda_cmd = "env",
+        conda_args = c(
+          "remove",
+          "-n",
+          env_name,
+          "--yes",
+          quiet_flag
+        ),
+        verbose = verbose
+      )
+    }
   )
   if (isTRUE(verbose %in% c("full", "output"))) {
     cli::cli_inform(

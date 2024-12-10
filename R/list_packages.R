@@ -44,15 +44,19 @@ list_packages <- function(env_name = "condathis-env", verbose = "silent") {
     )
   }
   quiet_flag <- parse_quiet_flag(verbose = verbose)
-  px_res <- native_cmd(
-    conda_cmd = "list",
-    conda_args = c(
-      "-n",
-      env_name,
-      quiet_flag,
-      "--json"
-    ),
-    verbose = verbose
+  px_res <- rethrow_error_cmd(
+    expr = {
+      native_cmd(
+        conda_cmd = "list",
+        conda_args = c(
+          "-n",
+          env_name,
+          quiet_flag,
+          "--json"
+        ),
+        verbose = verbose
+      )
+    }
   )
   if (isTRUE(px_res$status == 0)) {
     pkgs_df <- jsonlite::fromJSON(px_res$stdout)

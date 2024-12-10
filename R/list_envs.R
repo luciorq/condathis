@@ -33,14 +33,18 @@
 #' @export
 list_envs <- function(verbose = "silent") {
   env_root_dir <- get_install_dir()
-  px_res <- native_cmd(
-    conda_cmd = "env",
-    conda_args = c(
-      "list",
-      "-q",
-      "--json"
-    ),
-    verbose = verbose
+  px_res <- rethrow_error_cmd(
+    expr = {
+      native_cmd(
+        conda_cmd = "env",
+        conda_args = c(
+          "list",
+          "-q",
+          "--json"
+        ),
+        verbose = verbose
+      )
+    }
   )
   if (isTRUE(px_res$status == 0)) {
     envs_list <- jsonlite::fromJSON(px_res$stdout)

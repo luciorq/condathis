@@ -90,14 +90,18 @@ run <- function(cmd,
   method_to_use <- method[1]
 
   if (isTRUE(method_to_use %in% c("native", "auto"))) {
-    px_res <- run_internal_native(
-      cmd = cmd,
-      ...,
-      env_name = env_name,
-      verbose = verbose,
-      error = error,
-      stdout = stdout,
-      stderr = stderr
+    px_res <- rethrow_error_run(
+      expr = {
+        run_internal_native(
+          cmd = cmd,
+          ...,
+          env_name = env_name,
+          verbose = verbose,
+          error = error,
+          stdout = stdout,
+          stderr = stderr
+        )
+      }
     )
   }
   return(invisible(px_res))

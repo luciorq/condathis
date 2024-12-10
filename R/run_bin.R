@@ -88,15 +88,20 @@ run_bin <- function(
     args_vector <- character(length = 0L)
   }
 
-  px_res <- processx::run(
-    command = cmd_path,
-    args = args_vector,
-    spinner = spinner_flag,
-    echo_cmd = verbose_cmd,
-    echo = verbose_output,
-    stdout = stdout,
-    stderr = stderr,
-    error_on_status = error_var
+  px_res <- rethrow_error_run(
+    expr = {
+      processx::run(
+        command = cmd_path,
+        args = args_vector,
+        spinner = spinner_flag,
+        echo_cmd = verbose_cmd,
+        echo = verbose_output,
+        stdout = stdout,
+        stderr = stderr,
+        error_on_status = error_var
+      )
+    }
   )
+
   return(invisible(px_res))
 }

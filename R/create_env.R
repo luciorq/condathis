@@ -156,22 +156,26 @@ create_env <- function(
 
     quiet_flag <- parse_quiet_flag(verbose = verbose)
 
-    px_res <- native_cmd(
-      conda_cmd = "create",
-      conda_args = c(
-        "-n",
-        env_name,
-        "--yes",
-        quiet_flag,
-        "--no-channel-priority",
-        "--override-channels",
-        "--channel-priority=0",
-        channels_arg,
-        platform_args
-      ),
-      packages_arg,
-      verbose = verbose,
-      error = "cancel"
+    px_res <- rethrow_error_cmd(
+      expr = {
+        native_cmd(
+          conda_cmd = "create",
+          conda_args = c(
+            "-n",
+            env_name,
+            "--yes",
+            quiet_flag,
+            "--no-channel-priority",
+            "--override-channels",
+            "--channel-priority=0",
+            channels_arg,
+            platform_args
+          ),
+          packages_arg,
+          verbose = verbose,
+          error = "cancel"
+        )
+      }
     )
   }
   if (isTRUE(verbose %in% c("full", "output"))) {

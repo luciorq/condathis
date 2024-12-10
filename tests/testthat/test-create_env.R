@@ -62,7 +62,7 @@ testthat::test_that("conda env is created", {
         error = "cancel"
       )
     },
-    class = "rlib_error"
+    class = "condathis_run_status_error"
   )
 
   run_res <- run(
