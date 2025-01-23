@@ -9,7 +9,7 @@ rethrow_error_run <- function(expr, env = parent.frame()) {
     classes = c("system_command_status_error", "rlib_error_3_0", "c_error")
   )
 
-  if (isFALSE(is.null(err_cnd))) {
+  if (isFALSE(is.null(err_cnd)) && !isFALSE(env[["error_var"]])) {
     additional_lines <- NULL
     if (isTRUE("stderr" %in% names(err_cnd))) {
       additional_lines <- stringr::str_split(
@@ -26,8 +26,8 @@ rethrow_error_run <- function(expr, env = parent.frame()) {
     } else {
       status_code <- err_cnd[["status"]]
     }
-
     env[["status_code"]] <- status_code
+
     cli::cli_abort(
       message = c(
         `x` = "System command {.field {cmd}} failed",
@@ -36,6 +36,33 @@ rethrow_error_run <- function(expr, env = parent.frame()) {
       ),
       class = "condathis_run_status_error",
       .envir = env
+    )
+  }
+
+  if (isFALSE(exists("px_res"))) {
+    if (isTRUE(is.null(err_cnd[["status"]]))) {
+      status_code <- 127L
+    } else {
+      status_code <- err_cnd[["status"]]
+    }
+
+    if (
+      isFALSE(is.null(err_cnd[["message"]])) &&
+        isTRUE(stringr::str_detect(err_cnd[["message"]], "Native call to"))
+    ) {
+      if (isFALSE(is.null(env[["cmd"]]))) {
+        cmd_str <- env[["cmd"]]
+      }
+      stderr_msg <- paste("System command", cmd_str, "not found", sep = " ")
+    } else {
+      stderr_msg <- "Unknown Error"
+    }
+
+    px_res <- list(
+      status = status_code,
+      stdout = "",
+      stderr = stderr_msg,
+      timeout = FALSE
     )
   }
 

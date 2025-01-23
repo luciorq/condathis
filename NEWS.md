@@ -2,7 +2,11 @@
 
 ## Minor improvements and fixes
 
-* Internal `micromamba` version bump to "2.0.4-0".
+* Internal `micromamba` version bump to "2.0.5-0".
+
+* Fix error in `run_bin()` when `error = "continue"` and `cmd` is not on
+  PATH nor in the environment.
+  The expected behavior is to not fail (#23).
 
 # condathis 0.1.0
 
