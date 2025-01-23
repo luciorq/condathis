@@ -1,3 +1,9 @@
+# condathis 0.1.1 (dev)
+
+## Minor improvements and fixes
+
+* Internal `micromamba` version bump to "2.0.4-0".
+
 # condathis 0.1.0
 
 * Initial submission to CRAN.
@@ -20,7 +26,7 @@
 
 ## Minor improvements and fixes
 
-* Improved error message in `list_packages()`when env don't exist (#21).
+* Improved error message in `list_packages()` when environment doesn't exist (#21).
 
 * Improved message in `install_packages()`.
 

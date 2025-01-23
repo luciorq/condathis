@@ -5,7 +5,7 @@
 \title{Install Micromamba Binaries in the \code{condathis} Controlled Path}
 \usage{
 install_micromamba(
-  micromamba_version = "2.0.4-0",
+  micromamba_version = "2.0.5-0",
   timeout_limit = 3600,
   download_method = "auto",
   force = FALSE
