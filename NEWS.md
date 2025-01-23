@@ -1,4 +1,4 @@
-# condathis 0.1.1 (dev)
+# condathis 0.1.1
 
 ## Minor improvements and fixes
 

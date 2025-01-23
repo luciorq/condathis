@@ -6,6 +6,8 @@
 <!-- badges: start -->
 
 [![R-CMD-check](https://github.com/luciorq/condathis/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/luciorq/condathis/actions/workflows/R-CMD-check.yaml)
+[![CRAN
+status](https://www.r-pkg.org/badges/version/condathis)](https://CRAN.R-project.org/package=condathis)
 <!-- badges: end -->
 
 Run system command line interface (CLI) tools in a **reproducible** and
@@ -14,7 +16,7 @@ Run system command line interface (CLI) tools in a **reproducible** and
 ## Get started
 
 Install the release version of the package from
-[CRAN](https://cran.r-project.org/web/packages/condathis/):
+[CRAN](https://cran.r-project.org/package=condathis):
 
 ``` r
 install.packages("condathis")

@@ -17,13 +17,14 @@ knitr::opts_chunk$set(
 
 <!-- badges: start -->
 [![R-CMD-check](https://github.com/luciorq/condathis/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/luciorq/condathis/actions/workflows/R-CMD-check.yaml)
+[![CRAN status](https://www.r-pkg.org/badges/version/condathis)](https://CRAN.R-project.org/package=condathis)
 <!-- badges: end -->
 
 Run system command line interface (CLI) tools in a **reproducible** and **isolated** environment **within R**.
 
 ## Get started
 
-Install the release version of the package from [CRAN](https://cran.r-project.org/web/packages/condathis/):
+Install the release version of the package from [CRAN](https://cran.r-project.org/package=condathis):
 
 ```{r eval=FALSE}
 install.packages("condathis")
