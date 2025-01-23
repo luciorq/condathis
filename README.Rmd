@@ -23,7 +23,7 @@ Run system command line interface (CLI) tools in a **reproducible** and **isolat
 
 ## Get started
 
-When available, install release version of the package from [CRAN](https://cran.r-project.org):
+Install the release version of the package from [CRAN](https://cran.r-project.org/web/packages/condathis/):
 
 ```{r eval=FALSE}
 install.packages("condathis")

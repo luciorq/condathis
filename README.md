@@ -13,8 +13,8 @@ Run system command line interface (CLI) tools in a **reproducible** and
 
 ## Get started
 
-When available, install release version of the package from
-[CRAN](https://cran.r-project.org):
+Install the release version of the package from
+[CRAN](https://cran.r-project.org/web/packages/condathis/):
 
 ``` r
 install.packages("condathis")
@@ -209,7 +209,7 @@ For example, the system’s `curl` is of a specific version:
 
 ``` r
 libcurlVersion()
-#> [1] "8.1.2"
+#> [1] "8.7.1"
 #> attr(,"ssl_version")
 #> [1] "(SecureTransport) LibreSSL/3.3.6"
 #> attr(,"libssh_version")
