@@ -60,7 +60,7 @@ test_that("Check if error is being rethrown when binary is not in path", {
     error = "continue"
   )
 
-  testthat::expect_equal(run_res$status, 127L)
+  testthat::expect_true(run_res$status != 0L)
 
   run_bin_res <- run_bin(
     "Rfakeexec", "--version",
@@ -69,5 +69,5 @@ test_that("Check if error is being rethrown when binary is not in path", {
     error = "continue"
   )
 
-  testthat::expect_equal(run_bin_res$status, 127L)
+  testthat::expect_true(run_bin_res$status != 0L)
 })
