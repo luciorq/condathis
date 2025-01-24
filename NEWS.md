@@ -122,7 +122,7 @@
 * Move `--no-rc` and `--no-env` arguments to `native_cmd()` (v0.0.3.9024).
 
 * Fix path handling in Windows (v0.0.3.9023).
-*  Add `mode = "wb"` to internal `download.file()` for handling binary downloads in Windows (v0.0.3.9023).
+* Add `mode = "wb"` to internal `download.file()` for handling binary downloads in Windows (v0.0.3.9023).
 
 * `list_envs()` and `list_packages()` uses `--no-rc` internally (v.0.0.3.9022).
 
