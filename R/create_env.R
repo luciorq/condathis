@@ -1,6 +1,7 @@
 #' Create a Conda Environment
 #'
-#' Create Conda Environment with specific packages installed to be used by `run()`.
+#' Create Conda Environment with specific packages installed to be used
+#'   by `run()`.
 #'
 #' @param packages Character vector. Names of the packages, and
 #'   version strings if necessary, e.g. 'python=3.11'. The use of the `packages`
@@ -23,7 +24,8 @@
 #' @param method Character. Beckend method to run `micromamba`, the default is
 #'   "auto" running "native" with the `micromamba` binaries installed
 #'   by `condathis`.
-#'   This argument is **soft deprecated** as changing it don't really do anything.
+#'   This argument is **soft deprecated** as changing it don't really do
+#'   anything.
 #'
 #' @param platform Character. Platform to search for `packages`.
 #'   Defaults to `NULL` which will use the current platform.
@@ -73,7 +75,10 @@ create_env <- function(
   pkgs_dir <- fs::path_home(".mamba", "pkgs")
   pkgs_already_exists <- FALSE
   if (isTRUE(stringr::str_detect(get_sys_arch(), "^Windows"))) {
-    pkgs_dir <- Sys.getenv("APPDATA", unset = fs::path_home("AppData", "Roaming"))
+    pkgs_dir <- base::Sys.getenv(
+      x = "APPDATA",
+      unset = fs::path_home("AppData", "Roaming")
+    )
     pkgs_dir <- fs::path(pkgs_dir, ".mamba", "pkgs")
   }
   if (isFALSE(fs::dir_exists(pkgs_dir))) {
@@ -82,7 +87,10 @@ create_env <- function(
     pkgs_already_exists <- TRUE
   }
   withr::defer(expr = {
-    if (isFALSE(pkgs_already_exists) && fs::dir_exists(base::dirname(pkgs_dir))) {
+    if (
+      isFALSE(pkgs_already_exists) &&
+        fs::dir_exists(base::dirname(pkgs_dir))
+    ) {
       invisible(rlang::catch_cnd(
         expr = {
           fs::dir_delete(base::dirname(pkgs_dir))
@@ -154,7 +162,11 @@ create_env <- function(
             )
           )
         }
-        return(invisible(list(status = 0L, stdout = "", stderr = "", timeout = FALSE)))
+        return(
+          invisible(
+            list(status = 0L, stdout = "", stderr = "", timeout = FALSE)
+          )
+        )
       }
     }
 

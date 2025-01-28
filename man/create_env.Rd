@@ -35,7 +35,8 @@ dependencies.}
 \item{method}{Character. Beckend method to run \code{micromamba}, the default is
 "auto" running "native" with the \code{micromamba} binaries installed
 by \code{condathis}.
-This argument is \strong{soft deprecated} as changing it don't really do anything.}
+This argument is \strong{soft deprecated} as changing it don't really do
+anything.}
 
 \item{additional_channels}{Character. Additional Channels to be added to the
 default ones.}
@@ -65,7 +66,8 @@ execution. Contains information about the standard output, standard error,
 and exit status of the command.
 }
 \description{
-Create Conda Environment with specific packages installed to be used by \code{run()}.
+Create Conda Environment with specific packages installed to be used
+by \code{run()}.
 }
 \examples{
 \dontrun{
