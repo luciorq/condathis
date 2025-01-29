@@ -211,16 +211,16 @@ For example, the system’s `curl` is of a specific version:
 
 ``` r
 libcurlVersion()
-#> [1] "8.7.1"
+#> [1] "8.11.1"
 #> attr(,"ssl_version")
-#> [1] "(SecureTransport) LibreSSL/3.3.6"
+#> [1] "OpenSSL/3.4.0 (SecureTransport)"
 #> attr(,"libssh_version")
-#> [1] ""
+#> [1] "libssh2/1.11.1"
 #> attr(,"protocols")
 #>  [1] "dict"    "file"    "ftp"     "ftps"    "gopher"  "gophers" "http"   
-#>  [8] "https"   "imap"    "imaps"   "ldap"    "ldaps"   "mqtt"    "pop3"   
-#> [15] "pop3s"   "rtsp"    "smb"     "smbs"    "smtp"    "smtps"   "telnet" 
-#> [22] "tftp"
+#>  [8] "https"   "imap"    "imaps"   "mqtt"    "pop3"    "pop3s"   "rtsp"   
+#> [15] "scp"     "sftp"    "smb"     "smbs"    "smtp"    "smtps"   "telnet" 
+#> [22] "tftp"    "ws"      "wss"
 ```
 
 However, we can choose to use a different version of `curl` run in a

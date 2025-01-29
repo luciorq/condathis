@@ -1,3 +1,10 @@
+# condathis 0.1.2 (dev)
+
+## Minor improvements and fixes
+
+* Fix parsing of error messages with curly braces in `run()` and `run_bin()`,
+  in the rethrown error, when `error = "cancel"`.
+
 # condathis 0.1.1
 
 ## Minor improvements and fixes
