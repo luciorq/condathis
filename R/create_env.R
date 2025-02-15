@@ -21,7 +21,7 @@
 #' @param additional_channels Character. Additional Channels to be added to the
 #'   default ones.
 #'
-#' @param method Character. Beckend method to run `micromamba`, the default is
+#' @param method Character. Backend method to run `micromamba`, the default is
 #'   "auto" running "native" with the `micromamba` binaries installed
 #'   by `condathis`.
 #'   This argument is **soft deprecated** as changing it don't really do

@@ -32,7 +32,7 @@ are going to be installed. Defaults to 'condathis-env'.}
 By default 'c("bioconda", "conda-forge")' are used for solving
 dependencies.}
 
-\item{method}{Character. Beckend method to run \code{micromamba}, the default is
+\item{method}{Character. Backend method to run \code{micromamba}, the default is
 "auto" running "native" with the \code{micromamba} binaries installed
 by \code{condathis}.
 This argument is \strong{soft deprecated} as changing it don't really do
