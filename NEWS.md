@@ -5,6 +5,9 @@
 * Fix parsing of error messages with curly braces in `run()` and `run_bin()`,
   in the rethrown error, when `error = "cancel"`.
 
+* `with_sandbox_dir()` now also defines temporary cache directory paths,
+  using `R_USER_CACHE_DIR` and `XDG_CACHE_HOME` environment variables.
+
 # condathis 0.1.1
 
 ## Minor improvements and fixes

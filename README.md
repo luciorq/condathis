@@ -238,7 +238,7 @@ out <- condathis::run(
 )
 
 message(out$stdout)
-#> curl 8.10.1 (aarch64-apple-darwin20.0.0) libcurl/8.10.1 OpenSSL/3.4.1 (SecureTransport) zlib/1.3.1 zstd/1.5.6 libssh2/1.11.1 nghttp2/1.64.0
+#> curl 8.10.1 (aarch64-apple-darwin20.0.0) libcurl/8.10.1 OpenSSL/3.4.1 (SecureTransport) zlib/1.3.1 zstd/1.5.7 libssh2/1.11.1 nghttp2/1.64.0
 #> Release-Date: 2024-09-18
 #> Protocols: dict file ftp ftps gopher gophers http https imap imaps ipfs ipns mqtt pop3 pop3s rtsp scp sftp smb smbs smtp smtps telnet tftp ws wss
 #> Features: alt-svc AsynchDNS GSS-API HSTS HTTP2 HTTPS-proxy IPv6 Kerberos Largefile libz MultiSSL NTLM SPNEGO SSL threadsafe TLS-SRP UnixSockets zstd

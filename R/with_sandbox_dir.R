@@ -37,6 +37,10 @@ with_sandbox_dir <- function(code, .local_envir = base::parent.frame()) {
     pattern = "tmp-data",
     .local_envir = .local_envir
   )
+  tmp_cache_path <- withr::local_tempdir(
+    pattern = "tmp-cache",
+    .local_envir = .local_envir
+  )
 
   if (isFALSE(fs::dir_exists(tmp_home_path))) {
     fs::dir_create(tmp_home_path)
@@ -44,6 +48,10 @@ with_sandbox_dir <- function(code, .local_envir = base::parent.frame()) {
   if (isFALSE(fs::dir_exists(tmp_data_path))) {
     fs::dir_create(tmp_data_path)
   }
+  if (isFALSE(fs::dir_exists(tmp_cache_path))) {
+    fs::dir_create(tmp_cache_path)
+  }
+
   withr::local_envvar(
     .new = list(
       `HOME` = tmp_home_path,
@@ -51,7 +59,9 @@ with_sandbox_dir <- function(code, .local_envir = base::parent.frame()) {
       `LOCALAPPDATA` = tmp_data_path,
       `APPDATA` = tmp_data_path,
       `R_USER_DATA_DIR` = tmp_data_path,
-      `XDG_DATA_HOME` = tmp_data_path
+      `XDG_DATA_HOME` = tmp_data_path,
+      `R_USER_CACHE_DIR` = tmp_cache_path,
+      `XDG_CACHE_HOME` = tmp_cache_path
     ),
     .local_envir = .local_envir
   )
