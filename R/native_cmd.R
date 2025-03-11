@@ -72,9 +72,9 @@ native_cmd <- function(conda_cmd,
     args = c(
       "--no-rc",
       "--no-env",
-      conda_cmd,
       "-r",
       env_root_dir,
+      conda_cmd,
       conda_args,
       ...
     ),
