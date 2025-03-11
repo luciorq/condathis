@@ -171,6 +171,11 @@ create_env <- function(
     }
 
     quiet_flag <- parse_quiet_flag(verbose = verbose)
+    if (isFALSE(env_exists(env_name)) &&
+      isTRUE(fs::dir_exists(get_env_dir(env_name = env_name)))
+    ) {
+      fs::dir_delete(get_env_dir(env_name = env_name))
+    }
 
     px_res <- rethrow_error_cmd(
       expr = {

@@ -22,6 +22,11 @@
 #' @export
 remove_env <- function(env_name = "condathis-env",
                        verbose = "silent") {
+  if (isFALSE(env_exists(env_name)) &&
+    isTRUE(fs::dir_exists(get_env_dir(env_name = env_name)))
+  ) {
+    fs::dir_delete(get_env_dir(env_name = env_name))
+  }
   if (isFALSE(env_exists(env_name))) {
     cli::cli_abort(
       message = c(
