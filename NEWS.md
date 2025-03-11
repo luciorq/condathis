@@ -18,6 +18,9 @@
   PATH nor in the environment.
   The expected behavior is to not fail (#23).
 
+* Fix error in `create_env()` that would fail if debris from failed installation
+  attempts were left in the environment path.
+
 # condathis 0.1.0
 
 * Initial submission to CRAN.
