@@ -45,7 +45,7 @@ testthat::test_that("Install micromamba from scratch", {
   testthat::expect_true(fs::file_exists(micromamba_bin_path()))
 
   testthat::expect_message(
-    install_micromamba(micromamba_version = "1.5.9"),
+    install_micromamba(micromamba_version = "1.5.9-0"),
     regexp = ".*already.*"
   )
 

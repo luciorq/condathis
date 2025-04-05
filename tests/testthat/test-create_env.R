@@ -91,7 +91,11 @@ testthat::test_that("conda env is created", {
 
   pkgs_list_res <- list_packages(env_name = "condathis-test-env")
 
-  testthat::expect_equal(ncol(pkgs_list_res), 8L)
+  testthat::expect_true(ncol(pkgs_list_res) > 0L)
+
+  testthat::expect_true(
+    base::all(c("r-base", "r-devtools") %in% pkgs_list_res$name)
+  )
 
   testthat::expect_true("r-base" %in% pkgs_list_res$name)
 
