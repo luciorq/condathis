@@ -1,6 +1,10 @@
 # condathis 0.1.2 (dev)
 
+## Breaking changes
+
 ## Minor improvements and fixes
+
+* Internal `micromamba` version bump to "2.0.8-0".
 
 * Fix parsing of error messages with curly braces in `run()` and `run_bin()`,
   in the rethrown error, when `error = "cancel"`.
