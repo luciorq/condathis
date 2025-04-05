@@ -1,3 +1,6 @@
+#' Clean Conda Cache
+#' @keywords internal
+#' @noRd
 clean_cache <- function(
     verbose = "output") {
   quiet_flag <- parse_quiet_flag(verbose = verbose)
