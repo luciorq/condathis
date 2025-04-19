@@ -41,8 +41,8 @@ github_org := 'luciorq'
 @check-install-conda tag_version='main':
   #!/usr/bin/env -vS bash -i
   \builtin set -euxo pipefail;
-  conda create -n {{ package_name }}-env -y --override-channels -c bioconda -c conda-forge \
-    r-base r-devtools r-rlang r-remotes r-withr r-stringr r-jsonlite r-fs r-cli r-processx r-tibble r-;
+  conda create -n {{ package_name }}-env -y --override-channels -c conda-forge \
+    r-base r-devtools r-remotes r-rlang r-withr r-stringr r-jsonlite r-fs r-cli r-processx r-ps r-tibble;
   conda run -n {{ package_name }}-env R -q -e 'remotes::install_github("{{ github_org }}/{{ package_name }}@{{ tag_version }}");';
-  conda run -n {{ package_name }}-env R -q -e 'utils::packageVersion("{{ package_name }}")';
-  conda run -n {{ package_name }}-env R -q -e 'condathis::create_env("r-base", env_name = "condathis-test-env");condathis::run("R","-s", "-q", "--version", env_name = "condathis-test-env");';
+  conda run -n {{ package_name }}-env R -q -e 'utils::packageVersion("{{ package_name }}");';
+  conda run -n {{ package_name }}-env R -q -e 'condathis::create_env("r-base", env_name = "condathis-test-env");message(condathis::run("R","-s", "-q", "--version", env_name = "condathis-test-env"));';
