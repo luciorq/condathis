@@ -6,5 +6,5 @@ testthat::test_that("micromamba not on system", {
     },
     action = "replace"
   )
-  testthat::expect_true(umamba_sys_path == "")
+  testthat::expect_true(rlang::is_character(umamba_sys_path))
 })

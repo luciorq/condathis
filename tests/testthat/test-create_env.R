@@ -32,7 +32,6 @@ testthat::test_that("conda env is created", {
   )
   expect_equal(px_res$status, 0L)
 
-
   withr::with_path(
     new = dirname(micromamba_bin_path()),
     code = {
