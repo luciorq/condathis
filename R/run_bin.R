@@ -87,7 +87,6 @@ run_bin <- function(
   if (isTRUE(is.null(args_vector))) {
     args_vector <- character(length = 0L)
   }
-
   px_res <- rethrow_error_run(
     expr = {
       processx::run(
@@ -98,10 +97,10 @@ run_bin <- function(
         echo = verbose_output,
         stdout = stdout,
         stderr = stderr,
+        stdin = stdin,
         error_on_status = error_var
       )
     }
   )
-
   return(invisible(px_res))
 }

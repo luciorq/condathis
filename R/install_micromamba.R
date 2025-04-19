@@ -42,15 +42,14 @@
 #' }
 #'
 #' @export
-install_micromamba <- function(micromamba_version = "2.0.8-0",
+install_micromamba <- function(micromamba_version = "2.1.0-0",
                                timeout_limit = 3600,
                                download_method = "auto",
                                force = FALSE) {
   umamba_bin_path <- micromamba_bin_path()
-
   if (isTRUE(fs::file_exists(umamba_bin_path)) && isFALSE(force)) {
     cli::cli_inform(c(
-      "i" = "{.pkg micromamba} is already installed at {.path {umamba_bin_path}}."
+      `i` = "{.pkg micromamba} is already installed at {.path {umamba_bin_path}}."
     ))
     return(invisible(umamba_bin_path))
   }
@@ -65,7 +64,9 @@ install_micromamba <- function(micromamba_version = "2.0.8-0",
     )
   }
   download_url <- paste0(
-    base_url, "download/", micromamba_version, "/micromamba-", sys_arch_str, ".tar.bz2"
+    base_url, "download/",
+    micromamba_version, "/micromamba-",
+    sys_arch_str, ".tar.bz2"
   )
 
   output_dir <- fs::path_abs(get_install_dir())
