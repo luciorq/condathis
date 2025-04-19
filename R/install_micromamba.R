@@ -5,7 +5,7 @@
 #' to create and manage conda environments.
 #'
 #' @param micromamba_version Character string specifying the version of Micromamba to download.
-#'   Defaults to `"2.0.8-0"`.
+#'   Defaults to `"2.1.0-0"`.
 #'
 #' @param timeout_limit Numeric value specifying the timeout limit for downloading the Micromamba
 #'   binaries, in seconds. Defaults to `3600` seconds (1 hour).
