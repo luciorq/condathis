@@ -12,7 +12,8 @@ run(
   verbose = c("silent", "cmd", "output", "full", FALSE, TRUE),
   error = c("cancel", "continue"),
   stdout = "|",
-  stderr = "|"
+  stderr = "|",
+  stdin = NULL
 )
 }
 \arguments{
@@ -45,6 +46,9 @@ A character string can be used to define a file path to be used as standard outp
 \item{stderr}{Default: "|" keep stderr to the R object
 returned by \code{run()}.
 A character string can be used to define a file path to be used as standard error. e.g: "error.txt".}
+
+\item{stdin}{Default: \code{NULL} (no \code{stdin} stream).
+A character string can be used to define a file path to be used as standard input. e.g: "input.txt".}
 }
 \value{
 An object of class \code{list} representing the result of the command execution.

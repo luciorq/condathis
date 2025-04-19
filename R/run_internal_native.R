@@ -12,7 +12,8 @@ run_internal_native <- function(cmd,
                                 verbose = FALSE,
                                 error = c("cancel", "continue"),
                                 stdout = "|",
-                                stderr = "|") {
+                                stderr = "|",
+                                stdin = NULL) {
   if (isTRUE(base::Sys.info()["sysname"] == "Windows")) {
     micromamba_bat_path <- fs::path(
       get_install_dir(), "condabin", "micromamba",
@@ -52,7 +53,8 @@ run_internal_native <- function(cmd,
     verbose = verbose,
     error = error,
     stdout = stdout,
-    stderr = stderr
+    stderr = stderr,
+    stdin = stdin
   )
   return(invisible(px_res))
 }

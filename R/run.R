@@ -32,6 +32,9 @@
 #'   returned by `run()`.
 #'   A character string can be used to define a file path to be used as standard error. e.g: "error.txt".
 #'
+#' @param stdin Default: `NULL` (no `stdin` stream).
+#'   A character string can be used to define a file path to be used as standard input. e.g: "input.txt".
+#'
 #' @return An object of class `list` representing the result of the command execution.
 #'   Contains information about the standard output, standard error, and exit status of the command.
 #'
@@ -70,7 +73,8 @@ run <- function(cmd,
                 ),
                 error = c("cancel", "continue"),
                 stdout = "|",
-                stderr = "|") {
+                stderr = "|",
+                stdin = NULL) {
   rlang::check_required(cmd)
 
   if (is.null(cmd)) {
@@ -103,7 +107,8 @@ run <- function(cmd,
           verbose = verbose,
           error = error,
           stdout = stdout,
-          stderr = stderr
+          stderr = stderr,
+          stdin = stdin
         )
       }
     )

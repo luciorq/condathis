@@ -18,7 +18,8 @@ native_cmd <- function(conda_cmd,
                        verbose = "full",
                        error = c("cancel", "continue"),
                        stdout = "|",
-                       stderr = "|") {
+                       stderr = "|",
+                       stdin = NULL) {
   rlang::check_required(conda_cmd)
   error <- rlang::arg_match(error)
   if (isTRUE(identical(error, "cancel"))) {

@@ -4,6 +4,9 @@
 
 ## Minor improvements and fixes
 
+* New `stdin` argument to `run()` and `run_bin()` functions, allowing input to
+  be redirected via standard input (stdin) for commands that require it.
+
 * Internal `micromamba` version bump to "2.1.0-0".
 
 * Fix parsing of error messages with curly braces in `run()` and `run_bin()`,

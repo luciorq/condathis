@@ -39,7 +39,8 @@ run_bin <- function(
     verbose = "silent",
     error = c("cancel", "continue"),
     stdout = "|",
-    stderr = "|") {
+    stderr = "|",
+    stdin = NULL) {
   error <- rlang::arg_match(error)
   if (isTRUE(identical(error, "cancel"))) {
     error_var <- TRUE
