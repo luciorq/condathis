@@ -2,10 +2,12 @@
 
 ## Breaking changes
 
-## Minor improvements and fixes
+## New features
 
 * New `stdin` argument to `run()` and `run_bin()` functions, allowing input to
   be redirected via standard input (stdin) for commands that require it.
+
+## Minor improvements and fixes
 
 * Internal `micromamba` version bump to "2.1.0-0".
 
@@ -48,6 +50,8 @@
 
 ## New features
 
+* New `with_sandbox_dir()` allow for isolated tests and examples.
+
 ## Minor improvements and fixes
 
 * Improved error message in `list_packages()` when environment doesn't exist (#21).
@@ -55,8 +59,6 @@
 * Improved message in `install_packages()`.
 
 * Spinner is only active when session is interactive.
-
-* New `with_sandbox_dir()` allow for isolated tests and examples.
 
 # condathis 0.0.7
 

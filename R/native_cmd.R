@@ -86,6 +86,7 @@ native_cmd <- function(conda_cmd,
     stdout_line_callback = callback_fun_out,
     stderr = stderr,
     stderr_line_callback = callback_fun_err,
+    stdin = stdin,
     error_on_status = error_var
   )
   return(invisible(px_res))

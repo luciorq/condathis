@@ -1,4 +1,13 @@
 #' Clean Conda Cache
+#'
+#' This function cleans the Conda cache by removing all packages and tarballs
+#' from the local cache directory. It is useful for freeing up disk space
+#' and ensuring that the cache does not contain outdated or unnecessary files.
+#'
+#' @param verbose A character string indicating the verbosity level of the
+#'  output. It can be one of "silent", "output", or "full". The default is
+#' ' "output".
+#'
 #' @keywords internal
 #' @noRd
 clean_cache <- function(
