@@ -68,6 +68,7 @@ native_cmd <- function(conda_cmd,
   }
   callback_fun_out <- NULL
   callback_fun_err <- NULL
+
   px_res <- processx::run(
     command = fs::path_real(umamba_bin_path),
     args = c(
@@ -89,5 +90,6 @@ native_cmd <- function(conda_cmd,
     stdin = stdin,
     error_on_status = error_var
   )
+
   return(invisible(px_res))
 }

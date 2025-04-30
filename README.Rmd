@@ -77,7 +77,7 @@ system2(command = "fastqc", args = c(fastq_file, "-o", temp_out_dir))
 ```
 
 
-The `fastqc` program generates several output files, including a zip file that is 424KB in size. To get information about one of the output files, we can use: 
+The `fastqc` program generates several output files, including a zip file that is 424KB in size. To get information about one of the output files, we can use:
 
 ```{r eval=FALSE}
 library(fs)
@@ -107,7 +107,6 @@ Now, let's consider the scenario where you share your code with someone else or 
 
 The exact same code run on the same system but with an updated version of `fastqc` (0.12.1 instead of 0.11.2) generates a different file, and its size is different as well: *446k instead of 424k*.
 
-
 ```{r}
 temp_out_dir_2 <- file.path(tempdir(), "output")
 
@@ -127,11 +126,9 @@ What can we do about it? We can use `{condathis}`!
 
 The package **`{condathis}`** ensures that the code you share and the results from running `fastqc` will be **consistent across different systems and over time**!
 
-
 ### The solution with `{condathis}`
 
 We would first create an isolated environment containing a specific version of the package `fastqc` (0.12.1). The command automatically manages all the library dependencies of `fastqc`, making sure that they are compatible with the specific operating system.
-
 
 ```{r echo=FALSE}
 rm(temp_out_dir_2)
