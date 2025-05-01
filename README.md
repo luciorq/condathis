@@ -274,7 +274,8 @@ expanded.
   - Instead of redirects (e.g. “\>”), use the argument
     `stdout = "<FILENAME>.txt"`. Instead of Pipes (“\|”), simple run
     multiple calls to `condathis::run()`, using `stdout` argument to
-    control the output and input of each command.
+    control the output and `stdin` to control the input of each command.
+    P.S. The current implementation only supports files as the “STDIN”.
 - File paths should not use special characters for relative paths,
   e.g. “~”, “.”, “..”.
   - Expand file paths directly in R, using `base` functions or functions

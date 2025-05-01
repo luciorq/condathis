@@ -1,4 +1,4 @@
-testthat::test_that("Do not execute code in curl braces", {
+testthat::test_that("Do not execute code in curly braces", {
   testthat::skip_if_offline()
   testthat::skip_on_cran()
 
@@ -43,4 +43,56 @@ testthat::test_that("Do not execute code in curl braces", {
   )
 
   testthat::expect_true(px_res$status != 0L)
+})
+
+# Test checking if stdin is a file
+testthat::test_that("stdin is a file", {
+
+  error <- "cancel"
+  error_var <- TRUE
+  stdin <- NULL
+
+  px_res <- rethrow_error_run(
+    expr = {
+      ls_res <- ls()
+    },
+    env = parent.frame()
+  )
+  testthat::expect_true(is.null(stdin))
+  # testthat::expect_equal(px_res$status, 0L)
+
+
+  stdin <- "missing_file_stdin.txt"
+
+  testthat::expect_error(
+    object = {
+      rethrow_error_run(
+        expr = {
+          ls_res <- ls()
+        },
+        env = parent.frame()
+      )
+    },
+    class = "condathis_run_stdin_error"
+  )
+
+  stdin <- "|"
+  px_res <- rethrow_error_run(
+    expr = {
+      ls_res <- ls()
+    },
+    env = parent.frame()
+  )
+  testthat::expect_true("stdin" %in% ls_res)
+  # testthat::expect_equal(px_res$status, 0L)
+
+  # error <- "continue"
+  # error_var <- FALSE
+  # status_code <- 99
+  #px_res <- rethrow_error_run(
+  #  expr = {
+  #    message("Error message")
+  #  },
+  #  env = parent.frame()
+  #)
 })

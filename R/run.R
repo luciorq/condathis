@@ -85,10 +85,16 @@ run <- function(cmd,
       class = "condathis_run_null_cmd"
     )
   }
-
-  error <- rlang::arg_match(error)
-  method <- rlang::arg_match(method)
   # verbose <- rlang::arg_match(verbose)
+  method <- rlang::arg_match(method)
+  error <- rlang::arg_match(error)
+  # error_var is used by rethrow_error_run env
+  if (isTRUE(identical(error, "cancel"))) {
+    error_var <- TRUE
+  } else {
+    error_var <- FALSE
+  }
+
   invisible_res <- parse_strategy_verbose(strategy = verbose[1])
 
   method_to_use <- method[1]
