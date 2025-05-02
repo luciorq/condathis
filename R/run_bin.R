@@ -56,7 +56,8 @@ run_bin <- function(
   env_dir <- get_env_dir(env_name = env_name)
   cmd_path <- fs::path(env_dir, "bin", cmd)
 
-  if (isFALSE(fs::file_exists(cmd_path)) && isTRUE(fs::file_exists(Sys.which(cmd)))) {
+  if (isFALSE(fs::file_exists(cmd_path)) &&
+    isTRUE(fs::file_exists(Sys.which(cmd)))) {
     cmd_path <- normalizePath(Sys.which(cmd), mustWork = FALSE)
   }
   tmp_dir_path <- withr::local_tempdir(pattern = "condathis-tmp")

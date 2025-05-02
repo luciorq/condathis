@@ -46,8 +46,8 @@ testthat::test_that("Do not execute code in curly braces", {
 })
 
 # Test checking if stdin is a file
+# TODO: @luciorq Improve tests
 testthat::test_that("stdin is a file", {
-
   error <- "cancel"
   error_var <- TRUE
   stdin <- NULL
@@ -61,7 +61,7 @@ testthat::test_that("stdin is a file", {
   testthat::expect_true(is.null(stdin))
   # testthat::expect_equal(px_res$status, 0L)
 
-
+  rm(px_res)
   stdin <- "missing_file_stdin.txt"
 
   testthat::expect_error(
@@ -69,19 +69,18 @@ testthat::test_that("stdin is a file", {
       rethrow_error_run(
         expr = {
           ls_res <- ls()
-        },
-        env = parent.frame()
+        }
       )
     },
     class = "condathis_run_stdin_error"
   )
+  # rm(px_res)
 
   stdin <- "|"
   px_res <- rethrow_error_run(
     expr = {
       ls_res <- ls()
-    },
-    env = parent.frame()
+    }
   )
   testthat::expect_true("stdin" %in% ls_res)
   # testthat::expect_equal(px_res$status, 0L)
@@ -89,10 +88,10 @@ testthat::test_that("stdin is a file", {
   # error <- "continue"
   # error_var <- FALSE
   # status_code <- 99
-  #px_res <- rethrow_error_run(
+  # px_res <- rethrow_error_run(
   #  expr = {
   #    message("Error message")
   #  },
   #  env = parent.frame()
-  #)
+  # )
 })

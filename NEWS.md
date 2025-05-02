@@ -5,7 +5,7 @@
 ## New features
 
 * New `stdin` argument to `run()` and `run_bin()` functions, allowing input to
-  be redirected via standard input (stdin) for commands that require it.
+  be redirected via standard input (`stdin`) via a text file for commands that require it.
 
 ## Minor improvements and fixes
 
