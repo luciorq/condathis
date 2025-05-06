@@ -17,6 +17,7 @@ github_org := 'luciorq'
   R -q -e 'devtools::load_all();devtools::run_examples();';
   R -q -e 'devtools::load_all();devtools::test();';
   R -q -e 'devtools::load_all();rmarkdown::render("README.Rmd", encoding = "UTF-8")';
+  just check;
 
 @test-all-examples:
   #!/usr/bin/env -vS bash -i
@@ -26,7 +27,7 @@ github_org := 'luciorq'
 @check:
   #!/usr/bin/env -vS bash -i
   \builtin set -euxo pipefail;
-  R -q -e 'rcmdcheck::rcmdcheck(args="--as-cran");';
+  R -q -e 'rcmdcheck::rcmdcheck(args = c("--as-cran"), repos = c(CRAN = "https://cloud.r-project.org"));';
 
 # Use R package version on the Description file to tag latest commit of the git repo
 @git-tag:
