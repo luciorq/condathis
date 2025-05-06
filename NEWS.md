@@ -1,13 +1,15 @@
-# condathis 0.1.2 (dev)
+# condathis NEWS
 
-## Breaking changes
+## condathis 0.1.2 (dev)
 
-## New features
+### Breaking changes
+
+### New features
 
 * New `stdin` argument to `run()` and `run_bin()` functions, allowing input to
   be redirected via standard input (`stdin`) via a text file for commands that require it.
 
-## Minor improvements and fixes
+### Minor improvements and fixes
 
 * Internal `micromamba` version bump to "2.1.0-0".
 
@@ -17,9 +19,9 @@
 * `with_sandbox_dir()` now also defines temporary cache directory paths,
   using `R_USER_CACHE_DIR` and `XDG_CACHE_HOME` environment variables.
 
-# condathis 0.1.1
+## condathis 0.1.1
 
-## Minor improvements and fixes
+### Minor improvements and fixes
 
 * Internal `micromamba` version bump to "2.0.5-0".
 
@@ -30,13 +32,13 @@
 * Fix error in `create_env()` that would fail if debris from failed installation
   attempts were left in the environment path.
 
-# condathis 0.1.0
+## condathis 0.1.0
 
 * Initial submission to CRAN.
 
-# condathis 0.0.8
+## condathis 0.0.8
 
-## Breaking changes
+### Breaking changes
 
 * `env_exists()` now error if no argument is supplied.
 
@@ -48,11 +50,11 @@
 
 * New classes were added to the error condition in most functions.
 
-## New features
+### New features
 
 * New `with_sandbox_dir()` allow for isolated tests and examples.
 
-## Minor improvements and fixes
+### Minor improvements and fixes
 
 * Improved error message in `list_packages()` when environment doesn't exist (#21).
 
@@ -60,9 +62,9 @@
 
 * Spinner is only active when session is interactive.
 
-# condathis 0.0.7
+## condathis 0.0.7
 
-## New features
+### New features
 
 * `install_micromamba()` now tries to download an uncompressed version of the 'micromamba' binary if `untar()` fails
   because of missing `bzip2` system library. (#10 and #14)
@@ -71,15 +73,15 @@
 
 * New `run_bin()` runs binary installed in a Conda environment without wrapping in `micromamba run`.
 
-## Minor improvements and fixes
+### Minor improvements and fixes
 
 * Internal `micromamba` version bump to "2.0.4-0".
 
 * `create_env()` and `remove_env()` have improved output.
 
-# condathis 0.0.6
+## condathis 0.0.6
 
-## Breaking changes
+### Breaking changes
 
 * `method = "auto"` no longer exists. For backward compatibility will fall back
   to `method = "native"`.
@@ -87,37 +89,37 @@
     only `method` supported using just this package.
   * A method for supplying additional backends from other packages is planned to be implemented.
 
-## Minor improvements and fixes
+### Minor improvements and fixes
 
 * Remove dependency on `dockerthis`.
 
 * Fix error in `run()` when `verbose` argument was not supplied.
 
-# condathis 0.0.5
+## condathis 0.0.5
 
-## Breaking changes
+### Breaking changes
 
 * `verbose`, levels `TRUE` and `FALSE` are now soft deprecated. For previous functionality `"full"` and `"silent"` should be used respectively.
 
-## New features
+### New features
 
 * `run()` now has `error` argument.
 
-## Minor improvements and fixes
+### Minor improvements and fixes
 
 * `run()` output now has class `"condathis_run_output"` with custom print method.
 * `run()` now exposes `stderr`.
 * `verbose` now accept any of `c("silent", "full", "cmd", "output")`. `TRUE` and `FALSE` are deprecated but still kept for compatibility.
 
-# condathis 0.0.4
+## condathis 0.0.4
 
-## Breaking changes
+### Breaking changes
 
 * `create_env()` new argument default `overwrite = FALSE`, since the previous behavior would allow for the environment to always be overwritten. For previous behavior use `overwrite = TRUE`.
 
 * Across the entire package `verbose = FALSE` is default.
 
-## New features
+### New features
 
 * New `get_env_dir()` retrieves path to environment v(0.0.3.9032).
 
@@ -129,7 +131,7 @@
 
 * New `remove_env()` created (v0.0.3.9012 #7).
 
-## Minor improvements and fixes
+### Minor improvements and fixes
 
 * `native_cmd()` now uses additional Environmental Variables for removing warnings when calling nested `micromamba run` (v0.0.3.9029 #13).
 
