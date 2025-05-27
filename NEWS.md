@@ -10,9 +10,12 @@
   be redirected via standard input (`stdin`) via a text file for commands that
   require it.
 
+* Argument `verbose` included in `install_micromamba()` and other auxiliary
+  functions, allowing message suppression in all package functions.
+
 ### Minor improvements and fixes
 
-* Internal `micromamba` version bump to "2.1.0-0".
+* Internal `micromamba` version bump to "2.1.1-0".
 
 * Fix parsing of error messages with curly braces in `run()` and `run_bin()`,
   in the rethrown error, when `error = "cancel"`.
