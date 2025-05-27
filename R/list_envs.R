@@ -2,7 +2,7 @@
 #'
 #' This function retrieves a list of Conda environments installed in the `{condathis}`
 #' environment directory. The returned value excludes any environments unrelated
-#' to `condathis``, such as the base Conda environment itself.
+#' to `{condathis}`, such as the base Conda environment itself.
 #'
 #' @param verbose A character string indicating the verbosity level for the command.
 #'   Defaults to `"silent"`.

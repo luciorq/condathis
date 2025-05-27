@@ -27,3 +27,4 @@
 ^\.markdownlint\.jsonc$
 ^\.markdownlint-cli2\.jsonc$
 ^\.markdownlint-cli2\.yaml$
+^LICENSE\.md$

@@ -8,7 +8,7 @@ list_envs(verbose = "silent")
 }
 \arguments{
 \item{verbose}{A character string indicating the verbosity level for the command.
-Defaults to \code{"silent"}. Options include \code{"silent"}, \code{"minimal"}, and \code{"verbose"}.
+Defaults to \code{"silent"}.
 See \code{\link[=run]{run()}} for details.}
 }
 \value{
@@ -16,9 +16,9 @@ A character vector containing the names of installed Conda environments.
 If the command fails, the function returns the process exit status as a numeric value.
 }
 \description{
-This function retrieves a list of Conda environments installed in the Condathis
+This function retrieves a list of Conda environments installed in the \code{{condathis}}
 environment directory. The returned value excludes any environments unrelated
-to Condathis, such as the base Conda environment itself.
+to \code{{condathis}}, such as the base Conda environment itself.
 }
 \examples{
 \dontrun{
