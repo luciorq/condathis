@@ -1,13 +1,16 @@
 #' Install Micromamba Binaries in the `condathis` Controlled Path
 #'
-#' Downloads and installs the Micromamba binaries in the path managed by the `condathis` package.
-#' Micromamba is a lightweight implementation of the Conda package manager and provides an efficient way
-#' to create and manage conda environments.
+#' Downloads and installs the Micromamba binaries in the path managed by the
+#' `condathis` package.
+#'   Micromamba is a lightweight implementation of the Conda package manager
+#'   and provides an efficient way
+#'   to create and manage conda environments.
 #'
-#' @param micromamba_version Character string specifying the version of Micromamba to download.
-#'   Defaults to `"2.1.0-0"`.
+#' @param micromamba_version Character string specifying the version of
+#'   Micromamba to download. Defaults to `"2.1.1-0"`.
 #'
-#' @param timeout_limit Numeric value specifying the timeout limit for downloading the Micromamba
+#' @param timeout_limit Numeric value specifying the timeout limit for
+#'   downloading the Micromamba
 #'   binaries, in seconds. Defaults to `3600` seconds (1 hour).
 #'
 #' @param download_method Character string passed to the `method` argument of
@@ -18,13 +21,19 @@
 #'   Micromamba binaries will be forced, even if they already exist in the
 #'   system or `condathis` controlled path. Defaults to FALSE.
 #'
+#' @param verbose Character string indicating the verbosity level of the
+#'   function.
+#'   Can be one of `"full"`, `"output"`, `"silent"`. Defaults to `"full"`.
+#'
 #' @return
 #' Invisibly returns the path to the installed Micromamba binary.
 #'
 #' @details
-#' This function checks if Micromamba is already installed in the `condathis` controlled path.
-#' If not, it downloads the specified version from the official GitHub releases and installs it.
-#' On Windows, it ensures the binary is downloaded correctly by setting the download mode to `"wb"`.
+#' This function checks if Micromamba is already installed in the `condathis`
+#'   controlled path. If not, it downloads the specified version from the
+#'   official GitHub releases and installs it.
+#'   On Windows, it ensures the binary is downloaded correctly by setting the
+#'   download mode to `"wb"`.
 #' If the download fails, appropriate error messages are displayed.
 #'
 #' @examples
@@ -42,17 +51,34 @@
 #' }
 #'
 #' @export
-install_micromamba <- function(micromamba_version = "2.1.0-0",
-                               timeout_limit = 3600,
-                               download_method = "auto",
-                               force = FALSE) {
+install_micromamba <- function(
+    micromamba_version = "2.1.1-0",
+    timeout_limit = 3600,
+    download_method = "auto",
+    force = FALSE,
+    verbose = "full") {
+  quiet_flag <- FALSE
+  if (isTRUE(verbose)) {
+    verbose <- "full"
+  } else if (isFALSE(verbose)) {
+    verbose <- "silent"
+  }
+  if (verbose %in% c("silent", "quiet")) {
+    quiet_flag <- TRUE
+  }
+
   umamba_bin_path <- micromamba_bin_path()
-  if (isTRUE(fs::file_exists(umamba_bin_path)) && isFALSE(force)) {
+  if (
+    isTRUE(fs::file_exists(umamba_bin_path)) &&
+      isFALSE(force) &&
+      isFALSE(quiet_flag)
+  ) {
     cli::cli_inform(c(
       `i` = "{.pkg micromamba} is already installed at {.path {umamba_bin_path}}."
     ))
     return(invisible(umamba_bin_path))
   }
+
   sys_arch_str <- is_micromamba_available_for_arch()
   base_url <- "https://github.com/mamba-org/micromamba-releases/releases/"
   if (isFALSE(check_connection(base_url))) {
@@ -89,6 +115,7 @@ install_micromamba <- function(micromamba_version = "2.1.0-0",
         url = download_url,
         destfile = full_dl_path,
         method = download_method,
+        quiet = quiet_flag,
         mode = "wb"
       )
     }
@@ -130,6 +157,7 @@ install_micromamba <- function(micromamba_version = "2.1.0-0",
           url = download_url,
           destfile = full_dl_path,
           method = download_method,
+          quiet = quiet_flag,
           mode = "wb"
         )
       }
@@ -147,7 +175,11 @@ install_micromamba <- function(micromamba_version = "2.1.0-0",
     )
   }
 
-  if (isTRUE(dl_res == 0) && fs::file_exists(umamba_bin_path)) {
+  if (
+    isTRUE(dl_res == 0) &&
+      fs::file_exists(umamba_bin_path) &&
+      verbose %in% c("full", "output")
+  ) {
     cli::cli_inform(
       c(
         `v` = "{.pkg micromamba} successfully downloaded."
@@ -156,7 +188,7 @@ install_micromamba <- function(micromamba_version = "2.1.0-0",
   }
 
   if (isTRUE(fs::file_exists(umamba_bin_path))) {
-    create_base_env()
+    create_base_env(verbose = "silent")
   }
 
   invisible(umamba_bin_path)

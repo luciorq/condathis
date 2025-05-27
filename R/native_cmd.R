@@ -32,7 +32,7 @@ native_cmd <- function(conda_cmd,
   env_root_dir <- get_install_dir()
   env_envs_dir <- fs::path(env_root_dir, "envs")
   if (isFALSE(fs::file_exists(umamba_bin_path))) {
-    install_micromamba(force = TRUE)
+    install_micromamba(force = TRUE, verbose = verbose)
   }
   umamba_bin_path <- base::normalizePath(umamba_bin_path, mustWork = FALSE)
   tmp_dir_path <- withr::local_tempdir(pattern = "mamba-tmp")

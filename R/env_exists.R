@@ -26,9 +26,9 @@
 #' }
 #'
 #' @export
-env_exists <- function(env_name) {
+env_exists <- function(env_name, verbose = "silent") {
   rlang::check_required(env_name)
-  available_envs <- list_envs()
+  available_envs <- list_envs(verbose = verbose)
   condathis_env_path <- env_name
   if (isTRUE(condathis_env_path %in% available_envs)) {
     return(TRUE)

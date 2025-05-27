@@ -101,7 +101,7 @@ run <- function(cmd,
 
   if (isTRUE(method_to_use %in% c("native", "auto"))) {
     if (isFALSE(env_exists(env_name = "condathis-env"))) {
-      create_base_env()
+      create_base_env(verbose = "silent")
     }
 
     px_res <- rethrow_error_run(
