@@ -63,7 +63,7 @@ install_micromamba <- function(
   } else if (isFALSE(verbose)) {
     verbose <- "silent"
   }
-  if (verbose %in% c("silent", "quiet")) {
+  if (verbose %in% c("silent")) {
     quiet_flag <- TRUE
   }
 

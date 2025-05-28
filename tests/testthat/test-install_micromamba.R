@@ -1,7 +1,7 @@
 test_that("Micromamba installation", {
   testthat::skip_if_offline()
   testthat::skip_on_cran()
-  withr::local_path(new = list(), action = "replace")
+  withr::local_path(new = list(tempdir()), action = "replace")
   umamba_bin_path <- install_micromamba(force = FALSE, verbose = FALSE)
   testthat::expect_true(fs::file_exists(umamba_bin_path))
 })
