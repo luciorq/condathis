@@ -47,3 +47,16 @@ github_org := 'luciorq'
   conda run -n {{ package_name }}-env R -q -e 'remotes::install_github("{{ github_org }}/{{ package_name }}@{{ tag_version }}");';
   conda run -n {{ package_name }}-env R -q -e 'utils::packageVersion("{{ package_name }}");';
   conda run -n {{ package_name }}-env R -q -e 'condathis::create_env("r-base", env_name = "condathis-test-env");message(condathis::run("R","-s", "-q", "--version", env_name = "condathis-test-env"));';
+
+# Things to run before releasing a new version
+@pre-release:
+  #!/usr/bin/env -vS bash -i
+  \builtin set -euxo pipefail;
+  R -q -e 'urlchecker::url_check()';
+  R -q -e 'devtools::build_readme()';
+  R -q -e 'withr::with_options(list(repos = c(CRAN = "https://cloud.r-project.org")), {devtools::check(remote = TRUE, manual = TRUE)})';
+  R -q -e 'devtools::check_win_devel()';
+  # revdepcheck::revdep_check(num_workers = 4)
+  # Update CRAN comments
+  # usethis::use_version('patch')
+  # devtools::submit_cran()

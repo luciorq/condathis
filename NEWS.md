@@ -1,8 +1,6 @@
 # condathis NEWS
 
-## condathis 0.1.2 (dev)
-
-### Breaking changes
+## condathis 0.1.2 2025-06-02
 
 ### New features
 
@@ -23,7 +21,7 @@
 * `with_sandbox_dir()` now also defines temporary cache directory paths,
   using `R_USER_CACHE_DIR` and `XDG_CACHE_HOME` environment variables.
 
-## condathis 0.1.1
+## condathis 0.1.1 2025-01-24
 
 ### Minor improvements and fixes
 
