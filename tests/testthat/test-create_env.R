@@ -35,7 +35,9 @@ testthat::test_that("conda env is created", {
   withr::with_path(
     new = dirname(micromamba_bin_path()),
     code = {
+      print(Sys.getenv("PATH"))
       umamba_path <- micromamba_user_installed()
+      print(umamba_path)
     },
     action = "replace"
   )

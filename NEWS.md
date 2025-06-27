@@ -4,6 +4,8 @@
 
 ### Minor improvements and fixes
 
+* Internal `micromamba` version bump to "2.3.0-1".
+
 * Ignore `CONDA_ENVS_DIRS` environment variable.
 
 ## condathis 0.1.2 2025-06-02
