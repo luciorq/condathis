@@ -69,9 +69,11 @@ run_bin <- function(
       `CONDA_SHLVL` = "0",
       `MAMBA_SHLVL` = "0",
       `CONDA_ENVS_PATH` = "",
+      `CONDA_ENVS_DIRS` = NULL,
       `CONDA_ROOT_PREFIX` = "",
       `CONDA_PREFIX` = "",
       `MAMBA_ENVS_PATH` = "",
+      `MAMBA_ENVS_DIRS` = "",
       `MAMBA_ROOT_PREFIX` = "",
       `MAMBA_PREFIX` = "",
       `CONDARC` = "",
@@ -80,6 +82,8 @@ run_bin <- function(
       `MAMBA_PROMPT_MODIFIER` = "",
       `CONDA_DEFAULT_ENV` = "",
       `MAMBA_DEFAULT_ENV` = "",
+      `CONDA_PKGS_DIRS` = "",
+      `MAMBA_PKGS_DIRS` = "",
       `R_HOME` = ""
     )
   )

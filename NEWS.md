@@ -1,5 +1,11 @@
 # condathis NEWS
 
+## condathis 0.1.3 (dev)
+
+### Minor improvements and fixes
+
+* Ignore `CONDA_ENVS_DIRS` environment variable.
+
 ## condathis 0.1.2 2025-06-02
 
 ### New features
