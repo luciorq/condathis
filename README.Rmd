@@ -61,6 +61,7 @@ Suppose you're writing a pipeline or just a script for some analysis, and you wa
 The `fastqc` command synopsis is `fastqc <path-to-fastq-file> -o <output-dir>`. The output directory is where `fastqc` saves its quality control reports.
 
 ```{r include=FALSE}
+# Make sure that environments are installed in a temporary directory
 withr::local_envvar(
   .new = list(
     `R_USER_DATA_DIR` = fs::path_temp("home", "data")
