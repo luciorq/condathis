@@ -22,7 +22,7 @@ github_org := 'luciorq'
 @test-all-examples:
   #!/usr/bin/env -vS bash -i
   \builtin set -euxo pipefail;
-  R -q -e 'devtools::load_all();devtools::run_examples(run_dontrun = TRUE, run_donttest = TRUE);';
+  R -q -e 'devtools::load_all();devtools::document();devtools::run_examples(run_dontrun = TRUE, run_donttest = TRUE);';
 
 @check:
   #!/usr/bin/env -vS bash -i
