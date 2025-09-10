@@ -12,14 +12,16 @@
 #'
 #' @keywords internal
 #' @noRd
-native_cmd <- function(conda_cmd,
-                       conda_args = NULL,
-                       ...,
-                       verbose = "full",
-                       error = c("cancel", "continue"),
-                       stdout = "|",
-                       stderr = "|",
-                       stdin = NULL) {
+native_cmd <- function(
+  conda_cmd,
+  conda_args = NULL,
+  ...,
+  verbose = "full",
+  error = c("cancel", "continue"),
+  stdout = "|",
+  stderr = "|",
+  stdin = NULL
+) {
   rlang::check_required(conda_cmd)
   error <- rlang::arg_match(error)
   if (isTRUE(identical(error, "cancel"))) {

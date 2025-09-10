@@ -61,20 +61,27 @@
 #' \code{\link{install_micromamba}}, \code{\link{create_env}}
 #'
 #' @export
-run <- function(cmd,
-                ...,
-                env_name = "condathis-env",
-                method = c(
-                  "native",
-                  "auto"
-                ),
-                verbose = c(
-                  "silent", "cmd", "output", "full", FALSE, TRUE
-                ),
-                error = c("cancel", "continue"),
-                stdout = "|",
-                stderr = "|",
-                stdin = NULL) {
+run <- function(
+  cmd,
+  ...,
+  env_name = "condathis-env",
+  method = c(
+    "native",
+    "auto"
+  ),
+  verbose = c(
+    "silent",
+    "cmd",
+    "output",
+    "full",
+    FALSE,
+    TRUE
+  ),
+  error = c("cancel", "continue"),
+  stdout = "|",
+  stderr = "|",
+  stdin = NULL
+) {
   rlang::check_required(cmd)
 
   if (is.null(cmd)) {

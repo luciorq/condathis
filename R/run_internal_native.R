@@ -6,17 +6,21 @@
 #'
 #' @keywords internal
 #' @noRd
-run_internal_native <- function(cmd,
-                                ...,
-                                env_name = "condathis-env",
-                                verbose = FALSE,
-                                error = c("cancel", "continue"),
-                                stdout = "|",
-                                stderr = "|",
-                                stdin = NULL) {
+run_internal_native <- function(
+  cmd,
+  ...,
+  env_name = "condathis-env",
+  verbose = FALSE,
+  error = c("cancel", "continue"),
+  stdout = "|",
+  stderr = "|",
+  stdin = NULL
+) {
   if (isTRUE(base::Sys.info()["sysname"] == "Windows")) {
     micromamba_bat_path <- fs::path(
-      get_install_dir(), "condabin", "micromamba",
+      get_install_dir(),
+      "condabin",
+      "micromamba",
       ext = "bat"
     )
     if (isFALSE(fs::file_exists(micromamba_bat_path))) {
@@ -25,13 +29,17 @@ run_internal_native <- function(cmd,
           native_cmd(
             conda_cmd = "run",
             conda_args = c("-n", "condathis-env"),
-            cmd = "dir", verbose = FALSE, stdout = NULL
+            cmd = "dir",
+            verbose = FALSE,
+            stdout = NULL
           )
         }
       )
       base::rm(catch_res)
       mamba_bat_path <- fs::path(
-        get_install_dir(), "condabin", "mamba",
+        get_install_dir(),
+        "condabin",
+        "mamba",
         ext = "bat"
       )
       if (

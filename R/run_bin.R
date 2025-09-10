@@ -33,14 +33,15 @@
 #'
 #' @export
 run_bin <- function(
-    cmd,
-    ...,
-    env_name = "condathis-env",
-    verbose = "silent",
-    error = c("cancel", "continue"),
-    stdout = "|",
-    stderr = "|",
-    stdin = NULL) {
+  cmd,
+  ...,
+  env_name = "condathis-env",
+  verbose = "silent",
+  error = c("cancel", "continue"),
+  stdout = "|",
+  stderr = "|",
+  stdin = NULL
+) {
   error <- rlang::arg_match(error)
   if (isTRUE(identical(error, "cancel"))) {
     error_var <- TRUE

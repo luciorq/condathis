@@ -9,10 +9,16 @@ rethrow_error_run <- function(expr, env = parent.frame()) {
     classes = c("system_command_status_error", "rlib_error_3_0", "c_error")
   )
 
-  if (isFALSE(rlang::is_null(env[["stdin"]])) &&
-    isFALSE(identical(env[["stdin"]], "|"))) {
-    if (isFALSE(fs::is_file(env[["stdin"]]) &&
-      fs::file_exists(env[["stdin"]]))) {
+  if (
+    isFALSE(rlang::is_null(env[["stdin"]])) &&
+      isFALSE(identical(env[["stdin"]], "|"))
+  ) {
+    if (
+      isFALSE(
+        fs::is_file(env[["stdin"]]) &&
+          fs::file_exists(env[["stdin"]])
+      )
+    ) {
       cli::cli_abort(
         message = c(
           `x` = "Argument {.code stdin} is not a file",
