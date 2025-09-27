@@ -49,6 +49,8 @@ run_bin <- function(
     error_var <- FALSE
   }
 
+  rlang::check_dots_unnamed()
+
   verbose_list <- parse_strategy_verbose(strategy = verbose)
   verbose_cmd <- verbose_list$cmd
   verbose_output <- verbose_list$output

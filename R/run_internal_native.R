@@ -10,7 +10,7 @@ run_internal_native <- function(
   cmd,
   ...,
   env_name = "condathis-env",
-  verbose = FALSE,
+  verbose = "silent",
   error = c("cancel", "continue"),
   stdout = "|",
   stderr = "|",
@@ -46,7 +46,11 @@ run_internal_native <- function(
         isTRUE(fs::file_exists(mamba_bat_path)) &&
           isFALSE(fs::file_exists(micromamba_bat_path))
       ) {
-        fs::file_copy(mamba_bat_path, micromamba_bat_path, overwrite = TRUE)
+        fs::file_copy(
+          path = mamba_bat_path,
+          new_path = micromamba_bat_path,
+          overwrite = TRUE
+        )
       }
     }
   }

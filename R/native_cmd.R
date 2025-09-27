@@ -24,6 +24,7 @@ native_cmd <- function(
 ) {
   rlang::check_required(conda_cmd)
   error <- rlang::arg_match(error)
+  rlang::check_dots_unnamed()
   if (isTRUE(identical(error, "cancel"))) {
     error_var <- TRUE
   } else {
