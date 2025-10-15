@@ -6,6 +6,7 @@
 # + Add CronJob to run every Sunday
 # + Add `workflow_dispatch`
 # + Add cancel on concurrency
+# Check <https://github.com/luciorq/condathis/blob/main/.github/workflows/R-CMD-check.yaml> for the source of truth
 ---
 on:
   push:

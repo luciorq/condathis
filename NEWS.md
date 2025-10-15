@@ -1,16 +1,26 @@
-# condathis NEWS
+## condathis 0.1.3 (Development Version)
 
-## condathis 0.1.3 (dev)
+Release Date: Unreleased
 
-### Minor improvements and fixes
+Development Changelog: [dev](https://github.com/luciorq/condathis/compare/v0.1.2...HEAD)
+
+### Changed
 
 * Internal `micromamba` version bump to "2.3.0-1".
 
+## Fixed
+
 * Ignore `CONDA_ENVS_DIRS` environment variable.
 
-## condathis 0.1.2 2025-06-02
+## condathis 0.1.2
 
-### New features
+Release Date: 2025-06-02
+
+Development Changelog: [0.1.2](https://github.com/luciorq/condathis/compare/v0.1.1...v0.1.2)
+
+Development Changelog:
+
+### Added
 
 * New `stdin` argument to `run()` and `run_bin()` functions, allowing input to
   be redirected via standard input (`stdin`) via a text file for commands that
@@ -19,21 +29,29 @@
 * Argument `verbose` included in `install_micromamba()` and other auxiliary
   functions, allowing message suppression in all package functions.
 
-### Minor improvements and fixes
+### Changed
 
 * Internal `micromamba` version bump to "2.1.1-0".
-
-* Fix parsing of error messages with curly braces in `run()` and `run_bin()`,
-  in the rethrown error, when `error = "cancel"`.
 
 * `with_sandbox_dir()` now also defines temporary cache directory paths,
   using `R_USER_CACHE_DIR` and `XDG_CACHE_HOME` environment variables.
 
-## condathis 0.1.1 2025-01-24
+### Fixed
 
-### Minor improvements and fixes
+* Fix parsing of error messages with curly braces in `run()` and `run_bin()`,
+  in the rethrown error, when `error = "cancel"`.
+
+## condathis 0.1.1
+
+Release Date: 2025-01-24
+
+Development Changelog: [0.1.1](https://github.com/luciorq/condathis/compare/v0.1.0...v0.1.1)
+
+### Changed
 
 * Internal `micromamba` version bump to "2.0.5-0".
+
+### Fixed
 
 * Fix error in `run_bin()` when `error = "continue"` and `cmd` is not on
   PATH nor in the environment.
@@ -44,7 +62,18 @@
 
 ## condathis 0.1.0
 
+Release Date: 2024-12-10
+
+Development Changelog: [0.1.0](https://github.com/luciorq/condathis/compare/v0.0.8...v0.1.0)
+
+### Added
+
 * Initial submission to CRAN.
+* New Package Logo.
+
+### Fixed
+
+* `run()` always creates empty base environment if do not exist yet.
 
 ## condathis 0.0.8
 

@@ -3,6 +3,7 @@
 ^renv\.lock$
 ^\.Rproj\.user$
 ^LICENSE\.md$
+^LICENSE\.txt$
 ^\.Rprofile$
 ^justfile$
 ^data-raw$
