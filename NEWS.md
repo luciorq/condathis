@@ -8,7 +8,7 @@ Development Changelog: [dev](https://github.com/luciorq/condathis/compare/v0.1.2
 
 * Internal `micromamba` version bump to "2.3.0-1".
 
-## Fixed
+### Fixed
 
 * Ignore `CONDA_ENVS_DIRS` environment variable.
 

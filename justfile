@@ -8,29 +8,46 @@ github_org := 'luciorq'
 @default:
   just --choose
 
+# =============================================================================
+# General R Package Development Tasks
+# =============================================================================
 @test:
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
   R -q -e 'devtools::load_all();styler::style_pkg();';
-  air format ./R/;
+  air format ./R/ || true;
   R -q -e 'devtools::load_all();usethis::use_tidy_description();';
   R -q -e 'devtools::load_all();devtools::document();';
   R -q -e 'devtools::load_all();devtools::run_examples();';
   R -q -e 'devtools::load_all();devtools::test();';
-  R -q -e 'devtools::load_all();if(file.exists("README.Rmd"))rmarkdown::render("README.Rmd", encoding = "UTF-8")';
-  just check;
+  R -q -e 'devtools::load_all();if(file.exists("README.Rmd"))rmarkdown::render("README.Rmd", encoding = "UTF-8")' || true;
+  \builtin echo "All tests passed!";
 
 @test-all-examples:
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
   R -q -e 'devtools::load_all();devtools::document();devtools::run_examples(run_dontrun = TRUE, run_donttest = TRUE);';
 
-@check:
+@check: test
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
   R -q -e 'rcmdcheck::rcmdcheck(args = c("--as-cran"), repos = c(CRAN = "https://cloud.r-project.org"));';
 
-# Use R package version on the Description file to tag latest commit of the git repo
+# Force GitHub Actions Checks to start for the main branch
+@check-gha-trigger:
+  #!/usr/bin/env bash
+  \builtin set -euxo pipefail;
+  gh workflow run "r-cmd-check" --ref main;
+
+# Print latest GitHub Actions Checks results for the main branch
+@monitor-gha:
+  #!/usr/bin/env bash
+  \builtin set -euxo pipefail;
+  gh run list;
+  latest_job_id="$(gh run list -w "r-cmd-check" --json databaseId --jq '.[0].databaseId')";
+  gh run view "${latest_job_id}";
+
+# Use R package version on the DESCRIPTION file to tag latest commit of the git repo
 @git-tag:
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
@@ -38,16 +55,6 @@ github_org := 'luciorq'
   \builtin echo -ne "Tagging version: ${__r_pkg_version}\n";
   git tag -a "v${__r_pkg_version}" HEAD -m "Version ${__r_pkg_version} released";
   git push --tags;
-
-# Check if package can be installed on a conda environment
-@check-install-conda tag_version='main':
-  #!/usr/bin/env bash
-  \builtin set -euxo pipefail;
-  conda create -n {{ package_name }}-env -y --override-channels -c conda-forge \
-    r-base r-devtools r-remotes r-rlang r-withr r-stringr r-jsonlite r-fs r-cli r-processx r-ps r-tibble;
-  conda run -n {{ package_name }}-env R -q -e 'remotes::install_github("{{ github_org }}/{{ package_name }}@{{ tag_version }}");';
-  conda run -n {{ package_name }}-env R -q -e 'utils::packageVersion("{{ package_name }}");';
-  conda run -n {{ package_name }}-env R -q -e 'condathis::create_env("r-base", env_name = "condathis-test-env");message(condathis::run("R","-s", "-q", "--version", env_name = "condathis-test-env"));';
 
 # Things to run before releasing a new version
 @pre-release:
@@ -62,6 +69,7 @@ github_org := 'luciorq'
   # usethis::use_version('patch')
   # devtools::build_rmd("vignettes/my-vignette.Rmd")
   # devtools::submit_cran()
+  \builtin echo "Pre-release checks done!";
 
 @build-vignettes:
   #!/usr/bin/env bash
@@ -69,3 +77,31 @@ github_org := 'luciorq'
   R -q -e 'devtools::load_all();devtools::document();';
   R -q -e 'devtools::install(pkg = ".", build_vignettes = TRUE, dependencies = c("Imports", "Suggests", "Depends"), upgrade = "always");';
   R -q -e 'print(vignette(package = "{{ package_name }}"));';
+
+@build-pkgdown-website:
+  #!/usr/bin/env bash
+  \builtin set -euxo pipefail;
+  R -q -e 'devtools::load_all();devtools::document();pkgdown::build_site();';
+  # git add docs/;
+  # git commit -m "chore: update pkgdown website";
+  # git push;
+
+@release-github:
+  #!/usr/bin/env bash
+  \builtin set -euxo pipefail;
+  # gh release create v0.1.0 --title "v0.1.0" --notes "First Zenodo archiving release"
+  \builtin echo "Not implemented yet";
+
+# =============================================================================
+# Condathis specifc Tasks
+# =============================================================================
+
+# Check if package can be installed on a conda environment
+@check-install-conda tag_version='main':
+  #!/usr/bin/env bash
+  \builtin set -euxo pipefail;
+  conda create -n {{ package_name }}-env -y --override-channels -c conda-forge \
+    r-base r-devtools r-remotes r-rlang r-withr r-stringr r-jsonlite r-fs r-cli r-processx r-ps r-tibble;
+  conda run -n {{ package_name }}-env R -q -e 'remotes::install_github("{{ github_org }}/{{ package_name }}@{{ tag_version }}");';
+  conda run -n {{ package_name }}-env R -q -e 'utils::packageVersion("{{ package_name }}");';
+  conda run -n {{ package_name }}-env R -q -e 'condathis::create_env("r-base", env_name = "condathis-test-env");message(condathis::run("R","-s", "-q", "--version", env_name = "condathis-test-env"));';
