@@ -9,7 +9,7 @@ github_org := 'luciorq'
   just --choose
 
 @test:
-  #!/usr/bin/env -vS bash -i
+  #!/usr/bin/env bash
   \builtin set -euxo pipefail;
   R -q -e 'devtools::load_all();styler::style_pkg();';
   air format ./R/;
@@ -21,18 +21,18 @@ github_org := 'luciorq'
   just check;
 
 @test-all-examples:
-  #!/usr/bin/env -vS bash -i
+  #!/usr/bin/env bash
   \builtin set -euxo pipefail;
   R -q -e 'devtools::load_all();devtools::document();devtools::run_examples(run_dontrun = TRUE, run_donttest = TRUE);';
 
 @check:
-  #!/usr/bin/env -vS bash -i
+  #!/usr/bin/env bash
   \builtin set -euxo pipefail;
   R -q -e 'rcmdcheck::rcmdcheck(args = c("--as-cran"), repos = c(CRAN = "https://cloud.r-project.org"));';
 
 # Use R package version on the Description file to tag latest commit of the git repo
 @git-tag:
-  #!/usr/bin/env -vS bash -i
+  #!/usr/bin/env bash
   \builtin set -euxo pipefail;
   __r_pkg_version="$(R -q --no-echo --silent -e 'suppressMessages({pkgload::load_all()});cat(as.character(utils::packageVersion("{{ package_name }}")));')";
   \builtin echo -ne "Tagging version: ${__r_pkg_version}\n";
@@ -41,7 +41,7 @@ github_org := 'luciorq'
 
 # Check if package can be installed on a conda environment
 @check-install-conda tag_version='main':
-  #!/usr/bin/env -vS bash -i
+  #!/usr/bin/env bash
   \builtin set -euxo pipefail;
   conda create -n {{ package_name }}-env -y --override-channels -c conda-forge \
     r-base r-devtools r-remotes r-rlang r-withr r-stringr r-jsonlite r-fs r-cli r-processx r-ps r-tibble;
@@ -51,7 +51,7 @@ github_org := 'luciorq'
 
 # Things to run before releasing a new version
 @pre-release:
-  #!/usr/bin/env -vS bash -i
+  #!/usr/bin/env bash
   \builtin set -euxo pipefail;
   R -q -e 'urlchecker::url_check()';
   R -q -e 'devtools::build_readme()';
@@ -60,4 +60,12 @@ github_org := 'luciorq'
   # revdepcheck::revdep_check(num_workers = 4)
   # Update CRAN comments
   # usethis::use_version('patch')
+  # devtools::build_rmd("vignettes/my-vignette.Rmd")
   # devtools::submit_cran()
+
+@build-vignettes:
+  #!/usr/bin/env bash
+  \builtin set -euxo pipefail;
+  R -q -e 'devtools::load_all();devtools::document();';
+  R -q -e 'devtools::install(pkg = ".", build_vignettes = TRUE, dependencies = c("Imports", "Suggests", "Depends"), upgrade = "always");';
+  R -q -e 'print(vignette(package = "{{ package_name }}"));';
