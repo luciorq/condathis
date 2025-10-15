@@ -24,7 +24,9 @@ native_cmd <- function(
 ) {
   rlang::check_required(conda_cmd)
   error <- rlang::arg_match(error)
-  rlang::check_dots_unnamed()
+  # TODO: @luciorq check if named `cmd` argument is passed in the dots
+  # + and extract it out before running the `check_dots_unnamed()`
+  # rlang::check_dots_unnamed()
   if (isTRUE(identical(error, "cancel"))) {
     error_var <- TRUE
   } else {
