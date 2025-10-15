@@ -3,6 +3,7 @@
 #' @keywords internal
 #' @noRd
 format_channels_args <- function(...) {
+  rlang::check_dots_unnamed()
   channels <- c(...)
   if (is.null(channels)) {
     channels <- c(

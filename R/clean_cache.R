@@ -11,7 +11,8 @@
 #' @keywords internal
 #' @noRd
 clean_cache <- function(
-    verbose = "output") {
+  verbose = "output"
+) {
   quiet_flag <- parse_quiet_flag(verbose = verbose)
   px_res <- rethrow_error_cmd(
     expr = {

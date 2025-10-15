@@ -22,7 +22,11 @@ symlink_micromamba_bin <- function(path = NULL, force = FALSE) {
     user_umamba_path <- path
   }
   umamba_path <- micromamba_bin_path()
-  if (isTRUE(force) && isTRUE(fs::file_exists(user_umamba_path)) && isTRUE(fs::file_exists(umamba_path))) {
+  if (
+    isTRUE(force) &&
+      isTRUE(fs::file_exists(user_umamba_path)) &&
+      isTRUE(fs::file_exists(umamba_path))
+  ) {
     fs::file_delete(umamba_path)
   }
   if (isFALSE(fs::file_exists(umamba_path)) || isTRUE(force)) {

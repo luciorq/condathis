@@ -6,6 +6,7 @@
 # + Add CronJob to run every Sunday
 # + Add `workflow_dispatch`
 # + Add cancel on concurrency
+# Check <https://github.com/luciorq/condathis/blob/main/.github/workflows/R-CMD-check.yaml> for the source of truth
 ---
 on:
   push:
@@ -27,7 +28,7 @@ on:
 
   workflow_dispatch:
 
-name: R-CMD-check.yaml
+name: r-cmd-check
 
 permissions: read-all
 
@@ -36,7 +37,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  R-CMD-check:
+  r-cmd-check:
     runs-on: ${{ matrix.config.os }}
 
     name: ${{ matrix.config.os }} (${{ matrix.config.r }})

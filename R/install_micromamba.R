@@ -52,11 +52,12 @@
 #'
 #' @export
 install_micromamba <- function(
-    micromamba_version = "2.3.0-1",
-    timeout_limit = 3600,
-    download_method = "auto",
-    force = FALSE,
-    verbose = "full") {
+  micromamba_version = "2.3.0-1",
+  timeout_limit = 3600,
+  download_method = "auto",
+  force = FALSE,
+  verbose = "full"
+) {
   quiet_flag <- FALSE
   if (isTRUE(verbose)) {
     verbose <- "full"
@@ -90,9 +91,12 @@ install_micromamba <- function(
     )
   }
   download_url <- paste0(
-    base_url, "download/",
-    micromamba_version, "/micromamba-",
-    sys_arch_str, ".tar.bz2"
+    base_url,
+    "download/",
+    micromamba_version,
+    "/micromamba-",
+    sys_arch_str,
+    ".tar.bz2"
   )
 
   output_dir <- fs::path_abs(get_install_dir())
@@ -138,7 +142,11 @@ install_micromamba <- function(
 
   if (isFALSE(nzchar(Sys.which("bzip2")) && fs::file_exists(umamba_bin_path))) {
     download_url <- paste0(
-      base_url, "download/", micromamba_version, "/micromamba-", sys_arch_str
+      base_url,
+      "download/",
+      micromamba_version,
+      "/micromamba-",
+      sys_arch_str
     )
     full_dl_path <- umamba_bin_path
     base_dl_dir <- fs::path(output_dir, "micromamba", "bin")

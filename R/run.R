@@ -61,22 +61,27 @@
 #' \code{\link{install_micromamba}}, \code{\link{create_env}}
 #'
 #' @export
-run <- function(cmd,
-                ...,
-                env_name = "condathis-env",
-                method = c(
-                  "native",
-                  "auto"
-                ),
-                verbose = c(
-                  "silent", "cmd", "output", "full", FALSE, TRUE
-                ),
-                error = c("cancel", "continue"),
-                stdout = "|",
-                stderr = "|",
-                stdin = NULL) {
+run <- function(
+  cmd,
+  ...,
+  env_name = "condathis-env",
+  method = c(
+    "native",
+    "auto"
+  ),
+  verbose = c(
+    "silent",
+    "cmd",
+    "output",
+    "full"
+  ),
+  error = c("cancel", "continue"),
+  stdout = "|",
+  stderr = "|",
+  stdin = NULL
+) {
+  rlang::check_dots_unnamed()
   rlang::check_required(cmd)
-
   if (is.null(cmd)) {
     cli::cli_abort(
       message = c(
@@ -85,9 +90,17 @@ run <- function(cmd,
       class = "condathis_run_null_cmd"
     )
   }
-  # verbose <- rlang::arg_match(verbose)
+
+  if (isTRUE(verbose)) {
+    verbose <- "silent"
+  } else if (isFALSE(verbose)) {
+    verbose <- "full"
+  } else {
+    verbose <- rlang::arg_match(verbose)
+  }
   method <- rlang::arg_match(method)
   error <- rlang::arg_match(error)
+
   # error_var is used by rethrow_error_run env
   if (isTRUE(identical(error, "cancel"))) {
     error_var <- TRUE
@@ -103,7 +116,6 @@ run <- function(cmd,
     if (isFALSE(env_exists(env_name = "condathis-env"))) {
       create_base_env(verbose = "silent")
     }
-
     px_res <- rethrow_error_run(
       expr = {
         run_internal_native(

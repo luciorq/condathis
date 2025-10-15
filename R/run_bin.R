@@ -33,20 +33,23 @@
 #'
 #' @export
 run_bin <- function(
-    cmd,
-    ...,
-    env_name = "condathis-env",
-    verbose = "silent",
-    error = c("cancel", "continue"),
-    stdout = "|",
-    stderr = "|",
-    stdin = NULL) {
+  cmd,
+  ...,
+  env_name = "condathis-env",
+  verbose = "silent",
+  error = c("cancel", "continue"),
+  stdout = "|",
+  stderr = "|",
+  stdin = NULL
+) {
   error <- rlang::arg_match(error)
   if (isTRUE(identical(error, "cancel"))) {
     error_var <- TRUE
   } else {
     error_var <- FALSE
   }
+
+  rlang::check_dots_unnamed()
 
   verbose_list <- parse_strategy_verbose(strategy = verbose)
   verbose_cmd <- verbose_list$cmd

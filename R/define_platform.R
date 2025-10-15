@@ -4,13 +4,15 @@
 #'
 #' @keywords internal
 #' @noRd
-define_platform <- function(packages,
-                            platform = NULL,
-                            channels = c(
-                              "bioconda",
-                              "conda-forge"
-                            ),
-                            additional_channels = NULL) {
+define_platform <- function(
+  packages,
+  platform = NULL,
+  channels = c(
+    "bioconda",
+    "conda-forge"
+  ),
+  additional_channels = NULL
+) {
   if (is.null(platform)) {
     platform_args <- NULL
   } else {

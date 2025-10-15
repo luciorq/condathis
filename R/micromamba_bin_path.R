@@ -24,7 +24,11 @@ micromamba_bin_path <- function() {
   output_dir <- get_install_dir()
   if (isTRUE(stringr::str_detect(sys_arch, "^Windows"))) {
     umamba_bin_path <- fs::path(
-      output_dir, "micromamba", "Library", "bin", "micromamba.exe"
+      output_dir,
+      "micromamba",
+      "Library",
+      "bin",
+      "micromamba.exe"
     )
   } else {
     umamba_bin_path <- fs::path(output_dir, "micromamba", "bin", "micromamba")
