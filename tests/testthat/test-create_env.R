@@ -30,7 +30,7 @@ testthat::test_that("conda env is created", {
     packages = c("r-base=4.1.3", "r-devtools"),
     env_name = "condathis-test-env"
   )
-  expect_equal(px_res$status, 0L)
+  testthat::expect_equal(px_res$status, 0L)
 
   withr::with_path(
     new = dirname(micromamba_bin_path()),
@@ -52,7 +52,7 @@ testthat::test_that("conda env is created", {
     env_name = "condathis-test-env",
     error = "continue"
   )
-  expect_true(run_res$status != 0L)
+  testthat::expect_true(run_res$status != 0L)
 
   testthat::expect_error(
     object = {
@@ -80,15 +80,19 @@ testthat::test_that("conda env is created", {
     error = "continue"
   )
 
-  expect_equal(run_res$status, run_bin_res$status)
+  testthat::expect_equal(run_res$status, run_bin_res$status)
 
-  expect_equal(run_res$status, 0L)
+  testthat::expect_equal(run_res$status, 0L)
 
   r_version_output <- run_res$stdout
+  # Check both stdout and stderr for R version output
+  # + On Windows that can vary
   if (isFALSE(nzchar(r_version_output))) {
     r_version_output <- run_res$stderr
   }
-  expect_true(stringr::str_detect(r_version_output, "R version 4.1.3"))
+  testthat::expect_true(
+    stringr::str_detect(r_version_output, "R version 4.1.3")
+  )
 
   pkgs_list_res <- list_packages(env_name = "condathis-test-env")
 
@@ -108,7 +112,7 @@ testthat::test_that("conda env is created", {
       px_res <- run(
         "R", "-q", "-s", "-e", "print(Sys.getenv('MY_VAR_1'))",
         env_name = "condathis-test-env",
-        verbose = FALSE
+        verbose = "silent"
       )
     }
   )

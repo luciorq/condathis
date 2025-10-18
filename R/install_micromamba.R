@@ -7,7 +7,7 @@
 #'   to create and manage conda environments.
 #'
 #' @param micromamba_version Character string specifying the version of
-#'   Micromamba to download. Defaults to `"2.3.0-1"`.
+#'   Micromamba to download. Defaults to `"2.3.3-0"`.
 #'
 #' @param timeout_limit Numeric value specifying the timeout limit for
 #'   downloading the Micromamba
@@ -52,7 +52,7 @@
 #'
 #' @export
 install_micromamba <- function(
-  micromamba_version = "2.3.0-1",
+  micromamba_version = "2.3.3-0",
   timeout_limit = 3600,
   download_method = "auto",
   force = FALSE,

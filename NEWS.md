@@ -6,7 +6,7 @@ Development Changelog: [dev](https://github.com/luciorq/condathis/compare/v0.1.2
 
 ### Changed
 
-* Internal `micromamba` version bump to "2.3.0-1".
+* Internal `micromamba` version bump to "2.3.3-0".
 
 ### Fixed
 

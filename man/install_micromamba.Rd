@@ -5,7 +5,7 @@
 \title{Install Micromamba Binaries in the \code{condathis} Controlled Path}
 \usage{
 install_micromamba(
-  micromamba_version = "2.3.0-1",
+  micromamba_version = "2.3.3-0",
   timeout_limit = 3600,
   download_method = "auto",
   force = FALSE,
@@ -14,7 +14,7 @@ install_micromamba(
 }
 \arguments{
 \item{micromamba_version}{Character string specifying the version of
-Micromamba to download. Defaults to \code{"2.3.0-1"}.}
+Micromamba to download. Defaults to \code{"2.3.3-0"}.}
 
 \item{timeout_limit}{Numeric value specifying the timeout limit for
 downloading the Micromamba

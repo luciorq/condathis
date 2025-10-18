@@ -20,7 +20,14 @@ github_org := 'luciorq'
   R -q -e 'devtools::load_all();devtools::document();';
   R -q -e 'devtools::load_all();devtools::run_examples();';
   R -q -e 'devtools::load_all();devtools::test();';
+  # Lint markdown files
+  cat ./README.Rmd | rumdl check --stdin ||true;
+  cat ./README.qmd | rumdl check --stdin || true;
   R -q -e 'devtools::load_all();if(file.exists("README.Rmd"))rmarkdown::render("README.Rmd", encoding = "UTF-8")' || true;
+  R -q -e 'devtools::load_all();if(file.exists("README.qmd"))rmarkdown::render("README.qmd", encoding = "UTF-8")' || true;
+  # Lint Final README.md
+  rumdl check README.md || true;
+  markdownlint README.md || true;
   \builtin echo "All tests passed!";
 
 @test-all-examples:

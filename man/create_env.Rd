@@ -18,7 +18,7 @@ create_env(
 }
 \arguments{
 \item{packages}{Character vector. Names of the packages, and
-version strings if necessary, e.g. 'python=3.11'. The use of the \code{packages}
+version strings if necessary, e.g. 'python=3.13'. The use of the \code{packages}
 argument assumes that env_file is not used.}
 
 \item{env_file}{Character. Path to the YAML file with Conda Environment

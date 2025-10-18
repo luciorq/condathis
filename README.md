@@ -1,12 +1,11 @@
 
-<!-- README.md is generated from README.Rmd. Please edit that file -->
-
 # condathis <img src="man/figures/logo.png" align="right" height="138" alt="" />
 
 <!-- badges: start -->
 
 [![r-cmd-check](https://github.com/luciorq/condathis/actions/workflows/r-cmd-check/badge.svg)](https://github.com/luciorq/condathis/actions/workflows/r-cmd-check)
-[![CRAN status](https://www.r-pkg.org/badges/version/condathis)](https://CRAN.R-project.org/package=condathis)
+[![CRAN
+status](https://www.r-pkg.org/badges/version/condathis)](https://CRAN.R-project.org/package=condathis)
 <!-- badges: end -->
 
 > Run command-line tools in a **reproducible** and **isolated** way,
@@ -49,7 +48,11 @@ messages?
 condathis::create_env(packages = "rich-cli", env_name = "rich-cli-env", verbose = "output")
 #> ! Environment rich-cli-env already exists.
 
-condathis::run("rich", "[b]Condathis[/b] is awesome!", "-p", "-a", "heavy", env_name = "rich-cli-env", verbose = "output")
+condathis::run(
+  "rich", "[b]Condathis[/b] is awesome!", "-p", "-a", "heavy",
+  env_name = "rich-cli-env",
+  verbose = "output"
+)
 #> ┏━━━━━━━━━━━━━━━━━━━━━━━┓
 #> ┃ Condathis is awesome! ┃
 #> ┗━━━━━━━━━━━━━━━━━━━━━━━┛

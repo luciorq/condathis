@@ -2,7 +2,12 @@
 output: github_document
 ---
 
-<!-- README.md is generated from README.Rmd. Please edit that file -->
+# condathis <img src="man/figures/logo.png" align="right" height="138" alt="" />
+
+<!-- badges: start -->
+[![r-cmd-check](https://github.com/luciorq/condathis/actions/workflows/r-cmd-check/badge.svg)](https://github.com/luciorq/condathis/actions/workflows/r-cmd-check)
+[![CRAN status](https://www.r-pkg.org/badges/version/condathis)](https://CRAN.R-project.org/package=condathis)
+<!-- badges: end -->
 
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
@@ -13,18 +18,12 @@ knitr::opts_chunk$set(
 )
 ```
 
-# condathis <img src="man/figures/logo.png" align="right" height="138" alt="" />
-
-<!-- badges: start -->
-[![r-cmd-check](https://github.com/luciorq/condathis/actions/workflows/r-cmd-check/badge.svg)](https://github.com/luciorq/condathis/actions/workflows/r-cmd-check)
-[![CRAN status](https://www.r-pkg.org/badges/version/condathis)](https://CRAN.R-project.org/package=condathis)
-<!-- badges: end -->
-
 > Run command-line tools in a **reproducible** and **isolated** way, right from R.
 
 Tired of `system()` calls that work on your machine but break everywhere else?
 `condathis` is here to help!
-It lets you create self-contained environments for your command-line tools, so your R code runs reliably for you, your colleagues, and your future self.
+It lets you create self-contained environments for your command-line tools,
+so your R code runs reliably for you, your colleagues, and your future self.
 
 ## A Quick Example
 
@@ -47,10 +46,16 @@ Maybe you want to try something fancier, like `rich-cli` for formatting messages
 ```{r}
 condathis::create_env(packages = "rich-cli", env_name = "rich-cli-env", verbose = "output")
 
-condathis::run("rich", "[b]Condathis[/b] is awesome!", "-p", "-a", "heavy", env_name = "rich-cli-env", verbose = "output")
+condathis::run(
+  "rich", "[b]Condathis[/b] is awesome!", "-p", "-a", "heavy",
+  env_name = "rich-cli-env",
+  verbose = "output"
+)
 ```
 
-That's it! You can now package any command-line tool with your R script, ensuring it works everywhere, every time.
+That's it!
+You can now package any command-line tool with your R script,
+ensuring it works everywhere, every time.
 
 ## Get Started
 
@@ -68,16 +73,21 @@ install.packages("condathis", repos = c("https://luciorq.r-universe.dev", getOpt
 
 ## Why `condathis`?
 
-R's `system()` and `system2()` are powerful, but they depend on tools being installed on the host system. This creates a few problems:
+R's `system()` and `system2()` are powerful, but they depend on tools being
+installed on the host system.
+This creates a few problems:
 
-*   **Reproducibility:** Will your script from last year still work? Will your collaborator be able to run your code if they have a different version of a tool?
-*   **Conflicts:** What if two different tools need two different versions of the same dependency?
+* **Reproducibility:** Will your script from last year still work? Will your
+  collaborator be able to run your code if they have a different version of a tool?
+* **Conflicts:** What if two different tools need two different versions of the
+  same dependency?
 
 `{condathis}` solves these issues by creating isolated environments for each tool.
 
 ### Reproducibility: An Example
 
-Let's say you're using `fastqc` for quality control in a bioinformatics pipeline. Different versions of `fastqc` can produce slightly different results.
+Let's say you're using `fastqc` for quality control in a bioinformatics pipeline.
+Different versions of `fastqc` can produce slightly different results.
 
 With `{condathis}`, you can lock in a specific version:
 
@@ -91,11 +101,13 @@ condathis::create_env(packages = "fastqc==0.12.1", env_name = "fastqc-0.12.1")
 condathis::run("fastqc", fastq_file, "-o", temp_out_dir, env_name = "fastqc-0.12.1")
 ```
 
-Now your analysis will produce the same output files, regardless of where or when it's run.
+Now your analysis will produce the same output files,
+regardless of where or when it's run.
 
 ### Isolation: An Example
 
-Need to use a specific version of a tool like `curl` that's different from your system's version? No problem.
+Need to use a specific version of a tool like `curl` that's different from your
+system's version? No problem.
 
 Your system's `curl`:
 
@@ -119,12 +131,14 @@ out <- condathis::run(
 
 message(out$stdout)
 ```
+
 This allows you to run tools with conflicting dependencies side-by-side without any issues.
 
 ## How It Works
 
 The package `{condathis}` relies on [**`micromamba`**](https://mamba.readthedocs.io/en/latest/user_guide/micromamba.html) to bring **reproducibility and isolation**.
-`micromamba` is a lightweight, fast, and efficient package manager that "does not need a base environment and does not come with a default version of Python".
+`micromamba` is a lightweight, fast, and efficient package manager that
+"does not need a base environment and does not come with a default version of Python".
 
 The integration of `micromamba` into `R` is handled using the `processx` and `withr` packages.
 
@@ -132,11 +146,11 @@ The integration of `micromamba` into `R` is handled using the `processx` and `wi
 
 Special characters in CLI commands are interpreted as literals and not expanded.
 
-- It is not supported the use of output redirections in commands, e.g. "|" or ">".
-  - Instead of redirects (e.g. ">"), use the argument `stdout = "<FILENAME>.txt"`.
+* It is not supported the use of output redirections in commands, e.g. "|" or ">".
+  * Instead of redirects (e.g. ">"), use the argument `stdout = "<FILENAME>.txt"`.
     Instead of Pipes ("|"), simple run multiple calls to `condathis::run()`,
     using `stdout` argument to control the output and `stdin` to control the input of each command.
     P.S. The current implementation only supports files as the "STDIN".
-- File paths should not use special characters for relative paths, e.g. "~", ".", "..".
-  - Expand file paths directly in R, using `base` functions
+* File paths should not use special characters for relative paths, e.g. "~", ".", "..".
+  * Expand file paths directly in R, using `base` functions
     or functions from the `fs` package.
