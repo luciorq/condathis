@@ -1,0 +1,43 @@
+---
+title: "Condathis: Run Any CLI Tool"
+vignette: >
+  %\VignetteIndexEntry{condathis}
+  %\VignetteEngine{quarto::html}
+  %\VignetteEncoding{UTF-8}
+knitr:
+  opts_chunk:
+    collapse: true
+    comment: '#>'
+---
+
+```{r}
+#| label: setup
+library(condathis)
+```
+
+When we say run any CLI tool reproducibly, we mean it.
+With `condathis`, you can run any command-line interface (CLI) tool within a
+specified Conda environment, ensuring that the tool's dependencies are managed
+and isolated.
+
+## Internet Cat Gifs
+
+Are you sure you don't want to see some internet cat gifs here?
+
+```{r}
+#| label: cat_gifs
+# ggplot2 exampel on hold, not a suggest dependency yet.
+# library(ggplot2)
+
+# Create a simple plot
+# ggplot(mtcars, aes(x = wt, y = mpg)) +
+#  geom_point() +
+#  theme_minimal()
+
+# base R example
+penguins_df <- data(penguins)
+
+head(penguins_df)
+
+histogram(penguins_df$flipper_length_mm)
+```

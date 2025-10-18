@@ -8,3 +8,5 @@ renv.lock
 revdep
 .Rprofile
 README.html
+inst/doc
+**/.quarto/
