@@ -18,8 +18,6 @@ Release Date: 2025-06-02
 
 Development Changelog: [0.1.2](https://github.com/luciorq/condathis/compare/v0.1.1...v0.1.2)
 
-Development Changelog:
-
 ### Added
 
 * New `stdin` argument to `run()` and `run_bin()` functions, allowing input to
