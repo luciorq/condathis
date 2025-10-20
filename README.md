@@ -3,7 +3,7 @@
 
 <!-- badges: start -->
 
-[![r-cmd-check](https://github.com/luciorq/condathis/actions/workflows/r-cmd-check/badge.svg)](https://github.com/luciorq/condathis/actions/workflows/r-cmd-check)
+[![r-cmd-check](https://github.com/luciorq/condathis/actions/workflows/r-cmd-check.yaml/badge.svg)](https://github.com/luciorq/condathis/actions/workflows/r-cmd-check.yaml)
 [![CRAN
 status](https://www.r-pkg.org/badges/version/condathis)](https://CRAN.R-project.org/package=condathis)
 <!-- badges: end -->
