@@ -27,4 +27,9 @@
 ^\.markdownlint\.jsonc$
 ^\.markdownlint-cli2\.jsonc$
 ^\.markdownlint-cli2\.yaml$
+^vignettes$
 ^vignettes/\.quarto$
+^vignettes/*_files$
+^vignettes/articles/\.quarto$
+^vignettes/articles/*_files$
+^vignettes/articles$
