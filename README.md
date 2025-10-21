@@ -1,4 +1,5 @@
 
+
 # condathis <img src="man/figures/logo.png" align="right" height="138" alt="" />
 
 <!-- badges: start -->
@@ -24,7 +25,7 @@ and run it in its own isolated environment:
 ``` r
 # 1. Install 'cowpy' into an environment named 'cowpy-env'
 condathis::create_env(packages = "cowpy", env_name = "cowpy-env", verbose = "output")
-#> ! Environment cowpy-env already exists.
+#> ! Environment cowpy-env succesfully created.
 
 # 2. Run it!
 # Not working without stdin redirection - need to use a file as input
@@ -46,7 +47,7 @@ messages?
 
 ``` r
 condathis::create_env(packages = "rich-cli", env_name = "rich-cli-env", verbose = "output")
-#> ! Environment rich-cli-env already exists.
+#> ! Environment rich-cli-env succesfully created.
 
 condathis::run(
   "rich", "[b]Condathis[/b] is awesome!", "-p", "-a", "heavy",
@@ -141,7 +142,7 @@ condathis::create_env(
   env_name = "curl-env",
   verbose = "output"
 )
-#> ! Environment curl-env already exists.
+#> ! Environment curl-env succesfully created.
 
 out <- condathis::run(
   "curl", "--version",

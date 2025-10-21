@@ -24,7 +24,8 @@ github_org := 'luciorq'
   cat ./README.Rmd | rumdl check --stdin ||true;
   cat ./README.qmd | rumdl check --stdin || true;
   R -q -e 'devtools::load_all();if(file.exists("README.Rmd"))rmarkdown::render("README.Rmd", encoding = "UTF-8")' || true;
-  R -q -e 'devtools::load_all();if(file.exists("README.qmd"))rmarkdown::render("README.qmd", encoding = "UTF-8")' || true;
+  # R -q -e 'devtools::load_all();if(file.exists("README.qmd"))rmarkdown::render("README.qmd", encoding = "UTF-8")' || true;
+  quarto render README.qmd --to gfm || true;
   # Lint Final README.md
   rumdl check README.md || true;
   markdownlint README.md || true;
