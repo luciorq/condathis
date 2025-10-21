@@ -92,9 +92,9 @@ run <- function(
   }
 
   if (isTRUE(verbose)) {
-    verbose <- "silent"
-  } else if (isFALSE(verbose)) {
     verbose <- "full"
+  } else if (isFALSE(verbose)) {
+    verbose <- "silent"
   } else {
     verbose <- rlang::arg_match(verbose)
   }
