@@ -12,6 +12,9 @@ Development Changelog: [dev](https://github.com/luciorq/condathis/compare/v0.1.2
 
 * Internal `micromamba` version bump to "2.3.3-0".
 
+* Argument `verbose = TRUE` is now converted to `verbose = "output"` by
+  default in all exported functions.
+
 ### Fixed
 
 * Ignore `CONDA_ENVS_DIRS` environment variable.

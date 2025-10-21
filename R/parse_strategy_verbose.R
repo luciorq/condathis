@@ -4,15 +4,14 @@
 #' @keywords internal
 #' @noRd
 parse_strategy_verbose <- function(strategy) {
+  if (isTRUE(length(strategy) > 1L)) {
+    strategy <- strategy[1]
+  }
   if (isTRUE(strategy)) {
     strategy <- "output"
   }
   if (isFALSE(strategy)) {
     strategy <- "silent"
-  }
-
-  if (isTRUE(length(strategy) > 1L)) {
-    strategy <- strategy[1]
   }
   verbose_flags <- switch(
     EXPR = strategy,

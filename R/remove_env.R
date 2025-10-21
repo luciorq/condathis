@@ -45,7 +45,7 @@ remove_env <- function(
     )
   }
   if (isTRUE(verbose)) {
-    verbose <- "full"
+    verbose <- "output"
   } else if (isFALSE(verbose)) {
     verbose <- "silent"
   } else {
