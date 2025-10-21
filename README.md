@@ -1,9 +1,6 @@
-
-
 # condathis <img src="man/figures/logo.png" align="right" height="138" alt="" />
 
 <!-- badges: start -->
-
 [![r-cmd-check](https://github.com/luciorq/condathis/actions/workflows/r-cmd-check.yaml/badge.svg)](https://github.com/luciorq/condathis/actions/workflows/r-cmd-check.yaml)
 [![CRAN
 status](https://www.r-pkg.org/badges/version/condathis)](https://CRAN.R-project.org/package=condathis)
@@ -28,7 +25,7 @@ condathis::create_env(packages = "cowpy", env_name = "cowpy-env", verbose = "out
 #> ! Environment cowpy-env succesfully created.
 
 # 2. Run it!
-# Not working without stdin redirection - need to use a file as input
+# Example showing redirection from a file to the Standard Input (STDIN)
 temp_file <- tempfile()
 writeLines("{condathis} is awesome!", temp_file)
 condathis::run("cowpy", stdin = temp_file, env_name = "cowpy-env", verbose = "output")

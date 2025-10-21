@@ -1,6 +1,7 @@
 ---
 output: gfm
 default-image-extension: ""
+always_allow_html: true
 knitr:
   opts_chunk:
     collapse: true
@@ -16,6 +17,21 @@ knitr:
 
 > Run command-line tools in a **reproducible** and **isolated** way, right from R.
 
+<!--
+```{r}
+#| label: setup
+#| include: false
+#| eval: true
+# Define a custom output hook
+# knitr::knit_hooks$set(output = function(x, options) {
+# Apply cli::ansi_html() to the output
+#   cli::ansi_html(x)
+# })
+
+# options(cli.html = TRUE)
+```
+-->
+
 Tired of `system()` calls that work on your machine but break everywhere else?
 `condathis` is here to help!
 It lets you create self-contained environments for your command-line tools,
@@ -28,7 +44,7 @@ so your R code runs reliably for you, your colleagues, and your future self.
 #| eval: true
 #| include: false
 # Clean up any existing environments from previous runs
-for (env_name in c("rich-cli-env", "cowpy-env", "fasqc-0.12.1", "curl-env")) {
+for (env_name in c("rich-cli-env", "cowpy-env", "fastqc-0.12.1", "curl-env")) {
   if (condathis::env_exists(env_name, verbose = "silent")) {
     condathis::remove_env(env_name, verbose = "silent")
   }
@@ -44,7 +60,7 @@ With just two commands, we can install and run it in its own isolated environmen
 condathis::create_env(packages = "cowpy", env_name = "cowpy-env", verbose = "output")
 
 # 2. Run it!
-# Not working without stdin redirection - need to use a file as input
+# Example showing redirection from a file to the Standard Input (STDIN)
 temp_file <- tempfile()
 writeLines("{condathis} is awesome!", temp_file)
 condathis::run("cowpy", stdin = temp_file, env_name = "cowpy-env", verbose = "output")
