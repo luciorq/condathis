@@ -5,7 +5,7 @@
 #' @noRd
 parse_strategy_verbose <- function(strategy) {
   if (isTRUE(strategy)) {
-    strategy <- "full"
+    strategy <- "output"
   }
   if (isFALSE(strategy)) {
     strategy <- "silent"

@@ -60,7 +60,7 @@ install_micromamba <- function(
 ) {
   quiet_flag <- FALSE
   if (isTRUE(verbose)) {
-    verbose <- "full"
+    verbose <- "output"
   } else if (isFALSE(verbose)) {
     verbose <- "silent"
   }

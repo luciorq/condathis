@@ -4,6 +4,10 @@ Release Date: Unreleased
 
 Development Changelog: [dev](https://github.com/luciorq/condathis/compare/v0.1.2...HEAD)
 
+### Added
+
+* New `clean_cache()` function to clean the local package cache.
+
 ### Changed
 
 * Internal `micromamba` version bump to "2.3.3-0".
@@ -71,7 +75,7 @@ Development Changelog: [0.1.0](https://github.com/luciorq/condathis/compare/v0.0
 
 ### Fixed
 
-* `run()` always creates empty base environment if do not exist yet.
+* `run()` always creates empty base environment if it does not exists yet.
 
 ## condathis 0.0.8
 

@@ -20,7 +20,15 @@
 #' }
 #'
 #' @export
-remove_env <- function(env_name = "condathis-env", verbose = "silent") {
+remove_env <- function(
+  env_name = "condathis-env",
+  verbose = c(
+    "silent",
+    "cmd",
+    "output",
+    "full"
+  )
+) {
   if (
     isFALSE(env_exists(env_name)) &&
       isTRUE(fs::dir_exists(get_env_dir(env_name = env_name)))
@@ -30,11 +38,18 @@ remove_env <- function(env_name = "condathis-env", verbose = "silent") {
   if (isFALSE(env_exists(env_name))) {
     cli::cli_abort(
       message = c(
-        `x` = "Environment {.field {env_name}} do not exist.",
+        `x` = "Environment {.field {env_name}} does not exist.",
         `!` = "Check {.code list_envs()} for available environments."
       ),
       class = "condathis_error_env_remove"
     )
+  }
+  if (isTRUE(verbose)) {
+    verbose <- "full"
+  } else if (isFALSE(verbose)) {
+    verbose <- "silent"
+  } else {
+    verbose <- rlang::arg_match(verbose)
   }
   quiet_flag <- parse_quiet_flag(verbose = verbose)
   px_res <- rethrow_error_cmd(

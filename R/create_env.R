@@ -70,7 +70,12 @@ create_env <- function(
   ),
   additional_channels = NULL,
   platform = NULL,
-  verbose = "silent",
+  verbose = c(
+    "silent",
+    "cmd",
+    "output",
+    "full"
+  ),
   overwrite = FALSE
 ) {
   pkgs_dir <- fs::path_home(".mamba", "pkgs")
@@ -101,6 +106,14 @@ create_env <- function(
   })
 
   method <- rlang::arg_match(method)
+
+  if (isTRUE(verbose)) {
+    verbose <- "output"
+  } else if (isFALSE(verbose)) {
+    verbose <- "silent"
+  } else {
+    verbose <- rlang::arg_match(verbose)
+  }
 
   env_file_path <- NULL
   if (isFALSE(is.null(env_file))) {
