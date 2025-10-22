@@ -33,7 +33,15 @@
 #' })
 #' }
 #' @export
-list_packages <- function(env_name = "condathis-env", verbose = "silent") {
+list_packages <- function(
+  env_name = "condathis-env",
+  verbose = c(
+    "output",
+    "silent",
+    "cmd",
+    "full"
+  )
+) {
   if (isFALSE(env_exists(env_name))) {
     cli::cli_abort(
       message = c(
@@ -43,7 +51,22 @@ list_packages <- function(env_name = "condathis-env", verbose = "silent") {
       class = "condathis_list_packages_missing_env"
     )
   }
-  quiet_flag <- parse_quiet_flag(verbose = verbose)
+  if (isTRUE(verbose)) {
+    verbose <- "output"
+  } else if (isFALSE(verbose)) {
+    verbose <- "silent"
+  } else {
+    verbose <- rlang::arg_match(verbose)
+  }
+
+  if (isTRUE(verbose %in% c("cmd", "full"))) {
+    internal_verbose <- verbose
+  } else {
+    internal_verbose <- "silent"
+  }
+
+  quiet_flag <- parse_quiet_flag(verbose = internal_verbose)
+
   px_res <- rethrow_error_cmd(
     expr = {
       native_cmd(
@@ -54,14 +77,14 @@ list_packages <- function(env_name = "condathis-env", verbose = "silent") {
           quiet_flag,
           "--json"
         ),
-        verbose = verbose
+        verbose = internal_verbose
       )
     }
   )
-  if (isTRUE(px_res$status == 0)) {
+  if (isTRUE(px_res$status == 0L)) {
     pkgs_df <- jsonlite::fromJSON(px_res$stdout)
     pkgs_df <- tibble::as_tibble(pkgs_df)
-    if (isTRUE(length(pkgs_df) == 0)) {
+    if (isTRUE(length(pkgs_df) == 0L)) {
       pkgs_df <- tibble::tibble(
         "base_url" = character(0L),
         "build_number" = integer(0L),
@@ -74,5 +97,15 @@ list_packages <- function(env_name = "condathis-env", verbose = "silent") {
       )
     }
   }
-  return(pkgs_df)
+
+  if (isTRUE(verbose %in% c("full", "output"))) {
+    cli::cli_inform(
+      message = c(
+        `!` = "Retrieved {nrow(pkgs_df)} packages from environment {.field {env_name}}."
+      )
+    )
+    return(pkgs_df)
+  } else {
+    return(invisible(pkgs_df))
+  }
 }

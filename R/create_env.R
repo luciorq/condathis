@@ -71,9 +71,9 @@ create_env <- function(
   additional_channels = NULL,
   platform = NULL,
   verbose = c(
+    "output",
     "silent",
     "cmd",
-    "output",
     "full"
   ),
   overwrite = FALSE

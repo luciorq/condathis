@@ -33,9 +33,22 @@ install_packages <- function(
     "conda-forge"
   ),
   additional_channels = NULL,
-  verbose = "silent"
+  verbose = c(
+    "output",
+    "silent",
+    "cmd",
+    "full"
+  )
 ) {
-  if (isFALSE(any(list_envs() %in% env_name))) {
+  if (isTRUE(verbose)) {
+    verbose <- "output"
+  } else if (isFALSE(verbose)) {
+    verbose <- "silent"
+  } else {
+    verbose <- rlang::arg_match(verbose)
+  }
+
+  if (isFALSE(any(list_envs(verbose = "silent") %in% env_name))) {
     create_env(
       packages = NULL,
       env_name = env_name,

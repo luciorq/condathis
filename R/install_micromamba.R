@@ -56,7 +56,7 @@ install_micromamba <- function(
   timeout_limit = 3600,
   download_method = "auto",
   force = FALSE,
-  verbose = "full"
+  verbose = "output"
 ) {
   quiet_flag <- FALSE
   if (isTRUE(verbose)) {
