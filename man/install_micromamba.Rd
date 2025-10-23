@@ -9,7 +9,7 @@ install_micromamba(
   timeout_limit = 3600,
   download_method = "auto",
   force = FALSE,
-  verbose = "full"
+  verbose = c("output", "silent", "cmd", "spinner", "full")
 )
 }
 \arguments{
@@ -30,7 +30,7 @@ system or \code{condathis} controlled path. Defaults to FALSE.}
 
 \item{verbose}{Character string indicating the verbosity level of the
 function.
-Can be one of \code{"full"}, \code{"output"}, \code{"silent"}. Defaults to \code{"full"}.}
+Can be one of \code{"full"}, \code{"output"}, \code{"silent"}. Defaults to \code{"output"}.}
 }
 \value{
 Invisibly returns the path to the installed Micromamba binary.

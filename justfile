@@ -11,25 +11,35 @@ github_org := 'luciorq'
 # =============================================================================
 # General R Package Development Tasks
 # =============================================================================
-@test:
+@lint:
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
   R -q -e 'devtools::load_all();styler::style_pkg();';
   air format ./R/ || true;
+  air format ./tests/ || true;
   R -q -e 'devtools::load_all();usethis::use_tidy_description();';
   R -q -e 'devtools::load_all();devtools::document();';
+  \builtin echo "Linting done!";
+
+@test: lint
+  #!/usr/bin/env bash
+  \builtin set -euxo pipefail;
   R -q -e 'devtools::load_all();devtools::run_examples();';
   R -q -e 'devtools::load_all();devtools::test();';
+  \builtin echo "All tests passed!";
+
+@build-readme:
+  #!/usr/bin/env bash
+  \builtin set -euxo pipefail;
   # Lint markdown files
-  cat ./README.Rmd | rumdl check --stdin ||true;
-  cat ./README.qmd | rumdl check --stdin || true;
-  R -q -e 'devtools::load_all();if(file.exists("README.Rmd"))rmarkdown::render("README.Rmd", encoding = "UTF-8")' || true;
-  # R -q -e 'devtools::load_all();if(file.exists("README.qmd"))rmarkdown::render("README.qmd", encoding = "UTF-8")' || true;
-  quarto render README.qmd --to gfm || true;
+  [[ -f ./README.Rmd ]] && cat ./README.Rmd | rumdl check --stdin || true;
+  [[ -f ./README.qmd ]] && cat ./README.qmd | rumdl check --stdin || true;
+  [[ -f ./README.Rmd ]] && R -q -e 'devtools::load_all();if(file.exists("README.Rmd"))rmarkdown::render("README.Rmd", encoding = "UTF-8")' || true;
+  [[ -f ./README.qmd ]] && quarto render README.qmd --to gfm || true;
   # Lint Final README.md
   rumdl check README.md || true;
   markdownlint README.md || true;
-  \builtin echo "All tests passed!";
+  \builtin echo "README built and linted!";
 
 @test-all-examples:
   #!/usr/bin/env bash

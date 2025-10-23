@@ -8,7 +8,7 @@ run_bin(
   cmd,
   ...,
   env_name = "condathis-env",
-  verbose = "silent",
+  verbose = c("output", "silent", "cmd", "spinner", "full"),
   error = c("cancel", "continue"),
   stdout = "|",
   stderr = "|",
@@ -33,13 +33,13 @@ it will be created automatically using \code{create_env()}.}
 function's output.
 Acceptable values are:
 \itemize{
-\item \strong{"silent"}: Suppress all output from internal command-line tools.
-Equivalent to \code{FALSE}.
-\item \strong{"cmd"}: Print the internal command(s) passed to the command-line tool.
 \item \strong{"output"}: Print the standard output and error from the command-line
 tool to the screen.
 Note that the order of the standard output and error lines may not be
 correct, as standard output is typically buffered.
+\item \strong{"silent"}: Suppress all output from internal command-line tools.
+Equivalent to \code{FALSE}.
+\item \strong{"cmd"}: Print the internal command(s) passed to the command-line tool.
 If the standard output and/or error is redirected to a file or they are
 ignored, they will not be echoed.
 Equivalent to \code{TRUE}.
@@ -89,8 +89,7 @@ condathis::with_sandbox_dir({
   # Run 'python' with a script in 'my-env' environment
   condathis::run_bin(
     "python", "-c", "import sys; print(sys.version)",
-    env_name = "my-env",
-    verbose = "output"
+    env_name = "my-env"
   )
 
   # Run 'ls' command with additional arguments

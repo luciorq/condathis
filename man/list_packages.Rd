@@ -4,7 +4,10 @@
 \alias{list_packages}
 \title{List Packages Installed in a Conda Environment}
 \usage{
-list_packages(env_name = "condathis-env", verbose = "silent")
+list_packages(
+  env_name = "condathis-env",
+  verbose = c("output", "silent", "cmd", "spinner", "full")
+)
 }
 \arguments{
 \item{env_name}{Character. The name of the Conda environment where the tool
@@ -16,13 +19,13 @@ it will be created automatically using \code{create_env()}.}
 function's output.
 Acceptable values are:
 \itemize{
-\item \strong{"silent"}: Suppress all output from internal command-line tools.
-Equivalent to \code{FALSE}.
-\item \strong{"cmd"}: Print the internal command(s) passed to the command-line tool.
 \item \strong{"output"}: Print the standard output and error from the command-line
 tool to the screen.
 Note that the order of the standard output and error lines may not be
 correct, as standard output is typically buffered.
+\item \strong{"silent"}: Suppress all output from internal command-line tools.
+Equivalent to \code{FALSE}.
+\item \strong{"cmd"}: Print the internal command(s) passed to the command-line tool.
 If the standard output and/or error is redirected to a file or they are
 ignored, they will not be echoed.
 Equivalent to \code{TRUE}.

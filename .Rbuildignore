@@ -34,3 +34,4 @@
 ^vignettes/articles/*_files$
 ^vignettes/articles$
 ^README_files/$
+^readme_cache/$

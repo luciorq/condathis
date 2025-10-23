@@ -17,21 +17,6 @@ knitr:
 
 > Run command-line tools in a **reproducible** and **isolated** way, right from R.
 
-<!--
-```{r}
-#| label: setup
-#| include: false
-#| eval: true
-# Define a custom output hook
-# knitr::knit_hooks$set(output = function(x, options) {
-# Apply cli::ansi_html() to the output
-#   cli::ansi_html(x)
-# })
-
-# options(cli.html = TRUE)
-```
--->
-
 Tired of `system()` calls that work on your machine but break everywhere else?
 `condathis` is here to help!
 It lets you create self-contained environments for your command-line tools,
@@ -57,25 +42,24 @@ With just two commands, we can install and run it in its own isolated environmen
 ```{r}
 #| label: cowpy-example
 # 1. Install 'cowpy' into an environment named 'cowpy-env'
-condathis::create_env(packages = "cowpy", env_name = "cowpy-env", verbose = "output")
+condathis::create_env(packages = "cowpy", env_name = "cowpy-env")
 
 # 2. Run it!
 # Example showing redirection from a file to the Standard Input (STDIN)
 temp_file <- tempfile()
 writeLines("{condathis} is awesome!", temp_file)
-condathis::run("cowpy", stdin = temp_file, env_name = "cowpy-env", verbose = "output")
+condathis::run("cowpy", stdin = temp_file, env_name = "cowpy-env")
 ```
 
 Maybe you want to try something fancier, like `rich-cli` for formatting messages?
 
 ```{r}
 #| label: rich-cli-example
-condathis::create_env(packages = "rich-cli", env_name = "rich-cli-env", verbose = "output")
+condathis::create_env(packages = "rich-cli", env_name = "rich-cli-env")
 
 condathis::run(
   "rich", "[b]Condathis[/b] is awesome!", "-p", "-a", "heavy",
-  env_name = "rich-cli-env",
-  verbose = "output"
+  env_name = "rich-cli-env"
 )
 ```
 
@@ -128,7 +112,7 @@ temp_out_dir <- file.path(tempdir(), "output")
 fs::dir_create(temp_out_dir)
 
 # Always use fastqc version 0.12.1
-condathis::create_env(packages = "fastqc==0.12.1", env_name = "fastqc-0.12.1")
+condathis::create_env(packages = "fastqc==0.12.1", channels = c("conda-forge", "bioconda"), env_name = "fastqc-0.12.1")
 condathis::run("fastqc", fastq_file, "-o", temp_out_dir, env_name = "fastqc-0.12.1")
 ```
 
@@ -153,13 +137,14 @@ A specific `curl` version, isolated with `condathis`:
 #| label: curl-condathis-example
 condathis::create_env(
   packages = "curl==8.10.1",
-  env_name = "curl-env",
-  verbose = "output"
+  env_name = "curl-env"
 )
 
+# Handling output thorough R objects
 out <- condathis::run(
   "curl", "--version",
-  env_name = "curl-env"
+  env_name = "curl-env",
+  verbose = "silent"
 )
 
 message(out$stdout)

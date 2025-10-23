@@ -4,7 +4,7 @@
 \alias{clean_cache}
 \title{Clean Conda Cache}
 \usage{
-clean_cache(verbose = c("output", "silent", "cmd", "full"))
+clean_cache(verbose = c("output", "silent", "cmd", "spinner", "full"))
 }
 \arguments{
 \item{verbose}{A character string indicating the verbosity level of the
