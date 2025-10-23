@@ -15,10 +15,16 @@ test_that("is_micromamba_available_for_arch handles custom sys_arch input correc
   expect_equal(is_micromamba_available_for_arch("MacOSX-arm64"), "osx-arm64")
 
   # Test case for Linux-aarch64
-  expect_equal(is_micromamba_available_for_arch("Linux-aarch64"), "linux-aarch64")
+  expect_equal(
+    is_micromamba_available_for_arch("Linux-aarch64"),
+    "linux-aarch64"
+  )
 
   # Test case for Linux-ppc64le
-  expect_equal(is_micromamba_available_for_arch("Linux-ppc64le"), "linux-ppc64le")
+  expect_equal(
+    is_micromamba_available_for_arch("Linux-ppc64le"),
+    "linux-ppc64le"
+  )
 
   # Test case for unsupported architecture
   expect_error(
@@ -70,6 +76,9 @@ test_that("is_micromamba_available_for_arch returns correct architecture string"
 
   with_mocked_bindings(
     get_sys_arch = mock_get_sys_arch("Unknown-arch"),
-    expect_error(is_micromamba_available_for_arch(), class = "condathis_umamba_not_available_for_arch")
+    expect_error(
+      is_micromamba_available_for_arch(),
+      class = "condathis_umamba_not_available_for_arch"
+    )
   )
 })

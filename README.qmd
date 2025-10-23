@@ -1,5 +1,11 @@
 ---
-output: github_document
+output: gfm
+default-image-extension: ""
+always_allow_html: true
+knitr:
+  opts_chunk:
+    collapse: true
+    comment: '#>'
 ---
 
 # condathis <img src="man/figures/logo.png" align="right" height="138" alt="" />
@@ -8,15 +14,6 @@ output: github_document
 [![r-cmd-check](https://github.com/luciorq/condathis/actions/workflows/r-cmd-check.yaml/badge.svg)](https://github.com/luciorq/condathis/actions/workflows/r-cmd-check.yaml)
 [![CRAN status](https://www.r-pkg.org/badges/version/condathis)](https://CRAN.R-project.org/package=condathis)
 <!-- badges: end -->
-
-```{r, include = FALSE}
-knitr::opts_chunk$set(
-  collapse = TRUE,
-  comment = "#>",
-  fig.path = "man/figures/README-",
-  out.width = "100%"
-)
-```
 
 > Run command-line tools in a **reproducible** and **isolated** way, right from R.
 
@@ -27,29 +24,42 @@ so your R code runs reliably for you, your colleagues, and your future self.
 
 ## A Quick Example
 
+```{r}
+#| label: clean-envs
+#| eval: true
+#| include: false
+# Clean up any existing environments from previous runs
+for (env_name in c("rich-cli-env", "cowpy-env", "fastqc-0.12.1", "curl-env")) {
+  if (condathis::env_exists(env_name, verbose = "silent")) {
+    condathis::remove_env(env_name, verbose = "silent")
+  }
+}
+```
+
 Let's have some fun with `cowpy`.
 With just two commands, we can install and run it in its own isolated environment:
 
 ```{r}
+#| label: cowpy-example
 # 1. Install 'cowpy' into an environment named 'cowpy-env'
-condathis::create_env(packages = "cowpy", env_name = "cowpy-env", verbose = "output")
+condathis::create_env(packages = "cowpy", env_name = "cowpy-env")
 
 # 2. Run it!
-# Not working without stdin redirection - need to use a file as input
+# Example showing redirection from a file to the Standard Input (STDIN)
 temp_file <- tempfile()
 writeLines("{condathis} is awesome!", temp_file)
-condathis::run("cowpy", stdin = temp_file, env_name = "cowpy-env", verbose = "output")
+condathis::run("cowpy", stdin = temp_file, env_name = "cowpy-env")
 ```
 
 Maybe you want to try something fancier, like `rich-cli` for formatting messages?
 
 ```{r}
-condathis::create_env(packages = "rich-cli", env_name = "rich-cli-env", verbose = "output")
+#| label: rich-cli-example
+condathis::create_env(packages = "rich-cli", env_name = "rich-cli-env")
 
 condathis::run(
   "rich", "[b]Condathis[/b] is awesome!", "-p", "-a", "heavy",
-  env_name = "rich-cli-env",
-  verbose = "output"
+  env_name = "rich-cli-env"
 )
 ```
 
@@ -61,13 +71,17 @@ ensuring it works everywhere, every time.
 
 Install the release version of the package from [CRAN](https://cran.r-project.org/package=condathis):
 
-```{r eval=FALSE}
+```{r}
+#| label: install-cran
+#| eval: false
 install.packages("condathis")
 ```
 
 Or get the development version from [R-Universe](https://luciorq.r-universe.dev/condathis):
 
-```{r eval=FALSE}
+```{r}
+#| label: install-r-universe
+#| eval: false
 install.packages("condathis", repos = c("https://luciorq.r-universe.dev", getOption("repos")))
 ```
 
@@ -92,12 +106,13 @@ Different versions of `fastqc` can produce slightly different results.
 With `{condathis}`, you can lock in a specific version:
 
 ```{r}
+#| label: fastqc-example
 fastq_file <- system.file("extdata", "sample1_L001_R1_001.fastq.gz", package = "condathis")
 temp_out_dir <- file.path(tempdir(), "output")
 fs::dir_create(temp_out_dir)
 
 # Always use fastqc version 0.12.1
-condathis::create_env(packages = "fastqc==0.12.1", env_name = "fastqc-0.12.1")
+condathis::create_env(packages = "fastqc==0.12.1", channels = c("conda-forge", "bioconda"), env_name = "fastqc-0.12.1")
 condathis::run("fastqc", fastq_file, "-o", temp_out_dir, env_name = "fastqc-0.12.1")
 ```
 
@@ -112,21 +127,24 @@ system's version? No problem.
 Your system's `curl`:
 
 ```{r}
+#| label: curl-system-example
 libcurlVersion()
 ```
 
 A specific `curl` version, isolated with `condathis`:
 
 ```{r}
+#| label: curl-condathis-example
 condathis::create_env(
   packages = "curl==8.10.1",
-  env_name = "curl-env",
-  verbose = "output"
+  env_name = "curl-env"
 )
 
+# Handling output thorough R objects
 out <- condathis::run(
   "curl", "--version",
-  env_name = "curl-env"
+  env_name = "curl-env",
+  verbose = "silent"
 )
 
 message(out$stdout)

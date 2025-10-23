@@ -46,7 +46,7 @@ list_envs <- function(verbose = "silent") {
       )
     }
   )
-  if (isTRUE(px_res$status == 0)) {
+  if (isTRUE(px_res$status == 0L)) {
     envs_list <- jsonlite::fromJSON(px_res$stdout)
     envs_str <- base::normalizePath(envs_list$envs, mustWork = FALSE)
     envs_str <- fs::path_real(envs_str)

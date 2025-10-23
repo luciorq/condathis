@@ -4,21 +4,25 @@
 \alias{parse_output}
 \title{Parse the output of a Condathis command}
 \usage{
-parse_output(res, stream = c("stdout", "stderr"))
+parse_output(res, stream = c("stdout", "stderr", "both", "plain"))
 }
 \arguments{
-\item{res}{A list containing the result of \code{\link[=run]{run()}}, typically including
-\code{stdout} and \code{stderr} as character strings.}
+\item{res}{A list containing the result of \code{\link[=run]{run()}}, typically
+including \code{stdout} and \code{stderr} as character strings.}
 
-\item{stream}{A character string specifying the data stream to parse. Must be either
-\code{"stdout"} or \code{"stderr"}. Defaults to \code{"stdout"}.}
+\item{stream}{A character string specifying the data stream to parse.
+Must be either \code{"stdout"}, \code{"stderr"}, or \code{"both"}.
+Additionally, "plain" can be used to provide raw text as the \code{res} input.
+Defaults to \code{"stdout"}.}
 }
 \value{
-A character vector where each element is a trimmed line from the specified stream.
+A character vector where each element is a trimmed line from the
+specified stream.
 }
 \description{
 This function processes the result of a \code{\link[=run]{run()}} call by parsing
-the specified output stream (\code{stdout} or \code{stderr}) into individual, trimmed lines.
+the specified output stream (\code{"stdout"}, \code{"stderr"}, or \code{"both"}) into
+individual, trimmed lines.
 }
 \examples{
 # Example result object from condathis::run()
@@ -32,5 +36,12 @@ parse_output(res, stream = "stdout")
 
 # Parse the standard error
 parse_output(res, stream = "stderr")
+
+# Merge both
+parse_output(res, stream = "both")
+
+# # Parse plain text
+plain_text <- "This is line one.\nThis is line two.\nThis is line three."
+parse_output(plain_text, stream = "plain")
 
 }

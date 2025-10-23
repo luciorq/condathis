@@ -1,22 +1,22 @@
 test_that("Accept binary outside of environment", {
   # `error = "continue"` Should not error even when R is not on PATH
   run_bin_res <- run_bin(
-    "R", "--version",
+    "R",
+    "--version",
     env_name = "fake-env",
     verbose = "silent",
     error = "continue"
   )
   testthat::expect_true(is.numeric(run_bin_res$status))
 
-
   run_bin_fake_res <- run_bin(
-    "Rfakeexec", "--version",
+    "Rfakeexec",
+    "--version",
     env_name = "fake-env",
     verbose = "silent",
     error = "continue"
   )
   testthat::expect_true(is.numeric(run_bin_fake_res$status))
-
 
   withr::with_path(
     new = list(
@@ -24,7 +24,8 @@ test_that("Accept binary outside of environment", {
     ),
     code = {
       run_bin_no_path_res <- run_bin(
-        "R", "--version",
+        "R",
+        "--version",
         env_name = "fake-env",
         verbose = "silent",
         error = "continue"
@@ -38,7 +39,8 @@ test_that("Accept binary outside of environment", {
   testthat::expect_error(
     object = {
       run_bin_fake_res <- run_bin(
-        "Rfakeexec", "--version",
+        "Rfakeexec",
+        "--version",
         env_name = "fake-env",
         verbose = "silent",
         error = "cancel"
@@ -54,7 +56,8 @@ test_that("Check if error is being rethrown when binary is not in path", {
   create_env(env_name = "fake-env", verbose = "silent")
 
   run_res <- run(
-    "Rfakeexec", "--version",
+    "Rfakeexec",
+    "--version",
     env_name = "fake-env",
     verbose = "silent",
     error = "continue"
@@ -63,7 +66,8 @@ test_that("Check if error is being rethrown when binary is not in path", {
   testthat::expect_true(run_res$status != 0L)
 
   run_bin_res <- run_bin(
-    "Rfakeexec", "--version",
+    "Rfakeexec",
+    "--version",
     env_name = "fake-env",
     verbose = "silent",
     error = "continue"

@@ -70,7 +70,13 @@ create_env <- function(
   ),
   additional_channels = NULL,
   platform = NULL,
-  verbose = "silent",
+  verbose = c(
+    "output",
+    "silent",
+    "cmd",
+    "spinner",
+    "full"
+  ),
   overwrite = FALSE
 ) {
   pkgs_dir <- fs::path_home(".mamba", "pkgs")
@@ -102,8 +108,13 @@ create_env <- function(
 
   method <- rlang::arg_match(method)
 
+  verbose_list <- parse_strategy_verbose(verbose = verbose)
+
+  # TODO: @luciorq As of v0.1.3-dev mixing file and packages is allowed,
+  # + As this is allowed in conda.
+  # + Need to include tests and update docs.
   env_file_path <- NULL
-  if (isFALSE(is.null(env_file))) {
+  if (isFALSE(rlang::is_null(env_file))) {
     if (fs::file_exists(env_file)) {
       env_file_path <- fs::path(env_file)
       packages_arg <- c("-f", env_file_path)
@@ -118,13 +129,27 @@ create_env <- function(
   } else {
     packages_arg <- packages
   }
+
+  # if (isFALSE(rlang::is_null(packages))) {
+  #   if (rlang::is_character(packages)) {
+  #     packages_arg <- packages
+  #   } else {
+  #     cli::cli_abort(
+  #       message = c(
+  #         `x` = "{.field packages} need to be a {.cls character} vector."
+  #       ),
+  #       class = "condathis_create_invalid_packages_arg"
+  #     )
+  #   }
+  # }
+
   channels_arg <- format_channels_args(
-    additional_channels,
-    channels
+    channels,
+    additional_channels
   )
-  method_to_use <- method[1]
+
   platform_args <- NULL
-  if (isFALSE(is.null(packages))) {
+  if (isFALSE(rlang::is_null(packages))) {
     platform_args <- define_platform(
       packages = packages,
       platform = platform,
@@ -135,15 +160,15 @@ create_env <- function(
     platform_args <- NULL
   }
 
-  if (isFALSE(is.null(platform)) && isTRUE(is.null(platform_args))) {
+  if (isFALSE(rlang::is_null(platform)) && rlang::is_null(platform_args)) {
     platform_args <- c("--platform", platform)
   }
 
-  if (isTRUE(method_to_use %in% c("native", "auto"))) {
+  if (isTRUE(method %in% c("native", "auto"))) {
     if (env_exists(env_name = env_name) && isFALSE(overwrite)) {
       pkg_list_res <- list_packages(
         env_name = env_name,
-        verbose = "silent"
+        verbose = verbose_list$internal_verbose
       )
       pkg_present_vector <- vector(mode = "logical", length = length(packages))
       for (i in seq_along(packages)) {
@@ -156,7 +181,7 @@ create_env <- function(
       }
 
       if (isTRUE(all(pkg_present_vector))) {
-        if (isTRUE(verbose %in% c("full", "output"))) {
+        if (isTRUE(verbose_list$strategy %in% c("full", "output"))) {
           cli::cli_inform(
             message = c(
               `!` = "Environment {.field {env_name}} already exists."
@@ -170,8 +195,6 @@ create_env <- function(
         )
       }
     }
-
-    quiet_flag <- parse_quiet_flag(verbose = verbose)
     if (
       isFALSE(env_exists(env_name)) &&
         isTRUE(fs::dir_exists(get_env_dir(env_name = env_name)))
@@ -187,7 +210,7 @@ create_env <- function(
             "-n",
             env_name,
             "--yes",
-            quiet_flag,
+            verbose_list$quiet_flag,
             "--no-channel-priority",
             "--override-channels",
             "--channel-priority=0",
@@ -195,18 +218,20 @@ create_env <- function(
             platform_args
           ),
           packages_arg,
-          verbose = verbose,
+          verbose = verbose_list,
           error = "cancel"
         )
       }
     )
   }
-  if (isTRUE(verbose %in% c("full", "output"))) {
+
+  if (isTRUE(verbose_list$strategy %in% c("full", "output"))) {
     cli::cli_inform(
       message = c(
         `!` = "Environment {.field {env_name}} succesfully created."
       )
     )
   }
+
   return(invisible(px_res))
 }

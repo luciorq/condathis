@@ -23,7 +23,7 @@
 #'
 #' @param verbose Character string indicating the verbosity level of the
 #'   function.
-#'   Can be one of `"full"`, `"output"`, `"silent"`. Defaults to `"full"`.
+#'   Can be one of `"full"`, `"output"`, `"silent"`. Defaults to `"output"`.
 #'
 #' @return
 #' Invisibly returns the path to the installed Micromamba binary.
@@ -56,23 +56,25 @@ install_micromamba <- function(
   timeout_limit = 3600,
   download_method = "auto",
   force = FALSE,
-  verbose = "full"
+  verbose = c(
+    "output",
+    "silent",
+    "cmd",
+    "spinner",
+    "full"
+  )
 ) {
-  quiet_flag <- FALSE
-  if (isTRUE(verbose)) {
-    verbose <- "full"
-  } else if (isFALSE(verbose)) {
-    verbose <- "silent"
+  verbose_list <- parse_strategy_verbose(verbose = verbose)
+  dl_quiet_flag <- TRUE
+  if (isTRUE(verbose_list$strategy %in% c("output", "full"))) {
+    dl_quiet_flag <- FALSE
   }
-  if (verbose %in% c("silent")) {
-    quiet_flag <- TRUE
-  }
-
   umamba_bin_path <- micromamba_bin_path()
+
   if (
     isTRUE(fs::file_exists(umamba_bin_path)) &&
       isFALSE(force) &&
-      isFALSE(quiet_flag)
+      isFALSE(dl_quiet_flag)
   ) {
     cli::cli_inform(c(
       `i` = "{.pkg micromamba} is already installed at {.path {umamba_bin_path}}."
@@ -119,7 +121,7 @@ install_micromamba <- function(
         url = download_url,
         destfile = full_dl_path,
         method = download_method,
-        quiet = quiet_flag,
+        quiet = dl_quiet_flag,
         mode = "wb"
       )
     }
@@ -165,7 +167,7 @@ install_micromamba <- function(
           url = download_url,
           destfile = full_dl_path,
           method = download_method,
-          quiet = quiet_flag,
+          quiet = dl_quiet_flag,
           mode = "wb"
         )
       }
@@ -184,19 +186,19 @@ install_micromamba <- function(
   }
 
   if (
-    isTRUE(dl_res == 0) &&
+    identical(dl_res, 0L) &&
       fs::file_exists(umamba_bin_path) &&
-      verbose %in% c("full", "output")
+      verbose_list$strategy %in% c("full", "output")
   ) {
     cli::cli_inform(
-      c(
+      message = c(
         `v` = "{.pkg micromamba} successfully downloaded."
       )
     )
   }
 
   if (isTRUE(fs::file_exists(umamba_bin_path))) {
-    create_base_env(verbose = "silent")
+    create_base_env(verbose = verbose_list$internal_verbose)
   }
 
   invisible(umamba_bin_path)

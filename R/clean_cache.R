@@ -5,15 +5,34 @@
 #' and ensuring that the cache does not contain outdated or unnecessary files.
 #'
 #' @param verbose A character string indicating the verbosity level of the
-#'  output. It can be one of "silent", "output", or "full". The default is
-#' ' "output".
+#'  output. It can be one of "silent", "cmd", "output", or "full".
+#'  The default is "output".
 #'
-#' @keywords internal
-#' @noRd
+#' @return Invisibly returns the result of the underlying command executed.
+#'
+#' @details
+#' Packages that are still linked with existing environments are not be
+#' removed. If you expect to clean the whole cache, consider removing
+#' all existing environments first using `list_envs()` and `remove_env()`.
+#'
+#' @examples
+#' \dontrun{
+#' condathis::with_sandbox_dir({
+#'   clean_cache(verbose = "output")
+#' })
+#' }
+#'
+#' @export
 clean_cache <- function(
-  verbose = "output"
+  verbose = c(
+    "output",
+    "silent",
+    "cmd",
+    "spinner",
+    "full"
+  )
 ) {
-  quiet_flag <- parse_quiet_flag(verbose = verbose)
+  verbose_list <- parse_strategy_verbose(verbose = verbose)
   px_res <- rethrow_error_cmd(
     expr = {
       native_cmd(
@@ -21,17 +40,15 @@ clean_cache <- function(
         conda_args = c(
           "--all",
           "--yes",
-          quiet_flag
+          verbose_list$quiet_flag
         ),
-        verbose = verbose
+        verbose = verbose_list,
+        error = "cancel"
       )
     }
   )
 
-  # fs::dir_ls(fs::path(get_condathis_path(), "pkgs"))
-  # fs::dir_delete()
-
-  if (isTRUE(verbose %in% c("full", "output"))) {
+  if (isTRUE(verbose_list$strategy %in% c("full", "output"))) {
     cli::cli_inform(
       message = c(
         `!` = "Cache succesfully removed."

@@ -17,8 +17,8 @@ packages_search_native <- function(
   verbose = "silent"
 ) {
   channels_arg <- format_channels_args(
-    additional_channels,
-    channels
+    channels,
+    additional_channels
   )
   if (is.null(platform)) {
     platform_args <- NULL

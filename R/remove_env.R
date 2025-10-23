@@ -20,23 +20,34 @@
 #' }
 #'
 #' @export
-remove_env <- function(env_name = "condathis-env", verbose = "silent") {
+remove_env <- function(
+  env_name = "condathis-env",
+  verbose = c(
+    "silent",
+    "cmd",
+    "output",
+    "spinner",
+    "full"
+  )
+) {
+  verbose_list <- parse_strategy_verbose(verbose = verbose)
+
   if (
-    isFALSE(env_exists(env_name)) &&
+    isFALSE(env_exists(env_name, verbose = verbose_list$internal_verbose)) &&
       isTRUE(fs::dir_exists(get_env_dir(env_name = env_name)))
   ) {
     fs::dir_delete(get_env_dir(env_name = env_name))
   }
-  if (isFALSE(env_exists(env_name))) {
+  if (isFALSE(env_exists(env_name, verbose = verbose_list$internal_verbose))) {
     cli::cli_abort(
       message = c(
-        `x` = "Environment {.field {env_name}} do not exist.",
+        `x` = "Environment {.field {env_name}} does not exist.",
         `!` = "Check {.code list_envs()} for available environments."
       ),
       class = "condathis_error_env_remove"
     )
   }
-  quiet_flag <- parse_quiet_flag(verbose = verbose)
+
   px_res <- rethrow_error_cmd(
     expr = {
       native_cmd(
@@ -46,13 +57,13 @@ remove_env <- function(env_name = "condathis-env", verbose = "silent") {
           "-n",
           env_name,
           "--yes",
-          quiet_flag
+          verbose_list$quiet_flag
         ),
-        verbose = verbose
+        verbose = verbose_list
       )
     }
   )
-  if (isTRUE(verbose %in% c("full", "output"))) {
+  if (isTRUE(verbose_list$strategy %in% c("full", "output"))) {
     cli::cli_inform(
       message = c(
         `!` = "Environment {.field {env_name}} succesfully removed."

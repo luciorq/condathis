@@ -1,8 +1,6 @@
-
 # condathis <img src="man/figures/logo.png" align="right" height="138" alt="" />
 
 <!-- badges: start -->
-
 [![r-cmd-check](https://github.com/luciorq/condathis/actions/workflows/r-cmd-check.yaml/badge.svg)](https://github.com/luciorq/condathis/actions/workflows/r-cmd-check.yaml)
 [![CRAN
 status](https://www.r-pkg.org/badges/version/condathis)](https://CRAN.R-project.org/package=condathis)
@@ -23,14 +21,14 @@ and run it in its own isolated environment:
 
 ``` r
 # 1. Install 'cowpy' into an environment named 'cowpy-env'
-condathis::create_env(packages = "cowpy", env_name = "cowpy-env", verbose = "output")
-#> ! Environment cowpy-env already exists.
+condathis::create_env(packages = "cowpy", env_name = "cowpy-env")
+#> ! Environment cowpy-env succesfully created.
 
 # 2. Run it!
-# Not working without stdin redirection - need to use a file as input
+# Example showing redirection from a file to the Standard Input (STDIN)
 temp_file <- tempfile()
 writeLines("{condathis} is awesome!", temp_file)
-condathis::run("cowpy", stdin = temp_file, env_name = "cowpy-env", verbose = "output")
+condathis::run("cowpy", stdin = temp_file, env_name = "cowpy-env")
 #>  _________________________
 #> < {condathis} is awesome! >
 #>  -------------------------
@@ -45,13 +43,12 @@ Maybe you want to try something fancier, like `rich-cli` for formatting
 messages?
 
 ``` r
-condathis::create_env(packages = "rich-cli", env_name = "rich-cli-env", verbose = "output")
-#> ! Environment rich-cli-env already exists.
+condathis::create_env(packages = "rich-cli", env_name = "rich-cli-env")
+#> ! Environment rich-cli-env succesfully created.
 
 condathis::run(
   "rich", "[b]Condathis[/b] is awesome!", "-p", "-a", "heavy",
-  env_name = "rich-cli-env",
-  verbose = "output"
+  env_name = "rich-cli-env"
 )
 #> ┏━━━━━━━━━━━━━━━━━━━━━━━┓
 #> ┃ Condathis is awesome! ┃
@@ -105,8 +102,13 @@ temp_out_dir <- file.path(tempdir(), "output")
 fs::dir_create(temp_out_dir)
 
 # Always use fastqc version 0.12.1
-condathis::create_env(packages = "fastqc==0.12.1", env_name = "fastqc-0.12.1")
+condathis::create_env(packages = "fastqc==0.12.1", channels = c("conda-forge", "bioconda"), env_name = "fastqc-0.12.1")
+#> ! Environment fastqc-0.12.1 succesfully created.
 condathis::run("fastqc", fastq_file, "-o", temp_out_dir, env_name = "fastqc-0.12.1")
+#> application/gzip
+#> Started analysis of sample1_L001_R1_001.fastq.gz
+#> Approx 90% complete for sample1_L001_R1_001.fastq.gz
+#> Analysis complete for sample1_L001_R1_001.fastq.gz
 ```
 
 Now your analysis will produce the same output files, regardless of
@@ -138,14 +140,15 @@ A specific `curl` version, isolated with `condathis`:
 ``` r
 condathis::create_env(
   packages = "curl==8.10.1",
-  env_name = "curl-env",
-  verbose = "output"
+  env_name = "curl-env"
 )
-#> ! Environment curl-env already exists.
+#> ! Environment curl-env succesfully created.
 
+# Handling output thorough R objects
 out <- condathis::run(
   "curl", "--version",
-  env_name = "curl-env"
+  env_name = "curl-env",
+  verbose = "silent"
 )
 
 message(out$stdout)

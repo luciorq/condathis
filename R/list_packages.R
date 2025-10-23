@@ -33,17 +33,28 @@
 #' })
 #' }
 #' @export
-list_packages <- function(env_name = "condathis-env", verbose = "silent") {
-  if (isFALSE(env_exists(env_name))) {
+list_packages <- function(
+  env_name = "condathis-env",
+  verbose = c(
+    "output",
+    "silent",
+    "cmd",
+    "spinner",
+    "full"
+  )
+) {
+  verbose_list <- parse_strategy_verbose(verbose = verbose)
+
+  if (isFALSE(env_exists(env_name, verbose = verbose_list$internal_verbose))) {
     cli::cli_abort(
       message = c(
-        `x` = "Environment {.field {env_name}} do not exist.",
+        `x` = "Environment {.field {env_name}} does not exist.",
         `!` = "Check {.code list_envs()} for available environments."
       ),
       class = "condathis_list_packages_missing_env"
     )
   }
-  quiet_flag <- parse_quiet_flag(verbose = verbose)
+
   px_res <- rethrow_error_cmd(
     expr = {
       native_cmd(
@@ -51,17 +62,17 @@ list_packages <- function(env_name = "condathis-env", verbose = "silent") {
         conda_args = c(
           "-n",
           env_name,
-          quiet_flag,
+          verbose_list$quiet_flag,
           "--json"
         ),
-        verbose = verbose
+        verbose = verbose_list$internal_verbose
       )
     }
   )
-  if (isTRUE(px_res$status == 0)) {
+  if (isTRUE(px_res$status == 0L)) {
     pkgs_df <- jsonlite::fromJSON(px_res$stdout)
     pkgs_df <- tibble::as_tibble(pkgs_df)
-    if (isTRUE(length(pkgs_df) == 0)) {
+    if (isTRUE(length(pkgs_df) == 0L)) {
       pkgs_df <- tibble::tibble(
         "base_url" = character(0L),
         "build_number" = integer(0L),
@@ -74,5 +85,15 @@ list_packages <- function(env_name = "condathis-env", verbose = "silent") {
       )
     }
   }
-  return(pkgs_df)
+
+  if (isTRUE(verbose_list$strategy %in% c("full", "output"))) {
+    cli::cli_inform(
+      message = c(
+        `!` = "Retrieved {nrow(pkgs_df)} packages from environment {.field {env_name}}."
+      )
+    )
+    return(pkgs_df)
+  } else {
+    return(invisible(pkgs_df))
+  }
 }

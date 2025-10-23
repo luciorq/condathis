@@ -9,7 +9,7 @@ run(
   ...,
   env_name = "condathis-env",
   method = c("native", "auto"),
-  verbose = c("silent", "cmd", "output", "full"),
+  verbose = c("output", "silent", "cmd", "spinner", "full"),
   error = c("cancel", "continue"),
   stdout = "|",
   stderr = "|",
@@ -17,50 +17,79 @@ run(
 )
 }
 \arguments{
-\item{cmd}{Character. The main command to be executed in the Conda environment.}
+\item{cmd}{Character. The main command to be executed in the
+Conda environment.}
 
-\item{...}{Additional arguments to be passed to the command. These arguments will be passed directly to the command executed in the Conda environment.
+\item{...}{Additional arguments to be passed to the command.
+These arguments will be passed directly to the command executed in the
+Conda environment.
 File paths should not contain special characters or spaces.}
 
-\item{env_name}{Character. The name of the Conda environment where the tool will be run. Defaults to \code{"condathis-env"}.
-If the specified environment does not exist, it will be created automatically using \code{create_env()}.}
+\item{env_name}{Character. The name of the Conda environment where the tool
+will be run. Defaults to \code{"condathis-env"}.
+If the specified environment does not exist,
+it will be created automatically using \code{create_env()}.}
 
-\item{method}{Character string. The method to use for running the command. Options are \code{"native"}, \code{"auto"}. Defaults to \code{"native"}.
-This argument is \strong{soft deprecated} as changing it don't really do anything.}
+\item{method}{Character string. The method to use for running the command.
+Options are \code{"native"}, \code{"auto"}. Defaults to \code{"native"}.
+This argument is \strong{soft deprecated} as changing it don't really changes
+anything.}
 
-\item{verbose}{Character string specifying the verbosity level of the function's output. Acceptable values are:
+\item{verbose}{Character string specifying the verbosity level of the
+function's output.
+Acceptable values are:
 \itemize{
-\item \strong{"silent"}: Suppress all output from internal command-line tools. Equivalent to \code{FALSE}.
+\item \strong{"output"}: Print the standard output and error from the command-line
+tool to the screen.
+Note that the order of the standard output and error lines may not be
+correct, as standard output is typically buffered.
+\item \strong{"silent"}: Suppress all output from internal command-line tools.
+Equivalent to \code{FALSE}.
 \item \strong{"cmd"}: Print the internal command(s) passed to the command-line tool.
-\item \strong{"output"}: Print the standard output and error from the command-line tool to the screen. Note that the order of the standard output and error lines may not be correct, as standard output is typically buffered. If the standard output and/or error is redirected to a file or they are ignored, they will not be echoed.
-\item \strong{"full"}: Print both the internal command(s) (\code{"cmd"}) and their standard output and error (\code{"output"}). Equivalent to \code{TRUE}.
-Logical values \code{FALSE} and \code{TRUE} are also accepted for backward compatibility but are \emph{soft-deprecated}. Please use \code{"silent"} and \code{"full"} respectively instead.
+If the standard output and/or error is redirected to a file or they are
+ignored, they will not be echoed.
+Equivalent to \code{TRUE}.
+\item \strong{"full"}: Print both the internal command(s) (\code{"cmd"}) and their
+standard output and error (\code{"output"}).
+\item Logical values \code{FALSE} and \code{TRUE} are also accepted for backward
+compatibility but are \emph{soft-deprecated}.
+Please use \code{"silent"} or \code{"output"} instead.
 }}
 
-\item{error}{Character string. How to handle errors. Options are \code{"cancel"} or \code{"continue"}. Defaults to \code{"cancel"}.}
+\item{error}{Character string. How to handle errors.
+Options are \code{"cancel"} or \code{"continue"}. Defaults to \code{"cancel"}.}
 
 \item{stdout}{Default: "|" keep stdout to the R object
 returned by \code{run()}.
-A character string can be used to define a file path to be used as standard output. e.g: "output.txt".}
+A character string can be used to define a file path to be used as
+standard output. e.g: "output.txt".}
 
 \item{stderr}{Default: "|" keep stderr to the R object
 returned by \code{run()}.
-A character string can be used to define a file path to be used as standard error. e.g: "error.txt".}
+A character string can be used to define a file path to be used as
+standard error. e.g: "error.txt".}
 
 \item{stdin}{Default: \code{NULL} (no \code{stdin} stream).
-A character string can be used to define a file path to be used as standard input. e.g: "input.txt".}
+A character string can be used to define a file path to be used as
+standard input. e.g: "input.txt".}
 }
 \value{
-An object of class \code{list} representing the result of the command execution.
-Contains information about the standard output, standard error, and exit status of the command.
+An object of class \code{list} representing the result of the command
+execution.
+Contains information about the standard output, standard error,
+and exit status of the command.
 }
 \description{
-This function allows the execution of command-line tools within a specified Conda environment.
-It runs the provided command in the designated Conda environment using the Micromamba binaries managed by the \code{condathis} package.
+This function allows the execution of command-line tools within a specified
+Conda environment.
+It runs the provided command in the designated Conda environment using the
+Micromamba binaries managed by the \code{condathis} package.
 }
 \details{
-The \code{run()} function provides a flexible way to execute command-line tools within Conda environments.
-This is particularly useful for reproducible research and ensuring that specific versions of tools are used.
+The \code{run()} function provides a flexible way to execute command-line tools
+within Conda environments.
+This is particularly useful for reproducible research and ensuring that
+specific versions of tools are used.
 }
 \examples{
 \dontrun{
@@ -69,8 +98,11 @@ condathis::with_sandbox_dir({
   create_env("samtools", env_name = "samtools-env")
 
   ## Run a command in a specific Conda environment
-  samtools_res <- run("samtools", "view", fs::path_package("condathis", "extdata", "example.bam"),
-    env_name = "samtools-env"
+  samtools_res <- run(
+    "samtools", "view",
+    fs::path_package("condathis", "extdata", "example.bam"),
+    env_name = "samtools-env",
+    verbose = "silent"
   )
   parse_output(samtools_res)[1]
   #> [1] "SOLEXA-1GA-1_6_FC20ET7:6:92:473:531\t0\tchr1\t10156..."

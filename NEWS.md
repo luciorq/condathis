@@ -4,9 +4,28 @@ Release Date: Unreleased
 
 Development Changelog: [dev](https://github.com/luciorq/condathis/compare/v0.1.2...HEAD)
 
+### Added
+
+* New `clean_cache()` function to clean the local package cache.
+
+* New `verbose = "spinner"` strategy to show only spinner animation
+  in interactive sessions.
+  Spinner is always silenced in non-interactive sessions.
+
 ### Changed
 
 * Internal `micromamba` version bump to "2.3.3-0".
+
+* Argument `verbose = TRUE` is now converted to `verbose = "output"` by
+  default in all exported functions.
+
+* Argument `verbose` in `create_env()`, `run()`, `run_bin()`,
+  and `install_micromamba()` are set to `verbose = "output"` by default.
+  All internal calls to other functions are kept as `"silent"`, unless when
+  calling the user-facing function with `verbose = "full"`.
+
+* Argument `verbose = "silent"` now also silence the spinner animation in
+  interactive sessions.
 
 ### Fixed
 
@@ -71,7 +90,7 @@ Development Changelog: [0.1.0](https://github.com/luciorq/condathis/compare/v0.0
 
 ### Fixed
 
-* `run()` always creates empty base environment if do not exist yet.
+* `run()` always creates empty base environment if it does not exists yet.
 
 ## condathis 0.0.8
 

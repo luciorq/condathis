@@ -22,8 +22,7 @@
 #'   # Run 'python' with a script in 'my-env' environment
 #'   condathis::run_bin(
 #'     "python", "-c", "import sys; print(sys.version)",
-#'     env_name = "my-env",
-#'     verbose = "output"
+#'     env_name = "my-env"
 #'   )
 #'
 #'   # Run 'ls' command with additional arguments
@@ -36,7 +35,13 @@ run_bin <- function(
   cmd,
   ...,
   env_name = "condathis-env",
-  verbose = "silent",
+  verbose = c(
+    "output",
+    "silent",
+    "cmd",
+    "spinner",
+    "full"
+  ),
   error = c("cancel", "continue"),
   stdout = "|",
   stderr = "|",
@@ -51,10 +56,12 @@ run_bin <- function(
 
   rlang::check_dots_unnamed()
 
-  verbose_list <- parse_strategy_verbose(strategy = verbose)
-  verbose_cmd <- verbose_list$cmd
+  verbose_list <- parse_strategy_verbose(verbose = verbose)
+
   verbose_output <- verbose_list$output
-  spinner_flag <- rlang::is_interactive()
+  if (isFALSE(stderr %in% c("|", ""))) {
+    verbose_output <- FALSE
+  }
 
   env_dir <- get_env_dir(env_name = env_name)
   cmd_path <- fs::path(env_dir, "bin", cmd)
@@ -103,8 +110,8 @@ run_bin <- function(
       processx::run(
         command = cmd_path,
         args = args_vector,
-        spinner = spinner_flag,
-        echo_cmd = verbose_cmd,
+        spinner = verbose_list$spinner_flag,
+        echo_cmd = verbose_list$cmd,
         echo = verbose_output,
         stdout = stdout,
         stderr = stderr,
