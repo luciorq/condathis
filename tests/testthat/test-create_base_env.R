@@ -9,7 +9,11 @@ testthat::test_that("Create base env", {
   testthat::expect_true(
     fs::file_exists(
       fs::path(
-        get_install_dir(), "envs", "condathis-env", "conda-meta", "history"
+        get_install_dir(),
+        "envs",
+        "condathis-env",
+        "conda-meta",
+        "history"
       )
     )
   )

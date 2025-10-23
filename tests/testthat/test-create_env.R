@@ -35,9 +35,9 @@ testthat::test_that("conda env is created", {
   withr::with_path(
     new = dirname(micromamba_bin_path()),
     code = {
-      print(Sys.getenv("PATH"))
+      # print(Sys.getenv("PATH"))
       umamba_path <- micromamba_user_installed()
-      print(umamba_path)
+      # print(umamba_path)
     },
     action = "replace"
   )
@@ -67,14 +67,20 @@ testthat::test_that("conda env is created", {
   )
 
   run_res <- run(
-    "R", "-s", "-q", "--version",
+    "R",
+    "-s",
+    "-q",
+    "--version",
     env_name = "condathis-test-env",
     verbose = "silent",
     error = "continue"
   )
 
   run_bin_res <- run_bin(
-    "R", "-s", "-q", "--version",
+    "R",
+    "-s",
+    "-q",
+    "--version",
     env_name = "condathis-test-env",
     verbose = "silent",
     error = "continue"
@@ -110,7 +116,11 @@ testthat::test_that("conda env is created", {
     new = list(`MY_VAR_1` = "HELLO FROM OUTSIDE"),
     code = {
       px_res <- run(
-        "R", "-q", "-s", "-e", "print(Sys.getenv('MY_VAR_1'))",
+        "R",
+        "-q",
+        "-s",
+        "-e",
+        "print(Sys.getenv('MY_VAR_1'))",
         env_name = "condathis-test-env",
         verbose = "silent"
       )
@@ -133,7 +143,8 @@ testthat::test_that("conda env is created", {
   expect_equal(install_res$status, 0L)
 
   inst_res <- run(
-    "python", "--version",
+    "python",
+    "--version",
     env_name = "condathis-test-env",
     verbose = FALSE
   )

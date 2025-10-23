@@ -21,8 +21,10 @@ test_that("create nested environment", {
     "create",
     "--quiet",
     "--yes",
-    "-r", get_install_dir(),
-    "-n", "test-inside-env",
+    "-r",
+    get_install_dir(),
+    "-n",
+    "test-inside-env",
     env_name = "test-nested-env",
     verbose = FALSE
   )
@@ -30,5 +32,7 @@ test_that("create nested environment", {
   remove_env("test-nested-env", verbose = FALSE)
   remove_env("test-inside-env", verbose = FALSE)
 
-  testthat::expect_false(any(c("test-nested-env", "test-inside-env") %in% list_envs()))
+  testthat::expect_false(any(
+    c("test-nested-env", "test-inside-env") %in% list_envs()
+  ))
 })

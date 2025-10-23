@@ -1,5 +1,4 @@
 testthat::test_that("parse_output works", {
-
   res <- list(
     stdout = "line1\nline2\nline3\n",
     stderr = "error1\nerror2\n",
@@ -72,7 +71,4 @@ testthat::test_that("parse_output works", {
     parse_output(c("invalid", "input"), stream = "plain"),
     c("invalid", "input")
   )
-
-
-
 })

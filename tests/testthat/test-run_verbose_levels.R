@@ -67,7 +67,9 @@ testthat::test_that("run - verbose outputs", {
     testthat::expect_message(regexp = "already exists")
 
   run(
-    "python", "-c", "print('Hello')",
+    "python",
+    "-c",
+    "print('Hello')",
     env_name = "test-verbose-env",
     verbose = "output"
   ) |>
@@ -75,7 +77,9 @@ testthat::test_that("run - verbose outputs", {
     testthat::expect_output("Hello")
 
   run(
-    "python", "-c", "print('Hello')",
+    "python",
+    "-c",
+    "print('Hello')",
     env_name = "test-verbose-env",
     verbose = TRUE
   ) |>
@@ -88,7 +92,9 @@ testthat::test_that("run - verbose outputs", {
     ),
     code = {
       run(
-        "python", "-c", "print('Hello')",
+        "python",
+        "-c",
+        "print('Hello')",
         env_name = "test-verbose-env",
         verbose = "silent"
       ) |>
@@ -101,7 +107,9 @@ testthat::test_that("run - verbose outputs", {
     ),
     code = {
       run(
-        "python", "-c", "print('Hello')",
+        "python",
+        "-c",
+        "print('Hello')",
         env_name = "test-verbose-env",
         verbose = FALSE
       ) |>
