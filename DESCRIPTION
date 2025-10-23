@@ -1,6 +1,6 @@
 Package: condathis
 Title: Run Any CLI Tool on a 'Conda' Environment
-Version: 0.1.2.9010
+Version: 0.1.2.9011
 Authors@R: c(
     person("Lucio", "Queiroz", , "luciorqueiroz@gmail.com", role = c("aut", "cre", "cph"),
            comment = c(ORCID = "0000-0002-6090-1834")),
@@ -33,7 +33,6 @@ Suggests:
     dplyr,
     knitr,
     quarto,
-    reticulate (>= 1.43.0),
     testthat (>= 3.0.0)
 VignetteBuilder:
     quarto

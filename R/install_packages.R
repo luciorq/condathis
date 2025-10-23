@@ -37,29 +37,29 @@ install_packages <- function(
     "output",
     "silent",
     "cmd",
+    "spinner",
     "full"
   )
 ) {
-  if (isTRUE(verbose)) {
-    verbose <- "output"
-  } else if (isFALSE(verbose)) {
-    verbose <- "silent"
-  } else {
-    verbose <- rlang::arg_match(verbose)
-  }
+  verbose_list <- parse_strategy_verbose(verbose = verbose)
 
-  if (isFALSE(any(list_envs(verbose = "silent") %in% env_name))) {
+  if (
+    isFALSE(any(
+      list_envs(verbose = verbose_list$internal_verbose) %in% env_name
+    ))
+  ) {
     create_env(
       packages = NULL,
       env_name = env_name,
-      verbose = verbose
+      verbose = verbose_list$internal_verbose
     )
   }
-  quiet_flag <- parse_quiet_flag(verbose = verbose)
+
   channels_arg <- format_channels_args(
-    additional_channels,
-    channels
+    channels,
+    additional_channels
   )
+
   px_res <- rethrow_error_cmd(
     expr = {
       native_cmd(
@@ -68,19 +68,23 @@ install_packages <- function(
           "-n",
           env_name,
           "--yes",
-          quiet_flag,
+          verbose_list$quiet_flag,
           "--no-channel-priority",
           "--override-channels",
           "--channel-priority=0",
           channels_arg
         ),
         packages,
-        verbose = verbose
+        verbose = verbose_list
       )
     }
   )
 
-  if (isTRUE(verbose %in% c("full", "output") && length(packages) > 0L)) {
+  if (
+    isTRUE(
+      verbose_list$strategy %in% c("full", "output") && length(packages) > 0L
+    )
+  ) {
     cli::cli_inform(
       message = c(
         `!` = "{cli::qty(packages)}Package{?s} {.field {packages}} succesfully installed in environment {.field {env_name}}."

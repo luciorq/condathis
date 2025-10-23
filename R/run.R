@@ -27,13 +27,13 @@
 #' function's output.
 #' Acceptable values are:
 #'
-#' - **"silent"**: Suppress all output from internal command-line tools.
-#'   Equivalent to `FALSE`.
-#' - **"cmd"**: Print the internal command(s) passed to the command-line tool.
 #' - **"output"**: Print the standard output and error from the command-line
 #'   tool to the screen.
 #'   Note that the order of the standard output and error lines may not be
 #'   correct, as standard output is typically buffered.
+#' - **"silent"**: Suppress all output from internal command-line tools.
+#'   Equivalent to `FALSE`.
+#' - **"cmd"**: Print the internal command(s) passed to the command-line tool.
 #'   If the standard output and/or error is redirected to a file or they are
 #'   ignored, they will not be echoed.
 #'   Equivalent to `TRUE`.
@@ -102,9 +102,10 @@ run <- function(
     "auto"
   ),
   verbose = c(
+    "output",
     "silent",
     "cmd",
-    "output",
+    "spinner",
     "full"
   ),
   error = c("cancel", "continue"),
@@ -114,7 +115,7 @@ run <- function(
 ) {
   rlang::check_dots_unnamed()
   rlang::check_required(cmd)
-  if (is.null(cmd)) {
+  if (rlang::is_null(cmd)) {
     cli::cli_abort(
       message = c(
         `x` = "{.field cmd} need to be a {.code character} string."
@@ -122,16 +123,10 @@ run <- function(
       class = "condathis_run_null_cmd"
     )
   }
-
-  if (isTRUE(verbose)) {
-    verbose <- "output"
-  } else if (isFALSE(verbose)) {
-    verbose <- "silent"
-  } else {
-    verbose <- rlang::arg_match(verbose)
-  }
   method <- rlang::arg_match(method)
   error <- rlang::arg_match(error)
+
+  verbose_list <- parse_strategy_verbose(verbose = verbose)
 
   # error_var is used by rethrow_error_run env
   if (isTRUE(identical(error, "cancel"))) {
@@ -140,13 +135,16 @@ run <- function(
     error_var <- FALSE
   }
 
-  invisible_res <- parse_strategy_verbose(strategy = verbose)
-
   method_to_use <- method
 
   if (isTRUE(method_to_use %in% c("native", "auto"))) {
-    if (isFALSE(env_exists(env_name = "condathis-env"))) {
-      create_base_env(verbose = "silent")
+    if (
+      isFALSE(env_exists(
+        env_name = "condathis-env",
+        verbose = verbose_list$internal_verbose
+      ))
+    ) {
+      create_base_env(verbose = verbose_list$internal_verbose)
     }
     px_res <- rethrow_error_run(
       expr = {
@@ -154,7 +152,7 @@ run <- function(
           cmd = cmd,
           ...,
           env_name = env_name,
-          verbose = verbose,
+          verbose = verbose_list,
           error = error,
           stdout = stdout,
           stderr = stderr,

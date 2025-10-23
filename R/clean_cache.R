@@ -28,17 +28,11 @@ clean_cache <- function(
     "output",
     "silent",
     "cmd",
+    "spinner",
     "full"
   )
 ) {
-  if (isTRUE(verbose)) {
-    verbose <- "output"
-  } else if (isFALSE(verbose)) {
-    verbose <- "silent"
-  } else {
-    verbose <- rlang::arg_match(verbose)
-  }
-  quiet_flag <- parse_quiet_flag(verbose = verbose)
+  verbose_list <- parse_strategy_verbose(verbose = verbose)
   px_res <- rethrow_error_cmd(
     expr = {
       native_cmd(
@@ -46,15 +40,15 @@ clean_cache <- function(
         conda_args = c(
           "--all",
           "--yes",
-          quiet_flag
+          verbose_list$quiet_flag
         ),
-        verbose = verbose,
+        verbose = verbose_list,
         error = "cancel"
       )
     }
   )
 
-  if (isTRUE(verbose %in% c("full", "output"))) {
+  if (isTRUE(verbose_list$strategy %in% c("full", "output"))) {
     cli::cli_inform(
       message = c(
         `!` = "Cache succesfully removed."

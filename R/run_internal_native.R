@@ -10,7 +10,13 @@ run_internal_native <- function(
   cmd,
   ...,
   env_name = "condathis-env",
-  verbose = "silent",
+  verbose = c(
+    "output",
+    "silent",
+    "cmd",
+    "spinner",
+    "full"
+  ),
   error = c("cancel", "continue"),
   stdout = "|",
   stderr = "|",
@@ -29,8 +35,8 @@ run_internal_native <- function(
           native_cmd(
             conda_cmd = "run",
             conda_args = c("-n", "condathis-env"),
-            cmd = "dir",
-            verbose = FALSE,
+            "dir",
+            verbose = "silent",
             stdout = NULL
           )
         }
@@ -60,7 +66,7 @@ run_internal_native <- function(
       "-n",
       env_name
     ),
-    cmd = cmd,
+    cmd,
     ...,
     verbose = verbose,
     error = error,

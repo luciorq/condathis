@@ -41,11 +41,10 @@ parse_output <- function(res, stream = c("stdout", "stderr", "both", "plain")) {
   if (
     isFALSE(rlang::is_character(res)) &&
       isFALSE(
-        rlang::is_list(res) && (
-          rlang::has_name(res, "stdout") || rlang::has_name(res, "stderr")
-        )
+        rlang::is_list(res) &&
+          (rlang::has_name(res, "stdout") || rlang::has_name(res, "stderr"))
       )
-   ) {
+  ) {
     cli::cli_abort(
       c(
         `x` = "The `res` argument must be a character string or a list with `stdout` and `stderr` elements."

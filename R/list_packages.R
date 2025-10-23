@@ -39,10 +39,13 @@ list_packages <- function(
     "output",
     "silent",
     "cmd",
+    "spinner",
     "full"
   )
 ) {
-  if (isFALSE(env_exists(env_name))) {
+  verbose_list <- parse_strategy_verbose(verbose = verbose)
+
+  if (isFALSE(env_exists(env_name, verbose = verbose_list$internal_verbose))) {
     cli::cli_abort(
       message = c(
         `x` = "Environment {.field {env_name}} does not exist.",
@@ -51,21 +54,6 @@ list_packages <- function(
       class = "condathis_list_packages_missing_env"
     )
   }
-  if (isTRUE(verbose)) {
-    verbose <- "output"
-  } else if (isFALSE(verbose)) {
-    verbose <- "silent"
-  } else {
-    verbose <- rlang::arg_match(verbose)
-  }
-
-  if (isTRUE(verbose %in% c("cmd", "full"))) {
-    internal_verbose <- verbose
-  } else {
-    internal_verbose <- "silent"
-  }
-
-  quiet_flag <- parse_quiet_flag(verbose = internal_verbose)
 
   px_res <- rethrow_error_cmd(
     expr = {
@@ -74,10 +62,10 @@ list_packages <- function(
         conda_args = c(
           "-n",
           env_name,
-          quiet_flag,
+          verbose_list$quiet_flag,
           "--json"
         ),
-        verbose = internal_verbose
+        verbose = verbose_list$internal_verbose
       )
     }
   )
@@ -98,7 +86,7 @@ list_packages <- function(
     }
   }
 
-  if (isTRUE(verbose %in% c("full", "output"))) {
+  if (isTRUE(verbose_list$strategy %in% c("full", "output"))) {
     cli::cli_inform(
       message = c(
         `!` = "Retrieved {nrow(pkgs_df)} packages from environment {.field {env_name}}."

@@ -26,16 +26,19 @@ remove_env <- function(
     "silent",
     "cmd",
     "output",
+    "spinner",
     "full"
   )
 ) {
+  verbose_list <- parse_strategy_verbose(verbose = verbose)
+
   if (
-    isFALSE(env_exists(env_name)) &&
+    isFALSE(env_exists(env_name, verbose = verbose_list$internal_verbose)) &&
       isTRUE(fs::dir_exists(get_env_dir(env_name = env_name)))
   ) {
     fs::dir_delete(get_env_dir(env_name = env_name))
   }
-  if (isFALSE(env_exists(env_name))) {
+  if (isFALSE(env_exists(env_name, verbose = verbose_list$internal_verbose))) {
     cli::cli_abort(
       message = c(
         `x` = "Environment {.field {env_name}} does not exist.",
@@ -44,14 +47,7 @@ remove_env <- function(
       class = "condathis_error_env_remove"
     )
   }
-  if (isTRUE(verbose)) {
-    verbose <- "output"
-  } else if (isFALSE(verbose)) {
-    verbose <- "silent"
-  } else {
-    verbose <- rlang::arg_match(verbose)
-  }
-  quiet_flag <- parse_quiet_flag(verbose = verbose)
+
   px_res <- rethrow_error_cmd(
     expr = {
       native_cmd(
@@ -61,13 +57,13 @@ remove_env <- function(
           "-n",
           env_name,
           "--yes",
-          quiet_flag
+          verbose_list$quiet_flag
         ),
-        verbose = verbose
+        verbose = verbose_list
       )
     }
   )
-  if (isTRUE(verbose %in% c("full", "output"))) {
+  if (isTRUE(verbose_list$strategy %in% c("full", "output"))) {
     cli::cli_inform(
       message = c(
         `!` = "Environment {.field {env_name}} succesfully removed."

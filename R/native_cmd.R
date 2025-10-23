@@ -16,28 +16,41 @@ native_cmd <- function(
   conda_cmd,
   conda_args = NULL,
   ...,
-  verbose = "full",
+  verbose = c(
+    "output",
+    "silent",
+    "cmd",
+    "spinner",
+    "full"
+  ),
   error = c("cancel", "continue"),
   stdout = "|",
   stderr = "|",
   stdin = NULL
 ) {
   rlang::check_required(conda_cmd)
+
   error <- rlang::arg_match(error)
-  # TODO: @luciorq check if named `cmd` argument is passed in the dots
-  # + and extract it out before running the `check_dots_unnamed()`
-  # rlang::check_dots_unnamed()
   if (isTRUE(identical(error, "cancel"))) {
     error_var <- TRUE
   } else {
     error_var <- FALSE
   }
 
+  rlang::check_dots_unnamed()
+
+  verbose_list <- parse_strategy_verbose(verbose = verbose)
+
+  verbose_output <- verbose_list$output
+  if (isFALSE(stderr %in% c("|", ""))) {
+    verbose_output <- FALSE
+  }
+
   umamba_bin_path <- micromamba_bin_path()
   env_root_dir <- get_install_dir()
   env_envs_dir <- fs::path(env_root_dir, "envs")
   if (isFALSE(fs::file_exists(umamba_bin_path))) {
-    install_micromamba(force = TRUE, verbose = verbose)
+    install_micromamba(force = TRUE, verbose = verbose_list$internal_verbose)
   }
   umamba_bin_path <- base::normalizePath(umamba_bin_path, mustWork = FALSE)
   tmp_dir_path <- withr::local_tempdir(pattern = "mamba-tmp")
@@ -65,14 +78,7 @@ native_cmd <- function(
       `R_HOME` = ""
     )
   )
-  verbose_list <- parse_strategy_verbose(strategy = verbose)
-  verbose_cmd <- verbose_list$cmd
-  verbose_output <- verbose_list$output
-  spinner_flag <- rlang::is_interactive()
 
-  if (isFALSE(stderr %in% c("|", ""))) {
-    verbose_output <- FALSE
-  }
   callback_fun_out <- NULL
   callback_fun_err <- NULL
 
@@ -87,8 +93,8 @@ native_cmd <- function(
       conda_args,
       ...
     ),
-    spinner = spinner_flag,
-    echo_cmd = verbose_cmd,
+    spinner = verbose_list$spinner_flag,
+    echo_cmd = verbose_list$cmd,
     echo = verbose_output,
     stdout = stdout,
     stdout_line_callback = callback_fun_out,
