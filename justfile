@@ -11,14 +11,21 @@ github_org := 'luciorq'
 # =============================================================================
 # General R Package Development Tasks
 # =============================================================================
+@document:
+  #!/usr/bin/env bash
+  \builtin set -euxo pipefail;
+  R -q -e 'devtools::load_all();usethis::use_tidy_description();';
+  R -q -e 'devtools::load_all();devtools::document();';
+  \builtin echo "Documentation updated!";
+
 @lint:
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
   R -q -e 'devtools::load_all();styler::style_pkg();';
   air format ./R/ || true;
   air format ./tests/ || true;
-  R -q -e 'devtools::load_all();usethis::use_tidy_description();';
-  R -q -e 'devtools::load_all();devtools::document();';
+  find ./R/ -type f -name "*.R" -exec sed -i -e "s|^#' \@return |#' \@returns |g" {} +
+  just document;
   \builtin echo "Linting done!";
 
 @test: lint
@@ -28,12 +35,13 @@ github_org := 'luciorq'
   R -q -e 'devtools::load_all();devtools::test();';
   \builtin echo "All tests passed!";
 
-@build-readme:
+@build-readme: lint
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
   # Lint markdown files
   [[ -f ./README.Rmd ]] && cat ./README.Rmd | rumdl check --stdin || true;
   [[ -f ./README.qmd ]] && cat ./README.qmd | rumdl check --stdin || true;
+  R -q -e 'devtools::install(pkg = ".", build_vignettes = TRUE, dependencies = c("Imports", "Suggests", "Depends"), upgrade = "always");';
   [[ -f ./README.Rmd ]] && R -q -e 'devtools::load_all();if(file.exists("README.Rmd"))rmarkdown::render("README.Rmd", encoding = "UTF-8")' || true;
   [[ -f ./README.qmd ]] && quarto render README.qmd --to gfm || true;
   # Lint Final README.md
@@ -41,12 +49,12 @@ github_org := 'luciorq'
   markdownlint README.md || true;
   \builtin echo "README built and linted!";
 
-@test-all-examples:
+@test-all-examples: document
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
   R -q -e 'devtools::load_all();devtools::document();devtools::run_examples(run_dontrun = TRUE, run_donttest = TRUE);';
 
-@check: test
+@check: test test-all-examples build-readme
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
   R -q -e 'rcmdcheck::rcmdcheck(args = c("--as-cran"), repos = c(CRAN = "https://cloud.r-project.org"));';
@@ -69,10 +77,14 @@ github_org := 'luciorq'
 @git-tag:
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
+  git pull origin --tags || true;
+  git pull upstream --tags || true;
   __r_pkg_version="$(R -q --no-echo --silent -e 'suppressMessages({pkgload::load_all()});cat(as.character(utils::packageVersion("{{ package_name }}")));')";
   \builtin echo -ne "Tagging version: ${__r_pkg_version}\n";
   git tag -a "v${__r_pkg_version}" HEAD -m "Version ${__r_pkg_version} released";
-  git push --tags;
+  # git push --tags;
+  # git pull upstream --tags;
+  # git push upstream --tags;
 
 # Things to run before releasing a new version
 @pre-release:
