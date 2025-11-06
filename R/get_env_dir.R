@@ -4,7 +4,7 @@
 #'    **Note**: It retrieves the Path even if the environment is **not** created yet.
 #'
 #' @inheritParams create_env
-#' @return A character string indicating the path where environments will be created.
+#' @returns A character string indicating the path where environments will be created.
 
 #' @examples
 #' condathis::with_sandbox_dir({

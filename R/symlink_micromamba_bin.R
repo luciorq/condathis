@@ -11,7 +11,7 @@
 #' @param force A logical value indicating whether to overwrite an existing symlink.
 #'   Defaults to `FALSE`.
 #'
-#' @return Invisibly returns the path to the `micromamba` symlink created or verified.
+#' @returns Invisibly returns the path to the `micromamba` symlink created or verified.
 #'
 #' @keywords internal
 #' @noRd

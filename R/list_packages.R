@@ -6,7 +6,7 @@
 #'
 #' @inheritParams run
 #'
-#' @return A tibble containing all the packages installed in the specified environment,
+#' @returns A tibble containing all the packages installed in the specified environment,
 #' with the following columns:
 #' \describe{
 #'   \item{base_url}{The base URL of the package source.}

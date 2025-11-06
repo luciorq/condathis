@@ -8,7 +8,7 @@
 #'  output. It can be one of "silent", "cmd", "output", or "full".
 #'  The default is "output".
 #'
-#' @return Invisibly returns the result of the underlying command executed.
+#' @returns Invisibly returns the result of the underlying command executed.
 #'
 #' @details
 #' Packages that are still linked with existing environments are not be

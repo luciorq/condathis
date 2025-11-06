@@ -11,7 +11,7 @@
 #'   Additionally, "plain" can be used to provide raw text as the `res` input.
 #' Defaults to `"stdout"`.
 #'
-#' @return A character vector where each element is a trimmed line from the
+#' @returns A character vector where each element is a trimmed line from the
 #'   specified stream.
 #'
 #' @examples

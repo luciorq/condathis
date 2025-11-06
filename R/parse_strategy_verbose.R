@@ -6,7 +6,7 @@
 #'
 #' @param verbose Character string specifying the verbosity level.
 #'
-#' @return A list with logical elements indicating each type of output to show.
+#' @returns A list with logical elements indicating each type of output to show.
 #'
 #' @details
 #' The output contains types of output are:

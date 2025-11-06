@@ -4,7 +4,7 @@
 #' of the current system. The output combines the OS and CPU architecture into
 #' a single string in the format `"<OS>-<Architecture>"`.
 #'
-#' @return A character string indicating the operating system and CPU architecture,
+#' @returns A character string indicating the operating system and CPU architecture,
 #'   e.g., `"Darwin-x86_64"` or `"Linux-aarch64"`.
 #'
 #' @examples

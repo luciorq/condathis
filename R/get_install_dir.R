@@ -1,7 +1,9 @@
 #' Retrieve and Create the `condathis` Data Directory
 #'
-#' Retrieves the installation directory for the `condathis` package, creating it if it does not exist.
-#' This function ensures that the package data directory complies with the [freedesktop's XDG Base Directory Specification](https://specifications.freedesktop.org/basedir-spec/latest/).
+#' Retrieves the installation directory for the `condathis` package,
+#' creating it if it does not exist.
+#' This function ensures that the package data directory complies with the
+#' [freedesktop's XDG Base Directory Specification](https://specifications.freedesktop.org/basedir/latest/).
 #' The base path can be controlled by the `XDG_DATA_HOME` environment variable.
 #' Additionally, on Windows, `%LOCALAPPDATA%` is also accepted as the base installation directory.
 #'

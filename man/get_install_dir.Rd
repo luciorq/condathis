@@ -10,8 +10,10 @@ get_install_dir()
 A character string representing the normalized, real path to the \code{condathis} data directory.
 }
 \description{
-Retrieves the installation directory for the \code{condathis} package, creating it if it does not exist.
-This function ensures that the package data directory complies with the \href{https://specifications.freedesktop.org/basedir-spec/latest/}{freedesktop's XDG Base Directory Specification}.
+Retrieves the installation directory for the \code{condathis} package,
+creating it if it does not exist.
+This function ensures that the package data directory complies with the
+\href{https://specifications.freedesktop.org/basedir/latest/}{freedesktop's XDG Base Directory Specification}.
 The base path can be controlled by the \code{XDG_DATA_HOME} environment variable.
 Additionally, on Windows, \verb{\%LOCALAPPDATA\%} is also accepted as the base installation directory.
 }

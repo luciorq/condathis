@@ -8,7 +8,7 @@
 #'   Defaults to `"silent"`.
 #'   See [condathis::run()] for details.
 #'
-#' @return A character vector containing the names of installed Conda environments.
+#' @returns A character vector containing the names of installed Conda environments.
 #'   If the command fails, the function returns the process exit status as a numeric value.
 #'
 #' @examples

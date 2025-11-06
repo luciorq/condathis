@@ -5,7 +5,7 @@
 #' and `FALSE` otherwise.
 #'
 #' @inheritParams create_env
-#' @return Boolean. `TRUE` if the environment exists and `FALSE` otherwise.
+#' @returns Boolean. `TRUE` if the environment exists and `FALSE` otherwise.
 #' @examples
 #' \dontrun{
 #' condathis::with_sandbox_dir({
