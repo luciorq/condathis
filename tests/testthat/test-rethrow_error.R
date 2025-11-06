@@ -4,7 +4,7 @@ testthat::test_that("Do not execute code in curly braces", {
 
   px_res <- create_env(
     packages = c("r-base=4.1.3", "r-devtools"),
-    env_name = "condathis-test-env"
+    env_name = "condathis-rethrow-test-env"
   )
 
   testthat::expect_error(
@@ -15,7 +15,7 @@ testthat::test_that("Do not execute code in curly braces", {
         "-s",
         "-e",
         "stop(\"{ 5 + x }\")",
-        env_name = "condathis-test-env",
+        env_name = "condathis-rethrow-test-env",
         verbose = "silent",
         error = "cancel"
       )
@@ -31,7 +31,7 @@ testthat::test_that("Do not execute code in curly braces", {
         "-s",
         "-e",
         "stop(\"{{{ 5 + x }}}\")",
-        env_name = "condathis-test-env",
+        env_name = "condathis-rethrow-test-env",
         verbose = "silent",
         error = "cancel"
       )
@@ -47,7 +47,7 @@ testthat::test_that("Do not execute code in curly braces", {
         "-s",
         "-e",
         "stop(\"{{{ 5 + x }}}\")",
-        env_name = "condathis-test-env",
+        env_name = "condathis-rethrow-test-env",
         verbose = "silent",
         error = "continue"
       )

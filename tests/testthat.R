@@ -9,4 +9,4 @@
 library(testthat)
 library(condathis)
 
-test_check("condathis")
+testthat::test_check("condathis")
