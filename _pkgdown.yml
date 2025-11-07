@@ -1,0 +1,6 @@
+url: https://luciorq.github.io/condathis/
+template:
+  bootstrap: 5
+  light-switch: true
+  llm-docs: true
+

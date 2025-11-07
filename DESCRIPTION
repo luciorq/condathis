@@ -13,7 +13,7 @@ Description: Simplifies the execution of command line interface (CLI)
     tools, handle dependencies, and ensure reproducibility in their data
     analysis workflows.
 License: MIT + file LICENSE
-URL: https://github.com/luciorq/condathis
+URL: https://github.com/luciorq/condathis, https://luciorq.github.io/condathis/
 BugReports: https://github.com/luciorq/condathis/issues
 Depends:
     R (>= 4.3)
