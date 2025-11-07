@@ -41,7 +41,9 @@ github_org := 'luciorq'
   # Lint markdown files
   [[ -f ./README.Rmd ]] && cat ./README.Rmd | rumdl check --stdin || true;
   [[ -f ./README.qmd ]] && cat ./README.qmd | rumdl check --stdin || true;
-  R -q -e 'devtools::install(pkg = ".", build_vignettes = TRUE, dependencies = c("Imports", "Suggests", "Depends"), upgrade = "always");';
+  just install-deps;
+  R -q -e 'pak::local_install(upgrade=TRUE, dependencies=TRUE);';
+  # R -q -e 'devtools::install(pkg = ".", build_vignettes = TRUE, dependencies = c("Imports", "Suggests", "Depends"), upgrade = "always");';
   [[ -f ./README.Rmd ]] && R -q -e 'devtools::load_all();if(file.exists("README.Rmd"))rmarkdown::render("README.Rmd", encoding = "UTF-8")' || true;
   [[ -f ./README.qmd ]] && quarto render README.qmd --to gfm || true;
   # Lint Final README.md
@@ -105,8 +107,16 @@ github_org := 'luciorq'
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
   R -q -e 'devtools::load_all();devtools::document();';
+  just install-deps;
+  R -q -e 'pak::local_install(upgrade=TRUE, dependencies=TRUE);';
   R -q -e 'devtools::install(pkg = ".", build_vignettes = TRUE, dependencies = c("Imports", "Suggests", "Depends"), upgrade = "always");';
   R -q -e 'print(vignette(package = "{{ package_name }}"));';
+
+@install-deps:
+  #!/usr/bin/env bash
+  \builtin set -euxo pipefail;
+  R -q -e 'if(!requireNamespace("pak", quietly=TRUE)) {install.packages("pak")};';
+  R -q -e 'pak::local_install_dev_deps(upgrade=TRUE, dependencies=TRUE);';
 
 @build-pkgdown-website:
   #!/usr/bin/env bash

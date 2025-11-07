@@ -1,0 +1,16 @@
+---
+title: "condathis"
+vignette: >
+  %\VignetteIndexEntry{condathis}
+  %\VignetteEngine{quarto::html}
+  %\VignetteEncoding{UTF-8}
+knitr:
+  opts_chunk:
+    collapse: true
+    comment: '#>'
+---
+
+```{r}
+#| label: setup
+library(condathis)
+```

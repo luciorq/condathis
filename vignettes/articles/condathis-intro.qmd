@@ -1,0 +1,12 @@
+---
+title: "condathis-intro"
+knitr:
+  opts_chunk:
+    collapse: true
+    comment: '#>'
+---
+
+```{r}
+#| label: setup
+library(condathis)
+```
