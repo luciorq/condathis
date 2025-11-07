@@ -88,21 +88,6 @@ github_org := 'luciorq'
   # git pull upstream --tags;
   # git push upstream --tags;
 
-# Things to run before releasing a new version
-@pre-release:
-  #!/usr/bin/env bash
-  \builtin set -euxo pipefail;
-  R -q -e 'urlchecker::url_check()';
-  R -q -e 'devtools::build_readme()';
-  R -q -e 'withr::with_options(list(repos = c(CRAN = "https://cloud.r-project.org")), {devtools::check(remote = TRUE, manual = TRUE)})';
-  R -q -e 'devtools::check_win_devel()';
-  # revdepcheck::revdep_check(num_workers = 4)
-  # Update CRAN comments
-  # usethis::use_version('patch')
-  # devtools::build_rmd("vignettes/my-vignette.Rmd")
-  # devtools::submit_cran()
-  \builtin echo "Pre-release checks done!";
-
 @build-vignettes:
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
@@ -118,9 +103,10 @@ github_org := 'luciorq'
   R -q -e 'if(!requireNamespace("pak", quietly=TRUE)) {install.packages("pak")};';
   R -q -e 'pak::local_install_dev_deps(upgrade=TRUE, dependencies=TRUE);';
 
-@build-pkgdown-website:
+@build-pkgdown-website: install-deps
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
+  R -q -e 'pak::pak("pkgdown", upgrade=TRUE, dependencies=TRUE);';
   R -q -e 'devtools::load_all();devtools::document();pkgdown::build_site();';
   # git add docs/;
   # git commit -m "chore: update pkgdown website";
@@ -131,6 +117,21 @@ github_org := 'luciorq'
   \builtin set -euxo pipefail;
   # gh release create v0.1.0 --title "v0.1.0" --notes "First Zenodo archiving release"
   \builtin echo "Not implemented yet";
+
+# Things to run before releasing a new version
+@pre-release:
+  #!/usr/bin/env bash
+  \builtin set -euxo pipefail;
+  R -q -e 'urlchecker::url_check()';
+  R -q -e 'devtools::build_readme()';
+  R -q -e 'withr::with_options(list(repos = c(CRAN = "https://cloud.r-project.org")), {devtools::check(remote = TRUE, manual = TRUE)})';
+  R -q -e 'devtools::check_win_devel()';
+  # revdepcheck::revdep_check(num_workers = 4)
+  # Update CRAN comments
+  # usethis::use_version('patch')
+  # devtools::build_rmd("vignettes/my-vignette.Rmd")
+  # devtools::submit_cran()
+  \builtin echo "Pre-release checks done!";
 
 # =============================================================================
 # Condathis specifc Tasks
