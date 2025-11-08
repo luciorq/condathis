@@ -1,5 +1,12 @@
 # Changelog
 
+## condathis 0.1.4 (Development Version)
+
+Release Date: Unreleased
+
+Development Changelog:
+[dev](https://github.com/luciorq/condathis/compare/v0.1.3...HEAD)
+
 ## condathis 0.1.3
 
 CRAN release: 2025-11-08

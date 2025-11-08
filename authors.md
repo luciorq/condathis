@@ -11,16 +11,16 @@
 ## Citation
 
 Source:
-[`DESCRIPTION`](https://github.com/luciorq/condathis/blob/v0.1.3/DESCRIPTION)
+[`DESCRIPTION`](https://github.com/luciorq/condathis/blob/main/DESCRIPTION)
 
 Queiroz L, Zanettini C (2025). *condathis: Run Any CLI Tool on a 'Conda'
-Environment*. R package version 0.1.3,
+Environment*. R package version 0.1.3.9000,
 <https://github.com/luciorq/condathis>.
 
     @Manual{,
       title = {condathis: Run Any CLI Tool on a 'Conda' Environment},
       author = {Lucio Queiroz and Claudio Zanettini},
       year = {2025},
-      note = {R package version 0.1.3},
+      note = {R package version 0.1.3.9000},
       url = {https://github.com/luciorq/condathis},
     }

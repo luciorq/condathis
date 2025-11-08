@@ -1,6 +1,6 @@
 # Introduction to condathis
 
-## Introduction to `condathis`
+## Introduction
 
 Running command-line (CLI) tools from R can be a powerful way to extend
 your analysis, but it often comes with challenges. How do you ensure
@@ -15,7 +15,7 @@ powered by `micromamba`.
 This vignette provides a brief introduction to the core functionality of
 `condathis`.
 
-### The Problem: Reproducible CLI Execution
+## The Problem: Reproducible CLI Execution
 
 Imagine you want to analyze a BAM file using `samtools`, a popular
 bioinformatics tool. You could write an R script that calls `samtools`
@@ -33,12 +33,12 @@ approach has some drawbacks:
     run the same way on different machines or at a later time, as the
     software environment is not explicitly defined.
 
-### The `condathis` Solution
+## The `condathis` Solution
 
 `condathis` solves this by creating isolated environments for your
 tools. Let’s see how to use it to run `samtools`.
 
-#### Step 1: Create an Environment
+### Step 1: Create an Environment
 
 First, we’ll create a Conda environment that contains `samtools`. We can
 do this with
@@ -62,7 +62,7 @@ This command will:
 2.  Create a new Conda environment named `samtools-env`.
 3.  Install `samtools` into that environment.
 
-#### Step 2: Run the Tool
+### Step 2: Run the Tool
 
 Now that we have our environment, we can use
 [`run()`](https://luciorq.github.io/condathis/reference/run.md) to
@@ -84,7 +84,7 @@ function takes care of finding the correct environment and executing the
 command inside it. The output of the command is printed to the R
 console.
 
-#### Putting It All Together
+### Putting It All Together
 
 Here is a complete, reproducible example.
 
@@ -112,7 +112,7 @@ run(
 remove_env("samtools-env")
 ```
 
-### Why `condathis`?
+## Why `condathis`?
 
 By using `condathis`, you get:
 

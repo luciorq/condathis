@@ -68,7 +68,13 @@ for plots and charts. Prefer `cli` for messages and error messages. When
 writing Quarto documents prefer using the following code chunk header
 syntax:
 
-`{r} #| label: setup #| include: false #| eval: true`
+```` txt
+```{r}
+#| label: setup
+#| include: false
+#| eval: true
+```
+````
 
 than `{r setup, include=FALSE eval=TRUE}`.
 

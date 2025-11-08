@@ -6,6 +6,11 @@
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <title>Introduction to condathis • condathis</title>
+<!-- favicons --><link rel="icon" type="image/png" sizes="96x96" href="../favicon-96x96.png">
+<link rel="icon" type="”image/svg+xml”" href="../favicon.svg">
+<link rel="apple-touch-icon" sizes="180x180" href="../apple-touch-icon.png">
+<link rel="icon" sizes="any" href="../favicon.ico">
+<link rel="manifest" href="../site.webmanifest">
 <script src="../lightswitch.js"></script><script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <link href="../deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
 <script src="../deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
@@ -13,7 +18,7 @@
 <script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><script src="condathis_files/libs/quarto-html/popper.min.js"></script><script src="condathis_files/libs/quarto-html/tippy.umd.min.js"></script><link href="condathis_files/libs/quarto-html/tippy.css" rel="stylesheet">
 <link href="condathis_files/libs/quarto-html/light-border.css" rel="stylesheet">
 <!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Introduction to condathis">
-<meta property="og:image" content="https://luciorq.github.io/condathis/logo.png">
+<meta property="og:image" content="https://luciorq.github.io/condathis/logo.svg">
 </head>
 <body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
@@ -23,7 +28,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">condathis</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.3</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.3.9000</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -63,12 +68,12 @@
 </nav><div class="container template-quarto">
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
-      <img src="../logo.png" class="logo" alt=""><h1>Introduction to condathis</h1>
+      <img src="../logo.svg" class="logo" alt=""><h1>Introduction to condathis</h1>
 
 
 
 
-      <small class="dont-index">Source: <a href="https://github.com/luciorq/condathis/blob/v0.1.3/vignettes/condathis.qmd" class="external-link"><code>vignettes/condathis.qmd</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/luciorq/condathis/blob/main/vignettes/condathis.qmd" class="external-link"><code>vignettes/condathis.qmd</code></a></small>
       <div class="d-none name"><code></code></div>
     </div>
 
@@ -77,14 +82,13 @@
 
 
 
-    <section class="section level2"><h2 id="introduction-to-condathis">Introduction to <code>condathis</code>
-<a class="anchor" aria-label="anchor" href="#introduction-to-condathis"></a>
+    <section class="level2"><h2 id="introduction">Introduction<a class="anchor" aria-label="anchor" href="#introduction"></a>
 </h2>
 <p>Running command-line (CLI) tools from R can be a powerful way to extend your analysis, but it often comes with challenges. How do you ensure that the tool is installed? How do you manage its dependencies without conflicting with other software on your system? How do you make your analysis reproducible for others?</p>
 <p>The <code>condathis</code> package is designed to solve these problems. It allows you to run any CLI tool in a sandboxed, reproducible environment, powered by <code>micromamba</code>.</p>
 <p>This vignette provides a brief introduction to the core functionality of <code>condathis</code>.</p>
-<section class="level2"><h3 id="the-problem-reproducible-cli-execution">The Problem: Reproducible CLI Execution<a class="anchor" aria-label="anchor" href="#the-problem-reproducible-cli-execution"></a>
-</h3>
+</section><section class="level2"><h2 id="the-problem-reproducible-cli-execution">The Problem: Reproducible CLI Execution<a class="anchor" aria-label="anchor" href="#the-problem-reproducible-cli-execution"></a>
+</h2>
 <p>Imagine you want to analyze a BAM file using <code>samtools</code>, a popular bioinformatics tool. You could write an R script that calls <code>samtools</code> using <code><a href="https://rdrr.io/r/base/system.html" class="external-link">system()</a></code>, but this approach has some drawbacks:</p>
 <ol type="1">
 <li>
@@ -93,11 +97,11 @@
 <strong>Conflicts:</strong> Installing <code>samtools</code> and its dependencies might conflict with other tools already installed on the system.</li>
 <li>
 <strong>Reproducibility:</strong> It’s hard to guarantee that your analysis will run the same way on different machines or at a later time, as the software environment is not explicitly defined.</li>
-</ol></section><section class="level2"><h3 id="the-condathis-solution">The <code>condathis</code> Solution<a class="anchor" aria-label="anchor" href="#the-condathis-solution"></a>
-</h3>
+</ol></section><section class="level2"><h2 id="the-condathis-solution">The <code>condathis</code> Solution<a class="anchor" aria-label="anchor" href="#the-condathis-solution"></a>
+</h2>
 <p><code>condathis</code> solves this by creating isolated environments for your tools. Let’s see how to use it to run <code>samtools</code>.</p>
-<section class="level3"><h4 id="step-1-create-an-environment">Step 1: Create an Environment<a class="anchor" aria-label="anchor" href="#step-1-create-an-environment"></a>
-</h4>
+<section class="level3"><h3 id="step-1-create-an-environment">Step 1: Create an Environment<a class="anchor" aria-label="anchor" href="#step-1-create-an-environment"></a>
+</h3>
 <p>First, we’ll create a Conda environment that contains <code>samtools</code>. We can do this with <code><a href="../reference/create_env.html">create_env()</a></code>. We’ll specify the packages we need (in this case, <code>samtools</code> from the <code>bioconda</code> channel).</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb1"><pre class="downlit sourceCode r">
@@ -112,8 +116,8 @@
 <li>Install <code>micromamba</code> if it’s not already available (don’t worry, it’s a single, self-contained executable and won’t interfere with your system).</li>
 <li>Create a new Conda environment named <code>samtools-env</code>.</li>
 <li>Install <code>samtools</code> into that environment.</li>
-</ol></section><section class="level3"><h4 id="step-2-run-the-tool">Step 2: Run the Tool<a class="anchor" aria-label="anchor" href="#step-2-run-the-tool"></a>
-</h4>
+</ol></section><section class="level3"><h3 id="step-2-run-the-tool">Step 2: Run the Tool<a class="anchor" aria-label="anchor" href="#step-2-run-the-tool"></a>
+</h3>
 <p>Now that we have our environment, we can use <code><a href="../reference/run.html">run()</a></code> to execute <code>samtools</code> commands. <code>condathis</code> includes an example BAM file that we can use for this demonstration.</p>
 <p>Let’s use <code>samtools view</code> to inspect the header of our example BAM file.</p>
 <div class="cell">
@@ -125,8 +129,8 @@
 <span><span class="fu"><a href="../reference/run.html">run</a></span><span class="op">(</span><span class="st">"samtools"</span>, <span class="st">"view"</span>, <span class="st">"-H"</span>, <span class="va">bam_file</span>, env_name <span class="op">=</span> <span class="st">"samtools-env"</span><span class="op">)</span></span></code></pre></div>
 </div>
 <p>The <code><a href="../reference/run.html">run()</a></code> function takes care of finding the correct environment and executing the command inside it. The output of the command is printed to the R console.</p>
-</section><section class="level3"><h4 id="putting-it-all-together">Putting It All Together<a class="anchor" aria-label="anchor" href="#putting-it-all-together"></a>
-</h4>
+</section><section class="level3"><h3 id="putting-it-all-together">Putting It All Together<a class="anchor" aria-label="anchor" href="#putting-it-all-together"></a>
+</h3>
 <p>Here is a complete, reproducible example.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb3"><pre class="downlit sourceCode r">
@@ -152,8 +156,8 @@
 <span><span class="co"># Clean up the environment</span></span>
 <span><span class="fu"><a href="../reference/remove_env.html">remove_env</a></span><span class="op">(</span><span class="st">"samtools-env"</span><span class="op">)</span></span></code></pre></div>
 </div>
-</section></section><section class="level2"><h3 id="why-condathis">Why <code>condathis</code>?<a class="anchor" aria-label="anchor" href="#why-condathis"></a>
-</h3>
+</section></section><section class="level2"><h2 id="why-condathis">Why <code>condathis</code>?<a class="anchor" aria-label="anchor" href="#why-condathis"></a>
+</h2>
 <p>By using <code>condathis</code>, you get:</p>
 <ul>
 <li>
@@ -164,7 +168,7 @@
 <strong>Simplicity:</strong> You can manage everything from within R, without needing to manually use the command line to manage Conda environments.</li>
 </ul>
 <p><code>condathis</code> is a powerful tool for making your R analyses that rely on external command-line tools more robust and reproducible.</p>
-</section></section><script id="quarto-html-after-body" type="application/javascript">
+</section><script id="quarto-html-after-body" type="application/javascript">
   window.document.addEventListener("DOMContentLoaded", function (event) {
       var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
       var mailtoRegex = new RegExp(/^mailto:/);
