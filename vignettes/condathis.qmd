@@ -17,7 +17,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(condathis)
 ```
 
-# Introduction to `condathis`
+## Introduction
 
 Running command-line (CLI) tools from R can be a powerful way to extend your analysis, but it often comes with challenges.
 How do you ensure that the tool is installed?

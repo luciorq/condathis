@@ -1,4 +1,4 @@
-# condathis <img src="man/figures/logo.png" align="right" height="138" alt="" />
+# condathis <a href="https://luciorq.github.io/condathis/"><img src="man/figures/logo.svg" align="right" height="139" alt="condathis website" /></a>
 
 <!-- badges: start -->
 [![r-cmd-check](https://github.com/luciorq/condathis/actions/workflows/r-cmd-check.yaml/badge.svg)](https://github.com/luciorq/condathis/actions/workflows/r-cmd-check.yaml)

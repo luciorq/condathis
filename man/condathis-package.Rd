@@ -14,6 +14,7 @@ Simplifies the execution of command line interface (CLI) tools within isolated a
 Useful links:
 \itemize{
   \item \url{https://github.com/luciorq/condathis}
+  \item \url{https://luciorq.github.io/condathis/}
   \item Report bugs at \url{https://github.com/luciorq/condathis/issues}
 }
 
