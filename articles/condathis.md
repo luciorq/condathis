@@ -1,0 +1,128 @@
+# Introduction to condathis
+
+## Introduction to `condathis`
+
+Running command-line (CLI) tools from R can be a powerful way to extend
+your analysis, but it often comes with challenges. How do you ensure
+that the tool is installed? How do you manage its dependencies without
+conflicting with other software on your system? How do you make your
+analysis reproducible for others?
+
+The `condathis` package is designed to solve these problems. It allows
+you to run any CLI tool in a sandboxed, reproducible environment,
+powered by `micromamba`.
+
+This vignette provides a brief introduction to the core functionality of
+`condathis`.
+
+### The Problem: Reproducible CLI Execution
+
+Imagine you want to analyze a BAM file using `samtools`, a popular
+bioinformatics tool. You could write an R script that calls `samtools`
+using [`system()`](https://rdrr.io/r/base/system.html), but this
+approach has some drawbacks:
+
+1.  **Dependency Hell:** Your script depends on `samtools` being
+    installed and available in the system’s `PATH`. If you share your
+    script with a colleague, they will need to install it manually, and
+    they might install a different version, which could lead to
+    different results.
+2.  **Conflicts:** Installing `samtools` and its dependencies might
+    conflict with other tools already installed on the system.
+3.  **Reproducibility:** It’s hard to guarantee that your analysis will
+    run the same way on different machines or at a later time, as the
+    software environment is not explicitly defined.
+
+### The `condathis` Solution
+
+`condathis` solves this by creating isolated environments for your
+tools. Let’s see how to use it to run `samtools`.
+
+#### Step 1: Create an Environment
+
+First, we’ll create a Conda environment that contains `samtools`. We can
+do this with
+[`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md).
+We’ll specify the packages we need (in this case, `samtools` from the
+`bioconda` channel).
+
+``` r
+create_env(
+  packages = "samtools",
+  channels = c("bioconda", "conda-forge"),
+  env_name = "samtools-env"
+)
+```
+
+This command will:
+
+1.  Install `micromamba` if it’s not already available (don’t worry,
+    it’s a single, self-contained executable and won’t interfere with
+    your system).
+2.  Create a new Conda environment named `samtools-env`.
+3.  Install `samtools` into that environment.
+
+#### Step 2: Run the Tool
+
+Now that we have our environment, we can use
+[`run()`](https://luciorq.github.io/condathis/reference/run.md) to
+execute `samtools` commands. `condathis` includes an example BAM file
+that we can use for this demonstration.
+
+Let’s use `samtools view` to inspect the header of our example BAM file.
+
+``` r
+# Get the path to the example BAM file
+bam_file <- system.file("extdata", "example.bam", package = "condathis")
+
+# Run samtools view -H on the BAM file
+run("samtools", "view", "-H", bam_file, env_name = "samtools-env")
+```
+
+The [`run()`](https://luciorq.github.io/condathis/reference/run.md)
+function takes care of finding the correct environment and executing the
+command inside it. The output of the command is printed to the R
+console.
+
+#### Putting It All Together
+
+Here is a complete, reproducible example.
+
+``` r
+# Load the package
+library(condathis)
+
+# Create an environment with samtools
+create_env(
+  packages = "samtools",
+  channels = c("bioconda", "conda-forge"),
+  env_name = "samtools-env"
+)
+
+# Get the path to the example BAM file
+bam_file <- system.file("extdata", "example.bam", package = "condathis")
+
+# Run samtools to view the header
+run(
+  "samtools", "view", "-H", bam_file,
+  env_name = "samtools-env"
+)
+
+# Clean up the environment
+remove_env("samtools-env")
+```
+
+### Why `condathis`?
+
+By using `condathis`, you get:
+
+- **Isolation:** Dependencies for each tool are kept separate, avoiding
+  conflicts.
+- **Reproducibility:** Your R script now defines and creates the exact
+  software environment it needs. Anyone can run your script and get the
+  same results.
+- **Simplicity:** You can manage everything from within R, without
+  needing to manually use the command line to manage Conda environments.
+
+`condathis` is a powerful tool for making your R analyses that rely on
+external command-line tools more robust and reproducible.

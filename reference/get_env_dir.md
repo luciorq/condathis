@@ -1,0 +1,36 @@
+# Retrieve Path To Environment
+
+Retrieve path to where environment should be created. **Note**: It
+retrieves the Path even if the environment is **not** created yet.
+
+## Usage
+
+``` r
+get_env_dir(env_name = "condathis-env")
+```
+
+## Arguments
+
+- env_name:
+
+  Character. Name of the Conda environment where the packages are going
+  to be installed. Defaults to 'condathis-env'.
+
+## Value
+
+A character string indicating the path where environments will be
+created.
+
+## Examples
+
+``` r
+condathis::with_sandbox_dir({
+  # Get the default environment directory
+  condathis::get_env_dir()
+  #> "/path/to/condathis/envs/condathis-env"
+
+  # Get the directory for a specific environment
+  condathis::get_env_dir("my-env")
+  #> "/path/to/condathis/envs/my-env"
+})
+```
