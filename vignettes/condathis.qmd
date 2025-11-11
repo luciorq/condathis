@@ -1,6 +1,6 @@
 ---
 title: "Introduction to condathis"
-vignette: >
+vignette: |
   %\VignetteIndexEntry{Introduction to condathis}
   %\VignetteEngine{quarto::html}
   %\VignetteEncoding{UTF-8}
