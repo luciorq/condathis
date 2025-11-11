@@ -4,7 +4,7 @@ pkgdown_sha: ~
 articles:
   articles/condathis-intro: condathis-intro.html
   condathis: condathis.html
-last_built: 2025-11-08T17:46Z
+last_built: 2025-11-11T23:27Z
 urls:
   reference: https://luciorq.github.io/condathis/reference
   article: https://luciorq.github.io/condathis/articles
