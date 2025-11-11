@@ -8,6 +8,8 @@ github_org := 'luciorq'
 @default:
   just --choose
 
+# >>> rstats-package-dev-tasks >>>
+
 # =============================================================================
 # General R Package Development Tasks
 # =============================================================================
@@ -26,6 +28,9 @@ github_org := 'luciorq'
   air format ./tests/ || true;
   find ./R/ -type f -name "*.R" -exec sed -i -e "s|^#' \@return |#' \@returns |g" {} +
   just document;
+  # Remove duplicate lines from .gitignore and .Rbuildignore without changing their order
+  awk '!seen[$0]++' .gitignore > .gitignore.tmp && \mv .gitignore.tmp .gitignore;
+  awk '!seen[$0]++' .Rbuildignore > .Rbuildignore.tmp && \mv .Rbuildignore.tmp .Rbuildignore;
   \builtin echo "Linting done!";
 
 @test: lint
@@ -153,6 +158,8 @@ github_org := 'luciorq'
   # devtools::submit_cran()
   # Check your email! Click the link, and check all boxes!
   \builtin echo "Pre-release checks done!";
+
+# >>> rstats-package-dev-tasks >>>
 
 # =============================================================================
 # Condathis specifc Tasks
