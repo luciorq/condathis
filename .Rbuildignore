@@ -38,3 +38,4 @@
 ^vignettes/articles/data-raw$
 ^README_files/$
 ^readme_cache/$
+^\.jj$

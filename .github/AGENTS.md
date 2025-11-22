@@ -83,7 +83,7 @@ run(
 )
 
 # Clean up the environment
-remove_env("samtools-env")
+remove_env(env_name = "samtools-env")
 ```
 
 ### 1. Setup and Dependencies
@@ -97,7 +97,7 @@ remove_env("samtools-env")
   * `just test` (This already runs lint and document before testing)
 
 * **Run a specific test file:**
-  * `devtools::load_all(); devtools::test_file("tests/testthat/test-run.R");`
+  * `R -q -s -e 'devtools::load_all();devtools::test_active_file("tests/testthat/test-run.R");'`
 
 ### 3. Documentation
 

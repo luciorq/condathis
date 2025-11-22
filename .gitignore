@@ -15,3 +15,4 @@ docs
 *.Rhistory
 *.gz
 .Rapp.history
+.quarto
