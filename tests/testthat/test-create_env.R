@@ -182,7 +182,7 @@ testthat::test_that("Create conda env from file", {
 
   px_res <- remove_env(
     env_name = "condathis-create-file-test-env",
-    verbose = FALSE
+    verbose = "silent"
   )
 
   expect_equal(px_res$status, 0L)

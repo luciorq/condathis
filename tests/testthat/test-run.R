@@ -1,4 +1,4 @@
-test_that("Run with partial match argument", {
+testthat::test_that("Run with partial match argument", {
   testthat::expect_error(
     object = {
       run("R", method = "nat")
@@ -7,8 +7,7 @@ test_that("Run with partial match argument", {
   )
 })
 
-
-test_that("Run with missing argument", {
+testthat::test_that("Run with missing argument", {
   testthat::expect_error(
     object = {
       run("R", method = "Drawing")
@@ -17,8 +16,7 @@ test_that("Run with missing argument", {
   )
 })
 
-
-test_that("Run with unexpected error argument", {
+testthat::test_that("Run with unexpected error argument", {
   testthat::expect_error(
     object = {
       run("R", error = "Drawing")
@@ -27,7 +25,7 @@ test_that("Run with unexpected error argument", {
   )
 })
 
-test_that("Run with unexpected error argument", {
+testthat::test_that("Run with unexpected error argument", {
   testthat::expect_error(
     object = {
       run("R", error = "co")
@@ -36,7 +34,7 @@ test_that("Run with unexpected error argument", {
   )
 })
 
-test_that("Run with NULL cmd", {
+testthat::test_that("Run with NULL cmd", {
   cnd_res <- rlang::catch_cnd(
     expr = {
       run(cmd = NULL)
@@ -53,7 +51,7 @@ test_that("Run with NULL cmd", {
 })
 
 
-test_that("Run empty cmd", {
+testthat::test_that("Run empty cmd", {
   cnd_res <- rlang::catch_cnd(
     expr = {
       run()
