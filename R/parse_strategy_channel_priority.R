@@ -20,7 +20,7 @@ parse_strategy_channel_priority <- function(
 ) {
   channel_priority <- rlang::arg_match(
     channel_priority,
-    error_call = rlang::caller_env(n = 2L)
+    error_call = rlang::caller_env(n = 1L)
   )
 
   channel_priority_args <- base::switch(

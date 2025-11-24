@@ -9,13 +9,14 @@ testthat::test_that("Micromamba installation", {
 test_that("Micromamba is already installed", {
   testthat::skip_if_offline()
   testthat::skip_on_cran()
-  suppressMessages(
+  captured_output <- suppressMessages(
     testthat::expect_message(
       object = {
         umamba_bin_path <- install_micromamba(force = FALSE, verbose = "full")
       },
       regexp = "installed"
-    )
+    ) |>
+      testthat::capture_output()
   )
   testthat::expect_true(fs::file_exists(umamba_bin_path))
 })
@@ -39,23 +40,26 @@ testthat::test_that("Install micromamba from scratch", {
   if (isTRUE(fs::dir_exists(fs::path(get_install_dir(), "micromamba")))) {
     fs::dir_delete(fs::path(get_install_dir(), "micromamba"))
   }
-  testthat::expect_message(
+  captured_output <- testthat::expect_message(
     object = {
-      install_micromamba(verbose = "full")
+      install_micromamba(verbose = "output")
     }
-  )
+  ) |>
+    testthat::capture_output()
   testthat::expect_true(fs::file_exists(micromamba_bin_path()))
 
-  suppressMessages(
+  captured_output <- suppressMessages(
     testthat::expect_message(
       install_micromamba(micromamba_version = "1.5.9-0", verbose = "full"),
       regexp = ".*already.*"
     )
-  )
-  testthat::expect_message(
-    install_micromamba(micromamba_version = "1.5.9-0", verbose = "full"),
+  ) |>
+    testthat::capture_output()
+  captured_output <- testthat::expect_message(
+    install_micromamba(micromamba_version = "1.5.9-0", verbose = "output"),
     regexp = ".*already.*"
-  )
+  ) |>
+    testthat::capture_output()
 
   install_micromamba(micromamba_version = "1.5.9-0", verbose = "silent")
 

@@ -200,7 +200,10 @@ create_env <- function(
 
   if (isTRUE(method %in% c("native", "auto"))) {
     if (
-      env_exists(env_name = env_name, verbose = verbose_list$internal_verbose) &&
+      env_exists(
+        env_name = env_name,
+        verbose = verbose_list$internal_verbose
+      ) &&
         isFALSE(overwrite)
     ) {
       pkg_list_res <- list_packages(
