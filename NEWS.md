@@ -9,6 +9,11 @@ Development Changelog: [dev](https://github.com/luciorq/condathis/compare/v0.1.3
 * New `channel_priority` argument in `create_env()` and `install_packages()`
   to control channel priority strategy.
 
+### Changed
+
+* `clean_cache()` now also removes any additional cache files created in the path
+  reported by `tools::R_user_dir(package = "condathis", which = "cache")`.
+
 ## condathis 0.1.3
 
 Release Date: 2025-11-07
