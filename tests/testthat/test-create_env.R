@@ -50,17 +50,19 @@ testthat::test_that("conda env is created", {
   run_res <- run(
     "Rmissing",
     env_name = "condathis-create-test-env",
-    error = "continue"
+    error = "continue",
+    verbose = "silent"
   )
-  testthat::expect_true(run_res$status != 0L)
+
+  testthat::expect_false(identical(run_res$status, 0L))
 
   testthat::expect_error(
     object = {
       run(
         "Rmissing",
         env_name = "condathis-create-test-env",
-        verbose = FALSE,
-        error = "cancel"
+        error = "cancel",
+        verbose = "silent"
       )
     },
     class = "condathis_run_status_error"

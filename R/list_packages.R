@@ -69,10 +69,10 @@ list_packages <- function(
       )
     }
   )
-  if (isTRUE(px_res$status == 0L)) {
+  if (identical(px_res$status, 0L)) {
     pkgs_df <- jsonlite::fromJSON(px_res$stdout)
     pkgs_df <- tibble::as_tibble(pkgs_df)
-    if (isTRUE(length(pkgs_df) == 0L)) {
+    if (identical(length(pkgs_df), 0L)) {
       pkgs_df <- tibble::tibble(
         "base_url" = character(0L),
         "build_number" = integer(0L),

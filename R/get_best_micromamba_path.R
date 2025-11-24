@@ -6,12 +6,12 @@ get_best_micromamba_path <- function() {
   paths_to_check <- c(
     micromamba_bin_path(),
     fs::path(
-      Sys.getenv("CONDA_PREFIX", unset = "fake_path"),
+      Sys.getenv("CONDA_PREFIX", unset = "fake_path", names = FALSE),
       "bin",
       "micromamba"
     ),
     fs::path(
-      Sys.getenv("CONDA_PREFIX", unset = "fake_path"),
+      Sys.getenv("CONDA_PREFIX", unset = "fake_path", names = FALSE),
       "Library",
       "bin",
       "micromamba.exe"

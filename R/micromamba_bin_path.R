@@ -33,5 +33,5 @@ micromamba_bin_path <- function() {
   } else {
     umamba_bin_path <- fs::path(output_dir, "micromamba", "bin", "micromamba")
   }
-  return(umamba_bin_path)
+  return(fs::path(umamba_bin_path))
 }

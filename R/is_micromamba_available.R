@@ -6,17 +6,24 @@ is_micromamba_available_for_arch <- function(sys_arch = NULL) {
   if (is.null(sys_arch)) {
     sys_arch <- get_sys_arch()
   }
-  if (sys_arch == "Linux-x86_64") {
+  if (identical(sys_arch, "Linux-x86_64")) {
     sys_arch_str <- "linux-64"
-  } else if (sys_arch == "Darwin-x86_64" || sys_arch == "MacOSX-x86_64") {
+  } else if (
+    identical(sys_arch, "Darwin-x86_64") || identical(sys_arch, "MacOSX-x86_64")
+  ) {
     sys_arch_str <- "osx-64"
-  } else if (sys_arch == "Windows-x86_64" || sys_arch == "Windows-x86-64") {
+  } else if (
+    identical(sys_arch, "Windows-x86_64") ||
+      identical(sys_arch, "Windows-x86-64")
+  ) {
     sys_arch_str <- "win-64"
-  } else if (sys_arch == "Darwin-arm64" || sys_arch == "MacOSX-arm64") {
+  } else if (
+    identical(sys_arch, "Darwin-arm64") || identical(sys_arch, "MacOSX-arm64")
+  ) {
     sys_arch_str <- "osx-arm64"
-  } else if (sys_arch == "Linux-aarch64") {
+  } else if (identical(sys_arch, "Linux-aarch64")) {
     sys_arch_str <- "linux-aarch64"
-  } else if (sys_arch == "Linux-ppc64le") {
+  } else if (identical(sys_arch, "Linux-ppc64le")) {
     sys_arch_str <- "linux-ppc64le"
   } else {
     cli::cli_abort(

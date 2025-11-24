@@ -13,7 +13,7 @@
 #' @noRd
 get_condathis_path <- function() {
   if (
-    isTRUE(Sys.getenv(x = "XDG_DATA_HOME") == "") &&
+    identical(Sys.getenv(x = "XDG_DATA_HOME", unset = "", names = FALSE), "") &&
       isTRUE(stringr::str_detect(get_sys_arch(), pattern = "^Darwin"))
   ) {
     withr::local_envvar(
@@ -23,5 +23,5 @@ get_condathis_path <- function() {
     )
   }
   dir_path <- tools::R_user_dir(package = "condathis", which = "data")
-  return(dir_path)
+  return(fs::path(dir_path))
 }

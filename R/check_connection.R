@@ -7,7 +7,7 @@ check_connection <- function(url_to_check) {
         description = url_to_check,
         open = "rb"
       )
-      base::readLines(url_con, n = 1)
+      base::readLines(url_con, n = 1L)
       base::close(url_con)
       TRUE
     },

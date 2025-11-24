@@ -103,7 +103,8 @@ create_env <- function(
   if (isTRUE(stringr::str_detect(get_sys_arch(), "^Windows"))) {
     pkgs_dir <- base::Sys.getenv(
       x = "APPDATA",
-      unset = fs::path_home("AppData", "Roaming")
+      unset = fs::path_home("AppData", "Roaming"),
+      names = FALSE
     )
     pkgs_dir <- fs::path(pkgs_dir, ".mamba", "pkgs")
   }

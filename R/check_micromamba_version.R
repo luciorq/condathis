@@ -6,7 +6,7 @@ check_micromamba_version <- function(
   version_string <- get_micromamba_version(umamba_path)
   compare_res <- utils::compareVersion(version_string, target_version)
 
-  if (isTRUE(identical(compare_res, 0L))) {
+  if (identical(compare_res, 0L)) {
     return(TRUE)
   } else {
     return(FALSE)

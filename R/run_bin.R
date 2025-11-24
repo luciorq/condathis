@@ -48,7 +48,7 @@ run_bin <- function(
   stdin = NULL
 ) {
   error <- rlang::arg_match(error)
-  if (isTRUE(identical(error, "cancel"))) {
+  if (identical(error, "cancel")) {
     error_var <- TRUE
   } else {
     error_var <- FALSE

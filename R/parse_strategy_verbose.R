@@ -43,7 +43,7 @@ parse_strategy_verbose <- function(
   } else {
     verbose <- rlang::arg_match(
       verbose,
-      error_call = rlang::caller_env(n = 2)
+      error_call = rlang::caller_env(n = 2L)
     )
   }
 

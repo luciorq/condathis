@@ -26,7 +26,7 @@
 get_install_dir <- function() {
   dir_path <- get_condathis_path()
   if (isFALSE(fs::dir_exists(dir_path))) {
-    fs::dir_create(dir_path)
+    fs::dir_create(dir_path, recurse = TRUE)
   }
   dir_path <- base::normalizePath(dir_path, mustWork = FALSE)
   return(fs::path_real(dir_path))

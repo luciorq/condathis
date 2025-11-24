@@ -11,7 +11,7 @@
 #' @returns Invisibly returns the result of the underlying command executed.
 #'
 #' @details
-#' Packages that are still linked with existing environments are not be
+#' Packages that are still linked with existing environments are not
 #' removed. If you expect to clean the whole cache, consider removing
 #' all existing environments first using `list_envs()` and `remove_env()`.
 #'

@@ -128,8 +128,9 @@ run <- function(
 
   verbose_list <- parse_strategy_verbose(verbose = verbose)
 
-  # error_var is used by rethrow_error_run env
-  if (isTRUE(identical(error, "cancel"))) {
+  # Ignore linter warning. `error_var` is used by `rethrow_error_run()`
+  # + env by accessing this function environment.
+  if (identical(error, "cancel")) {
     error_var <- TRUE
   } else {
     error_var <- FALSE

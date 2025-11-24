@@ -21,7 +21,7 @@
 #'  The environment to use for scoping.
 #'
 #' @return
-#' Returns `NULL` invisibly.
+#' Returns `NULL`, invisibly.
 #'
 #' @examples
 #' condathis::with_sandbox_dir(print(fs::path_home()))
