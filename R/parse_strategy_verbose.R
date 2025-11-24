@@ -47,7 +47,7 @@ parse_strategy_verbose <- function(
     )
   }
 
-  verbose_flags_list <- switch(
+  verbose_flags_list <- base::switch(
     EXPR = verbose,
     silent = list(
       cmd = FALSE,

@@ -126,7 +126,18 @@ create_env <- function(
     }
   })
 
-  channel_priority <- rlang::arg_match(channel_priority)
+  if (isFALSE(rlang::is_bool(overwrite))) {
+    cli::cli_abort(
+      message = c(
+        `x` = "Argument {.arg overwrite} needs to be a {.cls logical} value."
+      ),
+      class = "condathis_create_invalid_overwrite_arg"
+    )
+  }
+
+  channel_priority_args <- parse_strategy_channel_priority(
+    channel_priority = channel_priority
+  )
   method <- rlang::arg_match(method)
 
   verbose_list <- parse_strategy_verbose(verbose = verbose)
@@ -188,7 +199,10 @@ create_env <- function(
   }
 
   if (isTRUE(method %in% c("native", "auto"))) {
-    if (env_exists(env_name = env_name) && isFALSE(overwrite)) {
+    if (
+      env_exists(env_name = env_name, verbose = verbose_list$internal_verbose) &&
+        isFALSE(overwrite)
+    ) {
       pkg_list_res <- list_packages(
         env_name = env_name,
         verbose = verbose_list$internal_verbose
@@ -218,26 +232,12 @@ create_env <- function(
         )
       }
     }
+
     if (
       isFALSE(env_exists(env_name)) &&
         isTRUE(fs::dir_exists(get_env_dir(env_name = env_name)))
     ) {
       fs::dir_delete(get_env_dir(env_name = env_name))
-    }
-
-    channel_priority_args <- NULL
-    if (identical(channel_priority, "strict")) {
-      channel_priority_args <- c(
-        "--strict-channel-priority",
-        "--channel-priority=2"
-      )
-    } else if (identical(channel_priority, "disabled")) {
-      channel_priority_args <- c(
-        "--no-channel-priority",
-        "--channel-priority=0"
-      )
-    } else if (identical(channel_priority, "flexible")) {
-      channel_priority_args <- c("--channel-priority=1")
     }
 
     px_res <- rethrow_error_cmd(

@@ -26,8 +26,6 @@ packages_search_native <- function(
     additional_channels
   )
 
-  channel_priority <- rlang::arg_match(channel_priority)
-
   verbose_list <- parse_strategy_verbose(verbose = verbose)
 
   if (rlang::is_null(platform)) {
@@ -36,20 +34,9 @@ packages_search_native <- function(
     platform_args <- c("--platform", platform)
   }
 
-  channel_priority_args <- NULL
-  if (identical(channel_priority, "strict")) {
-    channel_priority_args <- c(
-      "--strict-channel-priority",
-      "--channel-priority=2"
-    )
-  } else if (identical(channel_priority, "disabled")) {
-    channel_priority_args <- c(
-      "--no-channel-priority",
-      "--channel-priority=0"
-    )
-  } else if (identical(channel_priority, "flexible")) {
-    channel_priority_args <- c("--channel-priority=1")
-  }
+  channel_priority_args <- parse_strategy_channel_priority(
+    channel_priority = channel_priority
+  )
 
   available_vector <- c()
   for (pkg_query in packages) {

@@ -46,7 +46,9 @@ install_packages <- function(
   )
 ) {
   verbose_list <- parse_strategy_verbose(verbose = verbose)
-  channel_priority <- rlang::arg_match(channel_priority)
+  channel_priority_args <- parse_strategy_channel_priority(
+    channel_priority = channel_priority
+  )
 
   if (
     isFALSE(any(
@@ -64,21 +66,6 @@ install_packages <- function(
     channels,
     additional_channels
   )
-
-  channel_priority_args <- NULL
-  if (identical(channel_priority, "flexible")) {
-    channel_priority_args <- c("--channel-priority=1")
-  } else if (identical(channel_priority, "strict")) {
-    channel_priority_args <- c(
-      "--strict-channel-priority",
-      "--channel-priority=2"
-    )
-  } else if (identical(channel_priority, "disabled")) {
-    channel_priority_args <- c(
-      "--no-channel-priority",
-      "--channel-priority=0"
-    )
-  }
 
   px_res <- rethrow_error_cmd(
     expr = {
@@ -100,9 +87,8 @@ install_packages <- function(
   )
 
   if (
-    isTRUE(
-      verbose_list$strategy %in% c("full", "output") && length(packages) > 0L
-    )
+    isTRUE(verbose_list$strategy %in% c("full", "output")) &&
+      isTRUE(length(packages) > 0L)
   ) {
     cli::cli_inform(
       message = c(
