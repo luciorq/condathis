@@ -16,6 +16,10 @@ Development Changelog: [dev](https://github.com/luciorq/condathis/compare/v0.1.3
 * `clean_cache()` now also removes any additional cache files created in the path
   reported by `tools::R_user_dir(package = "condathis", which = "cache")`.
 
+* Order of `channels` argument changed to have `"conda-forge"` before
+  `"bioconda"` by default in all functions, to facilitate the use of
+  `channel_priority = "strict"`.
+
 ### Fixed
 
 * Fix error in `create_env()` when packages were specified with `"channel::package"` environment was always recreated.

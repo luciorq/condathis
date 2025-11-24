@@ -9,8 +9,8 @@
 packages_search_native <- function(
   packages,
   channels = c(
-    "bioconda",
-    "conda-forge"
+    "conda-forge",
+    "bioconda"
   ),
   channel_priority = c(
     "disabled",

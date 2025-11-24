@@ -8,8 +8,8 @@ define_platform <- function(
   packages,
   platform = NULL,
   channels = c(
-    "bioconda",
-    "conda-forge"
+    "conda-forge",
+    "bioconda"
   ),
   channel_priority = "disabled",
   additional_channels = NULL,

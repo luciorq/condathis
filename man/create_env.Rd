@@ -8,7 +8,7 @@ create_env(
   packages = NULL,
   env_file = NULL,
   env_name = "condathis-env",
-  channels = c("bioconda", "conda-forge"),
+  channels = c("conda-forge", "bioconda"),
   method = c("native", "auto"),
   channel_priority = c("disabled", "strict", "flexible"),
   additional_channels = NULL,
@@ -30,7 +30,7 @@ be included in the command.}
 are going to be installed. Defaults to 'condathis-env'.}
 
 \item{channels}{Character vector. Names of the channels to be included.
-By default 'c("bioconda", "conda-forge")' are used for solving
+By default 'c("conda-forge", "bioconda")' are used for solving
 dependencies.}
 
 \item{method}{Character. Backend method to run \code{micromamba}, the default is

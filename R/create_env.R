@@ -15,7 +15,7 @@
 #'   are going to be installed. Defaults to 'condathis-env'.
 #'
 #' @param channels Character vector. Names of the channels to be included.
-#'   By default 'c("bioconda", "conda-forge")' are used for solving
+#'   By default 'c("conda-forge", "bioconda")' are used for solving
 #'   dependencies.
 #'
 #' @param channel_priority Character. Set the channel priority.
@@ -75,8 +75,8 @@ create_env <- function(
   env_file = NULL,
   env_name = "condathis-env",
   channels = c(
-    "bioconda",
-    "conda-forge"
+    "conda-forge",
+    "bioconda"
   ),
   method = c(
     "native",

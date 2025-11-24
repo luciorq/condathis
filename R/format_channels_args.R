@@ -7,8 +7,8 @@ format_channels_args <- function(...) {
   channels <- c(...)
   if (is.null(channels)) {
     channels <- c(
-      "bioconda",
-      "conda-forge"
+      "conda-forge",
+      "bioconda"
     )
   }
   channels_arg <- c()
