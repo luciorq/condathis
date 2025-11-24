@@ -34,5 +34,5 @@ condathis::with_sandbox_dir({
   print(condathis::get_install_dir())
   #> /home/username/.local/share/condathis
 })
-#> /tmp/Rtmpehp5O7/tmp-data18e52be68c9c/R/condathis
+#> /tmp/RtmphBk81a/tmp-data18da4c3210ce/R/condathis
 ```
