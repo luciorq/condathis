@@ -44,9 +44,15 @@ It achieves this by using `micromamba` to create and manage sandboxed Conda envi
 ## Coding Standards
 
 When assisting with development, use the following standard R package development commands prefer using `tidyverse` packages and functions, like `dplyr` and `tibble`.
-Prefer `rlang` functions.
+
+Prefer `rlang` for guard clauses, error handling, condition classes, and defensive programming.
 Prefer `ggplot2` for plots and charts.
 Prefer `cli` for messages and error messages.
+Prefer `testthat` for tests.
+Prefer `fs` for file system operations.
+
+Prefer **Quarto Markdown** for documentation and vignettes.
+
 When writing Quarto documents prefer using the following code chunk header syntax:
 
 ````txt
