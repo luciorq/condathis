@@ -10,6 +10,7 @@ create_env(
   env_name = "condathis-env",
   channels = c("bioconda", "conda-forge"),
   method = c("native", "auto"),
+  channel_priority = c("disabled", "strict", "flexible"),
   additional_channels = NULL,
   platform = NULL,
   verbose = c("output", "silent", "cmd", "spinner", "full"),
@@ -35,8 +36,24 @@ dependencies.}
 \item{method}{Character. Backend method to run \code{micromamba}, the default is
 "auto" running "native" with the \code{micromamba} binaries installed
 by \code{condathis}.
-This argument is \strong{soft deprecated} as changing it don't really do
+This argument is \strong{soft deprecated} as changing it don't really change
 anything.}
+
+\item{channel_priority}{Character. Set the channel priority.
+Can be \code{"disabled"}, \code{"strict"}, or \code{"flexible"}. Defaults to \code{"disabled"}.
+
+Note: This is different from the default Conda behavior.
+Where \code{"flexible"} is the default.
+\itemize{
+\item \strong{"disabled"}: The package dependency solver will search for packages
+across all channels without prioritizing any channel.
+\item \strong{"strict"}: Packages and dependencies for those packages will
+be installed from the highest priority channel that contains them and
+fail if dependencies cannot be satisfied from that channel.
+\item \strong{"flexible"}: The solver will prefer packages from higher
+priority channels but will fall back to lower priority channels if
+necessary.
+}}
 
 \item{additional_channels}{Character. Additional Channels to be added to the
 default ones.}

@@ -11,7 +11,9 @@ define_platform <- function(
     "bioconda",
     "conda-forge"
   ),
-  additional_channels = NULL
+  channel_priority = "disabled",
+  additional_channels = NULL,
+  verbose = "silent"
 ) {
   if (is.null(platform)) {
     platform_args <- NULL
@@ -21,13 +23,14 @@ define_platform <- function(
 
   sys_arch <- get_sys_arch()
 
-  if (isTRUE(sys_arch == "Darwin-arm64") && is.null(platform)) {
+  if (identical(sys_arch, "Darwin-arm64") && rlang::is_null(platform)) {
     native_res <- packages_search_native(
       packages = packages,
       channels = channels,
-      # method = "native",
+      channel_priority = channel_priority,
+      additional_channels = additional_channels,
       platform = "osx-arm64",
-      additional_channels = additional_channels
+      verbose = verbose
     )
     if (isFALSE(native_res)) {
       px_res <- processx::run(
@@ -38,13 +41,14 @@ define_platform <- function(
         echo = FALSE,
         echo_cmd = FALSE
       )
-      if (isTRUE(px_res$status == 0)) {
+      if (identical(px_res$status, 0L)) {
         rosetta_res <- packages_search_native(
           packages = packages,
           channels = channels,
-          # method = "native",
+          channel_priority = channel_priority,
+          additional_channels = additional_channels,
           platform = "osx-64",
-          additional_channels = additional_channels
+          verbose = verbose
         )
       } else {
         cli::cli_inform(c(

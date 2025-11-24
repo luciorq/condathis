@@ -15,7 +15,7 @@ temporary environment.}
 The environment to use for scoping.}
 }
 \value{
-Returns \code{NULL} invisibly.
+Returns \code{NULL}, invisibly.
 }
 \description{
 Runs user-defined code inside a temporary directory, setting up a temporary

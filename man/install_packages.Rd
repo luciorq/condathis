@@ -7,7 +7,8 @@
 install_packages(
   packages,
   env_name = "condathis-env",
-  channels = c("bioconda", "conda-forge"),
+  channels = c("conda-forge"),
+  channel_priority = c("disabled", "strict", "flexible"),
   additional_channels = NULL,
   verbose = c("output", "silent", "cmd", "spinner", "full")
 )
@@ -22,6 +23,22 @@ going to be installed. Defaults to 'condathis-env'.}
 \item{channels}{Character vector. Names of the channels to be included.
 By default 'c("bioconda", "conda-forge")' are used for solving
 dependencies.}
+
+\item{channel_priority}{Character. Set the channel priority.
+Can be \code{"disabled"}, \code{"strict"}, or \code{"flexible"}. Defaults to \code{"disabled"}.
+
+Note: This is different from the default Conda behavior.
+Where \code{"flexible"} is the default.
+\itemize{
+\item \strong{"disabled"}: The package dependency solver will search for packages
+across all channels without prioritizing any channel.
+\item \strong{"strict"}: Packages and dependencies for those packages will
+be installed from the highest priority channel that contains them and
+fail if dependencies cannot be satisfied from that channel.
+\item \strong{"flexible"}: The solver will prefer packages from higher
+priority channels but will fall back to lower priority channels if
+necessary.
+}}
 
 \item{additional_channels}{Character. Additional Channels to be added to the
 default ones.}

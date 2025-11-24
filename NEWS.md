@@ -4,6 +4,11 @@ Release Date: Unreleased
 
 Development Changelog: [dev](https://github.com/luciorq/condathis/compare/v0.1.3...HEAD)
 
+### Added
+
+* New `channel_priority` argument in `create_env()` and `install_packages()`
+  to control channel priority strategy.
+
 ## condathis 0.1.3
 
 Release Date: 2025-11-07

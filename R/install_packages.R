@@ -29,8 +29,12 @@ install_packages <- function(
   packages,
   env_name = "condathis-env",
   channels = c(
-    "bioconda",
     "conda-forge"
+  ),
+  channel_priority = c(
+    "disabled",
+    "strict",
+    "flexible"
   ),
   additional_channels = NULL,
   verbose = c(
@@ -42,6 +46,7 @@ install_packages <- function(
   )
 ) {
   verbose_list <- parse_strategy_verbose(verbose = verbose)
+  channel_priority <- rlang::arg_match(channel_priority)
 
   if (
     isFALSE(any(
@@ -60,6 +65,21 @@ install_packages <- function(
     additional_channels
   )
 
+  channel_priority_args <- NULL
+  if (identical(channel_priority, "flexible")) {
+    channel_priority_args <- c("--channel-priority=1")
+  } else if (identical(channel_priority, "strict")) {
+    channel_priority_args <- c(
+      "--strict-channel-priority",
+      "--channel-priority=2"
+    )
+  } else if (identical(channel_priority, "disabled")) {
+    channel_priority_args <- c(
+      "--no-channel-priority",
+      "--channel-priority=0"
+    )
+  }
+
   px_res <- rethrow_error_cmd(
     expr = {
       native_cmd(
@@ -69,9 +89,8 @@ install_packages <- function(
           env_name,
           "--yes",
           verbose_list$quiet_flag,
-          "--no-channel-priority",
           "--override-channels",
-          "--channel-priority=0",
+          channel_priority_args,
           channels_arg
         ),
         packages,

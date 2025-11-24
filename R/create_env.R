@@ -18,13 +18,27 @@
 #'   By default 'c("bioconda", "conda-forge")' are used for solving
 #'   dependencies.
 #'
+#' @param channel_priority Character. Set the channel priority.
+#'   Can be `"disabled"`, `"strict"`, or `"flexible"`. Defaults to `"disabled"`.
+#'
+#'   Note: This is different from the default Conda behavior.
+#'   Where `"flexible"` is the default.
+#'   - **"disabled"**: The package dependency solver will search for packages
+#'     across all channels without prioritizing any channel.
+#'   - **"strict"**: Packages and dependencies for those packages will
+#'     be installed from the highest priority channel that contains them and
+#'     fail if dependencies cannot be satisfied from that channel.
+#'   - **"flexible"**: The solver will prefer packages from higher
+#'     priority channels but will fall back to lower priority channels if
+#'     necessary.
+#'
 #' @param additional_channels Character. Additional Channels to be added to the
 #'   default ones.
 #'
 #' @param method Character. Backend method to run `micromamba`, the default is
 #'   "auto" running "native" with the `micromamba` binaries installed
 #'   by `condathis`.
-#'   This argument is **soft deprecated** as changing it don't really do
+#'   This argument is **soft deprecated** as changing it don't really change
 #'   anything.
 #'
 #' @param platform Character. Platform to search for `packages`.
@@ -68,6 +82,11 @@ create_env <- function(
     "native",
     "auto"
   ),
+  channel_priority = c(
+    "disabled",
+    "strict",
+    "flexible"
+  ),
   additional_channels = NULL,
   platform = NULL,
   verbose = c(
@@ -106,6 +125,7 @@ create_env <- function(
     }
   })
 
+  channel_priority <- rlang::arg_match(channel_priority)
   method <- rlang::arg_match(method)
 
   verbose_list <- parse_strategy_verbose(verbose = verbose)
@@ -154,7 +174,9 @@ create_env <- function(
       packages = packages,
       platform = platform,
       channels = channels,
-      additional_channels = additional_channels
+      channel_priority = channel_priority,
+      additional_channels = additional_channels,
+      verbose = verbose_list$internal_verbose
     )
   } else {
     platform_args <- NULL
@@ -202,6 +224,21 @@ create_env <- function(
       fs::dir_delete(get_env_dir(env_name = env_name))
     }
 
+    channel_priority_args <- NULL
+    if (identical(channel_priority, "strict")) {
+      channel_priority_args <- c(
+        "--strict-channel-priority",
+        "--channel-priority=2"
+      )
+    } else if (identical(channel_priority, "disabled")) {
+      channel_priority_args <- c(
+        "--no-channel-priority",
+        "--channel-priority=0"
+      )
+    } else if (identical(channel_priority, "flexible")) {
+      channel_priority_args <- c("--channel-priority=1")
+    }
+
     px_res <- rethrow_error_cmd(
       expr = {
         native_cmd(
@@ -211,9 +248,8 @@ create_env <- function(
             env_name,
             "--yes",
             verbose_list$quiet_flag,
-            "--no-channel-priority",
             "--override-channels",
-            "--channel-priority=0",
+            channel_priority_args,
             channels_arg,
             platform_args
           ),
