@@ -18,9 +18,12 @@ Invisibly returns the result of the underlying command executed.
 This function cleans the Conda cache by removing all packages and tarballs
 from the local cache directory. It is useful for freeing up disk space
 and ensuring that the cache does not contain outdated or unnecessary files.
+This function also removes any additional cache files created by the
+\code{condathis} package in the path reported by
+\code{tools::R_user_dir(package = "condathis", which = "cache")}.
 }
 \details{
-Packages that are still linked with existing environments are not be
+Packages that are still linked with existing environments are not
 removed. If you expect to clean the whole cache, consider removing
 all existing environments first using \code{list_envs()} and \code{remove_env()}.
 }

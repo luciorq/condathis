@@ -1,6 +1,6 @@
 check_micromamba_version <- function(
   umamba_path = NULL,
-  target_version = "2.3.3"
+  target_version = "2.4.0"
 ) {
   # rlang::is_string(target_version)
   version_string <- get_micromamba_version(umamba_path)
