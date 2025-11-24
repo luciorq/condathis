@@ -7,6 +7,34 @@ Release Date: Unreleased
 Development Changelog:
 [dev](https://github.com/luciorq/condathis/compare/v0.1.3...HEAD)
 
+### Added
+
+- New `channel_priority` argument in
+  [`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md)
+  and
+  [`install_packages()`](https://luciorq.github.io/condathis/reference/install_packages.md)
+  to control channel priority strategy.
+
+### Changed
+
+- Internal `micromamba` version bump to “2.4.0-0”.
+
+- [`clean_cache()`](https://luciorq.github.io/condathis/reference/clean_cache.md)
+  now also removes any additional cache files created in the path
+  reported by
+  `tools::R_user_dir(package = "condathis", which = "cache")`.
+
+- Order of `channels` argument changed to have `"conda-forge"` before
+  `"bioconda"` by default in all functions, to facilitate the use of
+  `channel_priority = "strict"`.
+
+### Fixed
+
+- Fix error in
+  [`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md)
+  when packages were specified with `"channel::package"` environment was
+  always recreated.
+
 ## condathis 0.1.3
 
 CRAN release: 2025-11-08

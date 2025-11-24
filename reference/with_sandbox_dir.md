@@ -28,7 +28,7 @@ with_sandbox_dir(code, .local_envir = base::parent.frame())
 
 ## Value
 
-Returns `NULL` invisibly.
+Returns `NULL`, invisibly.
 
 ## Details
 
@@ -41,7 +41,7 @@ up after execution.
 
 ``` r
 condathis::with_sandbox_dir(print(fs::path_home()))
-#> /tmp/Rtmp0UkcpD/tmp-home1d061dcf819
+#> /tmp/Rtmpehp5O7/tmp-home18e56f3673c4
 condathis::with_sandbox_dir(print(tools::R_user_dir("condathis")))
-#> [1] "/tmp/Rtmp0UkcpD/tmp-data1d063f326596/R/condathis"
+#> [1] "/tmp/Rtmpehp5O7/tmp-data18e57b5a1361/R/condathis"
 ```

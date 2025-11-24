@@ -1,7 +1,7 @@
 # AGENTS.md
 
-This file helps Gemini assist with development tasks for the `condathis`
-R package.
+This file describes how to assist with development tasks for the
+`condathis` R package.
 
 ## Project Overview
 
@@ -61,12 +61,21 @@ dependencies.
 
 ## Coding Standards
 
+Never delete files without explicit instructions.
+
 When assisting with development, use the following standard R package
 development commands prefer using `tidyverse` packages and functions,
-like `dplyr` and `tibble`. Prefer `rlang` functions. Prefer `ggplot2`
-for plots and charts. Prefer `cli` for messages and error messages. When
-writing Quarto documents prefer using the following code chunk header
-syntax:
+like `dplyr` and `tibble`.
+
+Prefer `rlang` for guard clauses, error handling, condition classes, and
+defensive programming. Prefer `ggplot2` for plots and charts. Prefer
+`cli` for messages and error messages. Prefer `testthat` for tests.
+Prefer `fs` for file system operations.
+
+Prefer **Quarto Markdown** for documentation and vignettes.
+
+When writing Quarto documents prefer using the following code chunk
+header syntax:
 
 ```` txt
 ```{r}
@@ -106,7 +115,7 @@ run(
 )
 
 # Clean up the environment
-remove_env("samtools-env")
+remove_env(env_name = "samtools-env")
 ```
 
 ### 1. Setup and Dependencies
@@ -116,10 +125,12 @@ remove_env("samtools-env")
 
 ### 2. Running Tests
 
+- **Run a specific test file:**
+  - When writing a new test file always run this before running all
+    tests:
+    - `R -q -s -e 'devtools::load_all();devtools::test_active_file("tests/testthat/test-run.R");'`
 - **Run all tests:**
   - `just test` (This already runs lint and document before testing)
-- **Run a specific test file:**
-  - `devtools::load_all(); devtools::test_file("tests/testthat/test-run.R");`
 
 ### 3. Documentation
 

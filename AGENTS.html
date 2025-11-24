@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="index.html">condathis</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.3.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.3.9007</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -44,7 +44,7 @@
 
 <div id="agentsmd" class="section level1">
 
-<p>This file helps Gemini assist with development tasks for the <code>condathis</code> R package.</p>
+<p>This file describes how to assist with development tasks for the <code>condathis</code> R package.</p>
 <div class="section level2">
 <h2 id="project-overview">Project Overview<a class="anchor" aria-label="anchor" href="#project-overview"></a></h2>
 <p><strong><code>condathis</code></strong> is an R package designed to simplify the execution of command-line interface (CLI) tools within isolated and reproducible environments.</p>
@@ -102,7 +102,11 @@
 </ul></div>
 <div class="section level2">
 <h2 id="coding-standards">Coding Standards<a class="anchor" aria-label="anchor" href="#coding-standards"></a></h2>
-<p>When assisting with development, use the following standard R package development commands prefer using <code>tidyverse</code> packages and functions, like <code>dplyr</code> and <code>tibble</code>. Prefer <code>rlang</code> functions. Prefer <code>ggplot2</code> for plots and charts. Prefer <code>cli</code> for messages and error messages. When writing Quarto documents prefer using the following code chunk header syntax:</p>
+<p>Never delete files without explicit instructions.</p>
+<p>When assisting with development, use the following standard R package development commands prefer using <code>tidyverse</code> packages and functions, like <code>dplyr</code> and <code>tibble</code>.</p>
+<p>Prefer <code>rlang</code> for guard clauses, error handling, condition classes, and defensive programming. Prefer <code>ggplot2</code> for plots and charts. Prefer <code>cli</code> for messages and error messages. Prefer <code>testthat</code> for tests. Prefer <code>fs</code> for file system operations.</p>
+<p>Prefer <strong>Quarto Markdown</strong> for documentation and vignettes.</p>
+<p>When writing Quarto documents prefer using the following code chunk header syntax:</p>
 <div class="sourceCode" id="cb1"><pre class="sourceCode txt"><code class="sourceCode default"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a>```{r}</span>
 <span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a>#| label: setup</span>
 <span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a>#| include: false</span>
@@ -135,7 +139,7 @@
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Clean up the environment</span></span>
-<span><span class="fu"><a href="reference/remove_env.html">remove_env</a></span><span class="op">(</span><span class="st">"samtools-env"</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu"><a href="reference/remove_env.html">remove_env</a></span><span class="op">(</span>env_name <span class="op">=</span> <span class="st">"samtools-env"</span><span class="op">)</span></span></code></pre></div>
 <div class="section level3">
 <h3 id="id_1-setup-and-dependencies">1. Setup and Dependencies<a class="anchor" aria-label="anchor" href="#id_1-setup-and-dependencies"></a></h3>
 <ul><li>
@@ -146,13 +150,15 @@
 <div class="section level3">
 <h3 id="id_2-running-tests">2. Running Tests<a class="anchor" aria-label="anchor" href="#id_2-running-tests"></a></h3>
 <ul><li>
+<strong>Run a specific test file:</strong>
+<ul><li>When writing a new test file always run this before running all tests:
+<ul><li><code>R -q -s -e 'devtools::load_all();devtools::test_active_file("tests/testthat/test-run.R");'</code></li>
+</ul></li>
+</ul></li>
+<li>
 <strong>Run all tests:</strong>
 <ul><li>
 <code>just test</code> (This already runs lint and document before testing)</li>
-</ul></li>
-<li>
-<strong>Run a specific test file:</strong>
-<ul><li><code>devtools::load_all(); devtools::test_file("tests/testthat/test-run.R");</code></li>
 </ul></li>
 </ul></div>
 <div class="section level3">

@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">condathis</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.3.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.3.9007</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -52,7 +52,8 @@
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">install_packages</span><span class="op">(</span></span>
 <span>  <span class="va">packages</span>,</span>
 <span>  env_name <span class="op">=</span> <span class="st">"condathis-env"</span>,</span>
-<span>  channels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"bioconda"</span>, <span class="st">"conda-forge"</span><span class="op">)</span>,</span>
+<span>  channels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"conda-forge"</span><span class="op">)</span>,</span>
+<span>  channel_priority <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"disabled"</span>, <span class="st">"strict"</span>, <span class="st">"flexible"</span><span class="op">)</span>,</span>
 <span>  additional_channels <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  verbose <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"output"</span>, <span class="st">"silent"</span>, <span class="st">"cmd"</span>, <span class="st">"spinner"</span>, <span class="st">"full"</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
@@ -74,8 +75,23 @@ going to be installed. Defaults to 'condathis-env'.</p></dd>
 
 <dt id="arg-channels">channels<a class="anchor" aria-label="anchor" href="#arg-channels"></a></dt>
 <dd><p>Character vector. Names of the channels to be included.
-By default 'c("bioconda", "conda-forge")' are used for solving
+By default 'c("conda-forge", "bioconda")' are used for solving
 dependencies.</p></dd>
+
+
+<dt id="arg-channel-priority">channel_priority<a class="anchor" aria-label="anchor" href="#arg-channel-priority"></a></dt>
+<dd><p>Character. Set the channel priority.
+Can be <code>"disabled"</code>, <code>"strict"</code>, or <code>"flexible"</code>. Defaults to <code>"disabled"</code>.</p>
+<p>Note: This is different from the default Conda behavior.
+Where <code>"flexible"</code> is the default.</p><ul><li><p><strong>"disabled"</strong>: The package dependency solver will search for packages
+across all channels without prioritizing any channel.</p></li>
+<li><p><strong>"strict"</strong>: Packages and dependencies for those packages will
+be installed from the highest priority channel that contains them and
+fail if dependencies cannot be satisfied from that channel.</p></li>
+<li><p><strong>"flexible"</strong>: The solver will prefer packages from higher
+priority channels but will fall back to lower priority channels if
+necessary.</p></li>
+</ul></dd>
 
 
 <dt id="arg-additional-channels">additional_channels<a class="anchor" aria-label="anchor" href="#arg-additional-channels"></a></dt>

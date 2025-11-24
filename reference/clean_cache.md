@@ -3,7 +3,9 @@
 This function cleans the Conda cache by removing all packages and
 tarballs from the local cache directory. It is useful for freeing up
 disk space and ensuring that the cache does not contain outdated or
-unnecessary files.
+unnecessary files. This function also removes any additional cache files
+created by the `condathis` package in the path reported by
+`tools::R_user_dir(package = "condathis", which = "cache")`.
 
 ## Usage
 
@@ -25,7 +27,7 @@ Invisibly returns the result of the underlying command executed.
 
 ## Details
 
-Packages that are still linked with existing environments are not be
+Packages that are still linked with existing environments are not
 removed. If you expect to clean the whole cache, consider removing all
 existing environments first using
 [`list_envs()`](https://luciorq.github.io/condathis/reference/list_envs.md)

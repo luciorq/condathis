@@ -10,8 +10,9 @@ create_env(
   packages = NULL,
   env_file = NULL,
   env_name = "condathis-env",
-  channels = c("bioconda", "conda-forge"),
+  channels = c("conda-forge", "bioconda"),
   method = c("native", "auto"),
+  channel_priority = c("disabled", "strict", "flexible"),
   additional_channels = NULL,
   platform = NULL,
   verbose = c("output", "silent", "cmd", "spinner", "full"),
@@ -41,14 +42,32 @@ create_env(
 - channels:
 
   Character vector. Names of the channels to be included. By default
-  'c("bioconda", "conda-forge")' are used for solving dependencies.
+  'c("conda-forge", "bioconda")' are used for solving dependencies.
 
 - method:
 
   Character. Backend method to run `micromamba`, the default is "auto"
   running "native" with the `micromamba` binaries installed by
   `condathis`. This argument is **soft deprecated** as changing it don't
-  really do anything.
+  really change anything.
+
+- channel_priority:
+
+  Character. Set the channel priority. Can be `"disabled"`, `"strict"`,
+  or `"flexible"`. Defaults to `"disabled"`.
+
+  Note: This is different from the default Conda behavior. Where
+  `"flexible"` is the default.
+
+  - **"disabled"**: The package dependency solver will search for
+    packages across all channels without prioritizing any channel.
+
+  - **"strict"**: Packages and dependencies for those packages will be
+    installed from the highest priority channel that contains them and
+    fail if dependencies cannot be satisfied from that channel.
+
+  - **"flexible"**: The solver will prefer packages from higher priority
+    channels but will fall back to lower priority channels if necessary.
 
 - additional_channels:
 
