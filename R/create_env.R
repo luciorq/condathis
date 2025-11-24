@@ -222,13 +222,22 @@ create_env <- function(
           string = pkg_and_channel_str,
           pattern = stringr::regex(".*::")
         )
-        channel_name_str <- stringr::str_remove(
-          string = pkg_and_channel_str,
-          pattern = stringr::regex("::.*")
-        )
+
+        if (stringr::str_detect(pkg_and_channel_str, stringr::regex("::"))) {
+          # Channel was specified
+          channel_name_str <- stringr::str_extract(
+            string = pkg_and_channel_str,
+            pattern = stringr::regex(".*(?=::)")
+          )
+        } else {
+          # No channel specified, assume "defaults"
+          channel_name_str <- channels
+        }
+
+        channel_name_str
 
         pkg_channel_row <- pkg_list_res[
-          pkg_list_res$channel == channel_name_str &
+          pkg_list_res$channel %in% channel_name_str &
             pkg_list_res$name == pkg_name_str,
         ]
 
