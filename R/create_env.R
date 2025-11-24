@@ -210,10 +210,29 @@ create_env <- function(
         env_name = env_name,
         verbose = verbose_list$internal_verbose
       )
+
+      # TODO: @luciorq Implement proper parsing of the matchspec string.
       pkg_present_vector <- vector(mode = "logical", length = length(packages))
       for (i in seq_along(packages)) {
-        pkg_name_str <- stringr::str_remove(packages[i], "[=<>~!].*")
-        if (pkg_name_str %in% pkg_list_res$name) {
+        pkg_and_channel_str <- stringr::str_remove(
+          string = packages[i],
+          pattern = stringr::regex("[=<>~!].*")
+        )
+        pkg_name_str <- stringr::str_remove(
+          string = pkg_and_channel_str,
+          pattern = stringr::regex(".*::")
+        )
+        channel_name_str <- stringr::str_remove(
+          string = pkg_and_channel_str,
+          pattern = stringr::regex("::.*")
+        )
+
+        pkg_channel_row <- pkg_list_res[
+          pkg_list_res$channel == channel_name_str &
+            pkg_list_res$name == pkg_name_str,
+        ]
+
+        if (isTRUE(nrow(pkg_channel_row) > 0L)) {
           pkg_present_vector[i] <- TRUE
         } else {
           pkg_present_vector[i] <- FALSE

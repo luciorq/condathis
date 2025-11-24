@@ -65,7 +65,8 @@ list_packages <- function(
           verbose_list$quiet_flag,
           "--json"
         ),
-        verbose = verbose_list$internal_verbose
+        verbose = verbose_list$internal_verbose,
+        error = "cancel"
       )
     }
   )
