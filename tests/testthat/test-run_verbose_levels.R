@@ -18,13 +18,13 @@ testthat::test_that("run - verbose outputs", {
   create_env(NULL, env_name = "test-verbose-env", verbose = "full") |>
     testthat::expect_message(regexp = "Environment .* succesfully created") |>
     testthat::capture_output() |>
-    stringr::str_detect("Running ") |>
+    stringr::str_detect(pattern = stringr::fixed("Running ")) |>
     testthat::expect_true()
 
   remove_env("test-verbose-env", verbose = "full") |>
     testthat::expect_message(regexp = "Environment .* succesfully removed") |>
     testthat::capture_output() |>
-    stringr::str_detect("Running ") |>
+    stringr::str_detect(pattern = stringr::fixed("Running ")) |>
     testthat::expect_true()
 
   remove_env("test-verbose-fake-env", verbose = TRUE) |>

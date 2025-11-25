@@ -237,7 +237,8 @@ create_env <- function(
         channel_name_str
 
         pkg_channel_row <- pkg_list_res[
-          pkg_list_res$channel %in% channel_name_str &
+          pkg_list_res$channel %in%
+            channel_name_str &
             pkg_list_res$name == pkg_name_str,
         ]
 

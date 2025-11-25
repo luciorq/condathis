@@ -72,9 +72,8 @@ list_packages <- function(
   )
   if (identical(px_res$status, 0L)) {
     pkgs_df <- jsonlite::fromJSON(px_res$stdout)
-    pkgs_df <- tibble::as_tibble(pkgs_df)
     if (identical(length(pkgs_df), 0L)) {
-      pkgs_df <- tibble::tibble(
+      pkgs_df <- base::data.frame(
         "base_url" = character(0L),
         "build_number" = integer(0L),
         "build_string" = character(0L),
@@ -86,6 +85,8 @@ list_packages <- function(
       )
     }
   }
+  pkgs_df <- base::unclass(pkgs_df)
+  base::attr(pkgs_df, "class") <- c("tbl_df", "tbl", "data.frame")
 
   if (isTRUE(verbose_list$strategy %in% c("full", "output"))) {
     cli::cli_inform(
