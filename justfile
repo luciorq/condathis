@@ -13,6 +13,8 @@ github_org := 'luciorq'
 # =============================================================================
 # General R Package Development Tasks
 # =============================================================================
+
+# Update Package Documentation
 @document:
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
@@ -20,6 +22,7 @@ github_org := 'luciorq'
   R -q -e 'devtools::load_all();devtools::document();';
   \builtin echo "Documentation updated!";
 
+# Lint R Package Code and Documentation
 @lint:
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
@@ -33,6 +36,7 @@ github_org := 'luciorq'
   awk '!seen[$0]++' .Rbuildignore > .Rbuildignore.tmp && \mv .Rbuildignore.tmp .Rbuildignore;
   \builtin echo "Linting done!";
 
+# Run All Unit Tests
 @test: lint
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
@@ -40,6 +44,7 @@ github_org := 'luciorq'
   R -q -e 'devtools::load_all();devtools::test();';
   \builtin echo "All tests passed!";
 
+# Build and Lint README File
 @build-readme: lint
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
@@ -59,11 +64,19 @@ github_org := 'luciorq'
   markdownlint README.md || true;
   \builtin echo "README built and linted!";
 
+# Run All Examples in the Documentation Including `dontrun`
 @test-all-examples: document
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
   R -q -e 'devtools::load_all();devtools::document();devtools::run_examples(run_dontrun = TRUE, run_donttest = TRUE);';
 
+# Run Tests from a Specific Test File
+@test-file file_name:
+  #!/usr/bin/env bash
+  \builtin set -euxo pipefail;
+  R -q -s -e 'devtools::load_all();devtools::test_active_file("tests/testthat/tests-{{ file_name }}.R")';
+
+# Run R CMD Check on the Package With Cran Like Checks
 @check: test test-all-examples build-readme
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
@@ -83,7 +96,7 @@ github_org := 'luciorq'
   latest_job_id="$(gh run list -w "r-cmd-check" --json databaseId --jq '.[0].databaseId')";
   gh run view "${latest_job_id}";
 
-# Use R package version on the DESCRIPTION file to tag latest commit of the git repo
+# Tag the Latest Commit with Version from the DESCRIPTION File
 @git-tag:
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
@@ -96,6 +109,7 @@ github_org := 'luciorq'
   # git pull upstream --tags;
   # git push upstream --tags;
 
+# Build Vignettes
 @build-vignettes:
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
@@ -105,12 +119,14 @@ github_org := 'luciorq'
   R -q -e 'devtools::install(pkg = ".", build_vignettes = TRUE, dependencies = c("Imports", "Suggests", "Depends"), upgrade = "always");';
   R -q -e 'print(vignette(package = "{{ package_name }}"));';
 
+# Install Package Development Dependencies Including Suggests
 @install-deps:
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
   R -q -e 'if(!requireNamespace("pak", quietly=TRUE)) {install.packages("pak")};';
   R -q -e 'pak::local_install_dev_deps(upgrade=TRUE, dependencies=TRUE);';
 
+# Build the pkgdown Website
 @build-pkgdown-website: install-deps
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
@@ -125,6 +141,7 @@ github_org := 'luciorq'
   # git commit -m "chore: update pkgdown website";
   # git push;
 
+# Release a New Version on GitHub Releases Using Content From NEWS.md
 @release-github:
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
@@ -140,7 +157,7 @@ github_org := 'luciorq'
   sed -i -e "s|^# {{ package_name }}|## {{ package_name }}|g" NEWS.md;
   \builtin echo "Check the GH Releases!";
 
-# Things to run before releasing a new version
+# Steps to Run Before Releasing a New Version
 @pre-release:
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
@@ -165,7 +182,7 @@ github_org := 'luciorq'
 # Condathis specifc Tasks
 # =============================================================================
 
-# Check if package can be installed on a conda environment
+# Install Package in a New Clean Conda Environment
 @check-install-conda tag_version='main':
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;

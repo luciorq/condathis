@@ -102,8 +102,9 @@ remove_env(env_name = "samtools-env")
 ### 2. Running Tests
 
 * **Run a specific test file:**
-  * When writing a new test file always run this before running all tests:
-    * `R -q -s -e 'devtools::load_all();devtools::test_active_file("tests/testthat/test-run.R");'`
+  * When writing new tests, always run individual test files instead of running full test suite:
+    * `just test-file run` (for `tests/testthat/test-run.R`)
+    * It is the same as running: `R -q -s -e 'devtools::load_all();devtools::test_active_file("tests/testthat/test-run.R");'`
 
 * **Run all tests:**
   * `just test` (This already runs lint and document before testing)
