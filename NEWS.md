@@ -9,6 +9,8 @@ Development Changelog: [dev](https://github.com/luciorq/condathis/compare/v0.1.3
 * New `channel_priority` argument in `create_env()` and `install_packages()`
   to control channel priority strategy.
 
+* New `parse_match_spec()` function to parse Conda MatchSpec strings.
+
 ### Changed
 
 * Internal `micromamba` version bump to "2.4.0-0".
