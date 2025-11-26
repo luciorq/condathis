@@ -76,8 +76,8 @@ library(condathis)
 
 # Create an environment with samtools
 create_env(
-  packages = "samtools",
-  channels = c("bioconda", "conda-forge"),
+  packages = "bioconda::samtools",
+  channels = c("conda-forge", "bioconda"),
   env_name = "samtools-env"
 )
 

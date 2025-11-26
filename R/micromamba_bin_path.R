@@ -4,12 +4,14 @@
 #' by the `condathis` package. The path is determined based on the system's
 #' operating system and architecture.
 #'
-#' @returns A character string representing the full path to the `micromamba` executable.
+#' @returns
+#'   A character string representing the full path to the `micromamba`
+#'   executable.
 #'   The path differs depending on the operating system:
-#'   \describe{
-#'     \item{Windows}{`<install_dir>/micromamba/Library/bin/micromamba.exe`}
-#'     \item{Other OS (e.g., Linux, macOS)}{`<install_dir>/micromamba/bin/micromamba`}
-#'   }
+#'
+#'   - **Windows**: `<install_dir>/micromamba/Library/bin/micromamba.exe`
+#'   - **Other OS (e.g., Linux, macOS)**: `<install_dir>/micromamba/bin/micromamba`
+#'
 #'
 #' @examples
 #' condathis::with_sandbox_dir({

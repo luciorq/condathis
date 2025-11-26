@@ -44,7 +44,7 @@ and \code{FALSE} otherwise.
 condathis::with_sandbox_dir({
   # Create the environment
   condathis::create_env(
-    packages = "fastqc",
+    packages = "bioconda::fastqc",
     env_name = "fastqc-env"
   )
 

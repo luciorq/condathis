@@ -18,9 +18,10 @@ Development Changelog: [dev](https://github.com/luciorq/condathis/compare/v0.1.3
 * `clean_cache()` now also removes any additional cache files created in the path
   reported by `tools::R_user_dir(package = "condathis", which = "cache")`.
 
-* Order of `channels` argument changed to have `"conda-forge"` before
-  `"bioconda"` by default in all functions, to facilitate the use of
-  `channel_priority = "strict"`.
+* Order of `channels` argument changed to have `"conda-forge"` as the first
+  option as for using `channel_priority = "strict"` the order of the channels matters.
+  Note that relying solely on channel order for priority is not recommended.
+  Use explicit syntax like: `bioconda::samtools==X.Y.Z` for better guarantee of reproducibility.
 
 ### Fixed
 

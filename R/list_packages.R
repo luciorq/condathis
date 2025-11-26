@@ -1,29 +1,30 @@
 #' List Packages Installed in a Conda Environment
 #'
-#' This function retrieves a list of all packages installed in the specified Conda
-#' environment. The result is returned as a tibble with detailed information about
-#' each package, including its name, version, and source details.
+#' This function retrieves a list of all packages installed in the specified
+#' Conda environment. The result is returned as a tibble with detailed
+#' information about each package, including its name, version,
+#' and source details.
 #'
 #' @inheritParams run
 #'
-#' @returns A tibble containing all the packages installed in the specified environment,
-#' with the following columns:
-#' \describe{
-#'   \item{base_url}{The base URL of the package source.}
-#'   \item{build_number}{The build number of the package.}
-#'   \item{build_string}{The build string describing the package build details.}
-#'   \item{channel}{The channel from which the package was installed.}
-#'   \item{dist_name}{The distribution name of the package.}
-#'   \item{name}{The name of the package.}
-#'   \item{platform}{The platform for which the package is built.}
-#'   \item{version}{The version of the package.}
-#' }
+#' @returns A containing all the packages installed in the specified
+#'   environment, with the following columns:
+#'
+#'   - **base_url**: The base URL of the package source.
+#'   - **build_number**: The build number of the package.
+#'   - **build_string**: The build string describing the package build details.
+#'   - **channel**: The channel from which the package was installed.
+#'   - **dist_name**: The distribution name of the package.
+#'   - **name**: The name of the package.
+#'   - **platform**: The platform for which the package is built.
+#'   - **version**: The version of the package.
+#'
 #' @examples
 #' \dontrun{
 #' condathis::with_sandbox_dir({
 #'   # Creates a Conda environment with the CLI `fastqc`
 #'   condathis::create_env(
-#'     packages = "fastqc",
+#'     packages = "bioconda::fastqc",
 #'     env_name = "fastqc-env"
 #'   )
 #'   # Lists the packages in env `fastqc-env`
@@ -32,6 +33,7 @@
 #'   #> [1] 34  8
 #' })
 #' }
+#'
 #' @export
 list_packages <- function(
   env_name = "condathis-env",
