@@ -179,7 +179,7 @@ github_org := 'luciorq'
 # <<< rstats-package-dev-tasks <<<
 
 # =============================================================================
-# Condathis specifc Tasks
+# Condathis specific Tasks
 # =============================================================================
 
 # Install Package in a New Clean Conda Environment
