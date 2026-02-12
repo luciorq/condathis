@@ -11,7 +11,8 @@ parse_match_spec(spec_string)
 (e.g., "numpy>=1.11", "conda-forge::python=3.9").}
 }
 \value{
-A named list containing \code{channel}, \code{subdir}, \code{namespace}, \code{name}, \code{version}, \code{version_min}, \code{version_max}, and \code{build}.
+A named list containing \code{channel}, \code{subdir}, \code{namespace},
+\code{name}, \code{version}, \code{version_min}, \code{version_max}, and \code{build}.
 Empty fields are returned as NULL.
 }
 \description{

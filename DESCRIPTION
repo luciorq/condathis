@@ -38,7 +38,8 @@ VignetteBuilder:
 Config/Needs/website: quarto
 Config/testthat/edition: 3
 Config/testthat/parallel: true
-Config/testthat/start-first: create_env, rethrow_error
+Config/testthat/start-first: create_env, rethrow_error, parse_match_spec,
+    run_verbose_levels
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3

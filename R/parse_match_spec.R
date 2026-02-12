@@ -9,8 +9,9 @@
 #' @param spec_string A character string containing the MatchSpec
 #' (e.g., "numpy>=1.11", "conda-forge::python=3.9").
 #'
-#' @returns A named list containing `channel`, `subdir`, `namespace`, `name`, `version`, `version_min`, `version_max`, and `build`.
-#'         Empty fields are returned as NULL.
+#' @returns A named list containing `channel`, `subdir`, `namespace`,
+#'   `name`, `version`, `version_min`, `version_max`, and `build`.
+#'   Empty fields are returned as NULL.
 #'
 #' @export
 parse_match_spec <- function(spec_string) {
@@ -25,17 +26,20 @@ parse_match_spec <- function(spec_string) {
 
   # Initialize default structure
   match_spec_list <- list(
-    channel = NULL,
-    subdir = NULL,
-    namespace = NULL,
+    formatted_spec = NULL,
     name = NULL,
+    name_space = NULL,
+    channel = NULL,
+    channel_location = NULL,
+    channel_platform_filters = NULL,
     version = NULL,
-    version_min = NULL,
-    version_max = NULL,
-    build = NULL
+    build_string = NULL,
+    platforms = NULL,
+    track_features = NULL
   )
 
   # Trim whitespace
+  # spec_string = 'conda-forge[osx-64]:bioconda/linux-64:python       [version=">=3.11,(<3.14|==3.12)"] #   asdada]'
   raw_spec <- trimws(spec_string)
 
   if (identical(raw_spec, "")) {
@@ -110,7 +114,6 @@ parse_match_spec <- function(spec_string) {
   match_spec_list$name <- name_ver_build$name
 
   # Only set version if not already set from brackets
-
   if (
     rlang::is_null(match_spec_list$version) &&
       !rlang::is_null(name_ver_build$version) &&
@@ -595,4 +598,49 @@ parse_match_spec <- function(spec_string) {
 
   # No operator
   return(list(operator = NULL, version = clause))
+}
+
+# =============================================================================
+# New functions
+# =============================================================================
+
+#' Convert String and Glob to Regular Expression
+#'
+#' Convert attribute string to regex if the string begins with ^ and ends
+#' with $, it is converted to a regex.
+#' If the string contains an asterisk (*), it is transformed from a glob to a
+#' regex.
+#' Otherwise, an exact match to the string is sought.
+#'
+#' @param attribute_string The attribute string.
+#' @returns A regex pattern string.
+#' @keywords internal
+#' @noRd
+string_glob_to_regex <- function(attribute_string) {
+  if (grepl("^\\^.*\\$$", attribute_string)) {
+    # Already a regex
+    return(attribute_string)
+  } else if (grepl("*", attribute_string, fixed = TRUE)) {
+    # Convert glob to regex
+    regex_pattern <- gsub(
+      pattern = "*",
+      replacement = ".*",
+      x = attribute_string,
+      fixed = TRUE
+    )
+    regex_pattern <- paste0("^", regex_pattern, "$")
+    return(regex_pattern)
+  } else {
+    # Exact match
+    regex_pattern <- paste0(
+      "^",
+      gsub(
+        "([\\.\\+\\?\\^\\$\\(\\)\\[\\]\\{\\}\\|\\\\])",
+        "\\\\\\1",
+        attribute_string
+      ),
+      "$"
+    )
+    return(regex_pattern)
+  }
 }
