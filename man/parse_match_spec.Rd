@@ -8,18 +8,39 @@ parse_match_spec(spec_string)
 }
 \arguments{
 \item{spec_string}{A character string containing the MatchSpec
-(e.g., "numpy>=1.11", "conda-forge::python=3.9").}
+(e.g., \code{"numpy>=1.11"}, \code{"conda-forge::python=3.9"}).}
 }
 \value{
-A named list containing \code{channel}, \code{subdir}, \code{namespace},
-\code{name}, \code{version}, \code{version_min}, \code{version_max}, and \code{build}.
-Empty fields are returned as NULL.
+A named list with 10 character string fields:
+\describe{
+\item{formatted_spec}{Canonical string representation}
+\item{name}{Package name (NameSpec)}
+\item{name_space}{Namespace (empty string if not set)}
+\item{channel}{Channel string or \code{"None"}}
+\item{channel_location}{Channel location or \code{"None"}}
+\item{channel_platform_filters}{Platform filters as Python set string}
+\item{version}{Version specifier (e.g., \code{">=1.8"}, \code{"=*"} for free)}
+\item{build_string}{Build string spec (e.g., \code{"py27_0"}, \code{"*"} for free)}
+\item{platforms}{Platforms as Python set string or \code{"None"}}
+\item{track_features}{Track features as Python set string or \code{"None"}}
+}
 }
 \description{
 Parses a string representation of a Conda package specification into its
-constituent parts (channel, name, version, build, etc.).
+constituent parts following the CEP 29 MatchSpec query language specification.
+Output is compatible with \code{libmambapy.specs.MatchSpec}.
 }
 \details{
-This implementation follows the libmamba MatchSpec parser specification.
-See: https://github.com/mamba-org/mamba/blob/main/libmamba/src/specs/match_spec.cpp
+The output format matches \code{libmambapy.specs.MatchSpec} string representations
+exactly, including Python-style \code{"None"}, \code{"set()"}, and \code{"{'plat'}"} strings
+for set/optional fields.
+
+This implementation follows:
+\itemize{
+\item CEP 29: \url{https://conda.org/learn/ceps/cep-0029}
+\item libmamba: \url{https://github.com/mamba-org/mamba/blob/main/libmamba/src/specs/match_spec.cpp}
+}
+}
+\seealso{
+\url{https://conda.org/learn/ceps/cep-0029}
 }

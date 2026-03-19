@@ -1,108 +1,203 @@
 #' Parse a Conda MatchSpec String
 #'
 #' Parses a string representation of a Conda package specification into its
-#' constituent parts (channel, name, version, build, etc.).
+#' constituent parts following the CEP 29 MatchSpec query language specification.
+#' Output is compatible with `libmambapy.specs.MatchSpec`.
 #'
-#' This implementation follows the libmamba MatchSpec parser specification.
-#' See: https://github.com/mamba-org/mamba/blob/main/libmamba/src/specs/match_spec.cpp
+#' @details
+#' The output format matches `libmambapy.specs.MatchSpec` string representations
+#' exactly, including Python-style `"None"`, `"set()"`, and `"{'plat'}"` strings
+#' for set/optional fields.
+#'
+#' This implementation follows:
+#' \itemize{
+#'   \item CEP 29: \url{https://conda.org/learn/ceps/cep-0029}
+#'   \item libmamba: \url{https://github.com/mamba-org/mamba/blob/main/libmamba/src/specs/match_spec.cpp}
+#' }
 #'
 #' @param spec_string A character string containing the MatchSpec
-#' (e.g., "numpy>=1.11", "conda-forge::python=3.9").
+#'   (e.g., `"numpy>=1.11"`, `"conda-forge::python=3.9"`).
 #'
-#' @returns A named list containing `channel`, `subdir`, `namespace`,
-#'   `name`, `version`, `version_min`, `version_max`, and `build`.
-#'   Empty fields are returned as NULL.
+#' @returns A named list with 10 character string fields:
+#'   \describe{
+#'     \item{formatted_spec}{Canonical string representation}
+#'     \item{name}{Package name (NameSpec)}
+#'     \item{name_space}{Namespace (empty string if not set)}
+#'     \item{channel}{Channel string or `"None"`}
+#'     \item{channel_location}{Channel location or `"None"`}
+#'     \item{channel_platform_filters}{Platform filters as Python set string}
+#'     \item{version}{Version specifier (e.g., `">=1.8"`, `"=*"` for free)}
+#'     \item{build_string}{Build string spec (e.g., `"py27_0"`, `"*"` for free)}
+#'     \item{platforms}{Platforms as Python set string or `"None"`}
+#'     \item{track_features}{Track features as Python set string or `"None"`}
+#'   }
+#'
+#' @seealso \url{https://conda.org/learn/ceps/cep-0029}
 #'
 #' @export
 parse_match_spec <- function(spec_string) {
-  if (rlang::is_null(spec_string) || identical(spec_string, "")) {
-    cli::cli_abort(
-      message = c(
-        `x` = "MatchSpec string cannot be empty."
-      ),
-      class = "condathis_parse_match_spec_empty_string"
-    )
-  }
-
-  # Initialize default structure
-  match_spec_list <- list(
-    formatted_spec = NULL,
-    name = NULL,
-    name_space = NULL,
-    channel = NULL,
-    channel_location = NULL,
-    channel_platform_filters = NULL,
-    version = NULL,
-    build_string = NULL,
-    platforms = NULL,
-    track_features = NULL
-  )
-
-  # Trim whitespace
-  # spec_string = 'conda-forge[osx-64]:bioconda/linux-64:python       [version=">=3.11,(<3.14|==3.12)"] #   asdada]'
-  raw_spec <- trimws(spec_string)
-
-  if (identical(raw_spec, "")) {
-    cli::cli_abort(
-      message = c(
-        `x` = "MatchSpec string cannot be empty."
-      ),
-      class = "condathis_parse_match_spec_empty_string"
-    )
-  }
-
-  # Remove comments (everything after " #")
-  if (grepl(" #", raw_spec, fixed = TRUE)) {
-    raw_spec <- sub(" #.*$", "", raw_spec)
-  }
-
-  # 1. Split channel::namespace::spec
-  # We look for "::" from right to left
-  split_result <- .split_channel_namespace_spec(raw_spec)
-  match_spec_list$channel <- split_result$channel
-  match_spec_list$namespace <- split_result$namespace
-  remaining_spec <- split_result$spec
-
-  # Handle channel/subdir format (e.g., "conda-forge/linux-64")
   if (
-    !rlang::is_null(match_spec_list$channel) &&
-      grepl("/", match_spec_list$channel, fixed = TRUE)
+    rlang::is_null(spec_string) ||
+      !is.character(spec_string) ||
+      length(spec_string) != 1L
   ) {
-    chan_sub <- strsplit(match_spec_list$channel, "/", fixed = TRUE)[[1]]
-    match_spec_list$channel <- chan_sub[1]
-    match_spec_list$subdir <- chan_sub[2]
+    cli::cli_abort(
+      message = c(
+        `x` = "MatchSpec string must be a single character string."
+      ),
+      class = "condathis_parse_match_spec_invalid_input"
+    )
   }
 
-  # 2. Parse bracket attributes [key=val, ...] backwards
-  bracket_result <- .parse_bracket_attributes(remaining_spec)
-  remaining_spec <- bracket_result$remaining
+  raw <- spec_string
 
-  # Apply bracket attributes
-  for (key in names(bracket_result$attributes)) {
-    val <- bracket_result$attributes[[key]]
-    if (key == "build" || key == "build_string") {
-      if (rlang::is_null(match_spec_list$build)) {
-        match_spec_list$build <- val
-      }
-    } else if (key == "version") {
-      if (rlang::is_null(match_spec_list$version)) {
-        match_spec_list$version <- val
-      }
-    } else if (key == "channel" || key == "url") {
-      if (rlang::is_null(match_spec_list$channel)) {
-        match_spec_list$channel <- val
-      }
-    } else if (key == "subdir") {
-      if (rlang::is_null(match_spec_list$subdir)) {
-        match_spec_list$subdir <- val
-      }
+  # Strip comments: everything after " #" (space + hash)
+  comment_pos <- regexpr(" #", raw, fixed = TRUE)
+  if (comment_pos > 0L) {
+    raw <- substring(raw, 1L, comment_pos - 1L)
+  }
+
+  # Strip whitespace
+  raw <- trimws(raw)
+
+  if (identical(raw, "")) {
+    # Empty MatchSpec returns all-free spec
+    return(.ms_make_result(
+      name = "*",
+      name_space = "",
+      channel_location = NULL,
+      channel_platform_filters = NULL,
+      version = "=*",
+      build_string = "*",
+      extra_platforms = NULL,
+      extra = list()
+    ))
+  }
+
+  # Normalize spaces after operators (libmamba does this)
+  ops <- c(">=", "<=", "!=", "==", "~=", ">", "<", "=", ",")
+  for (op in ops) {
+    escaped_op <- gsub("([|.\\^$*+?(){}\\[\\]])", "\\\\\\1", op)
+    bad_pattern <- paste0(escaped_op, " +")
+    raw <- gsub(bad_pattern, op, raw, perl = TRUE)
+  }
+
+  raw <- trimws(raw)
+
+  if (identical(raw, "")) {
+    return(.ms_make_result(
+      name = "*",
+      name_space = "",
+      channel_location = NULL,
+      channel_platform_filters = NULL,
+      version = "=*",
+      build_string = "*",
+      extra_platforms = NULL,
+      extra = list()
+    ))
+  }
+
+  # Check for archive URL (ends with .tar.bz2 or .conda)
+  if (grepl("\\.(tar\\.bz2|conda)$", raw)) {
+    return(.ms_parse_url(raw))
+  }
+
+  # Check for URL with MD5 hash fragment
+  if (grepl("#[0-9a-fA-F]+$", raw)) {
+    hash_match <- regexpr("#[0-9a-fA-F]+$", raw)
+    url_part <- substring(raw, 1L, hash_match - 1L)
+    if (grepl("\\.(tar\\.bz2|conda)$", url_part)) {
+      return(.ms_parse_url(url_part))
     }
   }
 
-  # 3. Split name, version, and build from remaining string
-  name_ver_build <- .split_name_version_build(remaining_spec)
+  # 1. Split channel:namespace:spec
+  cns <- .ms_split_channel_namespace_spec(raw)
+  channel_str <- cns$channel
+  name_space <- cns$namespace
+  remaining <- cns$spec
 
-  if (identical(name_ver_build$name, "")) {
+  # Parse channel if present
+  channel_location <- NULL
+  channel_pf <- NULL
+  if (!is.null(channel_str) && nchar(channel_str) > 0L) {
+    ch <- .ms_parse_channel(channel_str)
+    channel_location <- ch$location
+    channel_pf <- ch$platform_filters
+  }
+
+  # 2. Parse bracket attributes from right to left
+  bracket_result <- .ms_rparse_brackets(remaining)
+  remaining <- bracket_result$remaining
+  attrs <- bracket_result$attributes
+
+  # 3. Apply bracket attributes
+  extra <- list()
+  bracket_version <- NULL
+  bracket_build <- NULL
+
+  for (key in names(attrs)) {
+    val <- attrs[[key]]
+    lkey <- tolower(trimws(key))
+
+    if (lkey == "version") {
+      bracket_version <- val
+    } else if (lkey %in% c("build", "build_string")) {
+      bracket_build <- val
+    } else if (lkey %in% c("channel", "url")) {
+      if (is.null(channel_location)) {
+        ch <- .ms_parse_channel(val)
+        channel_location <- ch$location
+        channel_pf <- ch$platform_filters
+      }
+    } else if (lkey == "subdir") {
+      # subdir sets platform filters
+      new_pf <- .ms_parse_platform_list(val)
+      if (is.null(channel_location)) {
+        # No channel yet: these become extra_platforms
+        if (is.null(channel_pf) || length(channel_pf) == 0L) {
+          channel_pf <- new_pf
+        }
+      } else {
+        # Channel exists: set platform filters if empty
+        if (is.null(channel_pf) || length(channel_pf) == 0L) {
+          channel_pf <- new_pf
+        }
+      }
+    } else if (lkey == "namespace") {
+      if (identical(name_space, "")) {
+        name_space <- val
+      }
+    } else if (lkey == "build_number") {
+      extra$build_number <- val
+    } else if (lkey == "track_features") {
+      extra$track_features <- .ms_split_features(val)
+    } else if (lkey %in% c("fn", "filename")) {
+      extra$filename <- val
+    } else if (lkey == "md5") {
+      extra$md5 <- val
+    } else if (lkey == "sha256") {
+      extra$sha256 <- val
+    } else if (lkey == "license") {
+      extra$license <- val
+    } else if (lkey == "license_family") {
+      extra$license_family <- val
+    } else if (lkey == "features") {
+      extra$features <- val
+    } else if (lkey == "optional") {
+      extra$optional <- TRUE
+    }
+  }
+
+  # 4. Split name, version, build from remaining positional spec
+  remaining <- trimws(remaining)
+  nvb <- .ms_split_name_version_build(remaining)
+
+  pkg_name <- nvb$name
+  pos_version <- nvb$version
+  pos_build <- nvb$build
+
+  if (identical(pkg_name, "")) {
     cli::cli_abort(
       message = c(
         `x` = "Invalid MatchSpec: Empty package name."
@@ -111,536 +206,1011 @@ parse_match_spec <- function(spec_string) {
     )
   }
 
-  match_spec_list$name <- name_ver_build$name
+  # 5. Set final values: bracket overrides positional, except name
+  final_version <- if (!is.null(bracket_version)) {
+    bracket_version
+  } else {
+    pos_version
+  }
+  final_build <- if (!is.null(bracket_build)) bracket_build else pos_build
 
-  # Only set version if not already set from brackets
+  # Normalize version and build
+  version_spec <- .ms_normalize_version(final_version)
+  build_spec <- .ms_normalize_build(final_build)
+
+  # Determine extra_platforms: if subdir was set without a channel, it goes
+
+  # to extra_platforms
+  extra_platforms <- NULL
   if (
-    rlang::is_null(match_spec_list$version) &&
-      !rlang::is_null(name_ver_build$version) &&
-      name_ver_build$version != ""
+    is.null(channel_location) && !is.null(channel_pf) && length(channel_pf) > 0L
   ) {
-    match_spec_list$version <- name_ver_build$version
+    extra_platforms <- channel_pf
+    channel_pf <- NULL
   }
 
-  # Only set build if not already set from brackets
-  if (
-    rlang::is_null(match_spec_list$build) &&
-      !rlang::is_null(name_ver_build$build) &&
-      name_ver_build$build != ""
-  ) {
-    match_spec_list$build <- name_ver_build$build
-  }
-
-  # 4. Calculate version_min and version_max
-  if (!rlang::is_null(match_spec_list$version)) {
-    bounds <- .calculate_version_bounds(match_spec_list$version)
-    match_spec_list$version_min <- bounds$min
-    match_spec_list$version_max <- bounds$max
-  }
-
-  return(match_spec_list)
+  .ms_make_result(
+    name = pkg_name,
+    name_space = name_space,
+    channel_location = channel_location,
+    channel_platform_filters = channel_pf,
+    version = version_spec,
+    build_string = build_spec,
+    extra_platforms = extra_platforms,
+    extra = extra
+  )
 }
 
-#' Split channel, namespace, and spec from a MatchSpec string
-#'
-#' Looks for "::" separators from right to left to split:
-#' - channel::namespace::spec
-#' - channel::spec (namespace is channel)
-#' - spec (no channel/namespace)
-#'
-#' @param str The MatchSpec string
-#' @returns list(channel=..., namespace=..., spec=...)
-#' @keywords internal
+
+# =============================================================================
+# Internal: Result construction and formatting
+# =============================================================================
+
+#' Build the result list with canonical formatting
 #' @noRd
-.split_channel_namespace_spec <- function(str) {
-  channel <- NULL
-  namespace <- NULL
-  spec <- str
+.ms_make_result <- function(
+  name,
+  name_space,
+  channel_location,
+  channel_platform_filters,
+  version,
+  build_string,
+  extra_platforms,
+  extra
+) {
+  # Format canonical string
+  formatted_spec <- .ms_format_canonical(
+    name = name,
+    name_space = name_space,
+    channel_location = channel_location,
+    channel_platform_filters = channel_platform_filters,
+    version = version,
+    build_string = build_string,
+    extra_platforms = extra_platforms,
+    extra = extra
+  )
 
-  # Find the rightmost "::"
-  if (grepl("::", str, fixed = TRUE)) {
-    # Split by "::" - we need to handle multiple "::" from right to left
-    parts <- strsplit(str, "::", fixed = TRUE)[[1]]
+  # Format channel output
+  if (!is.null(channel_location)) {
+    pf <- channel_platform_filters
+    if (is.null(pf)) {
+      pf <- character(0L)
+    }
+    channel_str <- .ms_format_channel_display(channel_location, pf)
+    channel_location_str <- channel_location
+    channel_pf_str <- .ms_format_python_set(pf)
+  } else {
+    channel_str <- "None"
+    channel_location_str <- "None"
+    channel_pf_str <- "None"
+  }
 
-    if (length(parts) == 2) {
-      # channel::spec
-      channel <- parts[1]
-      spec <- parts[2]
-    } else if (length(parts) >= 3) {
-      # channel:namespace::spec or channel/subdir:namespace::spec
-      # The last part is always the spec
-      spec <- parts[length(parts)]
+  # Determine platforms display
+  if (
+    !is.null(channel_location) &&
+      !is.null(channel_platform_filters) &&
+      length(channel_platform_filters) > 0L
+  ) {
+    platforms_str <- .ms_format_python_set(channel_platform_filters)
+  } else if (!is.null(extra_platforms) && length(extra_platforms) > 0L) {
+    platforms_str <- .ms_format_python_set(extra_platforms)
+  } else {
+    platforms_str <- "None"
+  }
 
-      # Check if first part contains ":" for namespace
-      left_side <- paste(parts[-length(parts)], collapse = "::")
+  # Format track_features
+  # When ExtraMembers is allocated (md5, sha256, etc. are set),
+  # track_features becomes set() instead of None
+  has_extra_members <- !is.null(extra$md5) ||
+    !is.null(extra$sha256) ||
+    !is.null(extra$license) ||
+    !is.null(extra$license_family) ||
+    !is.null(extra$features) ||
+    !is.null(extra$filename) ||
+    isTRUE(extra$optional)
 
-      if (
-        grepl(":", left_side, fixed = TRUE) &&
-          !grepl("://", left_side, fixed = TRUE)
-      ) {
-        # Has namespace separator (but not URL)
-        ns_parts <- strsplit(left_side, ":", fixed = TRUE)[[1]]
-        channel <- ns_parts[1]
-        namespace <- paste(ns_parts[-1], collapse = ":")
-      } else {
-        channel <- left_side
+  if (!is.null(extra$track_features) && length(extra$track_features) > 0L) {
+    track_features_str <- .ms_format_python_set(extra$track_features)
+  } else if (has_extra_members) {
+    track_features_str <- "set()"
+  } else {
+    track_features_str <- "None"
+  }
+
+  list(
+    formatted_spec = formatted_spec,
+    name = name,
+    name_space = name_space,
+    channel = channel_str,
+    channel_location = channel_location_str,
+    channel_platform_filters = channel_pf_str,
+    version = version,
+    build_string = build_string,
+    platforms = platforms_str,
+    track_features = track_features_str
+  )
+}
+
+
+#' Format a Python-style set string
+#' @noRd
+.ms_format_python_set <- function(items) {
+  if (is.null(items) || length(items) == 0L) {
+    return("set()")
+  }
+  items <- sort(items)
+  if (length(items) == 1L) {
+    return(paste0("{'", items, "'}"))
+  }
+
+  inner <- paste0("'", items, "'", collapse = ", ")
+  paste0("{", inner, "}")
+}
+
+
+#' Format channel string with platform filters for display
+#' @noRd
+.ms_format_channel_display <- function(location, platform_filters) {
+  if (is.null(location)) {
+    return("None")
+  }
+  if (!is.null(platform_filters) && length(platform_filters) > 0L) {
+    pf_str <- paste(sort(platform_filters), collapse = ",")
+    return(paste0(location, "[", pf_str, "]"))
+  }
+  return(location)
+}
+
+
+# =============================================================================
+# Internal: Canonical formatting (matches libmamba's fmt::formatter)
+# =============================================================================
+
+#' Generate canonical string representation matching libmamba
+#' @noRd
+.ms_format_canonical <- function(
+  name,
+  name_space,
+  channel_location,
+  channel_platform_filters,
+  version,
+  build_string,
+  extra_platforms,
+  extra
+) {
+  out <- ""
+
+  # Channel prefix: channel:namespace:name
+  if (!is.null(channel_location)) {
+    chan_str <- .ms_format_channel_display(
+      channel_location,
+      channel_platform_filters
+    )
+    out <- paste0(out, chan_str, ":")
+    if (!is.null(name_space)) {
+      out <- paste0(out, name_space)
+    }
+    out <- paste0(out, ":")
+  } else if (!is.null(name_space) && nchar(name_space) > 0L) {
+    out <- paste0(out, name_space, ":")
+  }
+
+  # Name
+  out <- paste0(out, name)
+
+  # Determine complexity of version and build
+  is_free_version <- is.null(version) ||
+    identical(version, "") ||
+    identical(version, "=*")
+  is_free_build <- is.null(build_string) ||
+    identical(build_string, "") ||
+    identical(build_string, "*")
+  is_exact_build <- !is_free_build && !grepl("\\*", build_string)
+
+  is_complex_version <- .ms_is_complex_version(version)
+  is_complex_build <- !is_free_build && !is_exact_build
+
+  if (!is_complex_version && !is_complex_build) {
+    # Simple: write positionally
+    if (!is_free_build) {
+      out <- paste0(out, version, "=", build_string)
+    } else if (!is_free_version) {
+      out <- paste0(out, version)
+    }
+  }
+
+  # Bracket attributes
+  bracket_parts <- character(0L)
+
+  if (is_complex_version || is_complex_build) {
+    if (!is_free_version) {
+      bracket_parts <- c(
+        bracket_parts,
+        paste0("version=\"", version, "\"")
+      )
+    }
+    if (!is_free_build) {
+      bracket_parts <- c(
+        bracket_parts,
+        paste0("build=\"", build_string, "\"")
+      )
+    }
+  }
+
+  if (!is.null(extra$build_number)) {
+    bracket_parts <- c(
+      bracket_parts,
+      paste0("build_number=\"", extra$build_number, "\"")
+    )
+  }
+
+  if (!is.null(extra$track_features) && length(extra$track_features) > 0L) {
+    tf_str <- paste(sort(extra$track_features), collapse = " ")
+    bracket_parts <- c(
+      bracket_parts,
+      paste0("track_features=\"", tf_str, "\"")
+    )
+  }
+
+  if (!is.null(extra$features) && nchar(extra$features) > 0L) {
+    q <- .ms_find_needed_quote(extra$features)
+    bracket_parts <- c(
+      bracket_parts,
+      paste0("features=", q, extra$features, q)
+    )
+  }
+
+  if (!is.null(extra$filename) && nchar(extra$filename) > 0L) {
+    q <- .ms_find_needed_quote(extra$filename)
+    bracket_parts <- c(
+      bracket_parts,
+      paste0("fn=", q, extra$filename, q)
+    )
+  }
+
+  if (!is.null(extra$md5) && nchar(extra$md5) > 0L) {
+    bracket_parts <- c(bracket_parts, paste0("md5=", extra$md5))
+  }
+
+  if (!is.null(extra$sha256) && nchar(extra$sha256) > 0L) {
+    bracket_parts <- c(bracket_parts, paste0("sha256=", extra$sha256))
+  }
+
+  if (!is.null(extra$license) && nchar(extra$license) > 0L) {
+    bracket_parts <- c(bracket_parts, paste0("license=", extra$license))
+  }
+
+  if (!is.null(extra$license_family) && nchar(extra$license_family) > 0L) {
+    bracket_parts <- c(
+      bracket_parts,
+      paste0("license_family=", extra$license_family)
+    )
+  }
+
+  if (isTRUE(extra$optional)) {
+    bracket_parts <- c(bracket_parts, "optional")
+  }
+
+  if (length(bracket_parts) > 0L) {
+    out <- paste0(out, "[", paste(bracket_parts, collapse = ","), "]")
+  }
+
+  return(out)
+}
+
+
+#' Check if a version spec is complex (expression_size > 1)
+#' @noRd
+.ms_is_complex_version <- function(version) {
+  if (is.null(version) || identical(version, "") || identical(version, "=*")) {
+    return(FALSE)
+  }
+  # Complex if it contains comma, pipe, or parentheses
+  if (grepl("[,|()]", version)) {
+    return(TRUE)
+  }
+  return(FALSE)
+}
+
+
+#' Find needed quote character for a value
+#' @noRd
+.ms_find_needed_quote <- function(data) {
+  if (grepl("[ =\"]", data)) {
+    if (grepl("\"", data, fixed = TRUE)) {
+      return("'")
+    }
+    return("\"")
+  }
+  return("")
+}
+
+
+# =============================================================================
+# Internal: Channel/namespace/spec splitting
+# =============================================================================
+
+#' Split channel:namespace:spec using single colon separator
+#'
+#' Scans from right to left for `:` that is not inside brackets/quotes.
+#'
+#' In `conda-forge::numpy`, `::` means channel=`conda-forge`,
+#' namespace=`` (empty), spec=`numpy`.
+#'
+#' In `conda-forge:ns:numpy`, channel=`conda-forge`, namespace=`ns`,
+#' spec=`numpy`.
+#'
+#' @param str The full MatchSpec string
+#' @returns list(channel, namespace, spec)
+#' @noRd
+.ms_split_channel_namespace_spec <- function(str) {
+  # Find rightmost colon not inside brackets/quotes
+  spec_pos <- .ms_rfind_colon_outside_brackets(str)
+
+  if (is.null(spec_pos)) {
+    # No colon found - entire string is the spec
+    return(list(channel = NULL, namespace = "", spec = str))
+  }
+
+  spec_part <- substring(str, spec_pos + 1L)
+  left_part <- substring(str, 1L, spec_pos - 1L)
+
+  # Now find the next colon from right in the left part
+  ns_pos <- .ms_rfind_colon_outside_brackets(left_part)
+
+  if (is.null(ns_pos)) {
+    # Only one colon: left_part is namespace (per libmamba: first rfind gives
+    # namespace when there's only one separator)
+    return(list(channel = NULL, namespace = left_part, spec = spec_part))
+  }
+
+  # Two colons found: channel:namespace:spec
+  channel_part <- substring(left_part, 1L, ns_pos - 1L)
+  namespace_part <- substring(left_part, ns_pos + 1L)
+
+  # If channel_part is empty, treat as no channel
+  if (identical(channel_part, "")) {
+    channel_part <- NULL
+  }
+
+  return(list(
+    channel = channel_part,
+    namespace = namespace_part,
+    spec = spec_part
+  ))
+}
+
+
+#' Find the rightmost colon not inside brackets or quotes
+#' @noRd
+.ms_rfind_colon_outside_brackets <- function(str) {
+  if (is.null(str) || identical(str, "")) {
+    return(NULL)
+  }
+
+  chars <- strsplit(str, "")[[1]]
+  n <- length(chars)
+  depth <- 0L
+
+  for (i in seq(n, 1L)) {
+    ch <- chars[i]
+    if (ch %in% c("]", ")")) {
+      depth <- depth + 1L
+    } else if (ch %in% c("[", "(")) {
+      depth <- depth - 1L
+    } else if (ch == ":" && depth == 0L) {
+      return(i)
+    }
+  }
+
+  return(NULL)
+}
+
+
+# =============================================================================
+# Internal: Channel parsing
+# =============================================================================
+
+#' Parse channel string into location and platform_filters
+#'
+#' Handles formats like:
+#' - `"conda-forge"` -> location=`"conda-forge"`, filters=empty
+#' - `"conda-forge/linux-64"` -> location=`"conda-forge"`, filters=`{"linux-64"}`
+#' - `"conda-forge[linux-64]"` -> location=`"conda-forge"`, filters=`{"linux-64"}`
+#' - `"*"` -> location=`"*"`, filters=empty
+#'
+#' @noRd
+.ms_parse_channel <- function(str) {
+  str <- trimws(str)
+
+  if (identical(str, "") || identical(tolower(str), "<unknown>")) {
+    return(list(location = "*", platform_filters = character(0L)))
+  }
+
+  # Check for bracket-style platform filters: "conda-forge[linux-64,noarch]"
+  if (grepl("\\]$", str)) {
+    bracket_start <- regexpr("\\[", str)
+    if (bracket_start > 0L) {
+      location <- trimws(substring(str, 1L, bracket_start - 1L))
+      plat_str <- substring(str, bracket_start + 1L, nchar(str) - 1L)
+      filters <- .ms_parse_platform_list(plat_str)
+      return(list(location = location, platform_filters = filters))
+    }
+  }
+
+  # Check for slash-style platform: "conda-forge/linux-64"
+  # Only if the part after the LAST slash is a known platform
+  if (grepl("/", str, fixed = TRUE)) {
+    slash_pos <- regexpr("/[^/]+$", str)
+    if (slash_pos > 0L) {
+      potential_plat <- substring(str, slash_pos + 1L)
+      if (.ms_is_known_platform(potential_plat)) {
+        location <- substring(str, 1L, slash_pos - 1L)
+        return(list(
+          location = location,
+          platform_filters = potential_plat
+        ))
       }
     }
   }
 
-  list(channel = channel, namespace = namespace, spec = spec)
+  # Plain channel name or URL
+  return(list(location = str, platform_filters = character(0L)))
 }
 
-#' Parse bracket attributes from a MatchSpec string
-#'
-#' Parses attributes in brackets (e.g., `[key=val, ...]`) from right to left.
-#' Handles both square brackets and parentheses as per libmamba.
-#'
-#' @param str The string potentially containing brackets
-#' @returns list(remaining=..., attributes=list(...))
-#' @keywords internal
+
+#' Parse a comma/pipe separated list of platforms
 #' @noRd
-.parse_bracket_attributes <- function(str) {
+.ms_parse_platform_list <- function(str) {
+  parts <- strsplit(str, "[,|;]")[[1]]
+  parts <- trimws(parts)
+  parts <- parts[nchar(parts) > 0L]
+  tolower(parts)
+}
+
+
+#' Check if a string is a known conda platform/subdir
+#' @noRd
+.ms_is_known_platform <- function(str) {
+  known <- c(
+    "noarch",
+    "linux-32",
+    "linux-64",
+    "linux-aarch64",
+    "linux-armv6l",
+    "linux-armv7l",
+    "linux-ppc64",
+    "linux-ppc64le",
+    "linux-s390x",
+    "linux-riscv32",
+    "linux-riscv64",
+    "osx-64",
+    "osx-arm64",
+    "win-32",
+    "win-64",
+    "win-arm64",
+    "zos-z"
+  )
+  tolower(str) %in% known
+}
+
+
+#' Split features string into a character vector
+#' @noRd
+.ms_split_features <- function(str) {
+  parts <- strsplit(str, "[ ,;]+")[[1]]
+  parts <- trimws(parts)
+  parts[nchar(parts) > 0L]
+}
+
+
+# =============================================================================
+# Internal: Bracket attribute parsing
+# =============================================================================
+
+#' Parse and strip bracket attributes from right to left
+#'
+#' Handles both `[key=val,...]` and `(key=val,...)` sections.
+#' Multiple bracket sections are parsed from right to left.
+#'
+#' @param str The spec string potentially containing brackets
+#' @returns list(remaining, attributes)
+#' @noRd
+.ms_rparse_brackets <- function(str) {
   attributes <- list()
 
-  # Process brackets from right to left
-  # Handle both [] and ()
-  while (grepl("\\[[^\\[\\]]*\\]$|\\([^\\(\\)]*\\)$", str, perl = TRUE)) {
-    # Extract bracket content
-    if (grepl("\\]$", str)) {
-      # Square brackets
-      match <- regexpr("\\[([^\\[\\]]*)\\]$", str, perl = TRUE)
-      if (match > 0) {
-        bracket_content <- sub(".*\\[([^\\[\\]]*)\\]$", "\\1", str, perl = TRUE)
-        str <- sub("\\[[^\\[\\]]*\\]$", "", str, perl = TRUE)
+  repeat {
+    str <- trimws(str)
+    if (nchar(str) == 0L) {
+      break
+    }
+    last_char <- substring(str, nchar(str))
+
+    if (last_char == "]") {
+      pos <- .ms_rfind_matching_bracket(str, "[", "]")
+      if (is.null(pos)) {
+        break
       }
-    } else if (grepl("\\)$", str)) {
-      # Parentheses
-      match <- regexpr("\\(([^\\(\\)]*)\\)$", str, perl = TRUE)
-      if (match > 0) {
-        bracket_content <- sub(".*\\(([^\\(\\)]*)\\)$", "\\1", str, perl = TRUE)
-        str <- sub("\\([^\\(\\)]*\\)$", "", str, perl = TRUE)
+      bracket_content <- substring(str, pos + 1L, nchar(str) - 1L)
+      str <- substring(str, 1L, pos - 1L)
+      new_attrs <- .ms_parse_bracket_content(bracket_content)
+      for (key in names(new_attrs)) {
+        if (is.null(attributes[[key]])) {
+          attributes[[key]] <- new_attrs[[key]]
+        }
+      }
+    } else if (last_char == ")") {
+      pos <- .ms_rfind_matching_bracket(str, "(", ")")
+      if (is.null(pos)) {
+        break
+      }
+      bracket_content <- substring(str, pos + 1L, nchar(str) - 1L)
+      str <- substring(str, 1L, pos - 1L)
+      new_attrs <- .ms_parse_bracket_content(bracket_content)
+      for (key in names(new_attrs)) {
+        if (is.null(attributes[[key]])) {
+          attributes[[key]] <- new_attrs[[key]]
+        }
       }
     } else {
       break
     }
-
-    # Parse key=value pairs
-    pairs <- strsplit(bracket_content, ",", fixed = TRUE)[[1]]
-    for (pair in pairs) {
-      pair <- trimws(pair)
-      if (grepl("=", pair, fixed = TRUE)) {
-        kv <- strsplit(pair, "=", fixed = TRUE)[[1]]
-        key <- tolower(trimws(kv[1]))
-        val <- trimws(paste(kv[-1], collapse = "="))
-        # Remove quotes
-        val <- gsub("^['\"]|['\"]$", "", val)
-
-        # Only set if not already set (first value wins when parsing right-to-left)
-        if (rlang::is_null(attributes[[key]])) {
-          attributes[[key]] <- val
-        }
-      } else if (nchar(pair) > 0) {
-        # Boolean attribute (e.g., "optional")
-        key <- tolower(pair)
-        if (rlang::is_null(attributes[[key]])) {
-          attributes[[key]] <- "true"
-        }
-      }
-    }
   }
 
-  # Strip trailing "=" which handles faulty specs like "libblas=[build=*mkl]"
+  # Strip trailing "=" (handles "libblas=[build=*mkl]")
   str <- sub("=+$", "", str)
 
   list(remaining = trimws(str), attributes = attributes)
 }
 
-#' Split name, version, and build from a spec string
-#'
-#' Handles formats like:
-#' - "numpy" -> name only
-#' - "numpy 1.8" -> name + version (space separated)
-#' - "numpy>=1.8" -> name + version (operator attached)
-#' - "numpy 1.8.1 py27_0" -> name + version + build (space separated)
-#' - "numpy=1.8.1=py27_0" -> name + version + build (= separated)
-#'
-#' @param str The spec string
-#' @returns list(name=..., version=..., build=...)
-#' @keywords internal
+
+#' Find matching opening bracket from the end
 #' @noRd
-.split_name_version_build <- function(str) {
+.ms_rfind_matching_bracket <- function(str, open, close) {
+  chars <- strsplit(str, "")[[1]]
+  n <- length(chars)
+  depth <- 0L
+
+  for (i in seq(n, 1L)) {
+    if (chars[i] == close) {
+      depth <- depth + 1L
+    } else if (chars[i] == open) {
+      depth <- depth - 1L
+      if (depth == 0L) {
+        return(i)
+      }
+    }
+  }
+  return(NULL)
+}
+
+
+#' Parse bracket content into key=value pairs
+#' @noRd
+.ms_parse_bracket_content <- function(content) {
+  attrs <- list()
+
+  pairs <- .ms_split_bracket_pairs(content)
+
+  for (pair in pairs) {
+    pair <- trimws(pair)
+    if (identical(pair, "")) {
+      next
+    }
+
+    # Split on first "="
+    eq_pos <- regexpr("=", pair, fixed = TRUE)
+    if (eq_pos > 0L) {
+      key <- trimws(substring(pair, 1L, eq_pos - 1L))
+      val <- trimws(substring(pair, eq_pos + 1L))
+      val <- .ms_strip_quotes(val)
+      attrs[[tolower(key)]] <- val
+    } else {
+      # Bare keyword like "optional"
+      attrs[[tolower(pair)]] <- "true"
+    }
+  }
+
+  attrs
+}
+
+
+#' Split bracket content by commas, respecting quotes and parentheses
+#' @noRd
+.ms_split_bracket_pairs <- function(str) {
+  result <- character(0L)
+  current <- ""
+  in_single_quote <- FALSE
+  in_double_quote <- FALSE
+  paren_depth <- 0L
+
+  chars <- strsplit(str, "")[[1]]
+  for (ch in chars) {
+    if (ch == "'" && !in_double_quote) {
+      in_single_quote <- !in_single_quote
+      current <- paste0(current, ch)
+    } else if (ch == "\"" && !in_single_quote) {
+      in_double_quote <- !in_double_quote
+      current <- paste0(current, ch)
+    } else if (ch == "(" && !in_single_quote && !in_double_quote) {
+      paren_depth <- paren_depth + 1L
+      current <- paste0(current, ch)
+    } else if (ch == ")" && !in_single_quote && !in_double_quote) {
+      paren_depth <- paren_depth - 1L
+      current <- paste0(current, ch)
+    } else if (
+      ch == "," && !in_single_quote && !in_double_quote && paren_depth == 0L
+    ) {
+      result <- c(result, current)
+      current <- ""
+    } else {
+      current <- paste0(current, ch)
+    }
+  }
+
+  if (nchar(current) > 0L) {
+    result <- c(result, current)
+  }
+
+  result
+}
+
+
+#' Strip surrounding quotes from a string
+#' @noRd
+.ms_strip_quotes <- function(str) {
+  if (nchar(str) >= 2L) {
+    first <- substring(str, 1L, 1L)
+    last <- substring(str, nchar(str))
+    if ((first == "'" && last == "'") || (first == "\"" && last == "\"")) {
+      return(substring(str, 2L, nchar(str) - 1L))
+    }
+  }
+  str
+}
+
+
+# =============================================================================
+# Internal: Name/version/build splitting
+# =============================================================================
+
+#' Split name, version, and build from spec string
+#'
+#' Follows libmamba's split_name_version_and_build logic.
+#' Package name ends at first version separator character.
+#'
+#' @noRd
+.ms_split_name_version_build <- function(str) {
   str <- trimws(str)
 
   if (identical(str, "")) {
     return(list(name = "", version = NULL, build = NULL))
   }
 
-  # Find where the package name ends
-  # Package name ends at first version separator: space, <, >, =, !
-  version_sep_pattern <- "[ <>=!]"
-  match <- regexpr(version_sep_pattern, str, perl = TRUE)
+  # Find where package name ends: first char in " <>=!~"
+  sep_pattern <- "[ <>=!~]"
+  match_pos <- regexpr(sep_pattern, str, perl = TRUE)
 
-  if (match == -1) {
-    # No version separator, entire string is package name
+  if (match_pos == -1L) {
     return(list(name = str, version = NULL, build = NULL))
   }
 
-  pkg_name <- substring(str, 1, match - 1)
-  version_and_build <- trimws(substring(str, match))
+  pkg_name <- substring(str, 1L, match_pos - 1L)
+  ver_build_str <- substring(str, match_pos)
 
-  # Split version and build
-  ver_build <- .split_version_and_build(version_and_build)
+  vb <- .ms_split_version_and_build(ver_build_str)
 
-  list(name = pkg_name, version = ver_build$version, build = ver_build$build)
+  list(name = pkg_name, version = vb$version, build = vb$build)
 }
 
-#' Split version and build from a version+build string
+
+#' Split version and build string
 #'
-#' Follows libmamba's split_version_and_build logic:
-#' - Strip trailing "="
-#' - Handle space-separated version and build: ">=1.0 py27_0"
-#' - Handle "="-separated version and build: "=1.8.1=py27_0"
+#' Follows libmamba's split_version_and_build exactly:
+#' 1. Strip whitespace
+#' 2. Strip trailing `=`
+#' 3. Find last `=` or space position
+#' 4. If last `=` is preceded by an operator char, it's not a build separator
 #'
-#' @param str The version+build string
-#' @returns list(version=..., build=...)
-#' @keywords internal
 #' @noRd
-.split_version_and_build <- function(str) {
+.ms_split_version_and_build <- function(str) {
   str <- trimws(str)
 
-  # Strip trailing "=" (handles faulty specs like "libblas=[build=*mkl]")
-  # But NOT if the version is just "=*" which means any version
-  if (!grepl("^=\\*$", str)) {
-    str <- sub("=+$", "", str)
-  }
-
-  if (identical(str, "") || rlang::is_null(str)) {
+  if (identical(str, "")) {
     return(list(version = NULL, build = NULL))
   }
 
-  # Find last space or last "=" that's not part of an operator
-  # First check for space-separated version and build
+  # Strip trailing = (handles faulty specs like "libblas=")
+  str <- sub("=+$", "", str)
 
-  # Find last "=" position
-  last_eq_pos <- .find_last_build_separator(str)
-
-  if (!rlang::is_null(last_eq_pos)) {
-    # Check if the character before "=" is an operator character
-    if (last_eq_pos > 1) {
-      prev_char <- substring(str, last_eq_pos - 1, last_eq_pos - 1)
-      if (prev_char %in% c("=", "!", "|", ",", "<", ">", "~")) {
-        # This "=" is part of an operator, look for space-separated build
-        space_result <- .split_by_trailing_space(str)
-        return(space_result)
-      }
-    }
-
-    # The "=" is a build separator
-    version <- substring(str, 1, last_eq_pos - 1)
-    build <- substring(str, last_eq_pos + 1)
-
-    # Handle case where build is empty
-    if (identical(trimws(build), "")) {
-      return(list(version = version, build = NULL))
-    }
-
-    # Check if the "build" is actually just "*" for wildcard version like "=*"
-    # In this case, the whole thing is the version, not version + build
-    if (identical(version, "") && identical(trimws(build), "*")) {
-      return(list(version = str, build = NULL))
-    }
-
-    return(list(version = version, build = trimws(build)))
+  if (identical(str, "")) {
+    return(list(version = NULL, build = NULL))
   }
 
-  # Check for space-separated version and build
-  space_result <- .split_by_trailing_space(str)
-  return(space_result)
+  # Find last position of space or =
+  last_sp_eq <- .ms_find_last_of(str, c(" ", "="))
+
+  if (is.null(last_sp_eq) || last_sp_eq <= 1L) {
+    return(list(version = str, build = NULL))
+  }
+
+  # Find last = position
+  last_eq <- .ms_find_last_of(str, "=")
+
+  if (is.null(last_eq)) {
+    # No = found - check for space-separated build
+    last_space <- .ms_find_last_of(str, " ")
+    if (!is.null(last_space)) {
+      version_part <- trimws(substring(str, 1L, last_space - 1L))
+      build_part <- substring(str, last_space + 1L)
+      return(list(version = version_part, build = build_part))
+    }
+    return(list(version = str, build = NULL))
+  }
+
+  # Check char before last =
+  prev_char <- substring(str, last_eq - 1L, last_eq - 1L)
+  if (prev_char %in% c("=", "!", "|", ",", "<", ">", "~")) {
+    # The = is part of an operator, not a build separator
+    # Look for space-separated build:
+    # Find first non-space after operator (version start)
+    after_op <- substring(str, last_eq + 1L)
+    version_start_pos <- regexpr("[^ ]", after_op)
+    if (version_start_pos > 0L) {
+      rest_after_version_start <- substring(after_op, version_start_pos)
+      space_in_rest <- regexpr(" ", rest_after_version_start, fixed = TRUE)
+      if (space_in_rest > 0L) {
+        # There's something after a space -> that's the build
+        abs_space <- last_eq + version_start_pos - 1L + space_in_rest - 1L
+        version_part <- trimws(substring(str, 1L, abs_space))
+        build_start_pos <- abs_space + 1L
+        build_part <- trimws(substring(str, build_start_pos))
+        if (nchar(build_part) > 0L) {
+          return(list(version = version_part, build = build_part))
+        }
+      }
+    }
+    return(list(version = str, build = NULL))
+  }
+
+  # = is a build separator
+  version_part <- substring(str, 1L, last_eq - 1L)
+  build_part <- trimws(substring(str, last_eq + 1L))
+
+  if (identical(build_part, "")) {
+    return(list(version = version_part, build = NULL))
+  }
+
+  return(list(version = version_part, build = build_part))
 }
 
-#' Find the last "=" that could be a build separator
-#'
-#' Returns the position of the last "=" that is not part of an operator
-#' (==, !=, <=, >=, ~=)
-#'
-#' @param str The string to search
-#' @returns Position of the "=" or NULL
-#' @keywords internal
+
+#' Find last position of any character in chars within str
 #' @noRd
-.find_last_build_separator <- function(str) {
-  # Find all "=" positions
-  eq_positions <- gregexpr("=", str, fixed = TRUE)[[1]]
+.ms_find_last_of <- function(str, chars) {
+  n <- nchar(str)
+  str_chars <- strsplit(str, "")[[1]]
 
-  if (identical(eq_positions[1], -1L)) {
-    return(NULL)
-  }
-
-  # Check from right to left for a standalone "="
-  for (i in rev(seq_along(eq_positions))) {
-    pos <- eq_positions[i]
-
-    # Check character before
-    if (pos > 1) {
-      prev_char <- substring(str, pos - 1, pos - 1)
-      if (prev_char %in% c("=", "!", "<", ">", "~")) {
-        next
-      }
+  for (i in seq(n, 1L)) {
+    if (str_chars[i] %in% chars) {
+      return(i)
     }
-
-    # Check character after
-    if (pos < nchar(str)) {
-      next_char <- substring(str, pos + 1, pos + 1)
-      if (next_char == "=") {
-        next
-      }
-    }
-
-    return(pos)
   }
-
   return(NULL)
 }
 
-#' Split version and build by trailing space
-#'
-#' @param str The string to split
-#' @returns list(version=..., build=...)
-#' @keywords internal
-#' @noRd
-.split_by_trailing_space <- function(str) {
-  # Find the last space
-  last_space <- .find_last_space_before_build(str)
-
-  if (!rlang::is_null(last_space)) {
-    version <- trimws(substring(str, 1, last_space - 1))
-    build <- trimws(substring(str, last_space + 1))
-
-    # Check if potential build contains version operators
-    # If it does, it's part of the version, not a build
-    if (grepl("[<>!=]", build)) {
-      return(list(version = str, build = NULL))
-    }
-
-    return(list(version = version, build = build))
-  }
-
-  return(list(version = str, build = NULL))
-}
-
-#' Find the last space that separates version from build
-#'
-#' @param str The string to search
-#' @returns Position of the space or NULL
-#' @keywords internal
-#' @noRd
-.find_last_space_before_build <- function(str) {
-  # Find all space positions
-  space_positions <- gregexpr(" ", str, fixed = TRUE)[[1]]
-
-  if (identical(space_positions[1], -1L)) {
-    return(NULL)
-  }
-
-  # Return the last space position
-  return(space_positions[length(space_positions)])
-}
-
-#' Calculate Version Min and Max
-#'
-#' Extracts the minimum and maximum version bounds from a version string.
-#'
-#' @param version_str The version string
-#' @returns list(min=..., max=...)
-#' @keywords internal
-#' @noRd
-.calculate_version_bounds <- function(version_str) {
-  min_ver <- NULL
-  max_ver <- NULL
-
-  if (rlang::is_null(version_str) || identical(version_str, "")) {
-    return(list(min = NULL, max = NULL))
-  }
-
-  # Handle free version spec
-  if (version_str == "*" || version_str == "=*") {
-    return(list(min = NULL, max = NULL))
-  }
-
-  # Check if this is an OR expression (|) - these don't have simple bounds
-  if (grepl("\\|", version_str)) {
-    return(list(min = NULL, max = NULL))
-  }
-
-  # Split version string into individual clauses
-  # Need to handle cases like ">=1.8,<2" (comma-separated) and ">=1.8<2" (not separated)
-  clauses <- .split_version_clauses(version_str)
-
-  for (clause in clauses) {
-    clause <- trimws(clause)
-    if (identical(clause, "")) {
-      next
-    }
-
-    # Parse operator and version from clause
-    parsed <- .parse_version_clause(clause)
-    op <- parsed$operator
-    ver <- parsed$version
-
-    if (rlang::is_null(ver) || identical(ver, "") || identical(ver, "*")) {
-      next
-    }
-
-    if (!rlang::is_null(op)) {
-      if (op %in% c(">=", ">")) {
-        # Min bound
-        if (rlang::is_null(min_ver) || ver > min_ver) {
-          min_ver <- ver
-        }
-      } else if (op %in% c("<=", "<")) {
-        # Max bound
-        if (rlang::is_null(max_ver) || ver < max_ver) {
-          max_ver <- ver
-        }
-      } else if (op %in% c("==", "=")) {
-        # Exact match - set both min and max
-        # Remove trailing "*" for exact matches like "=1.8*"
-        clean_ver <- sub("\\*$", "", ver)
-        if (grepl("\\*", clause) || grepl("\\*", ver)) {
-          # Fuzzy match with glob - only set min
-          min_ver <- clean_ver
-        } else {
-          min_ver <- clean_ver
-          max_ver <- clean_ver
-        }
-        break
-      }
-    } else {
-      # No operator - could be exact version or glob
-      clean_ver <- sub("\\*$", "", ver)
-      if (grepl("\\*", clause)) {
-        # Glob - only min bound
-        if (!identical(clean_ver, "")) {
-          min_ver <- clean_ver
-        }
-      } else {
-        # Exact version
-        min_ver <- ver
-        max_ver <- ver
-        break
-      }
-    }
-  }
-
-  list(min = min_ver, max = max_ver)
-}
-
-#' Split version string into individual clauses
-#'
-#' Handles both comma-separated (>=1.8,<2) and non-separated (>=1.8<2) formats.
-#'
-#' @param version_str The version string
-#' @returns Character vector of clauses
-#' @keywords internal
-#' @noRd
-.split_version_clauses <- function(version_str) {
-  # First try comma separation
-  if (grepl(",", version_str, fixed = TRUE)) {
-    return(strsplit(version_str, ",", fixed = TRUE)[[1]])
-  }
-
-  # Split by operators (keeping the operator with the following version)
-  # Pattern matches operator followed by version
-  # e.g., ">=1.8<2" -> [">=1.8", "<2"]
-  pattern <- "(?=>=|<=|==|!=|~=|(?<!>)(?<!<)(?<!!)(?<!~)(?<!=)>|(?<!>)(?<!<)(?<!!)(?<!~)(?<!=)<)"
-
-  # Simpler approach: find all operator+version pairs
-  op_pattern <- "(>=|<=|==|!=|~=|>(?!=)|<(?!=)|=(?!=))([^<>=!]+)"
-  matches <- gregexpr(op_pattern, version_str, perl = TRUE)
-
-  if (matches[[1]][1] == -1) {
-    # No operators found, return as-is
-    return(version_str)
-  }
-
-  # Extract all matches
-  result <- regmatches(version_str, matches)[[1]]
-
-  # If no result but there's content, check if it's a bare version
-  if (length(result) == 0) {
-    return(version_str)
-  }
-
-  return(result)
-}
-
-#' Parse a single version clause
-#'
-#' Extracts operator and version from a clause like ">=1.8", "<2", "1.8*"
-#'
-#' @param clause The version clause
-#' @returns list(operator=..., version=...)
-#' @keywords internal
-#' @noRd
-.parse_version_clause <- function(clause) {
-  clause <- trimws(clause)
-
-  # Match operators: >=, <=, ==, !=, ~=, >, <, =
-  op_pattern <- "^(>=|<=|==|!=|~=|>|<|=)"
-  match <- regexpr(op_pattern, clause, perl = TRUE)
-
-  if (match > 0) {
-    op_len <- attr(match, "match.length")
-    op <- substring(clause, 1, op_len)
-    ver <- trimws(substring(clause, op_len + 1))
-    return(list(operator = op, version = ver))
-  }
-
-  # No operator
-  return(list(operator = NULL, version = clause))
-}
 
 # =============================================================================
-# New functions
+# Internal: Version normalization
 # =============================================================================
 
-#' Convert String and Glob to Regular Expression
+#' Normalize version string to match libmamba VersionSpec representation
 #'
-#' Convert attribute string to regex if the string begins with ^ and ends
-#' with $, it is converted to a regex.
-#' If the string contains an asterisk (*), it is transformed from a glob to a
-#' regex.
-#' Otherwise, an exact match to the string is sought.
+#' CEP 29 semantics:
+#' - Space-separated bare version is exact: `"1.8"` -> `"==1.8"`
+#' - `"="` prefix is fuzzy: `"=1.8"` stays `"=1.8"`
+#' - `"=="` prefix is exact: `"==1.8"` stays `"==1.8"`
+#' - Trailing `".*"` on fuzzy versions is stripped: `"=1.8.*"` -> `"=1.8"`
+#' - Trailing `"*"` with no dot: `"1.8*"` -> `"=1.8"` (fuzzy)
+#' - `"*"` alone is free: `"=*"`
 #'
-#' @param attribute_string The attribute string.
-#' @returns A regex pattern string.
-#' @keywords internal
 #' @noRd
-string_glob_to_regex <- function(attribute_string) {
-  if (grepl("^\\^.*\\$$", attribute_string)) {
-    # Already a regex
-    return(attribute_string)
-  } else if (grepl("*", attribute_string, fixed = TRUE)) {
-    # Convert glob to regex
-    regex_pattern <- gsub(
-      pattern = "*",
-      replacement = ".*",
-      x = attribute_string,
-      fixed = TRUE
-    )
-    regex_pattern <- paste0("^", regex_pattern, "$")
-    return(regex_pattern)
-  } else {
-    # Exact match
-    regex_pattern <- paste0(
-      "^",
-      gsub(
-        "([\\.\\+\\?\\^\\$\\(\\)\\[\\]\\{\\}\\|\\\\])",
-        "\\\\\\1",
-        attribute_string
+.ms_normalize_version <- function(version) {
+  if (is.null(version) || identical(trimws(version), "")) {
+    return("=*")
+  }
+
+  ver <- trimws(version)
+
+  # Free version
+  if (identical(ver, "*") || identical(ver, "=*")) {
+    return("=*")
+  }
+
+  # Compound expression: contains comma or pipe
+  # Must be handled before simple atom rules
+  if (grepl("[,|]", ver)) {
+    return(.ms_normalize_compound_version(ver))
+  }
+
+  # Strip trailing .* from fuzzy versions: "=1.8.*" -> "=1.8"
+  if (grepl("^=([^=])", ver) && grepl("\\.\\*$", ver)) {
+    ver <- sub("\\.\\*$", "", ver)
+    return(ver)
+  }
+
+  # Handle trailing * without dot on fuzzy: "=1.8*" -> "=1.8"
+  if (grepl("^=([^=]).*[^.]\\*$", ver)) {
+    ver <- sub("\\*$", "", ver)
+    return(ver)
+  }
+
+  # Handle bare version with trailing .*: "1.8.*" -> "=1.8" (fuzzy)
+  if (!grepl("^[<>=!~]", ver) && grepl("\\.\\*$", ver)) {
+    ver <- sub("\\.\\*$", "", ver)
+    return(paste0("=", ver))
+  }
+
+  # Handle bare version with trailing *: "1.8*" -> "=1.8" (fuzzy)
+  if (!grepl("^[<>=!~]", ver) && grepl("\\*$", ver) && !identical(ver, "*")) {
+    ver <- sub("\\*$", "", ver)
+    # Remove trailing dot if present
+    ver <- sub("\\.$", "", ver)
+    return(paste0("=", ver))
+  }
+
+  # Bare version literal without any operator -> exact match
+  if (!grepl("^[<>=!~,|()]", ver) && !grepl("\\*", ver)) {
+    return(paste0("==", ver))
+  }
+
+  return(ver)
+}
+
+
+#' Normalize a compound version expression (contains , or |)
+#'
+#' Splits by comma (AND), then by pipe (OR) within each group.
+#' Bare version atoms get == prefix. Pipe groups get parenthesized
+#' when there are multiple AND groups.
+#'
+#' @noRd
+.ms_normalize_compound_version <- function(ver) {
+  # Split by comma (top-level AND)
+  and_groups <- strsplit(ver, ",")[[1]]
+  n_and <- length(and_groups)
+
+  normalized_groups <- vapply(
+    and_groups,
+    function(group) {
+      group <- trimws(group)
+
+      # Split by pipe (OR within group)
+      or_atoms <- strsplit(group, "\\|")[[1]]
+      or_atoms <- trimws(or_atoms)
+
+      # Normalize each atom
+      normalized_atoms <- vapply(
+        or_atoms,
+        function(atom) {
+          .ms_normalize_version_atom(atom)
+        },
+        character(1L),
+        USE.NAMES = FALSE
+      )
+
+      or_result <- paste(normalized_atoms, collapse = "|")
+
+      # Parenthesize if this OR group is part of a multi-AND expression
+      if (n_and > 1L && length(or_atoms) > 1L) {
+        or_result <- paste0("(", or_result, ")")
+      }
+
+      or_result
+    },
+    character(1L),
+    USE.NAMES = FALSE
+  )
+
+  paste(normalized_groups, collapse = ",")
+}
+
+
+#' Normalize a single version atom (no comma or pipe)
+#' @noRd
+.ms_normalize_version_atom <- function(atom) {
+  atom <- trimws(atom)
+
+  if (identical(atom, "") || identical(atom, "*")) {
+    return("=*")
+  }
+
+  # Already has operator prefix -> return as-is
+  if (grepl("^[<>=!~]", atom)) {
+    # Strip trailing .* for fuzzy
+    if (grepl("^=([^=])", atom) && grepl("\\.\\*$", atom)) {
+      return(sub("\\.\\*$", "", atom))
+    }
+    return(atom)
+  }
+
+  # Bare version with trailing .*: "1.8.*" -> "=1.8"
+  if (grepl("\\.\\*$", atom)) {
+    return(paste0("=", sub("\\.\\*$", "", atom)))
+  }
+
+  # Bare version with trailing *: "1.8*" -> "=1.8"
+  if (grepl("\\*$", atom)) {
+    cleaned <- sub("\\*$", "", atom)
+    cleaned <- sub("\\.$", "", cleaned)
+    return(paste0("=", cleaned))
+  }
+
+  # Bare version literal -> exact match
+  return(paste0("==", atom))
+}
+
+
+#' Normalize build string
+#' @noRd
+.ms_normalize_build <- function(build) {
+  if (is.null(build) || identical(trimws(build), "")) {
+    return("*")
+  }
+  return(trimws(build))
+}
+
+
+# =============================================================================
+# Internal: URL parsing
+# =============================================================================
+
+#' Parse a URL-style MatchSpec (archive URL)
+#' @noRd
+.ms_parse_url <- function(url) {
+  # Extract filename from URL
+  parts <- strsplit(url, "/")[[1]]
+  filename <- parts[length(parts)]
+
+  # Strip archive extension
+  pkg_str <- sub("\\.(tar\\.bz2|conda)$", "", filename)
+
+  # Split by '-' from right: name-version-build
+  last_dash <- .ms_find_last_of(pkg_str, "-")
+  if (is.null(last_dash)) {
+    cli::cli_abort(
+      message = c(
+        `x` = "Invalid archive URL: cannot parse filename."
       ),
-      "$"
+      class = "condathis_parse_match_spec_invalid_url"
     )
-    return(regex_pattern)
   }
+  build_str <- substring(pkg_str, last_dash + 1L)
+  rest <- substring(pkg_str, 1L, last_dash - 1L)
+
+  second_last_dash <- .ms_find_last_of(rest, "-")
+  if (is.null(second_last_dash)) {
+    cli::cli_abort(
+      message = c(
+        `x` = "Invalid archive URL: cannot parse name and version."
+      ),
+      class = "condathis_parse_match_spec_invalid_url"
+    )
+  }
+  ver_str <- substring(rest, second_last_dash + 1L)
+  name_str <- substring(rest, 1L, second_last_dash - 1L)
+
+  # Parse channel from the URL prefix
+  ch <- .ms_parse_channel(url)
+
+  .ms_make_result(
+    name = name_str,
+    name_space = "",
+    channel_location = ch$location,
+    channel_platform_filters = ch$platform_filters,
+    version = paste0("==", ver_str),
+    build_string = build_str,
+    extra_platforms = NULL,
+    extra = list()
+  )
 }
