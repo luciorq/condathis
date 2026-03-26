@@ -546,7 +546,8 @@ ms_ver_compatible_with <- function(v, ref) {
 #' Parse a VersionSpec string into an expression tree (AST)
 #'
 #' Handles compound expressions with `,` (AND), `|` (OR), and parentheses.
-#' AND has higher precedence than OR.
+#' OR (`|`) has higher precedence (binds tighter) than AND (`,`),
+#' matching libmamba's `InfixParser` with `std::less<BoolOperator>`.
 #'
 #' The AST uses list nodes:
 #' - `list(type = "and", children = list(...))`
@@ -579,7 +580,7 @@ ms_parse_spec_expr <- function(spec_str) {
   env$tokens <- tokens
   env$pos <- 1L
 
-  result <- ms_parse_or_expr(env)
+  result <- ms_parse_and_expr(env)
   result
 }
 
@@ -640,35 +641,7 @@ ms_tokenize_spec <- function(str) {
 }
 
 
-#' Parse an OR expression (lowest precedence)
-#'
-#' @param env An environment with `tokens` and `pos`.
-#' @returns An AST node.
-#'
-#' @keywords internal
-#' @noRd
-ms_parse_or_expr <- function(env) {
-  left <- ms_parse_and_expr(env)
-
-  children <- list(left)
-  while (
-    isTRUE(env$pos <= length(env$tokens)) &&
-      identical(env$tokens[env$pos], "|")
-  ) {
-    env$pos <- env$pos + 1L
-    right <- ms_parse_and_expr(env)
-    children <- c(children, list(right))
-  }
-
-  if (identical(length(children), 1L)) {
-    return(children[[1L]])
-  }
-
-  list(type = "or", children = children)
-}
-
-
-#' Parse an AND expression (higher precedence than OR)
+#' Parse an AND expression (lowest precedence, parsed at top level)
 #'
 #' @param env An environment with `tokens` and `pos`.
 #' @returns An AST node.
@@ -676,12 +649,40 @@ ms_parse_or_expr <- function(env) {
 #' @keywords internal
 #' @noRd
 ms_parse_and_expr <- function(env) {
-  left <- ms_parse_primary_expr(env)
+  left <- ms_parse_or_expr(env)
 
   children <- list(left)
   while (
     isTRUE(env$pos <= length(env$tokens)) &&
       identical(env$tokens[env$pos], ",")
+  ) {
+    env$pos <- env$pos + 1L
+    right <- ms_parse_or_expr(env)
+    children <- c(children, list(right))
+  }
+
+  if (identical(length(children), 1L)) {
+    return(children[[1L]])
+  }
+
+  list(type = "and", children = children)
+}
+
+
+#' Parse an OR expression (higher precedence than AND)
+#'
+#' @param env An environment with `tokens` and `pos`.
+#' @returns An AST node.
+#'
+#' @keywords internal
+#' @noRd
+ms_parse_or_expr <- function(env) {
+  left <- ms_parse_primary_expr(env)
+
+  children <- list(left)
+  while (
+    isTRUE(env$pos <= length(env$tokens)) &&
+      identical(env$tokens[env$pos], "|")
   ) {
     env$pos <- env$pos + 1L
     right <- ms_parse_primary_expr(env)
@@ -692,7 +693,7 @@ ms_parse_and_expr <- function(env) {
     return(children[[1L]])
   }
 
-  list(type = "and", children = children)
+  list(type = "or", children = children)
 }
 
 
@@ -713,7 +714,7 @@ ms_parse_primary_expr <- function(env) {
 
   if (identical(tok, "(")) {
     env$pos <- env$pos + 1L
-    node <- ms_parse_or_expr(env)
+    node <- ms_parse_and_expr(env)
     # Consume closing paren
     if (
       isTRUE(env$pos <= length(env$tokens)) &&

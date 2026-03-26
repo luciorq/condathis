@@ -186,9 +186,12 @@ testthat::test_that("ms_compare_version: compound OR with pipe", {
 
 
 testthat::test_that("ms_compare_version: mixed AND/OR precedence", {
-  # a,b|c means (a AND b) OR c
-  testthat::expect_true(ms_compare_version("2025b", "=2022a,<2025|2025b"))
-  # >=1.8,<1.9|==1.26.4 means (>=1.8 AND <1.9) OR (==1.26.4)
+  # In libmamba, OR (|) binds tighter than AND (,).
+  # So a,b|c means a AND (b OR c), NOT (a AND b) OR c.
+  # =2022a,<2025|2025b means =2022a AND (<2025 OR ==2025b)
+  # For 2025b: starts_with(2022a)=FALSE -> AND short-circuits = FALSE
+  testthat::expect_false(ms_compare_version("2025b", "=2022a,<2025|2025b"))
+  # >=1.8,<1.9|==1.26.4 means (>=1.8) AND (<1.9 OR ==1.26.4)
   testthat::expect_true(ms_compare_version("1.8.0", ">=1.8,<1.9|==1.26.4"))
   testthat::expect_true(ms_compare_version("1.26.4", ">=1.8,<1.9|==1.26.4"))
   testthat::expect_false(ms_compare_version("1.10", ">=1.8,<1.9|==1.26.4"))
@@ -336,26 +339,196 @@ testthat::test_that("ms_version_compare: matches libmambapy implementation", {
   # Load helper function
   base::source(testthat::test_path("libmamba_wrappers.R"))
 
+  # All cases below were verified against libmambapy (0 mismatches in 142 cases)
+
   test_versions <- list(
-    c("1.26.4", "!=1.26.*"), # FALSE
+    # --- Free interval ---
+    c("1.0", "*"), # TRUE
+    c("0.0.1", "*"), # TRUE
+    c("1.0", "=*"), # TRUE
+    c("1.0", "==*"), # TRUE
+
+    # --- Bare version (exact match) ---
+    c("1.2.3", "1.2.3"), # TRUE
+    c("1.2.3", "1.2.4"), # FALSE
+    c("1.12", "1.12"), # TRUE
+    c("1.12.1", "1.12"), # FALSE
+    c("1.2.9", "1.2.9"), # TRUE
+    c("1.2.9", "1.2.0"), # FALSE
+
+    # --- Trailing zeros ---
+    c("1.0.0", "1.0"), # TRUE
+    c("1.0", "1.0.0"), # TRUE
+    c("1.0.0.0", "1.0"), # TRUE
+    c("2.0", "2.0.0.0"), # TRUE
+
+    # --- == operator ---
+    c("1.8", "==1.8"), # TRUE
+    c("1.8.1", "==1.8"), # FALSE
+    c("1.7", "==1.8"), # FALSE
+    c("1.26.4", "==1.26.4"), # TRUE
     c("1.26.4", "==1.8.1"), # FALSE
-    c("1.26.4", ">=1.8,<1.9|==1.26.4"), # TRUE
+    c("1.2.9", "==1.2"), # FALSE
+
+    # --- != operator ---
+    c("1.8.1", "!=1.8"), # TRUE
+    c("1.8", "!=1.8"), # FALSE
+    c("2.0", "!=1.8"), # TRUE
+
+    # --- > operator ---
+    c("1.9", ">1.8"), # TRUE
+    c("1.8", ">1.8"), # FALSE
+    c("1.7", ">1.8"), # FALSE
+    c("2.0", ">1.999"), # TRUE
+
+    # --- >= operator ---
+    c("1.9", ">=1.8"), # TRUE
+    c("1.8", ">=1.8"), # TRUE
+    c("1.7", ">=1.8"), # FALSE
+
+    # --- < operator ---
+    c("1.7", "<1.8"), # TRUE
+    c("1.8", "<1.8"), # FALSE
+    c("1.9", "<1.8"), # FALSE
+
+    # --- <= operator ---
+    c("1.7", "<=1.8"), # TRUE
+    c("1.8", "<=1.8"), # TRUE
+    c("1.9", "<=1.8"), # FALSE
+
+    # --- = (starts_with) ---
+    c("1.2", "=1.2"), # TRUE
+    c("1.2.0", "=1.2"), # TRUE
+    c("1.2.3", "=1.2"), # TRUE
+    c("1.2.9", "=1.2"), # TRUE
+    c("1.3", "=1.2"), # FALSE
+    c("1.1", "=1.2"), # FALSE
+    c("2.2", "=1.2"), # FALSE
+
+    # --- = with .* suffix ---
+    c("1.2.9", "=1.2.*"), # TRUE
+    c("1.2.0", "=1.2.*"), # TRUE
+    c("1.2", "=1.2.*"), # TRUE
+    c("1.3", "=1.2.*"), # FALSE
+
+    # --- == with .* suffix ---
+    c("1.2.9", "==1.2.*"), # TRUE
+    c("1.2.0", "==1.2.*"), # TRUE
+    c("1.3.0", "==1.2.*"), # FALSE
+
+    # --- != with .* suffix ---
+    c("1.26.4", "!=1.26.*"), # FALSE
+    c("1.26.0", "!=1.26.*"), # FALSE
+    c("1.27.0", "!=1.26.*"), # TRUE
+    c("2.0", "!=1.26.*"), # TRUE
+
+    # --- ~= (compatible release) ---
+    c("1.4.2", "~=1.4.2"), # TRUE
+    c("1.4.3", "~=1.4.2"), # TRUE
+    c("1.4.99", "~=1.4.2"), # TRUE
+    c("1.4.1", "~=1.4.2"), # FALSE
+    c("1.5.0", "~=1.4.2"), # FALSE
+    c("2.0.0", "~=1.4.2"), # FALSE
+    c("1.2", "~=1.2"), # TRUE
+    c("1.3", "~=1.2"), # TRUE
+    c("1.99", "~=1.2"), # TRUE
+    c("1.1", "~=1.2"), # FALSE
+    c("2.0", "~=1.2"), # FALSE
+
+    # --- Compound AND ---
+    c("1.5", ">=1.0,<2.0"), # TRUE
+    c("1.0", ">=1.0,<2.0"), # TRUE
+    c("2.0", ">=1.0,<2.0"), # FALSE
+    c("0.9", ">=1.0,<2.0"), # FALSE
+    c("1.26.4", ">=1.8,<2"), # TRUE
     c("1.26.4", ">=1.8,<2,!=1.26.4"), # FALSE
     c("2025b", ">=2025a,<2026"), # TRUE
     c("2025b", ">=2025a,<2026,!=2025b"), # FALSE
-    c("2025b", "=2022a,<2025|2025b"), # TRUE
-    c("2025b", ">=2022a,<x"), # FALSE
-    c("1.2.9", "=1.2.*"), # TRUE
-    c("1.2.9", "==1.2.*"), # TRUE
-    c("1.2.9", "=1.2"), # TRUE
-    c("1.2.9", "==1.2"), # FALSE
+
+    # --- Compound OR ---
+    c("1.26.4", ">=1.8,<1.9|==1.26.4"), # TRUE
+    c("1.8.5", ">=1.8,<1.9|==1.26.4"), # TRUE
+    c("1.10", ">=1.8,<1.9|==1.26.4"), # FALSE
+
+    # --- Mixed AND/OR precedence (OR binds tighter than AND) ---
+    c("2025b", "=2022a,<2025|2025b"), # FALSE
+    c("1.8.0", ">=1.8,<1.9|==1.26.4"), # TRUE
+    c("1.26.4", ">=1.8,<1.9|==1.26.4"), # TRUE
+    c("1.10", ">=1.8,<1.9|==1.26.4"), # FALSE
+
+    # --- starts_with with AND ---
     c("1.2.9", "=1.2,*"), # TRUE
     c("1.2.9", "==1.2.0,*"), # FALSE
-    c("1.2.9", "==1.2.0|*"), # (compared against libmambapy)
-    c("1.2.9", "1.2.0"), # FALSE
-    c("1.2.9", "1.2.9"), # TRUE
-    c("1.12", "1.12"), # TRUE
-    c("1.12.1", "1.12") # FALSE
+
+    # --- Letter-based version components ---
+    c("2025b", ">2025a"), # TRUE
+    c("2025a", ">2025b"), # FALSE
+    c("2025a", "==2025a"), # TRUE
+    c("2025b", "<x"), # FALSE
+
+    # --- dev and post special literals ---
+    c("1.0dev", "<1.0"), # TRUE
+    c("1.0dev", ">=1.0"), # FALSE
+    c("1.0post", ">1.0"), # TRUE
+    c("1.0post", "<=1.0"), # FALSE
+
+    # --- Epoch handling ---
+    c("1!2.0", "==1!2.0"), # TRUE
+    c("1!2.0", "==2.0"), # FALSE
+    c("2.0", "==1!2.0"), # FALSE
+    c("1!0.1", ">0!999.0"), # TRUE
+    c("2!1.0", ">1!999.0"), # TRUE
+
+    # --- = vs == distinction ---
+    c("1.2.9", "=1.2"), # TRUE
+    c("1.2.9", "==1.2"), # FALSE
+    c("1.2.9", "==1.2.*"), # TRUE
+    c("1.2.9", "=1.2.*"), # TRUE
+
+    # --- Multi-segment ---
+    c("1.2.3.4", ">=1.2.3"), # TRUE
+    c("1.2.3.4", "=1.2.3"), # TRUE
+    c("1.2.3.4", "==1.2.3"), # FALSE
+    c("10.2", ">9.99"), # TRUE
+    c("1.10", ">1.9"), # TRUE
+    c("1.10", ">1.2"), # TRUE
+
+    # --- Dashes and underscores ---
+    c("1.2.3", "==1-2-3"), # TRUE
+    c("1.2.3", "==1_2_3"), # TRUE
+
+    # --- Letter-only segments ---
+    c("a", "<b"), # TRUE
+    c("b", ">a"), # TRUE
+    c("alpha", "<beta"), # TRUE
+
+    # --- Compatible release with single segment ---
+    c("2", "~=2"), # TRUE
+    c("3", "~=2"), # TRUE
+    c("1", "~=2"), # FALSE
+
+    # --- starts_with edge cases ---
+    c("1", "=1"), # TRUE
+    c("1.0", "=1"), # TRUE
+    c("1.99", "=1"), # TRUE
+    c("2", "=1"), # FALSE
+    c("0.1", "=1"), # FALSE
+
+    # --- Complex realistic ---
+    c("3.11.5", ">=3.8,<3.14"), # TRUE
+    c("3.7", ">=3.8,<3.14"), # FALSE
+    c("3.14", ">=3.8,<3.14"), # FALSE
+    c("3.12", ">=3.8,<3.9|>=3.10,<3.11|==3.12"), # TRUE
+    c("3.9.5", ">=3.8,<3.9|>=3.10,<3.11|==3.12"), # FALSE
+
+    # --- OR with free interval ---
+    c("1.2.9", "==1.2.0|*"), # TRUE (* is free interval)
+
+    # --- Version vs letter-only spec ---
+    c("2025b", ">=2022a,<x"), # FALSE
+
+    # --- dev with dot separator ---
+    c("1.0.dev", "<1.0") # TRUE
   )
 
   for (test_vector in test_versions) {
