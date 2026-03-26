@@ -456,6 +456,11 @@ testthat::test_that("ms_version_compare: matches libmambapy implementation", {
     c("1.26.4", ">=1.8,<1.9|==1.26.4"), # TRUE
     c("1.10", ">=1.8,<1.9|==1.26.4"), # FALSE
 
+    c("2025b", ">2022a,<2025|2025b"), # TRUE
+    c("2025b", "(>2022a,<2025)|2025b"), # TRUE
+    c("2025b", "=2022a,<2025|2025b"), # FALSE
+    c("2025b", "~=2022a,<2025|2025b"), # TRUE
+
     # --- starts_with with AND ---
     c("1.2.9", "=1.2,*"), # TRUE
     c("1.2.9", "==1.2.0,*"), # FALSE

@@ -11,6 +11,8 @@ Development Changelog: [dev](https://github.com/luciorq/condathis/compare/v0.1.3
 
 * New `parse_match_spec()` function to parse Conda MatchSpec strings, following CEP29.
 
+* New `ms_version_compare()` function to Compare Conda VersionSpec strings, following CEP33.
+
 ### Changed
 
 * Internal `micromamba` version bump to "2.5.0-2".
