@@ -102,7 +102,7 @@ run_bin <- function(
     action = "prefix"
   )
   args_vector <- c(...)
-  if (isTRUE(is.null(args_vector))) {
+  if (isTRUE(rlang::is_null(args_vector))) {
     args_vector <- character(length = 0L)
   }
   px_res <- rethrow_error_run(

@@ -30,7 +30,7 @@ rethrow_error_run <- function(expr, env = parent.frame()) {
     }
   }
 
-  if (isFALSE(is.null(err_cnd)) && !isFALSE(env[["error_var"]])) {
+  if (isFALSE(rlang::is_null(err_cnd)) && !isFALSE(env[["error_var"]])) {
     additional_lines <- NULL
     if (isTRUE("stderr" %in% names(err_cnd))) {
       err_vector <- stringr::str_replace_all(
@@ -70,17 +70,17 @@ rethrow_error_run <- function(expr, env = parent.frame()) {
   }
 
   if (isFALSE(exists("px_res"))) {
-    if (isTRUE(is.null(err_cnd[["status"]]))) {
+    if (isTRUE(rlang::is_null(err_cnd[["status"]]))) {
       status_code <- 127L
     } else {
       status_code <- err_cnd[["status"]]
     }
 
     if (
-      isFALSE(is.null(err_cnd[["message"]])) &&
+      isFALSE(rlang::is_null(err_cnd[["message"]])) &&
         isTRUE(stringr::str_detect(err_cnd[["message"]], "Native call to"))
     ) {
-      if (isFALSE(is.null(env[["cmd"]]))) {
+      if (isFALSE(rlang::is_null(env[["cmd"]]))) {
         cmd_str <- env[["cmd"]]
       }
       stderr_msg <- paste("System command", cmd_str, "not found", sep = " ")

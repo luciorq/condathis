@@ -341,8 +341,9 @@ testthat::test_that("parse_match_spec: all values are character strings", {
 
 testthat::test_that("parse_match_spec: channel/subdir with bracket subdir override", {
   res <- parse_match_spec("conda-forge/linux-64::numpy[subdir=osx-64]")
-  testthat::expect_equal(res$channel_location, "conda-forge")
+
   # The slash-style subdir sets initial filters, bracket subdir does not
+  testthat::expect_equal(res$channel_location, "conda-forge")
 
   # override when filters already exist
   testthat::expect_equal(res$channel_platform_filters, "{'linux-64'}")
@@ -364,58 +365,8 @@ testthat::test_that("parse_match_spec matches libmambapy implementation", {
   testthat::skip_on_cran()
   testthat::skip_on_ci()
 
-  # Ensure the test environment exists
-  condathis::create_env(
-    packages = "conda-forge::libmambapy>=2.5.0",
-    env_name = "libmambapy-test-env",
-    verbose = "silent"
-  )
-
-  # Fixed Python helper: safely handles ms.channel being None
-  parse_match_spec_py <- function(
-    package_string,
-    env_name = "libmambapy-test-env",
-    verbose = "silent"
-  ) {
-    py_code <- paste0(
-      "from libmambapy.specs import MatchSpec as msp; ",
-      "ms=msp.parse('",
-      package_string,
-      "'); ",
-      "print(str(ms)); ",
-      "print(str(ms.name)); ",
-      "print(str(ms.name_space)); ",
-      "ch=ms.channel; ",
-      "print('None' if ch is None else str(ch)); ",
-      "print('None' if ch is None else str(ch.location)); ",
-      "print('None' if ch is None else str(ch.platform_filters)); ",
-      "print(str(ms.version)); ",
-      "print(str(ms.build_string)); ",
-      "print(str(ms.platforms)); ",
-      "print(str(ms.track_features))"
-    )
-
-    run_res <- condathis::run(
-      "python",
-      "-c",
-      py_code,
-      env_name = env_name,
-      verbose = verbose
-    )
-    output_lines <- condathis::parse_output(run_res, stream = "stdout")
-    return(list(
-      formatted_spec = output_lines[1],
-      name = output_lines[2],
-      name_space = output_lines[3],
-      channel = output_lines[4],
-      channel_location = output_lines[5],
-      channel_platform_filters = output_lines[6],
-      version = output_lines[7],
-      build_string = output_lines[8],
-      platforms = output_lines[9],
-      track_features = output_lines[10]
-    ))
-  }
+  # Load helper function
+  base::source(testthat::test_path("libmamba_wrappers.R"))
 
   test_specs <- c(
     "numpy",
@@ -440,15 +391,16 @@ testthat::test_that("parse_match_spec matches libmambapy implementation", {
     "numpy!=1.8",
     "numpy~=1.8",
     "numpy>1.8",
-    "numpy<2.0"
+    "numpy<2.0",
+    "conda-forge/linux-64::numpy[subdir=osx-64]"
   )
 
   for (spec_str in test_specs) {
-    res_r <- parse_match_spec(spec_str)
-    res_py <- parse_match_spec_py(spec_str)
+    ms_rstats <- parse_match_spec(spec_str)
+    ms_py <- parse_match_spec_py(spec_str)
     testthat::expect_equal(
-      res_r,
-      res_py,
+      ms_rstats,
+      ms_py,
       info = paste0("Spec: '", spec_str, "'")
     )
   }

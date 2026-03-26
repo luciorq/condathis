@@ -74,7 +74,7 @@ github_org := 'luciorq'
 @test-file file_name:
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
-  R -q -s -e 'devtools::load_all();devtools::test_active_file("tests/testthat/tests-{{ file_name }}.R")';
+  R -q -s -e 'devtools::load_all();devtools::test_active_file("tests/testthat/test-{{ file_name }}.R")';
 
 # Run R CMD Check on the Package With Cran Like Checks
 @check: test test-all-examples build-readme

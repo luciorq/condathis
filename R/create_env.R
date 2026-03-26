@@ -163,6 +163,10 @@ create_env <- function(
     packages_arg <- packages
   }
 
+  # TODO: @luciorq Implement proper type check for `packages` argument,
+  # + as they can contain file paths.
+  # + Base R paths are simple strings `"character"`,
+  # + but `fs` paths are of class `c("fs_path", "character")`.
   # if (isFALSE(rlang::is_null(packages))) {
   #   if (rlang::is_character(packages)) {
   #     packages_arg <- packages
@@ -213,7 +217,10 @@ create_env <- function(
       )
 
       # TODO: @luciorq Implement proper parsing of the matchspec string.
-      pkg_present_vector <- vector(mode = "logical", length = length(packages))
+      pkg_present_vector <- vector(
+        mode = "logical",
+        length = length(packages)
+      )
       for (i in seq_along(packages)) {
         pkg_and_channel_str <- stringr::str_remove(
           string = packages[i],
@@ -235,7 +242,7 @@ create_env <- function(
           channel_name_str <- channels
         }
 
-        channel_name_str
+        # channel_name_str
 
         pkg_channel_row <- pkg_list_res[
           pkg_list_res$channel %in%

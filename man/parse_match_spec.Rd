@@ -7,27 +7,28 @@
 parse_match_spec(spec_string)
 }
 \arguments{
-\item{spec_string}{A character string containing the MatchSpec
+\item{spec_string}{A character string containing the \code{MatchSpec} text
 (e.g., \code{"numpy>=1.11"}, \code{"conda-forge::python=3.9"}).}
 }
 \value{
 A named list with 10 character string fields:
-\describe{
-\item{formatted_spec}{Canonical string representation}
-\item{name}{Package name (NameSpec)}
-\item{name_space}{Namespace (empty string if not set)}
-\item{channel}{Channel string or \code{"None"}}
-\item{channel_location}{Channel location or \code{"None"}}
-\item{channel_platform_filters}{Platform filters as Python set string}
-\item{version}{Version specifier (e.g., \code{">=1.8"}, \code{"=*"} for free)}
-\item{build_string}{Build string spec (e.g., \code{"py27_0"}, \code{"*"} for free)}
-\item{platforms}{Platforms as Python set string or \code{"None"}}
-\item{track_features}{Track features as Python set string or \code{"None"}}
+\itemize{
+\item \strong{formatted_spec}: Canonical string representation.
+\item \strong{name}: Package name (\code{NameSpec}).
+\item \strong{name_space}: Namespace (empty string if not set).
+\item \strong{channel}: Channel string or \code{"None"}.
+\item \strong{channel_location}: Channel location or \code{"None"}.
+\item \strong{channel_platform_filters}: Platform filters as Python set string.
+\item \strong{version}: Version specifier (e.g., \code{">=1.8"}, \code{"=*"} for free).
+\item \strong{build_string}: Build string spec (e.g., \code{"py27_0"}, \code{"*"} for free).
+\item \strong{platforms}: Platforms as Python set string or \code{"None"}.
+\item \strong{track_features}: Track features as Python set string or \code{"None"}.
 }
 }
 \description{
 Parses a string representation of a Conda package specification into its
-constituent parts following the CEP 29 MatchSpec query language specification.
+constituent parts following the CEP 29 MatchSpec query language
+specification.
 Output is compatible with \code{libmambapy.specs.MatchSpec}.
 }
 \details{
@@ -37,10 +38,15 @@ for set/optional fields.
 
 This implementation follows:
 \itemize{
-\item CEP 29: \url{https://conda.org/learn/ceps/cep-0029}
-\item libmamba: \url{https://github.com/mamba-org/mamba/blob/main/libmamba/src/specs/match_spec.cpp}
+\item \href{https://conda.org/learn/ceps/cep-0029/}{Conda CEP 29}:
+The \code{MatchSpec} query language.
+\item \href{https://github.com/mamba-org/mamba}{libmamba}:
+at \code{libmamba/src/specs/match_spec.cpp}.
 }
 }
-\seealso{
-\url{https://conda.org/learn/ceps/cep-0029}
+\examples{
+condathis::parse_match_spec("conda-forge::numpy>=1.11")
+condathis::parse_match_spec("bioconda::samtools=1.10[build=1]")
+condathis::parse_match_spec("numpy=1.11.2=*nomkl*")
+
 }

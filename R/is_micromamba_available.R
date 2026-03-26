@@ -3,7 +3,7 @@
 #' @keywords internal
 #' @noRd
 is_micromamba_available_for_arch <- function(sys_arch = NULL) {
-  if (is.null(sys_arch)) {
+  if (rlang::is_null(sys_arch)) {
     sys_arch <- get_sys_arch()
   }
   if (identical(sys_arch, "Linux-x86_64")) {
