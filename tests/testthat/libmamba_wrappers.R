@@ -63,7 +63,7 @@ parse_match_spec_py <- function(
   ))
 }
 
-ms_compare_version_py <- function(
+version_spec_contains_py <- function(
   version_string,
   spec_string,
   env_name = "libmambapy-test-env",

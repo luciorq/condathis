@@ -18,15 +18,15 @@ github_org := 'luciorq'
 @document:
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
-  R -q -e 'devtools::load_all();usethis::use_tidy_description();';
-  R -q -e 'devtools::load_all();devtools::document();';
+  R -q -s -e 'devtools::load_all();usethis::use_tidy_description();';
+  R -q -s -e 'devtools::load_all();devtools::document();';
   \builtin echo "Documentation updated!";
 
 # Lint R Package Code and Documentation
 @lint:
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
-  R -q -e 'devtools::load_all();styler::style_pkg();';
+  R -q -s -e 'devtools::load_all();styler::style_pkg(exclude_dirs = c("packrat", "renv", "revdep"));';
   air format ./R/ || true;
   air format ./tests/ || true;
   find ./R/ -type f -name "*.R" -exec sed -i -e "s|^#' \@return |#' \@returns |g" {} +
@@ -40,8 +40,8 @@ github_org := 'luciorq'
 @test: lint
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
-  R -q -e 'devtools::load_all();devtools::run_examples();';
-  R -q -e 'devtools::load_all();devtools::test();';
+  R -q -s -e 'devtools::load_all();devtools::run_examples();';
+  R -q -s -e 'devtools::load_all();devtools::test();';
   \builtin echo "All tests passed!";
 
 # Build and Lint README File
@@ -52,8 +52,8 @@ github_org := 'luciorq'
   [[ -f ./README.Rmd ]] && cat ./README.Rmd | rumdl check --stdin --disable 'MD046' || true;
   [[ -f ./README.qmd ]] && cat ./README.qmd | rumdl check --stdin --disable 'MD046' || true;
   just install-deps;
-  R -q -e 'pak::local_install(upgrade=TRUE, dependencies=TRUE);';
-  # R -q -e 'devtools::install(pkg = ".", build_vignettes = TRUE, dependencies = c("Imports", "Suggests", "Depends"), upgrade = "always");';
+  R -q -s -e 'pak::local_install(upgrade=TRUE, dependencies=TRUE);';
+  # R -q -s -e 'devtools::install(pkg = ".", build_vignettes = TRUE, dependencies = c("Imports", "Suggests", "Depends"), upgrade = "always");';
   [[ -f ./README.Rmd ]] && R -q -e 'devtools::load_all();if(file.exists("README.Rmd"))rmarkdown::render("README.Rmd", encoding = "UTF-8")' || true;
   [[ -f ./README.qmd ]] && quarto render README.qmd --to gfm || true;
   # Lint Final README.md
@@ -69,7 +69,7 @@ github_org := 'luciorq'
 @test-all-examples: document
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
-  R -q -e 'devtools::load_all();devtools::document();devtools::run_examples(run_dontrun = TRUE, run_donttest = TRUE);';
+  R -q -s -e 'devtools::load_all();devtools::document();devtools::run_examples(run_dontrun = TRUE, run_donttest = TRUE);';
 
 # Run Tests from a Specific Test File
 @test-file file_name:
@@ -81,7 +81,7 @@ github_org := 'luciorq'
 @check: test test-all-examples build-readme
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
-  R -q -e 'rcmdcheck::rcmdcheck(args = c("--as-cran"), repos = c(CRAN = "https://cloud.r-project.org"));';
+  R -q -s -e 'rcmdcheck::rcmdcheck(args = c("--as-cran"), repos = c(CRAN = "https://cloud.r-project.org"));';
 
 # Force GitHub Actions Checks to start for the main branch
 @check-gha-trigger:

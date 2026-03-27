@@ -28,14 +28,14 @@
 #'   `FALSE` otherwise.
 #'
 #' @examples
-#' ms_compare_version("1.26.4", ">=1.8,<2.0")
-#' ms_compare_version("1.2.3", "=1.2")
-#' ms_compare_version("2025b", ">=2025a,<2026")
-#' ms_compare_version("1.0", "~=1.0")
+#' version_spec_contains("1.26.4", ">=1.8,<2.0")
+#' version_spec_contains("1.2.3", "=1.2")
+#' version_spec_contains("2025b", ">=2025a,<2026")
+#' version_spec_contains("1.0", "~=1.0")
 #'
 #' @keywords internal
 #' @noRd
-ms_compare_version <- function(version_string, spec_string) {
+version_spec_contains <- function(version_string, spec_string) {
   if (
     rlang::is_null(version_string) ||
       !is.character(version_string) ||
@@ -45,7 +45,7 @@ ms_compare_version <- function(version_string, spec_string) {
       message = c(
         `x` = "{.arg version_string} must be a single character string."
       ),
-      class = "condathis_ms_compare_version_invalid_input"
+      class = "condathis_version_spec_contains_invalid_input"
     )
   }
   if (
@@ -57,7 +57,7 @@ ms_compare_version <- function(version_string, spec_string) {
       message = c(
         `x` = "{.arg spec_string} must be a single character string."
       ),
-      class = "condathis_ms_compare_version_invalid_input"
+      class = "condathis_version_spec_contains_invalid_input"
     )
   }
 

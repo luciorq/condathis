@@ -38,7 +38,8 @@
 #' condathis::parse_match_spec("bioconda::samtools=1.10[build=1]")
 #' condathis::parse_match_spec("numpy=1.11.2=*nomkl*")
 #'
-#' @export
+#' @keywords internal
+#' @noRd
 parse_match_spec <- function(spec_string) {
   if (
     rlang::is_null(spec_string) ||

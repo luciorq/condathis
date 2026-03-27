@@ -1,6 +1,7 @@
 # condathis <a href="https://luciorq.github.io/condathis/"><img src="man/figures/logo.svg" align="right" height="139" alt="condathis website" /></a>
 
 <!-- badges: start -->
+
 [![r-cmd-check](https://github.com/luciorq/condathis/actions/workflows/r-cmd-check.yaml/badge.svg)](https://github.com/luciorq/condathis/actions/workflows/r-cmd-check.yaml)
 [![CRAN
 status](https://www.r-pkg.org/badges/version/condathis)](https://CRAN.R-project.org/package=condathis)
@@ -123,16 +124,16 @@ Your system’s `curl`:
 
 ``` r
 libcurlVersion()
-#> [1] "8.19.0"
+#> [1] "8.7.1"
 #> attr(,"ssl_version")
-#> [1] "OpenSSL/3.6.1"
+#> [1] "SecureTransport (LibreSSL/3.3.6)"
 #> attr(,"libssh_version")
-#> [1] "libssh2/1.11.1"
+#> [1] ""
 #> attr(,"protocols")
 #>  [1] "dict"    "file"    "ftp"     "ftps"    "gopher"  "gophers" "http"
-#>  [8] "https"   "imap"    "imaps"   "mqtt"    "mqtts"   "pop3"    "pop3s"
-#> [15] "rtsp"    "scp"     "sftp"    "smb"     "smbs"    "smtp"    "smtps"
-#> [22] "telnet"  "tftp"    "ws"      "wss"
+#>  [8] "https"   "imap"    "imaps"   "ldap"    "ldaps"   "mqtt"    "pop3"
+#> [15] "pop3s"   "rtsp"    "smb"     "smbs"    "smtp"    "smtps"   "telnet"
+#> [22] "tftp"
 ```
 
 A specific `curl` version, isolated with `condathis`:
@@ -152,10 +153,10 @@ out <- condathis::run(
 )
 
 message(out$stdout)
-#> curl 8.10.1 (x86_64-conda-linux-gnu) libcurl/8.10.1 OpenSSL/3.6.1 zlib/1.3.2 zstd/1.5.7 libssh2/1.11.1 nghttp2/1.68.1
+#> curl 8.10.1 (aarch64-apple-darwin20.0.0) libcurl/8.10.1 OpenSSL/3.6.1 (SecureTransport) zlib/1.3.2 zstd/1.5.7 libssh2/1.11.1 nghttp2/1.68.1
 #> Release-Date: 2024-09-18
 #> Protocols: dict file ftp ftps gopher gophers http https imap imaps ipfs ipns mqtt pop3 pop3s rtsp scp sftp smb smbs smtp smtps telnet tftp ws wss
-#> Features: alt-svc AsynchDNS GSS-API HSTS HTTP2 HTTPS-proxy IPv6 Kerberos Largefile libz NTLM SPNEGO SSL threadsafe TLS-SRP UnixSockets zstd
+#> Features: alt-svc AsynchDNS GSS-API HSTS HTTP2 HTTPS-proxy IPv6 Kerberos Largefile libz MultiSSL NTLM SPNEGO SSL threadsafe TLS-SRP UnixSockets zstd
 ```
 
 This allows you to run tools with conflicting dependencies side-by-side
