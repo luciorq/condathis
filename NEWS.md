@@ -9,10 +9,6 @@ Development Changelog: [dev](https://github.com/luciorq/condathis/compare/v0.1.3
 * New `channel_priority` argument in `create_env()` and `install_packages()`
   to control channel priority strategy.
 
-* New internal `parse_match_spec()` function to parse Conda MatchSpec strings, following CEP29.
-
-* New internal `version_spec_contains()` function to Compare Conda VersionSpec strings, following CEP33.
-
 ### Changed
 
 * Internal `micromamba` version bump to "2.5.0-2".
@@ -21,12 +17,16 @@ Development Changelog: [dev](https://github.com/luciorq/condathis/compare/v0.1.3
   reported by `tools::R_user_dir(package = "condathis", which = "cache")`.
 
 * Order of `channels` argument changed to have `"conda-forge"` as the first
-  option as for using `channel_priority = "strict"` the order of the channels matters.
+  option as for using `channel_priority = "strict"` the order of the channels
+  matters.
   Note that relying solely on channel order for priority is not recommended.
-  Use explicit syntax like: `bioconda::samtools==X.Y.Z` for better guarantee of reproducibility.
+  Use explicit syntax like: `bioconda::samtools==X.Y.Z` for better guarantee
+  of reproducibility.
 
 * `create_env()` now properly parses MatchSpec version constraints strings to define
-  if environment need to be recreated.
+  if environment need to be recreated using new internal functions
+  `parse_match_spec()` and `version_spec_contains()` to parse Conda MatchSpec
+  and use VersionSpec to compare versions, following CEP29 and CEP33, respectively.
 
 ### Fixed
 

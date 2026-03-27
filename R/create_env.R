@@ -99,8 +99,10 @@ create_env <- function(
   ),
   overwrite = FALSE
 ) {
+  # workaround for a bug in some versions of libmamba where they check for
+  # + pkgs_dir in the home directory even when defining it elsewhere.
   pkgs_dir <- fs::path_home(".mamba", "pkgs")
-  pkgs_already_exists <- FALSE
+  pkgs_dir_already_exists <- FALSE
   if (isTRUE(stringr::str_detect(get_sys_arch(), "^Windows"))) {
     pkgs_dir <- base::Sys.getenv(
       x = "APPDATA",
@@ -112,11 +114,11 @@ create_env <- function(
   if (isFALSE(fs::dir_exists(pkgs_dir))) {
     fs::dir_create(pkgs_dir)
   } else {
-    pkgs_already_exists <- TRUE
+    pkgs_dir_already_exists <- TRUE
   }
   withr::defer(expr = {
     if (
-      isFALSE(pkgs_already_exists) &&
+      isFALSE(pkgs_dir_already_exists) &&
         fs::dir_exists(base::dirname(pkgs_dir))
     ) {
       invisible(rlang::catch_cnd(
@@ -204,60 +206,20 @@ create_env <- function(
   }
 
   if (isTRUE(method %in% c("native", "auto"))) {
+    # Check if required versions are satisfied even when
+    # + `overwrite` is false.
     if (
-      env_exists(
-        env_name = env_name,
-        verbose = verbose_list$internal_verbose
-      ) &&
-        isFALSE(overwrite)
+      isFALSE(overwrite) &&
+        # rlang::is_null(env_file) &&
+        isTRUE(length(packages) > 0L) &&
+        env_exists(env_name = env_name, verbose = verbose_list$internal_verbose)
     ) {
-      pkg_list_res <- list_packages(
+      is_satisfied_vector <- satisfies_dependencies(
+        pkg_str_vector = packages,
         env_name = env_name,
-        verbose = verbose_list$internal_verbose
+        verbose = "silent"
       )
-
-      # TODO: @luciorq Implement proper parsing of the matchspec string.
-      pkg_present_vector <- vector(
-        mode = "logical",
-        length = length(packages)
-      )
-      for (i in seq_along(packages)) {
-        pkg_and_channel_str <- stringr::str_remove(
-          string = packages[i],
-          pattern = stringr::regex("[=<>~!].*")
-        )
-        pkg_name_str <- stringr::str_remove(
-          string = pkg_and_channel_str,
-          pattern = stringr::regex(".*::")
-        )
-
-        if (stringr::str_detect(pkg_and_channel_str, stringr::regex("::"))) {
-          # Channel was specified
-          channel_name_str <- stringr::str_extract(
-            string = pkg_and_channel_str,
-            pattern = stringr::regex(".*(?=::)")
-          )
-        } else {
-          # No channel specified, assume "defaults"
-          channel_name_str <- channels
-        }
-
-        # channel_name_str
-
-        pkg_channel_row <- pkg_list_res[
-          pkg_list_res$channel %in%
-            channel_name_str &
-            pkg_list_res$name == pkg_name_str,
-        ]
-
-        if (isTRUE(nrow(pkg_channel_row) > 0L)) {
-          pkg_present_vector[i] <- TRUE
-        } else {
-          pkg_present_vector[i] <- FALSE
-        }
-      }
-
-      if (isTRUE(all(pkg_present_vector))) {
+      if (isTRUE(all(is_satisfied_vector))) {
         if (isTRUE(verbose_list$strategy %in% c("full", "output"))) {
           cli::cli_inform(
             message = c(
@@ -265,14 +227,15 @@ create_env <- function(
             )
           )
         }
-        return(
-          invisible(
-            list(status = 0L, stdout = "", stderr = "", timeout = FALSE)
-          )
-        )
+        return(invisible(
+          list(status = 0L, stdout = "", stderr = "", timeout = FALSE)
+        ))
       }
     }
 
+    # Workaround for when directory already exists by other reasons.
+    # + When micromamba fail to create an environment with a different platform
+    # + than the native one, it leaves the directory there and do not overwrite.
     if (
       isFALSE(env_exists(env_name)) &&
         isTRUE(fs::dir_exists(get_env_dir(env_name = env_name)))
