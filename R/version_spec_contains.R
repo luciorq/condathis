@@ -61,9 +61,9 @@ version_spec_contains <- function(version_string, spec_string) {
     )
   }
 
-  parsed_ver <- ms_parse_ver(version_string)
-  spec_tree <- ms_parse_spec_expr(spec_string)
-  return(ms_eval_spec(spec_tree, parsed_ver))
+  parsed_ver <- vs_parse_ver(version_string)
+  spec_tree <- vs_parse_spec_expr(spec_string)
+  return(vs_eval_spec(spec_tree, parsed_ver))
 }
 
 
@@ -81,7 +81,7 @@ version_spec_contains <- function(version_string, spec_string) {
 #'
 #' @keywords internal
 #' @noRd
-ms_parse_ver <- function(str) {
+vs_parse_ver <- function(str) {
   str <- trimws(str)
 
   # Parse epoch
@@ -103,11 +103,11 @@ ms_parse_ver <- function(str) {
   if (isTRUE(as.integer(plus_pos) > 0L)) {
     local_str <- substring(str, as.integer(plus_pos) + 1L)
     str <- substring(str, 1L, as.integer(plus_pos) - 1L)
-    local_parts <- ms_parse_ver_parts(local_str)
+    local_parts <- vs_parse_ver_parts(local_str)
   }
 
   # Parse main segments
-  segments <- ms_parse_ver_parts(str)
+  segments <- vs_parse_ver_parts(str)
 
   return(list(
     epoch = epoch,
@@ -127,7 +127,7 @@ ms_parse_ver <- function(str) {
 #'
 #' @keywords internal
 #' @noRd
-ms_parse_ver_parts <- function(str) {
+vs_parse_ver_parts <- function(str) {
   if (rlang::is_null(str) || identical(str, "")) {
     return(list())
   }
@@ -136,7 +136,7 @@ ms_parse_ver_parts <- function(str) {
   # Note: dash must be at start or end of character class
   parts <- strsplit(str, "[._-]")[[1L]]
 
-  return(lapply(parts, ms_parse_ver_segment))
+  return(lapply(parts, vs_parse_ver_segment))
 }
 
 
@@ -151,7 +151,7 @@ ms_parse_ver_parts <- function(str) {
 #'
 #' @keywords internal
 #' @noRd
-ms_parse_ver_segment <- function(str) {
+vs_parse_ver_segment <- function(str) {
   if (rlang::is_null(str) || identical(str, "")) {
     return(list(list(num = 0L, lit = "")))
   }
@@ -214,7 +214,7 @@ ms_parse_ver_segment <- function(str) {
 #'
 #' @keywords internal
 #' @noRd
-ms_lit_priority <- function(lit) {
+vs_lit_priority <- function(lit) {
   if (identical(lit, "*")) {
     return(-3L)
   }
@@ -242,7 +242,7 @@ ms_lit_priority <- function(lit) {
 #'
 #' @keywords internal
 #' @noRd
-ms_cmp_atoms <- function(a, b) {
+vs_cmp_atoms <- function(a, b) {
   # Compare numerals first
   if (isTRUE(a$num < b$num)) {
     return(-1L)
@@ -253,8 +253,8 @@ ms_cmp_atoms <- function(a, b) {
 
   # Numerals equal, compare literals by priority
 
-  pa <- ms_lit_priority(a$lit)
-  pb <- ms_lit_priority(b$lit)
+  pa <- vs_lit_priority(a$lit)
+  pb <- vs_lit_priority(b$lit)
 
   if (isTRUE(pa < pb)) {
     return(-1L)
@@ -288,14 +288,14 @@ ms_cmp_atoms <- function(a, b) {
 #'
 #' @keywords internal
 #' @noRd
-ms_cmp_segments <- function(sa, sb) {
+vs_cmp_segments <- function(sa, sb) {
   default_atom <- list(num = 0L, lit = "")
   len <- max(length(sa), length(sb))
 
   for (i in seq_len(len)) {
     atom_a <- if (isTRUE(i <= length(sa))) sa[[i]] else default_atom
     atom_b <- if (isTRUE(i <= length(sb))) sb[[i]] else default_atom
-    cmp <- ms_cmp_atoms(atom_a, atom_b)
+    cmp <- vs_cmp_atoms(atom_a, atom_b)
     if (!identical(cmp, 0L)) {
       return(cmp)
     }
@@ -315,7 +315,7 @@ ms_cmp_segments <- function(sa, sb) {
 #'
 #' @keywords internal
 #' @noRd
-ms_cmp_parts <- function(pa, pb) {
+vs_cmp_parts <- function(pa, pb) {
   default_segment <- list(list(num = 0L, lit = ""))
   len <- max(length(pa), length(pb))
 
@@ -326,7 +326,7 @@ ms_cmp_parts <- function(pa, pb) {
   for (i in seq_len(len)) {
     seg_a <- if (isTRUE(i <= length(pa))) pa[[i]] else default_segment
     seg_b <- if (isTRUE(i <= length(pb))) pb[[i]] else default_segment
-    cmp <- ms_cmp_segments(seg_a, seg_b)
+    cmp <- vs_cmp_segments(seg_a, seg_b)
     if (!identical(cmp, 0L)) {
       return(cmp)
     }
@@ -340,13 +340,13 @@ ms_cmp_parts <- function(pa, pb) {
 #'
 #' Compares epoch, then main segments, then local segments.
 #'
-#' @param va A parsed version (from `ms_parse_ver`).
-#' @param vb A parsed version (from `ms_parse_ver`).
+#' @param va A parsed version (from `vs_parse_ver`).
+#' @param vb A parsed version (from `vs_parse_ver`).
 #' @returns `-1L`, `0L`, or `1L`.
 #'
 #' @keywords internal
 #' @noRd
-ms_cmp_versions <- function(va, vb) {
+vs_cmp_versions <- function(va, vb) {
   # Compare epoch
   if (isTRUE(va$epoch < vb$epoch)) {
     return(-1L)
@@ -356,13 +356,13 @@ ms_cmp_versions <- function(va, vb) {
   }
 
   # Compare main segments
-  main_cmp <- ms_cmp_parts(va$segments, vb$segments)
+  main_cmp <- vs_cmp_parts(va$segments, vb$segments)
   if (!identical(main_cmp, 0L)) {
     return(main_cmp)
   }
 
   # Compare local segments
-  return(ms_cmp_parts(va$local, vb$local))
+  return(vs_cmp_parts(va$local, vb$local))
 }
 
 
@@ -388,7 +388,7 @@ ms_cmp_versions <- function(va, vb) {
 #'
 #' @keywords internal
 #' @noRd
-ms_ver_starts_with <- function(v, ref) {
+vs_ver_starts_with <- function(v, ref) {
   # Epochs must be equal
   if (!identical(v$epoch, ref$epoch)) {
     return(FALSE)
@@ -396,15 +396,15 @@ ms_ver_starts_with <- function(v, ref) {
 
   # If ref has a local part, main versions must be exactly equal
   if (isTRUE(length(ref$local) > 0L)) {
-    main_cmp <- ms_cmp_parts(v$segments, ref$segments)
+    main_cmp <- vs_cmp_parts(v$segments, ref$segments)
     if (!identical(main_cmp, 0L)) {
       return(FALSE)
     }
-    return(ms_parts_starts_with(v$local, ref$local))
+    return(vs_parts_starts_with(v$local, ref$local))
   }
 
   # Otherwise, prefix-match on main segments
-  return(ms_parts_starts_with(v$segments, ref$segments))
+  return(vs_parts_starts_with(v$segments, ref$segments))
 }
 
 
@@ -416,7 +416,7 @@ ms_ver_starts_with <- function(v, ref) {
 #'
 #' @keywords internal
 #' @noRd
-ms_parts_starts_with <- function(candidate_parts, prefix_parts) {
+vs_parts_starts_with <- function(candidate_parts, prefix_parts) {
   if (identical(length(prefix_parts), 0L)) {
     return(TRUE)
   }
@@ -437,7 +437,7 @@ ms_parts_starts_with <- function(candidate_parts, prefix_parts) {
     } else {
       list(list(num = 0L, lit = ""))
     }
-    if (isFALSE(ms_segment_starts_with(cand_seg, ref_seg))) {
+    if (isFALSE(vs_segment_starts_with(cand_seg, ref_seg))) {
       return(FALSE)
     }
   }
@@ -453,7 +453,7 @@ ms_parts_starts_with <- function(candidate_parts, prefix_parts) {
 #'
 #' @keywords internal
 #' @noRd
-ms_segment_starts_with <- function(cand_seg, ref_seg) {
+vs_segment_starts_with <- function(cand_seg, ref_seg) {
   default_atom <- list(num = 0L, lit = "")
 
   for (i in seq_along(ref_seg)) {
@@ -495,14 +495,14 @@ ms_segment_starts_with <- function(cand_seg, ref_seg) {
 #'
 #' @keywords internal
 #' @noRd
-ms_ver_compatible_with <- function(v, ref) {
+vs_ver_compatible_with <- function(v, ref) {
   # Epochs must be equal
   if (!identical(v$epoch, ref$epoch)) {
     return(FALSE)
   }
 
   # Must be >= ref
-  cmp <- ms_cmp_versions(v, ref)
+  cmp <- vs_cmp_versions(v, ref)
   if (identical(cmp, -1L)) {
     return(FALSE)
   }
@@ -529,7 +529,7 @@ ms_ver_compatible_with <- function(v, ref) {
     } else {
       list(list(num = 0L, lit = ""))
     }
-    seg_cmp <- ms_cmp_segments(cand_seg, ref_seg)
+    seg_cmp <- vs_cmp_segments(cand_seg, ref_seg)
     if (!identical(seg_cmp, 0L)) {
       return(FALSE)
     }
@@ -559,7 +559,7 @@ ms_ver_compatible_with <- function(v, ref) {
 #'
 #' @keywords internal
 #' @noRd
-ms_parse_spec_expr <- function(spec_str) {
+vs_parse_spec_expr <- function(spec_str) {
   spec_str <- trimws(spec_str)
 
   # Handle free interval
@@ -573,14 +573,14 @@ ms_parse_spec_expr <- function(spec_str) {
   }
 
   # Tokenize
-  tokens <- ms_tokenize_spec(spec_str)
+  tokens <- vs_tokenize_spec(spec_str)
 
   # Parse expression from tokens
   env <- new.env(parent = emptyenv())
   env$tokens <- tokens
   env$pos <- 1L
 
-  result <- ms_parse_and_expr(env)
+  result <- vs_parse_and_expr(env)
   return(result)
 }
 
@@ -594,7 +594,7 @@ ms_parse_spec_expr <- function(spec_str) {
 #'
 #' @keywords internal
 #' @noRd
-ms_tokenize_spec <- function(str) {
+vs_tokenize_spec <- function(str) {
   tokens <- character(0L)
   pos <- 1L
   n <- nchar(str)
@@ -648,8 +648,8 @@ ms_tokenize_spec <- function(str) {
 #'
 #' @keywords internal
 #' @noRd
-ms_parse_and_expr <- function(env) {
-  left <- ms_parse_or_expr(env)
+vs_parse_and_expr <- function(env) {
+  left <- vs_parse_or_expr(env)
 
   children <- list(left)
   while (
@@ -657,7 +657,7 @@ ms_parse_and_expr <- function(env) {
       identical(env$tokens[env$pos], ",")
   ) {
     env$pos <- env$pos + 1L
-    right <- ms_parse_or_expr(env)
+    right <- vs_parse_or_expr(env)
     children <- c(children, list(right))
   }
 
@@ -679,8 +679,8 @@ ms_parse_and_expr <- function(env) {
 #'
 #' @keywords internal
 #' @noRd
-ms_parse_or_expr <- function(env) {
-  left <- ms_parse_primary_expr(env)
+vs_parse_or_expr <- function(env) {
+  left <- vs_parse_primary_expr(env)
 
   children <- list(left)
   while (
@@ -688,7 +688,7 @@ ms_parse_or_expr <- function(env) {
       identical(env$tokens[env$pos], "|")
   ) {
     env$pos <- env$pos + 1L
-    right <- ms_parse_primary_expr(env)
+    right <- vs_parse_primary_expr(env)
     children <- c(children, list(right))
   }
 
@@ -707,7 +707,7 @@ ms_parse_or_expr <- function(env) {
 #'
 #' @keywords internal
 #' @noRd
-ms_parse_primary_expr <- function(env) {
+vs_parse_primary_expr <- function(env) {
   if (isTRUE(env$pos > length(env$tokens))) {
     # Unexpected end — return a free predicate
     return(list(type = "predicate", op = "free", ver = NULL))
@@ -717,7 +717,7 @@ ms_parse_primary_expr <- function(env) {
 
   if (identical(tok, "(")) {
     env$pos <- env$pos + 1L
-    node <- ms_parse_and_expr(env)
+    node <- vs_parse_and_expr(env)
     # Consume closing paren
     if (
       isTRUE(env$pos <= length(env$tokens)) &&
@@ -730,7 +730,7 @@ ms_parse_primary_expr <- function(env) {
 
   # It's a predicate atom
   env$pos <- env$pos + 1L
-  ms_parse_predicate(tok)
+  vs_parse_predicate(tok)
 }
 
 
@@ -743,7 +743,7 @@ ms_parse_primary_expr <- function(env) {
 #'
 #' @keywords internal
 #' @noRd
-ms_parse_predicate <- function(atom_str) {
+vs_parse_predicate <- function(atom_str) {
   atom_str <- trimws(atom_str)
 
   # Free interval
@@ -762,7 +762,7 @@ ms_parse_predicate <- function(atom_str) {
     return(list(
       type = "predicate",
       op = "greater_equal",
-      ver = ms_parse_ver(ver_str)
+      ver = vs_parse_ver(ver_str)
     ))
   }
   if (isTRUE(startsWith(atom_str, ">"))) {
@@ -770,7 +770,7 @@ ms_parse_predicate <- function(atom_str) {
     return(list(
       type = "predicate",
       op = "greater",
-      ver = ms_parse_ver(ver_str)
+      ver = vs_parse_ver(ver_str)
     ))
   }
   if (isTRUE(startsWith(atom_str, "<="))) {
@@ -778,7 +778,7 @@ ms_parse_predicate <- function(atom_str) {
     return(list(
       type = "predicate",
       op = "less_equal",
-      ver = ms_parse_ver(ver_str)
+      ver = vs_parse_ver(ver_str)
     ))
   }
   if (isTRUE(startsWith(atom_str, "<"))) {
@@ -786,7 +786,7 @@ ms_parse_predicate <- function(atom_str) {
     return(list(
       type = "predicate",
       op = "less",
-      ver = ms_parse_ver(ver_str)
+      ver = vs_parse_ver(ver_str)
     ))
   }
   if (isTRUE(startsWith(atom_str, "~="))) {
@@ -794,7 +794,7 @@ ms_parse_predicate <- function(atom_str) {
     return(list(
       type = "predicate",
       op = "compatible_with",
-      ver = ms_parse_ver(ver_str)
+      ver = vs_parse_ver(ver_str)
     ))
   }
   if (isTRUE(startsWith(atom_str, "!="))) {
@@ -805,7 +805,7 @@ ms_parse_predicate <- function(atom_str) {
       return(list(
         type = "predicate",
         op = "not_starts_with",
-        ver = ms_parse_ver(cleaned)
+        ver = vs_parse_ver(cleaned)
       ))
     }
     if (isTRUE(grepl("\\*$", ver_str)) && !identical(ver_str, "*")) {
@@ -814,13 +814,13 @@ ms_parse_predicate <- function(atom_str) {
       return(list(
         type = "predicate",
         op = "not_starts_with",
-        ver = ms_parse_ver(cleaned)
+        ver = vs_parse_ver(cleaned)
       ))
     }
     return(list(
       type = "predicate",
       op = "not_equal",
-      ver = ms_parse_ver(ver_str)
+      ver = vs_parse_ver(ver_str)
     ))
   }
   if (isTRUE(startsWith(atom_str, "=="))) {
@@ -831,7 +831,7 @@ ms_parse_predicate <- function(atom_str) {
       return(list(
         type = "predicate",
         op = "starts_with",
-        ver = ms_parse_ver(cleaned)
+        ver = vs_parse_ver(cleaned)
       ))
     }
     if (isTRUE(grepl("\\*$", ver_str)) && !identical(ver_str, "*")) {
@@ -840,13 +840,13 @@ ms_parse_predicate <- function(atom_str) {
       return(list(
         type = "predicate",
         op = "starts_with",
-        ver = ms_parse_ver(cleaned)
+        ver = vs_parse_ver(cleaned)
       ))
     }
     return(list(
       type = "predicate",
       op = "equal",
-      ver = ms_parse_ver(ver_str)
+      ver = vs_parse_ver(ver_str)
     ))
   }
   if (isTRUE(startsWith(atom_str, "="))) {
@@ -865,7 +865,7 @@ ms_parse_predicate <- function(atom_str) {
     return(list(
       type = "predicate",
       op = "starts_with",
-      ver = ms_parse_ver(ver_str)
+      ver = vs_parse_ver(ver_str)
     ))
   }
 
@@ -876,7 +876,7 @@ ms_parse_predicate <- function(atom_str) {
     return(list(
       type = "predicate",
       op = "starts_with",
-      ver = ms_parse_ver(cleaned)
+      ver = vs_parse_ver(cleaned)
     ))
   }
   if (isTRUE(grepl("\\*$", atom_str)) && !identical(atom_str, "*")) {
@@ -885,7 +885,7 @@ ms_parse_predicate <- function(atom_str) {
     return(list(
       type = "predicate",
       op = "starts_with",
-      ver = ms_parse_ver(cleaned)
+      ver = vs_parse_ver(cleaned)
     ))
   }
 
@@ -893,27 +893,27 @@ ms_parse_predicate <- function(atom_str) {
   return(list(
     type = "predicate",
     op = "equal",
-    ver = ms_parse_ver(atom_str)
+    ver = vs_parse_ver(atom_str)
   ))
 }
 
 
 #' Evaluate a VersionSpec AST against a parsed version
 #'
-#' @param node An AST node (from `ms_parse_spec_expr`).
-#' @param parsed_ver A parsed version (from `ms_parse_ver`).
+#' @param node An AST node (from `vs_parse_spec_expr`).
+#' @param parsed_ver A parsed version (from `vs_parse_ver`).
 #' @returns Logical.
 #'
 #' @keywords internal
 #' @noRd
-ms_eval_spec <- function(node, parsed_ver) {
+vs_eval_spec <- function(node, parsed_ver) {
   if (identical(node$type, "predicate")) {
-    return(ms_eval_predicate(node, parsed_ver))
+    return(vs_eval_predicate(node, parsed_ver))
   }
 
   if (identical(node$type, "and")) {
     for (child in node$children) {
-      if (isFALSE(ms_eval_spec(child, parsed_ver))) {
+      if (isFALSE(vs_eval_spec(child, parsed_ver))) {
         return(FALSE)
       }
     }
@@ -922,7 +922,7 @@ ms_eval_spec <- function(node, parsed_ver) {
 
   if (identical(node$type, "or")) {
     for (child in node$children) {
-      if (isTRUE(ms_eval_spec(child, parsed_ver))) {
+      if (isTRUE(vs_eval_spec(child, parsed_ver))) {
         return(TRUE)
       }
     }
@@ -942,7 +942,7 @@ ms_eval_spec <- function(node, parsed_ver) {
 #'
 #' @keywords internal
 #' @noRd
-ms_eval_predicate <- function(pred, parsed_ver) {
+vs_eval_predicate <- function(pred, parsed_ver) {
   op <- pred$op
   ref <- pred$ver
 
@@ -950,19 +950,19 @@ ms_eval_predicate <- function(pred, parsed_ver) {
     return(TRUE)
   }
 
-  cmp <- ms_cmp_versions(parsed_ver, ref)
+  cmp <- vs_cmp_versions(parsed_ver, ref)
 
-  switch(
-    op,
-    "equal" = identical(cmp, 0L),
-    "not_equal" = !identical(cmp, 0L),
-    "greater" = identical(cmp, 1L),
-    "greater_equal" = !identical(cmp, -1L),
-    "less" = identical(cmp, -1L),
-    "less_equal" = !identical(cmp, 1L),
-    "starts_with" = ms_ver_starts_with(parsed_ver, ref),
-    "not_starts_with" = !ms_ver_starts_with(parsed_ver, ref),
-    "compatible_with" = ms_ver_compatible_with(parsed_ver, ref),
+  return(switch(
+    EXPR = op, # styler: off
+    `equal` = identical(cmp, 0L),
+    `not_equal` = !identical(cmp, 0L),
+    `greater` = identical(cmp, 1L),
+    `greater_equal` = !identical(cmp, -1L),
+    `less` = identical(cmp, -1L),
+    `less_equal` = !identical(cmp, 1L),
+    `starts_with` = vs_ver_starts_with(parsed_ver, ref),
+    `not_starts_with` = !vs_ver_starts_with(parsed_ver, ref),
+    `compatible_with` = vs_ver_compatible_with(parsed_ver, ref),
     FALSE
-  )
+  ))
 }
