@@ -47,6 +47,10 @@ list_packages <- function(
 ) {
   verbose_list <- parse_strategy_verbose(verbose = verbose)
 
+  if (identical(env_name, "condathis-env")) {
+    create_base_env(verbose = verbose_list$internal_verbose)
+  }
+
   if (isFALSE(env_exists(env_name, verbose = verbose_list$internal_verbose))) {
     cli::cli_abort(
       message = c(
