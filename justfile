@@ -62,6 +62,7 @@ github_org := 'luciorq'
   sed -i '/<!-- badges: start -->/{n; /^\s*$/d}' README.md;
   rumdl check README.md || true;
   markdownlint README.md || true;
+  markdownlint-cli2 --no-globs README.md || true;
   \builtin echo "README built and linted!";
 
 # Run All Examples in the Documentation Including `dontrun`

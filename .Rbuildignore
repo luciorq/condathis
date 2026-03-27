@@ -46,3 +46,4 @@
 ^\.DS_Store$
 ^[.]?air[.]toml$
 ^\.vscode$
+^\.rumdl_cache$

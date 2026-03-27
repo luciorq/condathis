@@ -33,7 +33,8 @@
 #' ms_compare_version("2025b", ">=2025a,<2026")
 #' ms_compare_version("1.0", "~=1.0")
 #'
-#' @export
+#' @keywords internal
+#' @noRd
 ms_compare_version <- function(version_string, spec_string) {
   if (
     rlang::is_null(version_string) ||
@@ -62,7 +63,7 @@ ms_compare_version <- function(version_string, spec_string) {
 
   parsed_ver <- ms_parse_ver(version_string)
   spec_tree <- ms_parse_spec_expr(spec_string)
-  ms_eval_spec(spec_tree, parsed_ver)
+  return(ms_eval_spec(spec_tree, parsed_ver))
 }
 
 
@@ -108,11 +109,11 @@ ms_parse_ver <- function(str) {
   # Parse main segments
   segments <- ms_parse_ver_parts(str)
 
-  list(
+  return(list(
     epoch = epoch,
     segments = segments,
     local = local_parts
-  )
+  ))
 }
 
 
@@ -135,7 +136,7 @@ ms_parse_ver_parts <- function(str) {
   # Note: dash must be at start or end of character class
   parts <- strsplit(str, "[._-]")[[1L]]
 
-  lapply(parts, ms_parse_ver_segment)
+  return(lapply(parts, ms_parse_ver_segment))
 }
 
 
@@ -195,7 +196,7 @@ ms_parse_ver_segment <- function(str) {
     return(list(list(num = 0L, lit = "")))
   }
 
-  atoms
+  return(atoms)
 }
 
 
@@ -217,7 +218,6 @@ ms_lit_priority <- function(lit) {
   if (identical(lit, "*")) {
     return(-3L)
   }
-
   if (identical(lit, "dev")) {
     return(-2L)
   }
@@ -230,7 +230,7 @@ ms_lit_priority <- function(lit) {
   if (identical(lit, "post")) {
     return(2L)
   }
-  0L
+  return(0L)
 }
 
 
@@ -274,7 +274,7 @@ ms_cmp_atoms <- function(a, b) {
     }
   }
 
-  0L
+  return(0L)
 }
 
 
@@ -301,7 +301,7 @@ ms_cmp_segments <- function(sa, sb) {
     }
   }
 
-  0L
+  return(0L)
 }
 
 
@@ -332,7 +332,7 @@ ms_cmp_parts <- function(pa, pb) {
     }
   }
 
-  0L
+  return(0L)
 }
 
 
@@ -362,7 +362,7 @@ ms_cmp_versions <- function(va, vb) {
   }
 
   # Compare local segments
-  ms_cmp_parts(va$local, vb$local)
+  return(ms_cmp_parts(va$local, vb$local))
 }
 
 
@@ -404,7 +404,7 @@ ms_ver_starts_with <- function(v, ref) {
   }
 
   # Otherwise, prefix-match on main segments
-  ms_parts_starts_with(v$segments, ref$segments)
+  return(ms_parts_starts_with(v$segments, ref$segments))
 }
 
 
@@ -442,7 +442,7 @@ ms_parts_starts_with <- function(candidate_parts, prefix_parts) {
     }
   }
 
-  TRUE
+  return(TRUE)
 }
 
 
@@ -480,7 +480,7 @@ ms_segment_starts_with <- function(cand_seg, ref_seg) {
     }
   }
 
-  TRUE
+  return(TRUE)
 }
 
 
@@ -535,7 +535,7 @@ ms_ver_compatible_with <- function(v, ref) {
     }
   }
 
-  TRUE
+  return(TRUE)
 }
 
 
@@ -581,7 +581,7 @@ ms_parse_spec_expr <- function(spec_str) {
   env$pos <- 1L
 
   result <- ms_parse_and_expr(env)
-  result
+  return(result)
 }
 
 
@@ -637,7 +637,7 @@ ms_tokenize_spec <- function(str) {
     }
   }
 
-  tokens
+  return(tokens)
 }
 
 
@@ -665,7 +665,10 @@ ms_parse_and_expr <- function(env) {
     return(children[[1L]])
   }
 
-  list(type = "and", children = children)
+  return(list(
+    type = "and",
+    children = children
+  ))
 }
 
 
@@ -887,11 +890,11 @@ ms_parse_predicate <- function(atom_str) {
   }
 
   # Plain bare version -> exact match
-  list(
+  return(list(
     type = "predicate",
     op = "equal",
     ver = ms_parse_ver(atom_str)
-  )
+  ))
 }
 
 
@@ -927,7 +930,7 @@ ms_eval_spec <- function(node, parsed_ver) {
   }
 
   # Unknown node type — should not happen
-  FALSE
+  return(FALSE)
 }
 
 

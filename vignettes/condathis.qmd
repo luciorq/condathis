@@ -34,9 +34,9 @@ This vignette provides a brief introduction to the core functionality of `condat
 Imagine you want to analyze a BAM file using `samtools`, a popular bioinformatics tool.
 You could write an R script that calls `samtools` using `system()`, but this approach has some drawbacks:
 
-1.  **Dependency Hell:** Your script depends on `samtools` being installed and available in the system's `PATH`. If you share your script with a colleague, they will need to install it manually, and they might install a different version, which could lead to different results.
-2.  **Conflicts:** Installing `samtools` and its dependencies might conflict with other tools already installed on the system.
-3.  **Reproducibility:** It's hard to guarantee that your analysis will run the same way on different machines or at a later time, as the software environment is not explicitly defined.
+1. **Dependency Hell:** Your script depends on `samtools` being installed and available in the system's `PATH`. If you share your script with a colleague, they will need to install it manually, and they might install a different version, which could lead to different results.
+2. **Conflicts:** Installing `samtools` and its dependencies might conflict with other tools already installed on the system.
+3. **Reproducibility:** It's hard to guarantee that your analysis will run the same way on different machines or at a later time, as the software environment is not explicitly defined.
 
 ## The `condathis` Solution
 
@@ -58,9 +58,9 @@ create_env(
 
 This command will:
 
-1.  Install `micromamba` if it's not already available (don't worry, it's a single, self-contained executable and won't interfere with your system).
-2.  Create a new Conda environment named `samtools-env`.
-3.  Install `samtools` into that environment.
+1. Install `micromamba` if it's not already available (don't worry, it's a single, self-contained executable and won't interfere with your system).
+2. Create a new Conda environment named `samtools-env`.
+3. Install `samtools` into that environment.
 
 ### Step 2: Run the Tool
 
@@ -115,8 +115,8 @@ remove_env("samtools-env")
 
 By using `condathis`, you get:
 
--   **Isolation:** Dependencies for each tool are kept separate, avoiding conflicts.
--   **Reproducibility:** Your R script now defines and creates the exact software environment it needs. Anyone can run your script and get the same results.
--   **Simplicity:** You can manage everything from within R, without needing to manually use the command line to manage Conda environments.
+- **Isolation:** Dependencies for each tool are kept separate, avoiding conflicts.
+- **Reproducibility:** Your R script now defines and creates the exact software environment it needs. Anyone can run your script and get the same results.
+- **Simplicity:** You can manage everything from within R, without needing to manually use the command line to manage Conda environments.
 
 `condathis` is a powerful tool for making your R analyses that rely on external command-line tools more robust and reproducible.

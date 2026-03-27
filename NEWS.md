@@ -25,6 +25,9 @@ Development Changelog: [dev](https://github.com/luciorq/condathis/compare/v0.1.3
   Note that relying solely on channel order for priority is not recommended.
   Use explicit syntax like: `bioconda::samtools==X.Y.Z` for better guarantee of reproducibility.
 
+* `create_env()` now properly parses MatchSpec version constraints strings to define
+  if environment need to be recreated.
+
 ### Fixed
 
 * Fix error in `create_env()` when packages were specified with `"channel::package"` environment was always recreated.
@@ -244,12 +247,15 @@ Development Changelog: [0.1.0](https://github.com/luciorq/condathis/compare/v0.0
 
 * Internal `micromamba` version is upgraded to "2.0.2-0", fixes warnings about
   missing prefixes (v0.0.3.9028).
+
 * The internal `micromamba` version is now fixed (currently "v2.0.1-0") (v0.0.3.9025).
+
 * Use GitHub releases as the primary URL for installing `micromamba` (v0.0.3.9025).
 
 * Move `--no-rc` and `--no-env` arguments to `native_cmd()` (v0.0.3.9024).
 
 * Fix path handling in Windows (v0.0.3.9023).
+
 * Add `mode = "wb"` to internal `download.file()` for handling binary downloads
 in Windows (v0.0.3.9023).
 
