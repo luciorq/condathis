@@ -14,7 +14,7 @@ test_that("list packages on absent environment", {
 
   testthat::expect_message(
     object = {
-      pkgs_df <- list_packages(verbose = "silent")
+      pkgs_df <- list_packages()
     },
     regexp = "Retrieved [0-9]+ packages from environment"
   )

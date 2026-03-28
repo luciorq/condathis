@@ -43,6 +43,7 @@ clean_cache <- function(
         conda_args = c(
           "--all",
           "--yes",
+          "--force-pkgs-dirs",
           verbose_list$quiet_flag
         ),
         verbose = verbose_list,

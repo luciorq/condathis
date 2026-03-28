@@ -14,7 +14,7 @@
 #' @param verbose A character string specifying the verbosity level for the
 #'  `list_packages()` function. Defaults to "silent".
 #'
-#' @return A logical vector indicating whether each package specification in
+#' @returns A logical vector indicating whether each package specification in
 #' `pkg_str_vector` is satisfied by the packages in the environment.
 #'
 #' @keywords internal

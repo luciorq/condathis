@@ -956,7 +956,6 @@ ms_strip_quotes <- function(str) {
 #' @keywords internal
 #' @noRd
 ms_split_name_version_build <- function(str) {
-  # base::browser()
   str <- trimws(str)
 
   if (identical(str, "")) {

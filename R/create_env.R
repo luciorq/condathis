@@ -165,23 +165,6 @@ create_env <- function(
     packages_arg <- packages
   }
 
-  # TODO: @luciorq Implement proper type check for `packages` argument,
-  # + as they can contain file paths.
-  # + Base R paths are simple strings `"character"`,
-  # + but `fs` paths are of class `c("fs_path", "character")`.
-  # if (isFALSE(rlang::is_null(packages))) {
-  #   if (rlang::is_character(packages)) {
-  #     packages_arg <- packages
-  #   } else {
-  #     cli::cli_abort(
-  #       message = c(
-  #         `x` = "{.field packages} need to be a {.cls character} vector."
-  #       ),
-  #       class = "condathis_create_invalid_packages_arg"
-  #     )
-  #   }
-  # }
-
   channels_arg <- format_channels_args(
     channels,
     additional_channels

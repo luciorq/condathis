@@ -121,7 +121,6 @@ install_micromamba <- function(
         url = download_url,
         destfile = full_dl_path,
         method = download_method,
-        quiet = dl_quiet_flag,
         mode = "wb"
       )
     }
@@ -133,16 +132,23 @@ install_micromamba <- function(
     fs::dir_create(untar_dir)
   }
 
-  utils::untar(
-    tarfile = full_dl_path,
-    exdir = fs::path_expand(untar_dir)
+  base::try(
+    expr = {
+      utils::untar(
+        tarfile = full_dl_path,
+        exdir = fs::path_expand(untar_dir)
+      )
+    },
+    silent = TRUE
   )
 
   if (fs::file_exists(full_dl_path)) {
     fs::file_delete(full_dl_path)
   }
 
-  if (isFALSE(nzchar(Sys.which("bzip2")) && fs::file_exists(umamba_bin_path))) {
+  if (
+    isFALSE(nzchar(Sys.which("bzip2"))) && !fs::file_exists(umamba_bin_path)
+  ) {
     download_url <- paste0(
       base_url,
       "download/",

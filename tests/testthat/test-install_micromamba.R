@@ -6,22 +6,19 @@ testthat::test_that("Micromamba installation", {
   testthat::expect_true(fs::file_exists(umamba_bin_path))
 })
 
-test_that("Micromamba is already installed", {
+testthat::test_that("Micromamba is already installed", {
   testthat::skip_if_offline()
   testthat::skip_on_cran()
-  captured_output <- suppressMessages(
-    testthat::expect_message(
-      object = {
-        umamba_bin_path <- install_micromamba(force = FALSE, verbose = "full")
-      },
-      regexp = "installed"
-    ) |>
-      testthat::capture_output()
+  testthat::expect_message(
+    object = {
+      umamba_bin_path <- install_micromamba(force = FALSE, verbose = "output")
+    },
+    regexp = "installed"
   )
   testthat::expect_true(fs::file_exists(umamba_bin_path))
 })
 
-test_that("Connection not available", {
+testthat::test_that("Connection not available", {
   testthat::local_mocked_bindings(check_connection = function(...) {
     return(FALSE)
   })

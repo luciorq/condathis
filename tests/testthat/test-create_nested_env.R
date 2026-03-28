@@ -9,7 +9,7 @@ test_that("create nested environment", {
   )
   testthat::expect_true(env_exists("test-nested-env"))
 
-  pkgs_res <- list_packages(env_name = "test-nested-env")
+  pkgs_res <- list_packages(env_name = "test-nested-env", verbose = "silent")
 
   testthat::expect_equal(nrow(pkgs_res), 0)
   testthat::expect_equal(ncol(pkgs_res), 8)

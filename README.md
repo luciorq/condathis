@@ -1,7 +1,6 @@
 # condathis <a href="https://luciorq.github.io/condathis/"><img src="man/figures/logo.svg" align="right" height="139" alt="condathis website" /></a>
 
 <!-- badges: start -->
-
 [![r-cmd-check](https://github.com/luciorq/condathis/actions/workflows/r-cmd-check.yaml/badge.svg)](https://github.com/luciorq/condathis/actions/workflows/r-cmd-check.yaml)
 [![CRAN
 status](https://www.r-pkg.org/badges/version/condathis)](https://CRAN.R-project.org/package=condathis)

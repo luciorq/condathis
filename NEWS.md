@@ -13,8 +13,8 @@ Development Changelog: [dev](https://github.com/luciorq/condathis/compare/v0.1.3
 
 * Internal `micromamba` version bump to "2.5.0-2".
 
-* `clean_cache()` now also removes any additional cache files created in the path
-  reported by `tools::R_user_dir(package = "condathis", which = "cache")`.
+* `clean_cache()` now also removes any additional cache files created in the
+  path reported by `tools::R_user_dir(package = "condathis", which = "cache")`.
 
 * Order of `channels` argument changed to have `"conda-forge"` as the first
   option as for using `channel_priority = "strict"` the order of the channels
@@ -23,8 +23,8 @@ Development Changelog: [dev](https://github.com/luciorq/condathis/compare/v0.1.3
   Use explicit syntax like: `bioconda::samtools==X.Y.Z` for better guarantee
   of reproducibility.
 
-* `create_env()` now properly parses MatchSpec version constraints strings to define
-  if environment need to be recreated using new internal functions
+* `create_env()` now properly parses MatchSpec version constraints strings to
+  define if environment need to be recreated using new internal functions
   `parse_match_spec()` and `version_spec_contains()` to parse Conda MatchSpec
   and use VersionSpec to compare versions, following CEP29 and CEP33, respectively.
 
