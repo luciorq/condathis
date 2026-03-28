@@ -53,7 +53,7 @@ define_platform <- function(
       } else {
         cli::cli_inform(c(
           `x` = "{.var packages} are not available for this architecture.",
-          `!` = "Additionally, {.field Rosetta 2} is not enabled on Apple Silicon." # lintr: line_length_linter: 120
+          `!` = "Additionally, {.field Rosetta 2} is not enabled on Apple Silicon."
         ))
         rosetta_res <- FALSE
       }
