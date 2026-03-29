@@ -15,12 +15,9 @@ micromamba_bin_path()
 A character string representing the full path to the `micromamba`
 executable. The path differs depending on the operating system:
 
-- Windows:
+- **Windows**: `<install_dir>/micromamba/Library/bin/micromamba.exe`
 
-  `<install_dir>/micromamba/Library/bin/micromamba.exe`
-
-- Other OS (e.g., Linux, macOS):
-
+- **Other OS (e.g., Linux, macOS)**:
   `<install_dir>/micromamba/bin/micromamba`
 
 ## Examples
@@ -31,5 +28,5 @@ condathis::with_sandbox_dir({
   micromamba_path <- condathis::micromamba_bin_path()
   print(micromamba_path)
 })
-#> /tmp/RtmphBk81a/tmp-data18da3f101346/R/condathis/micromamba/bin/micromamba
+#> /tmp/RtmpxLPxPN/tmp-data1d2f6235b9f0/R/condathis/micromamba/bin/micromamba
 ```

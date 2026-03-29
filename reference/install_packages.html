@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">condathis</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.3.9007</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.3.9014</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -132,12 +132,13 @@ and exit status of the command.</p>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
 <span class="r-in"><span><span class="fu">condathis</span><span class="fu">::</span><span class="fu"><a href="with_sandbox_dir.html">with_sandbox_dir</a></span><span class="op">(</span><span class="op">{</span></span></span>
 <span class="r-in"><span>  <span class="fu">condathis</span><span class="fu">::</span><span class="fu"><a href="create_env.html">create_env</a></span><span class="op">(</span></span></span>
-<span class="r-in"><span>    packages <span class="op">=</span> <span class="st">"fastqc"</span>,</span></span>
+<span class="r-in"><span>    packages <span class="op">=</span> <span class="st">"bioconda::fastqc"</span>,</span></span>
 <span class="r-in"><span>    env_name <span class="op">=</span> <span class="st">"fastqc-env"</span></span></span>
 <span class="r-in"><span>  <span class="op">)</span></span></span>
 <span class="r-in"><span>  <span class="co"># Install the package `python` in the `fastqc-env` environment.</span></span></span>
-<span class="r-in"><span>  <span class="co"># It is not recommended to install multiple packages in the same environment,</span></span></span>
-<span class="r-in"><span>  <span class="co">#  # as it defeats the purpose of isolation provided by separate environments.</span></span></span>
+<span class="r-in"><span>  <span class="co"># NOTE: It is not recommended to install multiple packages in the same</span></span></span>
+<span class="r-in"><span>  <span class="co"># environment, as it defeats the purpose of isolation provided by</span></span></span>
+<span class="r-in"><span>  <span class="co"># separate environments.</span></span></span>
 <span class="r-in"><span>  <span class="fu">condathis</span><span class="fu">::</span><span class="fu">install_packages</span><span class="op">(</span>packages <span class="op">=</span> <span class="st">"python"</span>, env_name <span class="op">=</span> <span class="st">"fastqc-env"</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">}</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>

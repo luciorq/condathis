@@ -33,7 +33,7 @@ if (FALSE) { # \dontrun{
 condathis::with_sandbox_dir({
   # Create environments
   condathis::create_env(
-    packages = "fastqc",
+    packages = "bioconda::fastqc",
     env_name = "fastqc-env"
   )
   condathis::create_env(

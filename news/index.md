@@ -17,16 +17,25 @@ Development Changelog:
 
 ### Changed
 
-- Internal `micromamba` version bump to “2.4.0-0”.
+- Internal `micromamba` version bump to “2.5.0-2”.
 
 - [`clean_cache()`](https://luciorq.github.io/condathis/reference/clean_cache.md)
   now also removes any additional cache files created in the path
   reported by
   `tools::R_user_dir(package = "condathis", which = "cache")`.
 
-- Order of `channels` argument changed to have `"conda-forge"` before
-  `"bioconda"` by default in all functions, to facilitate the use of
-  `channel_priority = "strict"`.
+- Order of `channels` argument changed to have `"conda-forge"` as the
+  first option as for using `channel_priority = "strict"` the order of
+  the channels matters. Note that relying solely on channel order for
+  priority is not recommended. Use explicit syntax like:
+  `bioconda::samtools==X.Y.Z` for better guarantee of reproducibility.
+
+- [`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md)
+  now properly parses MatchSpec version constraints strings to define if
+  environment need to be recreated using new internal functions
+  `parse_match_spec()` and `version_spec_contains()` to parse Conda
+  MatchSpec and use VersionSpec to compare versions, following CEP29 and
+  CEP33, respectively.
 
 ### Fixed
 

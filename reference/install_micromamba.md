@@ -9,7 +9,7 @@ manage conda environments.
 
 ``` r
 install_micromamba(
-  micromamba_version = "2.4.0-0",
+  micromamba_version = "2.5.0-2",
   timeout_limit = 3600,
   download_method = "auto",
   force = FALSE,
@@ -22,7 +22,7 @@ install_micromamba(
 - micromamba_version:
 
   Character string specifying the version of Micromamba to download.
-  Defaults to `"2.4.0-0"`.
+  Defaults to `"2.5.0-2"`.
 
 - timeout_limit:
 
@@ -33,7 +33,8 @@ install_micromamba(
 
   Character string passed to the `method` argument of the
   [`utils::download.file()`](https://rdrr.io/r/utils/download.file.html)
-  function used for downloading the binaries. Defaults to `"auto"`.
+  function used for downloading the binaries when the `curl` package is
+  not available. Defaults to `"auto"`.
 
 - force:
 
@@ -54,10 +55,34 @@ Invisibly returns the path to the installed Micromamba binary.
 
 This function checks if Micromamba is already installed in the
 `condathis` controlled path. If not, it downloads the specified version
-from the official GitHub releases and installs it. On Windows, it
-ensures the binary is downloaded correctly by setting the download mode
-to `"wb"`. If the download fails, appropriate error messages are
-displayed.
+from multiple mirror sources and installs it.
+
+The download strategy is:
+
+- If system `tar` and `bzip2` are available, download the compressed
+  `.tar.bz2` archive (smaller download) and extract it.
+
+- If `tar` or `bzip2` are not available, or if extraction fails,
+  download the uncompressed standalone binary directly.
+
+Multiple mirror sources are tried in order:
+
+- GitHub Releases
+  (`https://github.com/mamba-org/micromamba-releases/releases/`)
+
+- micro.mamba.pm (official CDN)
+  (`https://micro.mamba.pm/api/micromamba/`)
+
+- conda-forge via Anaconda
+  (`https://api.anaconda.org/download/conda-forge/`)
+
+- conda-forge via prefix.dev (`https://repo.prefix.dev/conda-forge/`)
+
+The downloaded binary is verified against the SHA256 checksum published
+on GitHub releases. The `curl` package is preferred for downloads when
+available, with
+[`utils::download.file()`](https://rdrr.io/r/utils/download.file.html)
+as a fallback.
 
 ## Examples
 

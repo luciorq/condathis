@@ -49,40 +49,25 @@ list_packages(
 
 ## Value
 
-A tibble containing all the packages installed in the specified
-environment, with the following columns:
+A containing all the packages installed in the specified environment,
+with the following columns:
 
-- base_url:
+- **base_url**: The base URL of the package source.
 
-  The base URL of the package source.
+- **build_number**: The build number of the package.
 
-- build_number:
+- **build_string**: The build string describing the package build
+  details.
 
-  The build number of the package.
+- **channel**: The channel from which the package was installed.
 
-- build_string:
+- **dist_name**: The distribution name of the package.
 
-  The build string describing the package build details.
+- **name**: The name of the package.
 
-- channel:
+- **platform**: The platform for which the package is built.
 
-  The channel from which the package was installed.
-
-- dist_name:
-
-  The distribution name of the package.
-
-- name:
-
-  The name of the package.
-
-- platform:
-
-  The platform for which the package is built.
-
-- version:
-
-  The version of the package.
+- **version**: The version of the package.
 
 ## Examples
 
@@ -91,7 +76,7 @@ if (FALSE) { # \dontrun{
 condathis::with_sandbox_dir({
   # Creates a Conda environment with the CLI `fastqc`
   condathis::create_env(
-    packages = "fastqc",
+    packages = "bioconda::fastqc",
     env_name = "fastqc-env"
   )
   # Lists the packages in env `fastqc-env`

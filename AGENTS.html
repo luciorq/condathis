@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="index.html">condathis</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.3.9007</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.3.9014</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -124,8 +124,8 @@
 <span></span>
 <span><span class="co"># Create an environment with samtools</span></span>
 <span><span class="fu"><a href="reference/create_env.html">create_env</a></span><span class="op">(</span></span>
-<span>  packages <span class="op">=</span> <span class="st">"samtools"</span>,</span>
-<span>  channels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"bioconda"</span>, <span class="st">"conda-forge"</span><span class="op">)</span>,</span>
+<span>  packages <span class="op">=</span> <span class="st">"bioconda::samtools"</span>,</span>
+<span>  channels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"conda-forge"</span>, <span class="st">"bioconda"</span><span class="op">)</span>,</span>
 <span>  env_name <span class="op">=</span> <span class="st">"samtools-env"</span></span>
 <span><span class="op">)</span></span>
 <span></span>
@@ -151,8 +151,12 @@
 <h3 id="id_2-running-tests">2. Running Tests<a class="anchor" aria-label="anchor" href="#id_2-running-tests"></a></h3>
 <ul><li>
 <strong>Run a specific test file:</strong>
-<ul><li>When writing a new test file always run this before running all tests:
-<ul><li><code>R -q -s -e 'devtools::load_all();devtools::test_active_file("tests/testthat/test-run.R");'</code></li>
+<ul><li><code>just test-file run</code></li>
+<li>When writing new tests, always run individual test files instead of running full test suite:
+<ul><li>
+<code>just test-file &lt;FUNCTION_NAME&gt;</code> (for <code>tests/testthat/test-&lt;FUNCTION_NAME&gt;.R</code>)</li>
+<li>It is the same as running: <code>R -q -s -e 'devtools::load_all();devtools::test_active_file("tests/testthat/test-run.R");'</code>
+</li>
 </ul></li>
 </ul></li>
 <li>

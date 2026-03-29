@@ -122,8 +122,9 @@ error, and exit status of the command.
 if (FALSE) { # \dontrun{
 condathis::with_sandbox_dir({
   # Create a Conda environment and install the CLI `fastqc` in it.
+  # Explicitly using the channel `bioconda` and version `0.12.1`.
   condathis::create_env(
-    packages = "fastqc==0.12.1",
+    packages = "bioconda::fastqc==0.12.1",
     env_name = "fastqc-env",
     verbose = "output"
   )

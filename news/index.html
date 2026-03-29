@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">condathis</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.3.9007</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.3.9014</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -52,9 +52,10 @@
 </ul></div>
 <div class="section level3">
 <h3 id="changed-0-1-4">Changed<a class="anchor" aria-label="anchor" href="#changed-0-1-4"></a></h3>
-<ul><li><p>Internal <code>micromamba</code> version bump to “2.4.0-0”.</p></li>
+<ul><li><p>Internal <code>micromamba</code> version bump to “2.5.0-2”.</p></li>
 <li><p><code><a href="../reference/clean_cache.html">clean_cache()</a></code> now also removes any additional cache files created in the path reported by <code>tools::R_user_dir(package = "condathis", which = "cache")</code>.</p></li>
-<li><p>Order of <code>channels</code> argument changed to have <code>"conda-forge"</code> before <code>"bioconda"</code> by default in all functions, to facilitate the use of <code>channel_priority = "strict"</code>.</p></li>
+<li><p>Order of <code>channels</code> argument changed to have <code>"conda-forge"</code> as the first option as for using <code>channel_priority = "strict"</code> the order of the channels matters. Note that relying solely on channel order for priority is not recommended. Use explicit syntax like: <code>bioconda::samtools==X.Y.Z</code> for better guarantee of reproducibility.</p></li>
+<li><p><code><a href="../reference/create_env.html">create_env()</a></code> now properly parses MatchSpec version constraints strings to define if environment need to be recreated using new internal functions <code>parse_match_spec()</code> and <code>version_spec_contains()</code> to parse Conda MatchSpec and use VersionSpec to compare versions, following CEP29 and CEP33, respectively.</p></li>
 </ul></div>
 <div class="section level3">
 <h3 id="fixed-0-1-4">Fixed<a class="anchor" aria-label="anchor" href="#fixed-0-1-4"></a></h3>
