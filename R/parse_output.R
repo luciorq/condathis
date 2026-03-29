@@ -57,8 +57,8 @@ parse_output <- function(res, stream = c("stdout", "stderr", "both", "plain")) {
     raw_text <- res[[stream]]
   } else if (identical(stream, "both")) {
     raw_text <- paste0(
-      if (!is.null(res$stdout)) res$stdout else "",
-      if (!is.null(res$stderr)) res$stderr else ""
+      if (!rlang::is_null(res$stdout)) res$stdout else "",
+      if (!rlang::is_null(res$stderr)) res$stderr else ""
     )
   } else if (identical(stream, "plain") && rlang::is_character(res)) {
     raw_text <- paste0(res, collapse = "\n")

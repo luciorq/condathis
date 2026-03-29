@@ -1,6 +1,6 @@
 Package: condathis
 Title: Run Any CLI Tool on a 'Conda' Environment
-Version: 0.1.3.9007
+Version: 0.1.3.9014
 Authors@R: c(
     person("Lucio", "Queiroz", , "luciorqueiroz@gmail.com", role = c("aut", "cre", "cph"),
            comment = c(ORCID = "0000-0002-6090-1834")),
@@ -25,13 +25,12 @@ Imports:
     processx,
     rlang,
     stringr,
-    tibble,
     tools,
     utils,
     withr
 Suggests:
     curl,
-    dplyr,
+    digest,
     knitr,
     quarto,
     testthat (>= 3.0.0)
@@ -40,7 +39,8 @@ VignetteBuilder:
 Config/Needs/website: quarto
 Config/testthat/edition: 3
 Config/testthat/parallel: true
-Config/testthat/start-first: create_env, rethrow_error
+Config/testthat/start-first: create_env, rethrow_error, parse_match_spec,
+    run_verbose_levels
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3

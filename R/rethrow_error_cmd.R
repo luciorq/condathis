@@ -9,7 +9,7 @@ rethrow_error_cmd <- function(expr, env = parent.frame()) {
     classes = c("system_command_status_error", "rlib_error_3_0", "c_error")
   )
 
-  if (isFALSE(is.null(err_cnd))) {
+  if (isFALSE(rlang::is_null(err_cnd))) {
     additional_lines <- NULL
     if (isTRUE("stderr" %in% names(err_cnd))) {
       err_vector <- stringr::str_replace_all(

@@ -76,8 +76,8 @@ library(condathis)
 
 # Create an environment with samtools
 create_env(
-  packages = "samtools",
-  channels = c("bioconda", "conda-forge"),
+  packages = "bioconda::samtools",
+  channels = c("conda-forge", "bioconda"),
   env_name = "samtools-env"
 )
 
@@ -102,8 +102,10 @@ remove_env(env_name = "samtools-env")
 ### 2. Running Tests
 
 * **Run a specific test file:**
-  * When writing a new test file always run this before running all tests:
-    * `R -q -s -e 'devtools::load_all();devtools::test_active_file("tests/testthat/test-run.R");'`
+  * `just test-file run`
+  * When writing new tests, always run individual test files instead of running full test suite:
+    * `just test-file <FUNCTION_NAME>` (for `tests/testthat/test-<FUNCTION_NAME>.R`)
+    * It is the same as running: `R -q -s -e 'devtools::load_all();devtools::test_active_file("tests/testthat/test-run.R");'`
 
 * **Run all tests:**
   * `just test` (This already runs lint and document before testing)

@@ -75,7 +75,7 @@
 #' \dontrun{
 #' condathis::with_sandbox_dir({
 #'   ## Create env
-#'   create_env("samtools", env_name = "samtools-env")
+#'   create_env("bioconda::samtools", env_name = "samtools-env")
 #'
 #'   ## Run a command in a specific Conda environment
 #'   samtools_res <- run(

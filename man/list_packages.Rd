@@ -37,30 +37,31 @@ Please use \code{"silent"} or \code{"output"} instead.
 }}
 }
 \value{
-A tibble containing all the packages installed in the specified environment,
-with the following columns:
-\describe{
-\item{base_url}{The base URL of the package source.}
-\item{build_number}{The build number of the package.}
-\item{build_string}{The build string describing the package build details.}
-\item{channel}{The channel from which the package was installed.}
-\item{dist_name}{The distribution name of the package.}
-\item{name}{The name of the package.}
-\item{platform}{The platform for which the package is built.}
-\item{version}{The version of the package.}
+A containing all the packages installed in the specified
+environment, with the following columns:
+\itemize{
+\item \strong{base_url}: The base URL of the package source.
+\item \strong{build_number}: The build number of the package.
+\item \strong{build_string}: The build string describing the package build details.
+\item \strong{channel}: The channel from which the package was installed.
+\item \strong{dist_name}: The distribution name of the package.
+\item \strong{name}: The name of the package.
+\item \strong{platform}: The platform for which the package is built.
+\item \strong{version}: The version of the package.
 }
 }
 \description{
-This function retrieves a list of all packages installed in the specified Conda
-environment. The result is returned as a tibble with detailed information about
-each package, including its name, version, and source details.
+This function retrieves a list of all packages installed in the specified
+Conda environment. The result is returned as a tibble with detailed
+information about each package, including its name, version,
+and source details.
 }
 \examples{
 \dontrun{
 condathis::with_sandbox_dir({
   # Creates a Conda environment with the CLI `fastqc`
   condathis::create_env(
-    packages = "fastqc",
+    packages = "bioconda::fastqc",
     env_name = "fastqc-env"
   )
   # Lists the packages in env `fastqc-env`
@@ -69,4 +70,5 @@ condathis::with_sandbox_dir({
   #> [1] 34  8
 })
 }
+
 }

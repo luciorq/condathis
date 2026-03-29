@@ -46,7 +46,7 @@ Remove a Conda environment previously created by \code{create_env()}.
 \dontrun{
 condathis::with_sandbox_dir({
   condathis::create_env(
-    packages = "fastqc",
+    packages = "bioconda::fastqc",
     env_name = "fastqc-env"
   )
   condathis::remove_env(env_name = "fastqc-env")

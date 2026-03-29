@@ -15,7 +15,7 @@ define_platform <- function(
   additional_channels = NULL,
   verbose = "silent"
 ) {
-  if (is.null(platform)) {
+  if (rlang::is_null(platform)) {
     platform_args <- NULL
   } else {
     platform_args <- c("--platform", platform)

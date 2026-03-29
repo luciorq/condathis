@@ -35,10 +35,13 @@ testthat::test_that("Output redirection to file", {
   )
   testthat::expect_equal(
     object = px_res$status,
-    expected = 0
+    expected = 0L
   )
   testthat::expect_true(
-    object = stringr::str_detect(px_res$stdout, "Hello World!"),
+    object = stringr::str_detect(
+      string = px_res$stdout,
+      pattern = stringr::fixed("Hello World!")
+    ),
   )
   # })
 

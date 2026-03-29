@@ -13,17 +13,20 @@ github_org := 'luciorq'
 # =============================================================================
 # General R Package Development Tasks
 # =============================================================================
+
+# Update Package Documentation
 @document:
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
-  R -q -e 'devtools::load_all();usethis::use_tidy_description();';
-  R -q -e 'devtools::load_all();devtools::document();';
+  R -q -s -e 'devtools::load_all();usethis::use_tidy_description();';
+  R -q -s -e 'devtools::load_all();devtools::document();';
   \builtin echo "Documentation updated!";
 
+# Lint R Package Code and Documentation
 @lint:
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
-  R -q -e 'devtools::load_all();styler::style_pkg();';
+  R -q -s -e 'devtools::load_all();styler::style_pkg(exclude_dirs = c("packrat", "renv", "revdep"));';
   air format ./R/ || true;
   air format ./tests/ || true;
   find ./R/ -type f -name "*.R" -exec sed -i -e "s|^#' \@return |#' \@returns |g" {} +
@@ -33,13 +36,15 @@ github_org := 'luciorq'
   awk '!seen[$0]++' .Rbuildignore > .Rbuildignore.tmp && \mv .Rbuildignore.tmp .Rbuildignore;
   \builtin echo "Linting done!";
 
+# Run All Unit Tests
 @test: lint
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
-  R -q -e 'devtools::load_all();devtools::run_examples();';
-  R -q -e 'devtools::load_all();devtools::test();';
+  R -q -s -e 'devtools::load_all();devtools::run_examples();';
+  R -q -s -e 'devtools::load_all();devtools::test();';
   \builtin echo "All tests passed!";
 
+# Build and Lint README File
 @build-readme: lint
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
@@ -47,8 +52,8 @@ github_org := 'luciorq'
   [[ -f ./README.Rmd ]] && cat ./README.Rmd | rumdl check --stdin --disable 'MD046' || true;
   [[ -f ./README.qmd ]] && cat ./README.qmd | rumdl check --stdin --disable 'MD046' || true;
   just install-deps;
-  R -q -e 'pak::local_install(upgrade=TRUE, dependencies=TRUE);';
-  # R -q -e 'devtools::install(pkg = ".", build_vignettes = TRUE, dependencies = c("Imports", "Suggests", "Depends"), upgrade = "always");';
+  R -q -s -e 'pak::local_install(upgrade=TRUE, dependencies=TRUE);';
+  # R -q -s -e 'devtools::install(pkg = ".", build_vignettes = TRUE, dependencies = c("Imports", "Suggests", "Depends"), upgrade = "always");';
   [[ -f ./README.Rmd ]] && R -q -e 'devtools::load_all();if(file.exists("README.Rmd"))rmarkdown::render("README.Rmd", encoding = "UTF-8")' || true;
   [[ -f ./README.qmd ]] && quarto render README.qmd --to gfm || true;
   # Lint Final README.md
@@ -57,17 +62,26 @@ github_org := 'luciorq'
   sed -i '/<!-- badges: start -->/{n; /^\s*$/d}' README.md;
   rumdl check README.md || true;
   markdownlint README.md || true;
+  markdownlint-cli2 --no-globs README.md || true;
   \builtin echo "README built and linted!";
 
+# Run All Examples in the Documentation Including `dontrun`
 @test-all-examples: document
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
-  R -q -e 'devtools::load_all();devtools::document();devtools::run_examples(run_dontrun = TRUE, run_donttest = TRUE);';
+  R -q -s -e 'devtools::load_all();devtools::document();devtools::run_examples(run_dontrun = TRUE, run_donttest = TRUE);';
 
+# Run Tests from a Specific Test File
+@test-file file_name:
+  #!/usr/bin/env bash
+  \builtin set -euxo pipefail;
+  R -q -s -e 'devtools::load_all();devtools::test_active_file("tests/testthat/test-{{ file_name }}.R")';
+
+# Run R CMD Check on the Package With Cran Like Checks
 @check: test test-all-examples build-readme
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
-  R -q -e 'rcmdcheck::rcmdcheck(args = c("--as-cran"), repos = c(CRAN = "https://cloud.r-project.org"));';
+  R -q -s -e 'rcmdcheck::rcmdcheck(args = c("--as-cran"), repos = c(CRAN = "https://cloud.r-project.org"));';
 
 # Force GitHub Actions Checks to start for the main branch
 @check-gha-trigger:
@@ -83,7 +97,7 @@ github_org := 'luciorq'
   latest_job_id="$(gh run list -w "r-cmd-check" --json databaseId --jq '.[0].databaseId')";
   gh run view "${latest_job_id}";
 
-# Use R package version on the DESCRIPTION file to tag latest commit of the git repo
+# Tag the Latest Commit with Version from the DESCRIPTION File
 @git-tag:
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
@@ -96,6 +110,7 @@ github_org := 'luciorq'
   # git pull upstream --tags;
   # git push upstream --tags;
 
+# Build Vignettes
 @build-vignettes:
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
@@ -105,12 +120,14 @@ github_org := 'luciorq'
   R -q -e 'devtools::install(pkg = ".", build_vignettes = TRUE, dependencies = c("Imports", "Suggests", "Depends"), upgrade = "always");';
   R -q -e 'print(vignette(package = "{{ package_name }}"));';
 
+# Install Package Development Dependencies Including Suggests
 @install-deps:
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
   R -q -e 'if(!requireNamespace("pak", quietly=TRUE)) {install.packages("pak")};';
   R -q -e 'pak::local_install_dev_deps(upgrade=TRUE, dependencies=TRUE);';
 
+# Build the pkgdown Website
 @build-pkgdown-website: install-deps
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
@@ -125,6 +142,7 @@ github_org := 'luciorq'
   # git commit -m "chore: update pkgdown website";
   # git push;
 
+# Release a New Version on GitHub Releases Using Content From NEWS.md
 @release-github:
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
@@ -140,7 +158,7 @@ github_org := 'luciorq'
   sed -i -e "s|^# {{ package_name }}|## {{ package_name }}|g" NEWS.md;
   \builtin echo "Check the GH Releases!";
 
-# Things to run before releasing a new version
+# Steps to Run Before Releasing a New Version
 @pre-release:
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
@@ -162,15 +180,15 @@ github_org := 'luciorq'
 # <<< rstats-package-dev-tasks <<<
 
 # =============================================================================
-# Condathis specifc Tasks
+# Condathis specific Tasks
 # =============================================================================
 
-# Check if package can be installed on a conda environment
+# Install Package in a New Clean Conda Environment
 @check-install-conda tag_version='main':
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
   conda create -n {{ package_name }}-env -y --override-channels -c conda-forge \
-    r-base r-devtools r-remotes r-rlang r-withr r-stringr r-jsonlite r-fs r-cli r-processx r-ps r-tibble;
+    r-base r-devtools r-remotes r-rlang r-withr r-stringr r-jsonlite r-fs r-cli r-processx r-ps;
   conda run -n {{ package_name }}-env R -q -e 'remotes::install_github("{{ github_org }}/{{ package_name }}@{{ tag_version }}");';
   conda run -n {{ package_name }}-env R -q -e 'utils::packageVersion("{{ package_name }}");';
   conda run -n {{ package_name }}-env R -q -e 'condathis::create_env("r-base", env_name = "condathis-task-env");message(condathis::run("R","-s", "-q", "--version", env_name = "condathis-task-env"));';

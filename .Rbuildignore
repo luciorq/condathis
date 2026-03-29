@@ -39,3 +39,11 @@
 ^README_files/$
 ^readme_cache/$
 ^\.jj$
+^\.lintr$
+^\.vscode/$
+^[\.]?air\.toml$
+^\.pixi/$
+^\.DS_Store$
+^[.]?air[.]toml$
+^\.vscode$
+^\.rumdl_cache$

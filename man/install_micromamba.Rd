@@ -5,7 +5,7 @@
 \title{Install Micromamba Binaries in the \code{condathis} Controlled Path}
 \usage{
 install_micromamba(
-  micromamba_version = "2.4.0-0",
+  micromamba_version = "2.5.0-2",
   timeout_limit = 3600,
   download_method = "auto",
   force = FALSE,
@@ -14,14 +14,15 @@ install_micromamba(
 }
 \arguments{
 \item{micromamba_version}{Character string specifying the version of
-Micromamba to download. Defaults to \code{"2.4.0-0"}.}
+Micromamba to download. Defaults to \code{"2.5.0-2"}.}
 
 \item{timeout_limit}{Numeric value specifying the timeout limit for
 downloading the Micromamba
 binaries, in seconds. Defaults to \code{3600} seconds (1 hour).}
 
 \item{download_method}{Character string passed to the \code{method} argument of
-the \code{utils::download.file()} function used for downloading the binaries.
+the \code{utils::download.file()} function used for downloading the binaries
+when the \code{curl} package is not available.
 Defaults to \code{"auto"}.}
 
 \item{force}{Logical. If set to TRUE, the download and installation of the
@@ -44,11 +45,32 @@ to create and manage conda environments.
 }
 \details{
 This function checks if Micromamba is already installed in the \code{condathis}
-controlled path. If not, it downloads the specified version from the
-official GitHub releases and installs it.
-On Windows, it ensures the binary is downloaded correctly by setting the
-download mode to \code{"wb"}.
-If the download fails, appropriate error messages are displayed.
+controlled path. If not, it downloads the specified version from multiple
+mirror sources and installs it.
+
+The download strategy is:
+\itemize{
+\item If system \code{tar} and \code{bzip2} are available, download the compressed
+\code{.tar.bz2} archive (smaller download) and extract it.
+\item If \code{tar} or \code{bzip2} are not available, or if extraction fails,
+download the uncompressed standalone binary directly.
+}
+
+Multiple mirror sources are tried in order:
+\itemize{
+\item GitHub Releases
+(\verb{https://github.com/mamba-org/micromamba-releases/releases/})
+\item micro.mamba.pm (official CDN)
+(\verb{https://micro.mamba.pm/api/micromamba/})
+\item conda-forge via Anaconda
+(\verb{https://api.anaconda.org/download/conda-forge/})
+\item conda-forge via prefix.dev
+(\verb{https://repo.prefix.dev/conda-forge/})
+}
+
+The downloaded binary is verified against the SHA256 checksum published on
+GitHub releases. The \code{curl} package is preferred for downloads when
+available, with \code{utils::download.file()} as a fallback.
 }
 \examples{
 \dontrun{

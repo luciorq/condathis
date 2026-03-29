@@ -3,7 +3,13 @@
   "globs": [
     "**/*.md",
     "**/*.Rmd",
-    "**/*.qmd"
+    "**/*.qmd",
+    "**/**/*.Rmd",
+    "**/**/*.qmd",
+    "!revdep",
+    "!node_modules",
+    "!.git",
+    "!.github"
   ],
   // Rule configuration scoped to this directory and below
   "config": {

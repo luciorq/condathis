@@ -7,11 +7,12 @@
 micromamba_bin_path()
 }
 \value{
-A character string representing the full path to the \code{micromamba} executable.
+A character string representing the full path to the \code{micromamba}
+executable.
 The path differs depending on the operating system:
-\describe{
-\item{Windows}{\verb{<install_dir>/micromamba/Library/bin/micromamba.exe}}
-\item{Other OS (e.g., Linux, macOS)}{\verb{<install_dir>/micromamba/bin/micromamba}}
+\itemize{
+\item \strong{Windows}: \verb{<install_dir>/micromamba/Library/bin/micromamba.exe}
+\item \strong{Other OS (e.g., Linux, macOS)}: \verb{<install_dir>/micromamba/bin/micromamba}
 }
 }
 \description{
