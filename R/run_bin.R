@@ -74,28 +74,7 @@ run_bin <- function(
   }
   tmp_dir_path <- withr::local_tempdir(pattern = "condathis-tmp")
   withr::local_envvar(
-    .new = list(
-      `TMPDIR` = tmp_dir_path,
-      `CONDA_SHLVL` = "0",
-      `MAMBA_SHLVL` = "0",
-      `CONDA_ENVS_PATH` = "",
-      `CONDA_ENVS_DIRS` = NULL,
-      `CONDA_ROOT_PREFIX` = "",
-      `CONDA_PREFIX` = "",
-      `MAMBA_ENVS_PATH` = "",
-      `MAMBA_ENVS_DIRS` = "",
-      `MAMBA_ROOT_PREFIX` = "",
-      `MAMBA_PREFIX` = "",
-      `CONDARC` = "",
-      `MAMBARC` = "",
-      `CONDA_PROMPT_MODIFIER` = "",
-      `MAMBA_PROMPT_MODIFIER` = "",
-      `CONDA_DEFAULT_ENV` = "",
-      `MAMBA_DEFAULT_ENV` = "",
-      `CONDA_PKGS_DIRS` = "",
-      `MAMBA_PKGS_DIRS` = "",
-      `R_HOME` = ""
-    )
+    .new = get_clean_conda_envvars(tmp_dir = tmp_dir_path)
   )
   withr::local_path(
     new = list(fs::path(env_dir, "bin")),
