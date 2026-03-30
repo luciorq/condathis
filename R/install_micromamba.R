@@ -305,7 +305,9 @@ verify_micromamba_checksum <- function(
   # Download the published checksum to a temporary file
   sha256_tmpfile <- base::tempfile(fileext = ".sha256")
   on.exit(
-    try(base::file.remove(sha256_tmpfile), silent = TRUE),
+    if (file.exists(sha256_tmpfile)) {
+      try(base::file.remove(sha256_tmpfile), silent = TRUE)
+    },
     add = TRUE
   )
 
@@ -388,7 +390,7 @@ verify_micromamba_checksum <- function(
 #' @keywords internal
 #' @noRd
 compute_sha256 <- function(file_path) {
-  tryCatch(
+  base::tryCatch(
     {
       if (requireNamespace("digest", quietly = TRUE)) {
         return(digest::digest(file = file_path, algo = "sha256"))
@@ -409,7 +411,7 @@ compute_sha256 <- function(file_path) {
         file_path
       }
 
-      sha_result <- tryCatch(
+      sha_result <- base::tryCatch(
         {
           processx::run(sha_cmd, sha_args, error_on_status = FALSE)
         },
