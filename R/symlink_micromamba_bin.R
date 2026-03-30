@@ -24,7 +24,16 @@ symlink_micromamba_bin <- function(path = NULL, force = FALSE) {
         identical(path, fs::path(""))
     )
   ) {
-    user_umamba_path <- micromamba_user_installed()
+    # Check user overrides before falling back to discovery
+    user_opt <- getOption("condathis.micromamba_path", default = NULL)
+    user_env <- Sys.getenv("CONDATHIS_MICROMAMBA_PATH", unset = "")
+    if (!is.null(user_opt) && nzchar(user_opt)) {
+      user_umamba_path <- user_opt
+    } else if (nzchar(user_env)) {
+      user_umamba_path <- user_env
+    } else {
+      user_umamba_path <- micromamba_user_installed()
+    }
   } else {
     user_umamba_path <- path
   }

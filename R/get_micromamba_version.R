@@ -28,7 +28,7 @@ get_micromamba_version <- function(umamba_path = NULL) {
   version_string <- parse_output(px_res)
   version_string <- stringr::str_extract(
     version_string,
-    pattern = r"(\d+\.\d+\.\d+)"
+    pattern = stringr::regex(r"(\d+\.\d+\.\d+)")
   )
   if (isTRUE(rlang::is_chr_na(version_string))) {
     cli::cli_abort(

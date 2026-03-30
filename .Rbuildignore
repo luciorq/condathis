@@ -47,3 +47,4 @@
 ^[.]?air[.]toml$
 ^\.vscode$
 ^\.rumdl_cache$
+^\.opencode/$
