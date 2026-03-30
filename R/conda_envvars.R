@@ -2,8 +2,8 @@
 #'
 #' Returns a named list of Conda and Mamba environment variables set to empty
 #' strings (or specific values) to ensure isolation from any existing conda
-#' installation. Used by [native_cmd()] and [run_bin()] via
-#' `withr::local_envvar()`.
+#' installation. Used by [run_bin()] and [run()] (actually, any command
+#' calling `native_cmd()`), via `withr::local_envvar()`.
 #'
 #' Key isolation decisions:
 #' - `R_HOME = ""` prevents conda-installed R from conflicting with the

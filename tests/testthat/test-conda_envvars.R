@@ -27,15 +27,24 @@ testthat::test_that("get_clean_conda_envvars includes all 20 env vars", {
   result <- get_clean_conda_envvars(tmp_dir = "/tmp/test")
   expected_names <- c(
     "TMPDIR",
-    "CONDA_SHLVL", "MAMBA_SHLVL",
-    "CONDA_ENVS_PATH", "CONDA_ENVS_DIRS",
-    "CONDA_ROOT_PREFIX", "CONDA_PREFIX",
-    "MAMBA_ENVS_PATH", "MAMBA_ENVS_DIRS",
-    "MAMBA_ROOT_PREFIX", "MAMBA_PREFIX",
-    "CONDARC", "MAMBARC",
-    "CONDA_PROMPT_MODIFIER", "MAMBA_PROMPT_MODIFIER",
-    "CONDA_DEFAULT_ENV", "MAMBA_DEFAULT_ENV",
-    "CONDA_PKGS_DIRS", "MAMBA_PKGS_DIRS",
+    "CONDA_SHLVL",
+    "MAMBA_SHLVL",
+    "CONDA_ENVS_PATH",
+    "CONDA_ENVS_DIRS",
+    "CONDA_ROOT_PREFIX",
+    "CONDA_PREFIX",
+    "MAMBA_ENVS_PATH",
+    "MAMBA_ENVS_DIRS",
+    "MAMBA_ROOT_PREFIX",
+    "MAMBA_PREFIX",
+    "CONDARC",
+    "MAMBARC",
+    "CONDA_PROMPT_MODIFIER",
+    "MAMBA_PROMPT_MODIFIER",
+    "CONDA_DEFAULT_ENV",
+    "MAMBA_DEFAULT_ENV",
+    "CONDA_PKGS_DIRS",
+    "MAMBA_PKGS_DIRS",
     "R_HOME"
   )
   testthat::expect_equal(names(result), expected_names)
