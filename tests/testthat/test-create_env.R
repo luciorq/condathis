@@ -33,6 +33,13 @@ testthat::test_that("conda env is created", {
   )
   testthat::expect_equal(px_res$status, 0L)
 
+  # Ensure micromamba is installed at the internal path for further tests.
+  # With the discovery chain, native_cmd() may use an external micromamba
+  # and skip installing to the internal path. Install explicitly here.
+  if (isFALSE(fs::file_exists(micromamba_bin_path()))) {
+    suppressMessages(install_micromamba(verbose = "silent"))
+  }
+
   withr::with_path(
     new = dirname(micromamba_bin_path()),
     code = {
@@ -41,10 +48,7 @@ testthat::test_that("conda env is created", {
     action = "replace"
   )
 
-  testthat::expect_equal(
-    micromamba_bin_path(),
-    umamba_path
-  )
+  testthat::expect_true(fs::file_exists(umamba_path))
 
   run_res <- run(
     "Rmissing",
