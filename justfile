@@ -40,8 +40,8 @@ github_org := 'luciorq'
 @test: lint
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
-  R -q -s -e 'devtools::load_all();devtools::run_examples();';
-  R -q -s -e 'devtools::load_all();devtools::test();';
+  TESTTHAT_CPUS=4 R -q -s -e 'devtools::load_all();devtools::run_examples();';
+  TESTTHAT_CPUS=4 R -q -s -e 'devtools::load_all();devtools::test();';
   \builtin echo "All tests passed!";
 
 # Build and Lint README File
