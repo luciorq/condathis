@@ -3,7 +3,7 @@ testthat::test_that("Do not execute code in curly braces", {
   testthat::skip_on_cran()
 
   px_res <- create_env(
-    packages = c("r-base=4.1.3", "r-devtools"),
+    packages = c("r-base>=4.1,<5.0"),
     env_name = "condathis-rethrow-test-env",
     verbose = "silent"
   )

@@ -46,36 +46,23 @@ native_cmd <- function(
     verbose_output <- FALSE
   }
 
-  umamba_bin_path <- micromamba_bin_path()
+  # Try to find a valid micromamba from any known location
+  umamba_bin_path <- get_best_micromamba_path()
+
+  if (is.null(umamba_bin_path)) {
+    # No valid micromamba found anywhere — install to internal path
+    install_micromamba(force = TRUE, verbose = verbose_list$internal_verbose)
+    umamba_bin_path <- micromamba_bin_path()
+  }
+
   env_root_dir <- get_install_dir()
   env_envs_dir <- fs::path(env_root_dir, "envs")
-  if (isFALSE(fs::file_exists(umamba_bin_path))) {
-    install_micromamba(force = TRUE, verbose = verbose_list$internal_verbose)
-  }
   umamba_bin_path <- base::normalizePath(umamba_bin_path, mustWork = FALSE)
   tmp_dir_path <- withr::local_tempdir(pattern = "mamba-tmp")
   withr::local_envvar(
-    .new = list(
-      `TMPDIR` = tmp_dir_path,
-      `CONDA_SHLVL` = "0",
-      `MAMBA_SHLVL` = "0",
-      `CONDA_ENVS_PATH` = env_envs_dir,
-      `CONDA_ENVS_DIRS` = NULL,
-      `CONDA_ROOT_PREFIX` = "",
-      `CONDA_PREFIX` = "",
-      `MAMBA_ENVS_PATH` = "",
-      `MAMBA_ENVS_DIRS` = "",
-      `MAMBA_ROOT_PREFIX` = "",
-      `MAMBA_PREFIX` = "",
-      `CONDARC` = "",
-      `MAMBARC` = "",
-      `CONDA_PROMPT_MODIFIER` = "",
-      `MAMBA_PROMPT_MODIFIER` = "",
-      `CONDA_DEFAULT_ENV` = "",
-      `MAMBA_DEFAULT_ENV` = "",
-      `CONDA_PKGS_DIRS` = "",
-      `MAMBA_PKGS_DIRS` = "",
-      `R_HOME` = ""
+    .new = get_clean_conda_envvars(
+      tmp_dir = tmp_dir_path,
+      envs_dir = env_envs_dir
     )
   )
 

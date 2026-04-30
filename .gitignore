@@ -16,3 +16,4 @@ docs
 *.gz
 .Rapp.history
 .quarto
+.positai

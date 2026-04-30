@@ -40,8 +40,8 @@ github_org := 'luciorq'
 @test: lint
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
-  R -q -s -e 'devtools::load_all();devtools::run_examples();';
-  R -q -s -e 'devtools::load_all();devtools::test();';
+  TESTTHAT_CPUS=4 R -q -s -e 'devtools::load_all();devtools::run_examples();';
+  TESTTHAT_CPUS=4 R -q -s -e 'devtools::load_all();devtools::test();';
   \builtin echo "All tests passed!";
 
 # Build and Lint README File
@@ -114,26 +114,39 @@ github_org := 'luciorq'
 @build-vignettes:
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
-  R -q -e 'devtools::load_all();devtools::document();';
+  R -q -s -e 'devtools::load_all();devtools::document();';
   just install-deps;
-  R -q -e 'pak::local_install(upgrade=TRUE, dependencies=TRUE);';
-  R -q -e 'devtools::install(pkg = ".", build_vignettes = TRUE, dependencies = c("Imports", "Suggests", "Depends"), upgrade = "always");';
-  R -q -e 'print(vignette(package = "{{ package_name }}"));';
+  just install-local;
+  R -q -s -e 'devtools::install(pkg = ".", build_vignettes = TRUE, dependencies = c("Imports", "Suggests", "Depends"), upgrade = "always");';
+  R -q -s -e 'print(vignette(package = "{{ package_name }}"));';
 
 # Install Package Development Dependencies Including Suggests
 @install-deps:
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
-  R -q -e 'if(!requireNamespace("pak", quietly=TRUE)) {install.packages("pak")};';
-  R -q -e 'pak::local_install_dev_deps(upgrade=TRUE, dependencies=TRUE);';
+  R -q -s -e 'if(!requireNamespace("pak", quietly=TRUE)) {install.packages("pak")};';
+  R -q -s -e 'pak::local_install_dev_deps(upgrade=TRUE, dependencies=TRUE);';
+
+# Install Local Version of the Package With All Dependencies
+@install-local:
+  #!/usr/bin/env bash
+  \builtin set -euxo pipefail;
+  R -q -s -e 'if(!requireNamespace("pak", quietly=TRUE)) {install.packages("pak")};';
+  R -q -s -e 'pak::local_install(upgrade=TRUE, dependencies=TRUE);';
+
+# Install Dev Environment Dependencies
+@install-dev-deps: install-deps
+  #!/usr/bin/env bash
+  \builtin set -euxo pipefail;
+  R -q -s -e 'pak::local_install_dev_deps(dependencies="Config/Needs/dev", upgrade=TRUE)';
 
 # Build the pkgdown Website
 @build-pkgdown-website: install-deps
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
-  R -q -e 'pak::pak("pkgdown", upgrade=TRUE, dependencies=TRUE);';
-  R -q -e 'pkgdown::build_favicons(overwrite=FALSE);';
-  R -q -e 'devtools::document();devtools::load_all();pkgdown::build_site();';
+  R -q -s -e 'pak::pak("pkgdown", upgrade=TRUE, dependencies=TRUE);';
+  R -q -s -e 'pkgdown::build_favicons(overwrite=FALSE);';
+  R -q -s -e 'devtools::document();devtools::load_all();pkgdown::build_site();';
   # Steps for manually deploying the pkgdown website,
   # + not necessary if using GitHub Actions.
   # git add docs/;
@@ -188,7 +201,7 @@ github_org := 'luciorq'
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
   conda create -n {{ package_name }}-env -y --override-channels -c conda-forge \
-    r-base r-devtools r-remotes r-rlang r-withr r-stringr r-jsonlite r-fs r-cli r-processx r-ps;
+    r-base r-devtools r-remotes r-rlang r-withr r-stringr r-jsonlite r-fs r-cli r-processx r-ps micromamba;
   conda run -n {{ package_name }}-env R -q -e 'remotes::install_github("{{ github_org }}/{{ package_name }}@{{ tag_version }}");';
   conda run -n {{ package_name }}-env R -q -e 'utils::packageVersion("{{ package_name }}");';
   conda run -n {{ package_name }}-env R -q -e 'condathis::create_env("r-base", env_name = "condathis-task-env");message(condathis::run("R","-s", "-q", "--version", env_name = "condathis-task-env"));';

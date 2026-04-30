@@ -11,8 +11,16 @@ test_that("create nested environment", {
 
   pkgs_res <- list_packages(env_name = "test-nested-env", verbose = "silent")
 
-  testthat::expect_equal(nrow(pkgs_res), 0)
-  testthat::expect_equal(ncol(pkgs_res), 8)
+  testthat::expect_equal(nrow(pkgs_res), 0L)
+  testthat::expect_equal(ncol(pkgs_res), 8L)
+
+  # Ensure micromamba is installed at the internal path.
+  # With the discovery chain, create_env() may use an external micromamba
+  # and skip installing to the internal path. We need it installed since
+  # we reference micromamba_bin_path() directly below.
+  if (isFALSE(fs::file_exists(micromamba_bin_path()))) {
+    suppressMessages(install_micromamba(verbose = "silent"))
+  }
 
   nested_create_res <- run(
     cmd = micromamba_bin_path(),

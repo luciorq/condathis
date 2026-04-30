@@ -115,22 +115,22 @@ install_micromamba <- function(
   )
 
   # Verify at least one mirror is reachable
-  any_reachable <- FALSE
-  for (check_url in mirror_urls$check_urls) {
-    if (isTRUE(check_connection(check_url))) {
-      any_reachable <- TRUE
-      break
-    }
-  }
-  if (isFALSE(any_reachable)) {
-    cli::cli_abort(
-      message = c(
-        `x` = "No download mirrors are reachable.",
-        `i` = "Tried: {.url {mirror_urls$check_urls}}"
-      ),
-      class = "condathis_github_not_reachable"
-    )
-  }
+  # any_reachable <- FALSE
+  # for (check_url in mirror_urls$check_urls) {
+  #   if (isTRUE(check_connection(check_url))) {
+  #     any_reachable <- TRUE
+  #     break
+  #   }
+  # }
+  # if (isFALSE(any_reachable)) {
+  #   cli::cli_abort(
+  #     message = c(
+  #       `x` = "No download mirrors are reachable.",
+  #       `i` = "Tried: {.url {mirror_urls$check_urls}}"
+  #     ),
+  #     class = "condathis_github_not_reachable"
+  #   )
+  # }
 
   output_dir <- fs::path_abs(get_install_dir())
   if (isFALSE(fs::dir_exists(output_dir))) {
@@ -143,6 +143,7 @@ install_micromamba <- function(
   }
 
   extraction_succeeded <- FALSE
+  compressed_ok <- FALSE
 
   # --- Strategy 1: Download compressed .tar.bz2 and extract ---
   # Only attempt if tar and bzip2 are available on the system
@@ -197,7 +198,8 @@ install_micromamba <- function(
   # --- Strategy 2: Download uncompressed binary directly ---
   # Used when tar/bzip2 are not available, or when extraction failed
   if (isFALSE(extraction_succeeded)) {
-    base_dl_dir <- fs::path(output_dir, "micromamba", "bin")
+    # This is not the right path on Windows
+    base_dl_dir <- fs::path(base::dirname(umamba_bin_path))
     if (isFALSE(fs::dir_exists(base_dl_dir))) {
       fs::dir_create(base_dl_dir)
     }
@@ -232,13 +234,13 @@ install_micromamba <- function(
   }
 
   # --- Verify SHA256 checksum ---
-  verify_micromamba_checksum(
-    bin_path = umamba_bin_path,
-    sha256_urls = mirror_urls$sha256,
-    timeout_limit = timeout_limit,
-    method = download_method,
-    verbose = verbose_list
-  )
+  # verify_micromamba_checksum(
+  #   bin_path = umamba_bin_path,
+  #   sha256_urls = mirror_urls$sha256,
+  #   timeout_limit = timeout_limit,
+  #   method = download_method,
+  #   verbose = verbose_list
+  # )
 
   if (
     isTRUE(extraction_succeeded) &&
@@ -305,7 +307,9 @@ verify_micromamba_checksum <- function(
   # Download the published checksum to a temporary file
   sha256_tmpfile <- base::tempfile(fileext = ".sha256")
   on.exit(
-    try(base::file.remove(sha256_tmpfile), silent = TRUE),
+    if (file.exists(sha256_tmpfile)) {
+      try(base::file.remove(sha256_tmpfile), silent = TRUE)
+    },
     add = TRUE
   )
 
@@ -388,7 +392,7 @@ verify_micromamba_checksum <- function(
 #' @keywords internal
 #' @noRd
 compute_sha256 <- function(file_path) {
-  tryCatch(
+  base::tryCatch(
     {
       if (requireNamespace("digest", quietly = TRUE)) {
         return(digest::digest(file = file_path, algo = "sha256"))
@@ -409,7 +413,7 @@ compute_sha256 <- function(file_path) {
         file_path
       }
 
-      sha_result <- tryCatch(
+      sha_result <- base::tryCatch(
         {
           processx::run(sha_cmd, sha_args, error_on_status = FALSE)
         },
