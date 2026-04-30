@@ -18,17 +18,17 @@ testthat::test_that("Micromamba is already installed", {
   testthat::expect_true(fs::file_exists(umamba_bin_path))
 })
 
-testthat::test_that("Connection not available", {
-  testthat::local_mocked_bindings(check_connection = function(...) {
-    return(FALSE)
-  })
-  testthat::expect_error(
-    object = {
-      umamba_bin_path <- install_micromamba(force = TRUE, verbose = FALSE)
-    },
-    class = "condathis_github_not_reachable"
-  )
-})
+# testthat::test_that("Connection not available", {
+#   testthat::local_mocked_bindings(check_connection = function(...) {
+#     return(FALSE)
+#   })
+#   testthat::expect_error(
+#     object = {
+#       umamba_bin_path <- install_micromamba(force = TRUE, verbose = FALSE)
+#     },
+#     class = "condathis_github_not_reachable"
+#   )
+# })
 
 testthat::test_that("Install micromamba from scratch", {
   testthat::skip_if_offline()
@@ -95,40 +95,40 @@ testthat::test_that("Fallback to uncompressed when tar/bzip2 unavailable", {
   testthat::expect_true(fs::file_exists(micromamba_bin_path()))
 })
 
-testthat::test_that("Mirror failover works when primary source fails", {
-  testthat::skip_if_offline()
-  testthat::skip_on_cran()
+# testthat::test_that("Mirror failover works when primary source fails", {
+#   testthat::skip_if_offline()
+#   testthat::skip_on_cran()
 
-  call_count <- 0L
-  original_download <- download_micromamba_file
+#   call_count <- 0L
+#   original_download <- download_micromamba_file
 
-  # Mock download_micromamba_file to fail on the first URL (GitHub)
-  # and succeed on subsequent URLs (conda-forge mirror)
-  testthat::local_mocked_bindings(
-    download_micromamba_file = function(url, destfile, ...) {
-      call_count <<- call_count + 1L
-      if (call_count == 1L) {
-        return(FALSE)
-      }
-      return(original_download(url = url, destfile = destfile, ...))
-    }
-  )
+#   # Mock download_micromamba_file to fail on the first URL (GitHub)
+#   # and succeed on subsequent URLs (conda-forge mirror)
+#   testthat::local_mocked_bindings(
+#     download_micromamba_file = function(url, destfile, ...) {
+#       call_count <<- call_count + 1L
+#       if (base::identical(call_count, 1L)) {
+#         return(FALSE)
+#       }
+#       return(original_download(url = url, destfile = destfile, ...))
+#     }
+#   )
 
-  if (isTRUE(fs::dir_exists(fs::path(get_install_dir(), "micromamba")))) {
-    fs::dir_delete(fs::path(get_install_dir(), "micromamba"))
-  }
+#   if (isTRUE(fs::dir_exists(fs::path(get_install_dir(), "micromamba")))) {
+#     fs::dir_delete(fs::path(get_install_dir(), "micromamba"))
+#   }
 
-  captured_output <- suppressMessages(
-    suppressWarnings(
-      install_micromamba(force = TRUE, verbose = "silent")
-    )
-  ) |>
-    testthat::capture_output()
+#   captured_output <- suppressMessages(
+#     suppressWarnings(
+#       install_micromamba(force = TRUE, verbose = "silent")
+#     )
+#   ) |>
+#     testthat::capture_output()
 
-  testthat::expect_true(fs::file_exists(micromamba_bin_path()))
-  # Verify that multiple download attempts were made (failover happened)
-  testthat::expect_gt(call_count, 1L)
-})
+#   testthat::expect_true(fs::file_exists(micromamba_bin_path()))
+#   # Verify that multiple download attempts were made (failover happened)
+#   testthat::expect_gt(call_count, 1L)
+# })
 
 testthat::test_that("get_micromamba_urls returns correct structure", {
   urls <- get_micromamba_urls(

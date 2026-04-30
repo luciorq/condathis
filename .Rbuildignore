@@ -47,4 +47,7 @@
 ^[.]?air[.]toml$
 ^\.vscode$
 ^\.rumdl_cache$
+^\.opencode$
 ^\.opencode/$
+^\.positai$
+^\.claude$

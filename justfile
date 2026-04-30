@@ -140,7 +140,6 @@ github_org := 'luciorq'
   \builtin set -euxo pipefail;
   R -q -s -e 'pak::local_install_dev_deps(dependencies="Config/Needs/dev", upgrade=TRUE)';
 
-
 # Build the pkgdown Website
 @build-pkgdown-website: install-deps
   #!/usr/bin/env bash
