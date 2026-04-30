@@ -15,6 +15,21 @@ Development Changelog:
   [`install_packages()`](https://luciorq.github.io/condathis/reference/install_packages.md)
   to control channel priority strategy.
 
+- Condathis now support system installed `micromamba` binaries. For that
+  we added 1 new option and 1 environment variable to control that
+  behavior. `condathis_micromamba_path` and
+  `"CONDATHIS_MICROMAMBA_PATH"` respectively. The order of discovey is
+  as follows:
+
+  - User override via `getOption("condathis.micromamba_path")`
+  - User override via `CONDATHIS_MICROMAMBA_PATH` environment variable
+  - condathis internal managed path
+    ([`micromamba_bin_path()`](https://luciorq.github.io/condathis/reference/micromamba_bin_path.md))
+  - R-in-conda: micromamba adjacent to R’s own installation prefix
+  - Active conda environment (`CONDA_PREFIX`)
+  - condathis managed micromamba-env fallback
+  - System PATH (`Sys.which("micromamba")`)
+
 ### Changed
 
 - Internal `micromamba` version bump to “2.5.0-2”.

@@ -15,6 +15,7 @@ Let’s have some fun with `cowpy`. With just two commands, we can install
 and run it in its own isolated environment:
 
 ``` r
+
 # 1. Install 'cowpy' into an environment named 'cowpy-env'
 condathis::create_env(packages = "cowpy", env_name = "cowpy-env")
 #> ! Environment cowpy-env succesfully created.
@@ -38,6 +39,7 @@ Maybe you want to try something fancier, like `rich-cli` for formatting
 messages?
 
 ``` r
+
 condathis::create_env(packages = "rich-cli", env_name = "rich-cli-env")
 #> ! Environment rich-cli-env succesfully created.
 
@@ -59,6 +61,7 @@ Install the release version of the package from
 [CRAN](https://cran.r-project.org/package=condathis):
 
 ``` r
+
 install.packages("condathis")
 ```
 
@@ -66,6 +69,7 @@ Or get the development version from
 [R-Universe](https://luciorq.r-universe.dev/condathis):
 
 ``` r
+
 install.packages("condathis", repos = c("https://luciorq.r-universe.dev", getOption("repos")))
 ```
 
@@ -95,6 +99,7 @@ With [condathis](https://github.com/luciorq/condathis), you can lock in
 a specific version:
 
 ``` r
+
 fastq_file <- system.file("extdata", "sample1_L001_R1_001.fastq.gz", package = "condathis")
 temp_out_dir <- file.path(tempdir(), "output")
 fs::dir_create(temp_out_dir)
@@ -120,6 +125,7 @@ from your system’s version? No problem.
 Your system’s `curl`:
 
 ``` r
+
 libcurlVersion()
 #> [1] "8.7.1"
 #> attr(,"ssl_version")
@@ -136,6 +142,7 @@ libcurlVersion()
 A specific `curl` version, isolated with `condathis`:
 
 ``` r
+
 condathis::create_env(
   packages = "curl==8.10.1",
   env_name = "curl-env"
@@ -150,7 +157,7 @@ out <- condathis::run(
 )
 
 message(out$stdout)
-#> curl 8.10.1 (aarch64-apple-darwin20.0.0) libcurl/8.10.1 OpenSSL/3.6.1 (SecureTransport) zlib/1.3.2 zstd/1.5.7 libssh2/1.11.1 nghttp2/1.68.1
+#> curl 8.10.1 (aarch64-apple-darwin20.0.0) libcurl/8.10.1 OpenSSL/3.6.2 (SecureTransport) zlib/1.3.2 zstd/1.5.7 libssh2/1.11.1 nghttp2/1.68.1
 #> Release-Date: 2024-09-18
 #> Protocols: dict file ftp ftps gopher gophers http https imap imaps ipfs ipns mqtt pop3 pop3s rtsp scp sftp smb smbs smtp smtps telnet tftp ws wss
 #> Features: alt-svc AsynchDNS GSS-API HSTS HTTP2 HTTPS-proxy IPv6 Kerberos Largefile libz MultiSSL NTLM SPNEGO SSL threadsafe TLS-SRP UnixSockets zstd

@@ -14,13 +14,13 @@ Source:
 [`DESCRIPTION`](https://github.com/luciorq/condathis/blob/main/DESCRIPTION)
 
 Queiroz L, Zanettini C (2026). *condathis: Run Any CLI Tool on a 'Conda'
-Environment*. R package version 0.1.3.9014,
+Environment*. R package version 0.1.3.9016,
 <https://github.com/luciorq/condathis>.
 
     @Manual{,
       title = {condathis: Run Any CLI Tool on a 'Conda' Environment},
       author = {Lucio Queiroz and Claudio Zanettini},
       year = {2026},
-      note = {R package version 0.1.3.9014},
+      note = {R package version 0.1.3.9016},
       url = {https://github.com/luciorq/condathis},
     }

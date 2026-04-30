@@ -96,6 +96,7 @@ than `{r setup, include=FALSE eval=TRUE}`.
 > the function uses `...`.
 
 ``` r
+
 library(condathis)
 
 # Create an environment with samtools

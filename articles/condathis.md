@@ -47,6 +47,7 @@ We’ll specify the packages we need (in this case, `samtools` from the
 `bioconda` channel).
 
 ``` r
+
 create_env(
   packages = "bioconda::samtools",
   channels = c("conda-forge", "bioconda"),
@@ -72,6 +73,7 @@ that we can use for this demonstration.
 Let’s use `samtools view` to inspect the header of our example BAM file.
 
 ``` r
+
 # Get the path to the example BAM file
 bam_file <- system.file("extdata", "example.bam", package = "condathis")
 
@@ -89,6 +91,7 @@ console.
 Here is a complete, reproducible example.
 
 ``` r
+
 # Load the package
 library(condathis)
 
