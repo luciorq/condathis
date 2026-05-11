@@ -23,5 +23,8 @@ Useful links:
 
 Authors:
 
+- Lucio Queiroz <luciorqueiroz@gmail.com>
+  ([ORCID](https://orcid.org/0000-0002-6090-1834)) \[copyright holder\]
+
 - Claudio Zanettini <claudio.zanettini@gmail.com>
   ([ORCID](https://orcid.org/0000-0001-5043-8033)) \[contributor\]

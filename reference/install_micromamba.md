@@ -9,7 +9,7 @@ manage conda environments.
 
 ``` r
 install_micromamba(
-  micromamba_version = "2.5.0-2",
+  micromamba_version = "2.6.0-0",
   timeout_limit = 3600,
   download_method = "auto",
   force = FALSE,
@@ -22,7 +22,7 @@ install_micromamba(
 - micromamba_version:
 
   Character string specifying the version of Micromamba to download.
-  Defaults to `"2.5.0-2"`.
+  Defaults to `"2.6.0-0"`.
 
 - timeout_limit:
 
