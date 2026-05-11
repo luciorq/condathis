@@ -40,10 +40,10 @@ Config/Needs/dev: devtools, pkgload, remotes, rcmdcheck, covr, testthat,
     usethis, pak, knitr, quarto, pkgdown, roxygen2, roxygen2md, lintr,
     styler
 Config/Needs/website: quarto
+Config/roxygen2/markdown: TRUE
+Config/roxygen2/version: 8.0.0
 Config/testthat/edition: 3
 Config/testthat/parallel: true
 Config/testthat/start-first: create_env, rethrow_error, parse_match_spec,
     run_verbose_levels
 Encoding: UTF-8
-Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.3

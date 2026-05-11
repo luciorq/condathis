@@ -178,7 +178,8 @@ create_env <- function(
       channels = channels,
       channel_priority = channel_priority,
       additional_channels = additional_channels,
-      verbose = verbose_list$internal_verbose
+      # verbose = verbose_list$internal_verbose
+      verbose = "silent"
     )
   } else {
     platform_args <- NULL
@@ -195,7 +196,7 @@ create_env <- function(
       isFALSE(overwrite) &&
         # rlang::is_null(env_file) &&
         isTRUE(length(packages) > 0L) &&
-        env_exists(env_name = env_name, verbose = verbose_list$internal_verbose)
+        env_exists(env_name = env_name, verbose = "silent")
     ) {
       is_satisfied_vector <- satisfies_dependencies(
         pkg_str_vector = packages,

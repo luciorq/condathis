@@ -6,7 +6,7 @@
 \alias{condathis-package}
 \title{condathis: Run Any CLI Tool on a 'Conda' Environment}
 \description{
-\if{html}{\figure{logo.png}{options: style='float: right' alt='logo' width='120'}}
+\if{html}{\figure{logo.svg}{options: style='float: right' alt='logo' width='120'}}
 
 Simplifies the execution of command line interface (CLI) tools within isolated and reproducible environments. It enables users to effortlessly manage 'Conda' environments, execute command line tools, handle dependencies, and ensure reproducibility in their data analysis workflows.
 }
@@ -24,6 +24,7 @@ Useful links:
 
 Authors:
 \itemize{
+  \item Lucio Queiroz \email{luciorqueiroz@gmail.com} (\href{https://orcid.org/0000-0002-6090-1834}{ORCID}) [copyright holder]
   \item Claudio Zanettini \email{claudio.zanettini@gmail.com} (\href{https://orcid.org/0000-0001-5043-8033}{ORCID}) [contributor]
 }
 

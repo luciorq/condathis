@@ -133,7 +133,7 @@ testthat::test_that("Fallback to uncompressed when tar/bzip2 unavailable", {
 testthat::test_that("get_micromamba_urls returns correct structure", {
   urls <- get_micromamba_urls(
     sys_arch_str = "linux-64",
-    micromamba_version = "2.5.0-2"
+    micromamba_version = "2.6.0-0"
   )
 
   testthat::expect_type(urls, "list")

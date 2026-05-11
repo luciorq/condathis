@@ -1,5 +1,5 @@
 create_libmambapy_env <- function(
-  package_string = "conda-forge::libmambapy>=2.5.0",
+  package_string = "conda-forge::libmambapy>=2.6.0",
   env_name = "libmambapy-test-env",
   verbose = "silent",
   overwrite = FALSE

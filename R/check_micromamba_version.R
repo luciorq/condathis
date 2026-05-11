@@ -7,7 +7,7 @@
 #' @param umamba_path Character string. Path to the micromamba binary.
 #'   If `NULL`, uses the default from `micromamba_bin_path()`.
 #' @param target_version Character string. The version to compare against.
-#'   Defaults to `"2.5.0"`.
+#'   Defaults to `"2.6.0"`.
 #' @param minimum Logical. If `TRUE` (default), accepts versions >= target.
 #'   If `FALSE`, requires an exact match.
 #'
@@ -18,7 +18,7 @@
 #' @noRd
 check_micromamba_version <- function(
   umamba_path = NULL,
-  target_version = "2.5.0",
+  target_version = "2.6.0",
   minimum = TRUE
 ) {
   version_string <- get_micromamba_version(umamba_path)
