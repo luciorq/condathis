@@ -7,7 +7,7 @@
 #'   to create and manage conda environments.
 #'
 #' @param micromamba_version Character string specifying the version of
-#'   Micromamba to download. Defaults to `"2.6.0-0"`.
+#'   Micromamba to download. Defaults to `"2.6.2-1"`.
 #'
 #' @param timeout_limit Numeric value specifying the timeout limit for
 #'   downloading the Micromamba
@@ -72,7 +72,7 @@
 #'
 #' @export
 install_micromamba <- function(
-  micromamba_version = "2.6.0-0",
+  micromamba_version = "2.6.2-1",
   timeout_limit = 3600,
   download_method = "auto",
   force = FALSE,
@@ -278,7 +278,7 @@ install_micromamba <- function(
 #' ```
 #' To manually verify a release checksum:
 #' ```
-#' curl -sL https://github.com/mamba-org/micromamba-releases/releases/download/2.6.0-0/micromamba-osx-arm64.sha256
+#' curl -sL https://github.com/mamba-org/micromamba-releases/releases/download/2.6.2-1/micromamba-osx-arm64.sha256
 #' ```
 #'
 #' @param bin_path Character string. Path to the micromamba binary to verify.
