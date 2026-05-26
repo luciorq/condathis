@@ -45,8 +45,10 @@ testthat::test_that("check_micromamba_version defaults to minimum=TRUE", {
 })
 
 testthat::test_that("is_umamba_version_available accepts newer versions", {
+  # TODO: @luciorq - Update this to the newer version of micromamba upon
+  # + update and ensure the test reflects that
   testthat::local_mocked_bindings(
-    get_micromamba_version = function(...) "2.6.0"
+    get_micromamba_version = function(...) "2.6.2"
   )
   # This should now return TRUE since check_micromamba_version uses >= by default
   testthat::expect_true(is_umamba_version_available("/mock/path"))
