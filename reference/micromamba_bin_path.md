@@ -28,5 +28,5 @@ condathis::with_sandbox_dir({
   micromamba_path <- condathis::micromamba_bin_path()
   print(micromamba_path)
 })
-#> /tmp/RtmpKNdO22/tmp-data19cb59ff6608/R/condathis/micromamba/bin/micromamba
+#> /tmp/Rtmp13usqA/tmp-data1a4016b03a8/R/condathis/micromamba/bin/micromamba
 ```

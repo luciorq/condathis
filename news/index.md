@@ -32,7 +32,7 @@ Development Changelog:
 
 ### Changed
 
-- Internal `micromamba` version bump to “2.6.0-0”.
+- Internal `micromamba` version bump to “2.6.2-1”.
 
 - [`clean_cache()`](https://luciorq.github.io/condathis/reference/clean_cache.md)
   now also removes any additional cache files created in the path

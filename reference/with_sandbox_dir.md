@@ -41,7 +41,7 @@ up after execution.
 
 ``` r
 condathis::with_sandbox_dir(print(fs::path_home()))
-#> /tmp/RtmpKNdO22/tmp-home19cb1faf3b32
+#> /tmp/Rtmp13usqA/tmp-home1a4069b21b34
 condathis::with_sandbox_dir(print(tools::R_user_dir("condathis")))
-#> [1] "/tmp/RtmpKNdO22/tmp-data19cb6a2e388c/R/condathis"
+#> [1] "/tmp/Rtmp13usqA/tmp-data1a4019d8f88/R/condathis"
 ```
