@@ -30,7 +30,6 @@ Imports:
     withr
 Suggests:
     curl,
-    digest,
     knitr,
     quarto,
     testthat (>= 3.0.0)

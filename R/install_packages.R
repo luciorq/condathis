@@ -1,4 +1,4 @@
-#' Install Packages in a Existing Conda Environment
+#' Install Packages in an Existing Conda Environment
 #' @param packages Character vector with the names of the packages and
 #'   version strings if necessary.
 #' @param env_name Name of the Conda environment where the packages are

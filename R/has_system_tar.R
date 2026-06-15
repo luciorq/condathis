@@ -1,7 +1,9 @@
 #' Check if a File Exists and is Executable
 #'
 #' @param path Character string. Path to check.
+#'
 #' @returns Logical. `TRUE` if the file exists and is executable.
+#'
 #' @keywords internal
 #' @noRd
 is_executable <- function(path) {
@@ -16,7 +18,7 @@ is_executable <- function(path) {
   identical(file.access(path, mode = 1L), 0L)
 }
 
-#' Check if System `tar` is Available
+#' Check if System Tar Program is Available
 #'
 #' Checks whether a working `tar` executable is available. First checks the
 #' `TAR` environment variable (also used by `utils::untar()`), then falls back

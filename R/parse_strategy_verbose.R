@@ -13,7 +13,7 @@
 #'
 #' - `cmd`: Whether to show the command being executed.
 #' - `output`: Whether to show the output from the command.
-#' - `quiet_flag`: A flag passed to internal `micromammba` call.
+#' - `quiet_flag`: A flag passed to internal `micromamba` call.
 #' - `internal_verbose`: A string indicating the verbosity level for internal
 #'   functions.
 #' - `spinner`: Whether to show a spinner animation for commands.

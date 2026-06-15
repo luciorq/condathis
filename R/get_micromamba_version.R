@@ -1,3 +1,12 @@
+#' Get Micromamba Version
+#'
+#' @param umamba_path Path to the micromamba executable. If `NULL`, the path
+#'   will be determined using `micromamba_bin_path()`.
+#'
+#' @returns A character string representing the micromamba version.
+#'
+#' @keywords internal
+#' @noRd
 get_micromamba_version <- function(umamba_path = NULL) {
   if (rlang::is_null(umamba_path)) {
     umamba_path <- micromamba_bin_path()

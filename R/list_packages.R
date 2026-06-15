@@ -7,8 +7,8 @@
 #'
 #' @inheritParams run
 #'
-#' @returns A containing all the packages installed in the specified
-#'   environment, with the following columns:
+#' @returns A data frame (`tibble`) containing all the packages installed in
+#'   the specified environment, with the following columns:
 #'
 #'   - **base_url**: The base URL of the package source.
 #'   - **build_number**: The build number of the package.
