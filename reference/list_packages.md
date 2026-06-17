@@ -1,9 +1,6 @@
-# List Packages Installed in a Conda Environment
+# List packages in a Conda environment
 
-This function retrieves a list of all packages installed in the
-specified Conda environment. The result is returned as a tibble with
-detailed information about each package, including its name, version,
-and source details.
+Returns package metadata for a Conda environment as a tibble.
 
 ## Usage
 
@@ -18,39 +15,18 @@ list_packages(
 
 - env_name:
 
-  Character. The name of the Conda environment where the tool will be
-  run. Defaults to `"condathis-env"`. If the specified environment does
-  not exist, it will be created automatically using
-  [`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md).
+  Character string with the target environment name. Defaults to
+  `"condathis-env"`.
 
 - verbose:
 
-  Character string specifying the verbosity level of the function's
-  output. Acceptable values are:
-
-  - **"output"**: Print the standard output and error from the
-    command-line tool to the screen. Note that the order of the standard
-    output and error lines may not be correct, as standard output is
-    typically buffered.
-
-  - **"silent"**: Suppress all output from internal command-line tools.
-    Equivalent to `FALSE`.
-
-  - **"cmd"**: Print the internal command(s) passed to the command-line
-    tool. If the standard output and/or error is redirected to a file or
-    they are ignored, they will not be echoed. Equivalent to `TRUE`.
-
-  - **"full"**: Print both the internal command(s) (`"cmd"`) and their
-    standard output and error (`"output"`).
-
-  - Logical values `FALSE` and `TRUE` are also accepted for backward
-    compatibility but are *soft-deprecated*. Please use `"silent"` or
-    `"output"` instead.
+  Character string controlling console output. Supported values are
+  `"output"`, `"silent"`, `"cmd"`, `"spinner"`, and `"full"`. Defaults
+  to `"output"`.
 
 ## Value
 
-A containing all the packages installed in the specified environment,
-with the following columns:
+A data frame (`tibble`) with installed packages and the columns:
 
 - **base_url**: The base URL of the package source.
 

@@ -1,7 +1,8 @@
-# Retrieve Path To Environment
+# Get an environment directory path
 
-Retrieve path to where environment should be created. **Note**: It
-retrieves the Path even if the environment is **not** created yet.
+Returns the absolute path where an environment is expected under the
+`condathis` installation root. The path is returned even if the
+environment has not been created yet.
 
 ## Usage
 
@@ -13,13 +14,12 @@ get_env_dir(env_name = "condathis-env")
 
 - env_name:
 
-  Character. Name of the Conda environment where the packages are going
-  to be installed. Defaults to 'condathis-env'.
+  Character string with the environment name. Defaults to
+  `"condathis-env"`.
 
 ## Value
 
-A character string indicating the path where environments will be
-created.
+A character string with the expected environment directory path.
 
 ## Examples
 

@@ -1,9 +1,8 @@
-# Parse the output of a Condathis command
+# Parse command output text
 
-This function processes the result of a
-[`run()`](https://luciorq.github.io/condathis/reference/run.md) call by
-parsing the specified output stream (`"stdout"`, `"stderr"`, or
-`"both"`) into individual, trimmed lines.
+Parses output from a
+[`run()`](https://luciorq.github.io/condathis/reference/run.md) result
+into trimmed text lines.
 
 ## Usage
 
@@ -15,20 +14,18 @@ parse_output(res, stream = c("stdout", "stderr", "both", "plain"))
 
 - res:
 
-  A list containing the result of
-  [`run()`](https://luciorq.github.io/condathis/reference/run.md),
-  typically including `stdout` and `stderr` as character strings.
+  Either a process result list (with `stdout` and/or `stderr`) or a
+  character vector when `stream = "plain"`.
 
 - stream:
 
-  A character string specifying the data stream to parse. Must be either
-  `"stdout"`, `"stderr"`, or `"both"`. Additionally, "plain" can be used
-  to provide raw text as the `res` input. Defaults to `"stdout"`.
+  Character string selecting the output source. Supported values are
+  `"stdout"`, `"stderr"`, `"both"`, and `"plain"`. Defaults to
+  `"stdout"`.
 
 ## Value
 
-A character vector where each element is a trimmed line from the
-specified stream.
+A character vector with one trimmed line per element.
 
 ## Examples
 
@@ -51,7 +48,7 @@ parse_output(res, stream = "stderr")
 parse_output(res, stream = "both")
 #> [1] "line1"  "line2"  "line3"  "error1" "error2"
 
-# # Parse plain text
+# Parse plain text
 plain_text <- "This is line one.\nThis is line two.\nThis is line three."
 parse_output(plain_text, stream = "plain")
 #> [1] "This is line one."   "This is line two."   "This is line three."

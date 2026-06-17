@@ -1,12 +1,8 @@
-# Retrieve and Create the `condathis` Data Directory
+# Get the `condathis` data directory
 
-Retrieves the installation directory for the `condathis` package,
-creating it if it does not exist. This function ensures that the package
-data directory complies with the [freedesktop's XDG Base Directory
-Specification](https://specifications.freedesktop.org/basedir/latest/).
-The base path can be controlled by the `XDG_DATA_HOME` environment
-variable. Additionally, on Windows, `%LOCALAPPDATA%` is also accepted as
-the base installation directory.
+Returns the data directory used by `condathis`, creating it when needed.
+The base path follows the platform-specific user data directory rules
+used by [`tools::R_user_dir()`](https://rdrr.io/r/tools/userdir.html).
 
 ## Usage
 
@@ -16,16 +12,13 @@ get_install_dir()
 
 ## Value
 
-A character string representing the normalized, real path to the
-`condathis` data directory.
+A character string with the normalized, real path to the `condathis`
+data directory.
 
 ## Details
 
-If the directory does not exist, it will be created. On macOS, special
-handling is applied to avoid spaces in the path, as `micromamba run`
-fails if there are spaces in the path (e.g., in
-`~/Library/Application Support/condathis`). Therefore, Unix-style paths
-are used on macOS.
+On macOS, `condathis` uses a path without spaces when possible because
+`micromamba run` can fail on paths that contain spaces.
 
 ## Examples
 
@@ -34,5 +27,5 @@ condathis::with_sandbox_dir({
   print(condathis::get_install_dir())
   #> /home/username/.local/share/condathis
 })
-#> /tmp/RtmphO5TzI/tmp-data1a025086f752/R/condathis
+#> /tmp/RtmplRm4hZ/tmp-data1aa516585485/R/condathis
 ```

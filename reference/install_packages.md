@@ -1,6 +1,7 @@
-# Install Packages in a Existing Conda Environment
+# Install packages in a Conda environment
 
-Install Packages in a Existing Conda Environment
+Installs packages into an existing `condathis` environment. If the
+target environment does not exist, it is created first.
 
 ## Usage
 
@@ -19,70 +20,39 @@ install_packages(
 
 - packages:
 
-  Character vector with the names of the packages and version strings if
-  necessary.
+  Character vector of package MatchSpec strings to install.
 
 - env_name:
 
-  Name of the Conda environment where the packages are going to be
-  installed. Defaults to 'condathis-env'.
+  Character string with the target environment name. Defaults to
+  `"condathis-env"`.
 
 - channels:
 
-  Character vector. Names of the channels to be included. By default
-  'c("conda-forge", "bioconda")' are used for solving dependencies.
+  Character vector with channel names used for dependency resolution.
+  Defaults to `"conda-forge"`.
 
 - channel_priority:
 
-  Character. Set the channel priority. Can be `"disabled"`, `"strict"`,
-  or `"flexible"`. Defaults to `"disabled"`.
-
-  Note: This is different from the default Conda behavior. Where
-  `"flexible"` is the default.
-
-  - **"disabled"**: The package dependency solver will search for
-    packages across all channels without prioritizing any channel.
-
-  - **"strict"**: Packages and dependencies for those packages will be
-    installed from the highest priority channel that contains them and
-    fail if dependencies cannot be satisfied from that channel.
-
-  - **"flexible"**: The solver will prefer packages from higher priority
-    channels but will fall back to lower priority channels if necessary.
+  Character string with channel priority mode. Supported values are
+  `"disabled"`, `"strict"`, and `"flexible"`. Defaults to `"disabled"`.
 
 - additional_channels:
 
-  Character. Additional Channels to be added to the default ones.
+  Character vector of additional channels appended to `channels`.
+  Defaults to `NULL`.
 
 - verbose:
 
-  Character string specifying the verbosity level of the function's
-  output. Acceptable values are:
-
-  - **"output"**: Print the standard output and error from the
-    command-line tool to the screen. Note that the order of the standard
-    output and error lines may not be correct, as standard output is
-    typically buffered.
-
-  - **"silent"**: Suppress all output from internal command-line tools.
-    Equivalent to `FALSE`.
-
-  - **"cmd"**: Print the internal command(s) passed to the command-line
-    tool. If the standard output and/or error is redirected to a file or
-    they are ignored, they will not be echoed. Equivalent to `TRUE`.
-
-  - **"full"**: Print both the internal command(s) (`"cmd"`) and their
-    standard output and error (`"output"`).
-
-  - Logical values `FALSE` and `TRUE` are also accepted for backward
-    compatibility but are *soft-deprecated*. Please use `"silent"` or
-    `"output"` instead.
+  Character string controlling console output. Supported values are
+  `"output"`, `"silent"`, `"cmd"`, `"spinner"`, and `"full"`. Defaults
+  to `"output"`.
 
 ## Value
 
-An object of class `list` representing the result of the command
-execution. Contains information about the standard output, standard
-error, and exit status of the command.
+A process result list (from
+[`processx::run()`](http://processx.r-lib.org/reference/run.md)) with
+command output, error output, exit status, and timeout information.
 
 ## Examples
 

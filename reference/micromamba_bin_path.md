@@ -1,8 +1,7 @@
-# Retrieve Path to the `micromamba` Executable
+# Get the managed `micromamba` binary path
 
-This function returns the file path to the `micromamba` executable
-managed by the `condathis` package. The path is determined based on the
-system's operating system and architecture.
+Returns the expected path to the `micromamba` executable managed by
+`condathis` for the current operating system.
 
 ## Usage
 
@@ -12,21 +11,17 @@ micromamba_bin_path()
 
 ## Value
 
-A character string representing the full path to the `micromamba`
-executable. The path differs depending on the operating system:
-
-- **Windows**: `<install_dir>/micromamba/Library/bin/micromamba.exe`
-
-- **Other OS (e.g., Linux, macOS)**:
-  `<install_dir>/micromamba/bin/micromamba`
+A character string with the full executable path. On Windows this points
+to `micromamba.exe` under `Library/bin`. On other platforms this points
+to `micromamba` under `bin`.
 
 ## Examples
 
 ``` r
 condathis::with_sandbox_dir({
-  # Retrieve the path to where micromamba executable is searched
+  # Retrieve the path used by condathis for micromamba
   micromamba_path <- condathis::micromamba_bin_path()
   print(micromamba_path)
 })
-#> /tmp/RtmphO5TzI/tmp-data1a022f977828/R/condathis/micromamba/bin/micromamba
+#> /tmp/RtmplRm4hZ/tmp-data1aa540e80f85/R/condathis/micromamba/bin/micromamba
 ```

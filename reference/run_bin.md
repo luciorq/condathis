@@ -1,14 +1,9 @@
-# Run a Binary from a Conda Environment Without Environment Activation
+# Run a binary without environment activation
 
-Executes a binary command from a specified Conda environment without
-activating the environment or using its environment variables. This
-function temporarily clears Conda and Mamba-related environment
-variables to prevent interference, ensuring that the command runs in a
-clean environment. Usually this is not what the user wants as this mode
-of execution does not load environment variables and scripts defined in
-the environment `activate.d`, check
-[`run()`](https://luciorq.github.io/condathis/reference/run.md) for the
-stable function to use.
+Executes a binary using files from a target Conda environment, but
+without running environment activation scripts. This is a lower-level
+execution mode than
+[`run()`](https://luciorq.github.io/condathis/reference/run.md).
 
 ## Usage
 
@@ -29,74 +24,48 @@ run_bin(
 
 - cmd:
 
-  Character. The main command to be executed in the Conda environment.
+  Character string with the command to execute.
 
 - ...:
 
-  Additional arguments to be passed to the command. These arguments will
-  be passed directly to the command executed in the Conda environment.
-  File paths should not contain special characters or spaces.
+  Additional unnamed command arguments passed to `cmd`.
 
 - env_name:
 
-  Character. The name of the Conda environment where the tool will be
-  run. Defaults to `"condathis-env"`. If the specified environment does
-  not exist, it will be created automatically using
-  [`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md).
+  Character string with the target environment name. Defaults to
+  `"condathis-env"`.
 
 - verbose:
 
-  Character string specifying the verbosity level of the function's
-  output. Acceptable values are:
-
-  - **"output"**: Print the standard output and error from the
-    command-line tool to the screen. Note that the order of the standard
-    output and error lines may not be correct, as standard output is
-    typically buffered.
-
-  - **"silent"**: Suppress all output from internal command-line tools.
-    Equivalent to `FALSE`.
-
-  - **"cmd"**: Print the internal command(s) passed to the command-line
-    tool. If the standard output and/or error is redirected to a file or
-    they are ignored, they will not be echoed. Equivalent to `TRUE`.
-
-  - **"full"**: Print both the internal command(s) (`"cmd"`) and their
-    standard output and error (`"output"`).
-
-  - Logical values `FALSE` and `TRUE` are also accepted for backward
-    compatibility but are *soft-deprecated*. Please use `"silent"` or
-    `"output"` instead.
+  Character string controlling console output. Supported values are
+  `"output"`, `"silent"`, `"cmd"`, `"spinner"`, and `"full"`. Defaults
+  to `"output"`.
 
 - error:
 
-  Character string. How to handle errors. Options are `"cancel"` or
-  `"continue"`. Defaults to `"cancel"`.
+  Character string that controls error behavior. Supported values are
+  `"cancel"` and `"continue"`. Defaults to `"cancel"`.
 
 - stdout:
 
-  Default: "\|" keep stdout to the R object returned by
-  [`run()`](https://luciorq.github.io/condathis/reference/run.md). A
-  character string can be used to define a file path to be used as
-  standard output. e.g: "output.txt".
+  Standard output target. Defaults to `"|"` (capture stdout in the
+  returned object). Provide a file path to redirect stdout to a file.
 
 - stderr:
 
-  Default: "\|" keep stderr to the R object returned by
-  [`run()`](https://luciorq.github.io/condathis/reference/run.md). A
-  character string can be used to define a file path to be used as
-  standard error. e.g: "error.txt".
+  Standard error target. Defaults to `"|"` (capture stderr in the
+  returned object). Provide a file path to redirect stderr to a file.
 
 - stdin:
 
-  Default: `NULL` (no `stdin` stream). A character string can be used to
-  define a file path to be used as standard input. e.g: "input.txt".
+  Standard input source. Defaults to `NULL` (no stdin stream). Provide a
+  file path to use file contents as stdin.
 
 ## Value
 
-An object of class `list` representing the result of the command
-execution. Contains information about the standard output, standard
-error, and exit status of the command.
+A process result list (from
+[`processx::run()`](http://processx.r-lib.org/reference/run.md)) with
+command output, error output, exit status, and timeout information.
 
 ## Examples
 

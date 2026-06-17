@@ -1,7 +1,7 @@
-# Create a Conda Environment
+# Create a Conda environment
 
-Create Conda Environment with specific packages installed to be used by
-[`run()`](https://luciorq.github.io/condathis/reference/run.md).
+Creates a Conda environment managed by `condathis` and installs
+dependencies from package specs or from an environment file.
 
 ## Usage
 
@@ -24,97 +24,65 @@ create_env(
 
 - packages:
 
-  Character vector. Names of the packages, and version strings if
-  necessary, e.g. 'python=3.13'. The use of the `packages` argument
-  assumes that env_file is not used.
+  Character vector of package MatchSpec strings. Examples:
+  `"python=3.13"`, `"bioconda::fastqc==0.12.1"`. Defaults to `NULL`.
 
 - env_file:
 
-  Character. Path to the YAML file with Conda Environment description.
-  If this argument is used, the `packages` argument should not be
-  included in the command.
+  Character string with the path to an environment YAML file. Defaults
+  to `NULL`. When provided, it is passed to `micromamba create -f`.
 
 - env_name:
 
-  Character. Name of the Conda environment where the packages are going
-  to be installed. Defaults to 'condathis-env'.
+  Character string with the target environment name. Defaults to
+  `"condathis-env"`.
 
 - channels:
 
-  Character vector. Names of the channels to be included. By default
-  'c("conda-forge", "bioconda")' are used for solving dependencies.
+  Character vector with channel names used for dependency resolution.
+  Defaults to `c("conda-forge", "bioconda")`.
 
 - method:
 
-  Character. Backend method to run `micromamba`, the default is "auto"
-  running "native" with the `micromamba` binaries installed by
-  `condathis`. This argument is **soft deprecated** as changing it don't
-  really change anything.
+  Character string with the backend execution strategy. Supported values
+  are `"native"` and `"auto"`. Defaults to `"native"`. This argument is
+  soft-deprecated and currently does not change behavior.
 
 - channel_priority:
 
-  Character. Set the channel priority. Can be `"disabled"`, `"strict"`,
-  or `"flexible"`. Defaults to `"disabled"`.
-
-  Note: This is different from the default Conda behavior. Where
-  `"flexible"` is the default.
-
-  - **"disabled"**: The package dependency solver will search for
-    packages across all channels without prioritizing any channel.
-
-  - **"strict"**: Packages and dependencies for those packages will be
-    installed from the highest priority channel that contains them and
-    fail if dependencies cannot be satisfied from that channel.
-
-  - **"flexible"**: The solver will prefer packages from higher priority
-    channels but will fall back to lower priority channels if necessary.
+  Character string with channel priority mode. Supported values are
+  `"disabled"`, `"strict"`, and `"flexible"`. Defaults to `"disabled"`.
 
 - additional_channels:
 
-  Character. Additional Channels to be added to the default ones.
+  Character vector of additional channels appended to `channels`.
+  Defaults to `NULL`.
 
 - platform:
 
-  Character. Platform to search for `packages`. Defaults to `NULL` which
-  will use the current platform. E.g. "linux-64", "linux-32", "osx-64",
-  "win-64", "win-32", "noarch". Note: on Apple Silicon MacOS will use
-  "osx-64" instead of "osx-arm64" if Rosetta 2 is available and any of
-  the `packages` is not available for "osx-arm64".
+  Character string with the platform used for dependency solving (for
+  example, `"linux-64"`, `"osx-64"`, `"osx-arm64"`, `"win-64"`,
+  `"noarch"`). Defaults to `NULL`. On Apple Silicon, `condathis` may
+  fall back to `"osx-64"` when Rosetta 2 is available and packages are
+  not available for `"osx-arm64"`.
 
 - verbose:
 
-  Character string specifying the verbosity level of the function's
-  output. Acceptable values are:
-
-  - **"output"**: Print the standard output and error from the
-    command-line tool to the screen. Note that the order of the standard
-    output and error lines may not be correct, as standard output is
-    typically buffered.
-
-  - **"silent"**: Suppress all output from internal command-line tools.
-    Equivalent to `FALSE`.
-
-  - **"cmd"**: Print the internal command(s) passed to the command-line
-    tool. If the standard output and/or error is redirected to a file or
-    they are ignored, they will not be echoed. Equivalent to `TRUE`.
-
-  - **"full"**: Print both the internal command(s) (`"cmd"`) and their
-    standard output and error (`"output"`).
-
-  - Logical values `FALSE` and `TRUE` are also accepted for backward
-    compatibility but are *soft-deprecated*. Please use `"silent"` or
-    `"output"` instead.
+  Character string controlling console output. Supported values are
+  `"output"`, `"silent"`, `"cmd"`, `"spinner"`, and `"full"`. Defaults
+  to `"output"`. Logical values are accepted for backward compatibility:
+  `TRUE` maps to `"output"` and `FALSE` maps to `"silent"`.
 
 - overwrite:
 
-  Logical. Should environment always be overwritten? Defaults to
-  `FALSE`.
+  Logical value that controls whether an existing environment should
+  always be recreated. Defaults to `FALSE`.
 
 ## Value
 
-An object of class `list` representing the result of the command
-execution. Contains information about the standard output, standard
-error, and exit status of the command.
+A process result list (from
+[`processx::run()`](http://processx.r-lib.org/reference/run.md)) with
+command output, error output, exit status, and timeout information.
 
 ## Examples
 
@@ -128,7 +96,6 @@ condathis::with_sandbox_dir({
     env_name = "fastqc-env",
     verbose = "output"
   )
-  #> ! Environment fastqc-env succesfully created.
 })
 } # }
 ```

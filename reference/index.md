@@ -3,55 +3,53 @@
 ## All functions
 
 - [`clean_cache()`](https://luciorq.github.io/condathis/reference/clean_cache.md)
-  : Clean Conda Cache
+  : Clean Conda cache
 
 - [`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md)
-  : Create a Conda Environment
+  : Create a Conda environment
 
 - [`env_exists()`](https://luciorq.github.io/condathis/reference/env_exists.md)
-  : Check If Environment Already exists
+  : Check whether a Conda environment exists
 
 - [`get_env_dir()`](https://luciorq.github.io/condathis/reference/get_env_dir.md)
-  : Retrieve Path To Environment
+  : Get an environment directory path
 
 - [`get_install_dir()`](https://luciorq.github.io/condathis/reference/get_install_dir.md)
   :
 
-  Retrieve and Create the `condathis` Data Directory
+  Get the `condathis` data directory
 
 - [`get_sys_arch()`](https://luciorq.github.io/condathis/reference/get_sys_arch.md)
-  : Retrieve Operating System and CPU Architecture
+  : Get operating system and CPU architecture
 
 - [`install_micromamba()`](https://luciorq.github.io/condathis/reference/install_micromamba.md)
-  :
-
-  Install Micromamba Binaries in the `condathis` Controlled Path
+  : Install micromamba binaries in the managed condathis path
 
 - [`install_packages()`](https://luciorq.github.io/condathis/reference/install_packages.md)
-  : Install Packages in a Existing Conda Environment
+  : Install packages in a Conda environment
 
 - [`list_envs()`](https://luciorq.github.io/condathis/reference/list_envs.md)
-  : List Installed Conda Environments
+  : List Conda environments managed by condathis
 
 - [`list_packages()`](https://luciorq.github.io/condathis/reference/list_packages.md)
-  : List Packages Installed in a Conda Environment
+  : List packages in a Conda environment
 
 - [`micromamba_bin_path()`](https://luciorq.github.io/condathis/reference/micromamba_bin_path.md)
   :
 
-  Retrieve Path to the `micromamba` Executable
+  Get the managed `micromamba` binary path
 
 - [`parse_output()`](https://luciorq.github.io/condathis/reference/parse_output.md)
-  : Parse the output of a Condathis command
+  : Parse command output text
 
 - [`remove_env()`](https://luciorq.github.io/condathis/reference/remove_env.md)
-  : Remove a Conda Environment
+  : Remove a Conda environment
 
 - [`run()`](https://luciorq.github.io/condathis/reference/run.md) : Run
-  Command-Line Tools in a Conda Environment
+  a command inside a Conda environment
 
 - [`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md)
-  : Run a Binary from a Conda Environment Without Environment Activation
+  : Run a binary without environment activation
 
 - [`with_sandbox_dir()`](https://luciorq.github.io/condathis/reference/with_sandbox_dir.md)
-  : Execute Code in a Temporary Directory
+  : Execute code in an isolated temporary environment

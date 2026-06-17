@@ -1,9 +1,7 @@
-# List Installed Conda Environments
+# List Conda environments managed by condathis
 
-This function retrieves a list of Conda environments installed in the
-`{condathis}` environment directory. The returned value excludes any
-environments unrelated to `{condathis}`, such as the base Conda
-environment itself.
+Returns environment names located under the `condathis` installation
+root. Environments not managed by `condathis` are excluded.
 
 ## Usage
 
@@ -15,16 +13,12 @@ list_envs(verbose = "silent")
 
 - verbose:
 
-  A character string indicating the verbosity level for the command.
-  Defaults to `"silent"`. See
-  [`run()`](https://luciorq.github.io/condathis/reference/run.md) for
-  details.
+  Character string controlling console output. Defaults to `"silent"`.
 
 ## Value
 
-A character vector containing the names of installed Conda environments.
-If the command fails, the function returns the process exit status as a
-numeric value.
+A character vector of environment names. If the command fails, returns
+the process exit status as a numeric value.
 
 ## Examples
 
