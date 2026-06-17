@@ -10,7 +10,7 @@ testthat::test_that("clean_cache outputs are captured", {
   r_user_cache <- fs::path(
     tools::R_user_dir(package = "condathis", which = "cache")
   )
-  if (!fs::dir_exists(r_user_cache)) {
+  if (isFALSE(fs::dir_exists(r_user_cache))) {
     fs::dir_create(r_user_cache, recurse = TRUE)
   }
   fs::file_touch(fs::path(r_user_cache, "dummy-file", ext = "txt"))
@@ -21,7 +21,8 @@ testthat::test_that("clean_cache outputs are captured", {
     },
     class = "rlang_message",
     regexp = ".*Cache successfully removed.*"
-  )
+  ) |>
+    testthat::capture_output()
 
   testthat::expect_message(
     object = {
@@ -29,7 +30,8 @@ testthat::test_that("clean_cache outputs are captured", {
     },
     class = "rlang_message",
     regexp = ".*Cache successfully removed.*"
-  )
+  ) |>
+    testthat::capture_output()
 
   testthat::expect_message(
     object = {

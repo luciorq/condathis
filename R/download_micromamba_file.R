@@ -28,6 +28,10 @@ download_micromamba_file <- function(
 ) {
   dl_success <- FALSE
 
+  if (isFALSE(rlang::is_interactive())) {
+    quiet <- TRUE
+  }
+
   withr::with_options(
     new = base::list(
       timeout = base::max(
@@ -111,7 +115,7 @@ try_download_from_mirrors <- function(
     }
     # Clean up failed download
     if (file.exists(destfile)) {
-      try(file.remove(destfile), silent = TRUE)
+      base::try(file.remove(destfile), silent = TRUE)
     }
   }
   return(FALSE)
