@@ -1,22 +1,14 @@
-#' Parse Verbosity Level Strategy
+#' Parse verbosity strategy
 #'
-#' This function parses the verbose string strategy and returns a list
-#' indicating what types of output should be printed to the console.
-#' This controls whether command output and/or messages should be shown.
+#' Converts a verbosity setting into normalized flags used by command runners.
 #'
-#' @param verbose Character string specifying the verbosity level.
+#' @param verbose Character, logical, or parsed verbosity list.
+#'   Supported character values are `"output"`, `"silent"`, `"cmd"`,
+#'   `"spinner"`, and `"full"`.
 #'
-#' @returns A list with logical elements indicating each type of output to show.
-#'
-#' @details
-#' The output contains types of output are:
-#'
-#' - `cmd`: Whether to show the command being executed.
-#' - `output`: Whether to show the output from the command.
-#' - `quiet_flag`: A flag passed to internal `micromamba` call.
-#' - `internal_verbose`: A string indicating the verbosity level for internal
-#'   functions.
-#' - `spinner`: Whether to show a spinner animation for commands.
+#' @returns A named list with execution flags:
+#'   `cmd`, `output`, `quiet_flag`, `internal_verbose`, `spinner_flag`,
+#'   and `strategy`.
 #'
 #' @keywords internal
 #' @noRd

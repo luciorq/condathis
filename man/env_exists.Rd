@@ -2,42 +2,22 @@
 % Please edit documentation in R/env_exists.R
 \name{env_exists}
 \alias{env_exists}
-\title{Check If Environment Already exists}
+\title{Check whether a Conda environment exists}
 \usage{
 env_exists(env_name, verbose = "silent")
 }
 \arguments{
-\item{env_name}{Character. Name of the Conda environment where the packages
-are going to be installed. Defaults to 'condathis-env'.}
+\item{env_name}{Character string with the environment name to check.}
 
-\item{verbose}{Character string specifying the verbosity level of the
-function's output.
-Acceptable values are:
-\itemize{
-\item \strong{"output"}: Print the standard output and error from the command-line
-tool to the screen.
-Note that the order of the standard output and error lines may not be
-correct, as standard output is typically buffered.
-\item \strong{"silent"}: Suppress all output from internal command-line tools.
-Equivalent to \code{FALSE}.
-\item \strong{"cmd"}: Print the internal command(s) passed to the command-line tool.
-If the standard output and/or error is redirected to a file or they are
-ignored, they will not be echoed.
-Equivalent to \code{TRUE}.
-\item \strong{"full"}: Print both the internal command(s) (\code{"cmd"}) and their
-standard output and error (\code{"output"}).
-\item Logical values \code{FALSE} and \code{TRUE} are also accepted for backward
-compatibility but are \emph{soft-deprecated}.
-Please use \code{"silent"} or \code{"output"} instead.
-}}
+\item{verbose}{Character string controlling console output passed to
+\code{list_envs()}. Defaults to \code{"silent"}.}
 }
 \value{
-Boolean. \code{TRUE} if the environment exists and \code{FALSE} otherwise.
+\code{TRUE} when the environment exists and \code{FALSE} otherwise.
 }
 \description{
-This function checks whether a specified Conda environment already exists
-in the available environments. It returns \code{TRUE} if the environment exists
-and \code{FALSE} otherwise.
+Checks whether an environment name is present in the environments managed by
+\code{condathis}.
 }
 \examples{
 \dontrun{

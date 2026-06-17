@@ -2,36 +2,26 @@
 % Please edit documentation in R/with_sandbox_dir.R
 \name{with_sandbox_dir}
 \alias{with_sandbox_dir}
-\title{Execute Code in a Temporary Directory}
+\title{Execute code in an isolated temporary environment}
 \usage{
 with_sandbox_dir(code, .local_envir = base::parent.frame())
 }
 \arguments{
-\item{code}{\link{expression}
-An expression containing the user-defined code to be executed in the
-temporary environment.}
+\item{code}{Expression to evaluate in the sandboxed environment.}
 
-\item{.local_envir}{\link{environment}
-The environment to use for scoping.}
+\item{.local_envir}{Environment used for local scoping and evaluation.
+Defaults to \code{parent.frame()}.}
 }
 \value{
-Returns \code{NULL}, invisibly.
+\code{NULL}, invisibly.
 }
 \description{
-Runs user-defined code inside a temporary directory, setting up a temporary
-working environment. This function is intended for use in examples and tests
-and ensures that no data is written to the user's file space.
-Environment variables such as \code{HOME}, \code{APPDATA}, \code{R_USER_DATA_DIR},
-\code{XDG_DATA_HOME}, \code{LOCALAPPDATA}, and \code{USERPROFILE} are redirected to
-temporary directories.
-}
-\details{
-This function is not designed for direct use by package users. It is primarily
-used to create an isolated environment during examples and tests. The temporary
-directories are created automatically and cleaned up after execution.
+Evaluates code with temporary home, data, and cache directories.
+This is mainly intended for examples and tests so no user files are written.
 }
 \examples{
+\dontrun{
 condathis::with_sandbox_dir(print(fs::path_home()))
 condathis::with_sandbox_dir(print(tools::R_user_dir("condathis")))
-
+}
 }

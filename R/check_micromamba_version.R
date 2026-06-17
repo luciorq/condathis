@@ -1,8 +1,11 @@
-#' Check Micromamba Version Against a Target
+#' Check micromamba version against a target
 #'
-#' Validates that the micromamba binary at `umamba_path` meets the version
-#' requirement. By default, accepts the target version **or newer** (minimum
-#' version check). Set `minimum = FALSE` for exact version matching.
+#' Validates that the micromamba binary at `umamba_path` satisfies the version
+#' requirement.
+#'
+#' By default, `target_version` is considered the minimum boundary and
+#' accepts the target version **or newer** (minimum version check).
+#' For exact version matching, set `minimum = FALSE`.
 #'
 #' @param umamba_path Character string. Path to the micromamba binary.
 #'   If `NULL`, uses the default from `micromamba_bin_path()`.

@@ -2,23 +2,21 @@
 % Please edit documentation in R/list_envs.R
 \name{list_envs}
 \alias{list_envs}
-\title{List Installed Conda Environments}
+\title{List Conda environments managed by condathis}
 \usage{
 list_envs(verbose = "silent")
 }
 \arguments{
-\item{verbose}{A character string indicating the verbosity level for the command.
-Defaults to \code{"silent"}.
-See \code{\link[=run]{run()}} for details.}
+\item{verbose}{Character string controlling console output.
+Defaults to \code{"silent"}.}
 }
 \value{
-A character vector containing the names of installed Conda environments.
-If the command fails, the function returns the process exit status as a numeric value.
+A character vector of environment names.
+If the command fails, returns the process exit status as a numeric value.
 }
 \description{
-This function retrieves a list of Conda environments installed in the \code{{condathis}}
-environment directory. The returned value excludes any environments unrelated
-to \code{{condathis}}, such as the base Conda environment itself.
+Returns environment names located under the \code{condathis} installation root.
+Environments not managed by \code{condathis} are excluded.
 }
 \examples{
 \dontrun{

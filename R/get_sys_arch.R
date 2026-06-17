@@ -1,11 +1,10 @@
-#' Retrieve Operating System and CPU Architecture
+#' Get operating system and CPU architecture
 #'
-#' This function retrieves the operating system (OS) name and the CPU architecture
-#' of the current system. The output combines the OS and CPU architecture into
-#' a single string in the format `"<OS>-<Architecture>"`.
+#' Returns the current operating system and CPU architecture as a single
+#' string in the format `"<OS>-<Architecture>"`.
 #'
-#' @returns A character string indicating the operating system and CPU architecture,
-#'   e.g., `"Darwin-x86_64"` or `"Linux-aarch64"`.
+#' @returns A character string such as `"Darwin-x86_64"` or
+#'   `"Linux-aarch64"`.
 #'
 #' @examples
 #' # Retrieve the system architecture

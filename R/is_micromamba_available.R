@@ -1,5 +1,10 @@
-#' Check if Micromamba is Available for OS and CPU architecture
-#' @param sys_arch Default: NULL.
+#' Map system architecture to a micromamba platform slug
+#'
+#' @param sys_arch Character string in the format returned by `get_sys_arch()`.
+#'   Defaults to `NULL`, which uses the current system architecture.
+#'
+#' @returns A character platform slug such as `"linux-64"` or `"osx-arm64"`.
+#'
 #' @keywords internal
 #' @noRd
 is_micromamba_available_for_arch <- function(sys_arch = NULL) {

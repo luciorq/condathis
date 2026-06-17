@@ -2,20 +2,21 @@
 % Please edit documentation in R/get_env_dir.R
 \name{get_env_dir}
 \alias{get_env_dir}
-\title{Retrieve Path To Environment}
+\title{Get an environment directory path}
 \usage{
 get_env_dir(env_name = "condathis-env")
 }
 \arguments{
-\item{env_name}{Character. Name of the Conda environment where the packages
-are going to be installed. Defaults to 'condathis-env'.}
+\item{env_name}{Character string with the environment name.
+Defaults to \code{"condathis-env"}.}
 }
 \value{
-A character string indicating the path where environments will be created.
+A character string with the expected environment directory path.
 }
 \description{
-Retrieve path to where environment should be created.
-\strong{Note}: It retrieves the Path even if the environment is \strong{not} created yet.
+Returns the absolute path where an environment is expected under the
+\code{condathis} installation root. The path is returned even if the
+environment has not been created yet.
 }
 \examples{
 condathis::with_sandbox_dir({

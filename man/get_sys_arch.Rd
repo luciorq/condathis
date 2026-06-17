@@ -2,18 +2,17 @@
 % Please edit documentation in R/get_sys_arch.R
 \name{get_sys_arch}
 \alias{get_sys_arch}
-\title{Retrieve Operating System and CPU Architecture}
+\title{Get operating system and CPU architecture}
 \usage{
 get_sys_arch()
 }
 \value{
-A character string indicating the operating system and CPU architecture,
-e.g., \code{"Darwin-x86_64"} or \code{"Linux-aarch64"}.
+A character string such as \code{"Darwin-x86_64"} or
+\code{"Linux-aarch64"}.
 }
 \description{
-This function retrieves the operating system (OS) name and the CPU architecture
-of the current system. The output combines the OS and CPU architecture into
-a single string in the format \code{"<OS>-<Architecture>"}.
+Returns the current operating system and CPU architecture as a single
+string in the format \code{"<OS>-<Architecture>"}.
 }
 \examples{
 # Retrieve the system architecture

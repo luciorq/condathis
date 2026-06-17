@@ -1,9 +1,9 @@
-#' Get Micromamba Version
+#' Get the installed micromamba version
 #'
-#' @param umamba_path Path to the micromamba executable. If `NULL`, the path
-#'   will be determined using `micromamba_bin_path()`.
+#' @param umamba_path Character path to the micromamba executable.
+#'   Defaults to `NULL`, which uses `micromamba_bin_path()`.
 #'
-#' @returns A character string representing the micromamba version.
+#' @returns A character string with the micromamba version.
 #'
 #' @keywords internal
 #' @noRd

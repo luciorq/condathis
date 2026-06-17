@@ -1,3 +1,12 @@
+#' Re-throw run errors with condathis classes
+#'
+#' @param expr Expression to evaluate.
+#' @param env Environment used to evaluate `expr`.
+#'   Defaults to `parent.frame()`.
+#'
+#' @returns The evaluated `expr` result when no captured error is present.
+#'   For non-fatal modes, may return a synthesized process-like result list.
+#'
 #' @keywords internal
 #' @noRd
 rethrow_error_run <- function(expr, env = parent.frame()) {

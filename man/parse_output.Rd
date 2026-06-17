@@ -2,27 +2,23 @@
 % Please edit documentation in R/parse_output.R
 \name{parse_output}
 \alias{parse_output}
-\title{Parse the output of a Condathis command}
+\title{Parse command output text}
 \usage{
 parse_output(res, stream = c("stdout", "stderr", "both", "plain"))
 }
 \arguments{
-\item{res}{A list containing the result of \code{\link[=run]{run()}}, typically
-including \code{stdout} and \code{stderr} as character strings.}
+\item{res}{Either a process result list (with \code{stdout} and/or \code{stderr}) or a
+character vector when \code{stream = "plain"}.}
 
-\item{stream}{A character string specifying the data stream to parse.
-Must be either \code{"stdout"}, \code{"stderr"}, or \code{"both"}.
-Additionally, "plain" can be used to provide raw text as the \code{res} input.
+\item{stream}{Character string selecting the output source.
+Supported values are \code{"stdout"}, \code{"stderr"}, \code{"both"}, and \code{"plain"}.
 Defaults to \code{"stdout"}.}
 }
 \value{
-A character vector where each element is a trimmed line from the
-specified stream.
+A character vector with one trimmed line per element.
 }
 \description{
-This function processes the result of a \code{\link[=run]{run()}} call by parsing
-the specified output stream (\code{"stdout"}, \code{"stderr"}, or \code{"both"}) into
-individual, trimmed lines.
+Parses output from a \code{run()} result into trimmed text lines.
 }
 \examples{
 # Example result object from condathis::run()
@@ -40,7 +36,7 @@ parse_output(res, stream = "stderr")
 # Merge both
 parse_output(res, stream = "both")
 
-# # Parse plain text
+# Parse plain text
 plain_text <- "This is line one.\nThis is line two.\nThis is line three."
 parse_output(plain_text, stream = "plain")
 

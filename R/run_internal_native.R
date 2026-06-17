@@ -1,8 +1,22 @@
-#' Run Command Using Native Method
+#' Run a command in an environment using native execution
 #'
-#' Internal function to run a command in a Conda environment using the native method.
+#' Internal wrapper around `native_cmd()` for `micromamba run`.
 #'
-#' @inheritParams run
+#' @param cmd Character string with the command to execute.
+#' @param ... Additional unnamed command arguments passed to `cmd`.
+#' @param env_name Character string with the target environment name.
+#'   Defaults to `"condathis-env"`.
+#' @param verbose Character string controlling console output.
+#'   Supported values are `"output"`, `"silent"`, `"cmd"`, `"spinner"`,
+#'   and `"full"`. Defaults to `"output"`.
+#' @param error Character string that controls error behavior.
+#'   Supported values are `"cancel"` and `"continue"`.
+#'   Defaults to `"cancel"`.
+#' @param stdout Standard output target. Defaults to `"|"`.
+#' @param stderr Standard error target. Defaults to `"|"`.
+#' @param stdin Standard input source. Defaults to `NULL`.
+#'
+#' @returns A process result list from `processx::run()`.
 #'
 #' @keywords internal
 #' @noRd

@@ -2,7 +2,7 @@
 % Please edit documentation in R/run.R
 \name{run}
 \alias{run}
-\title{Run Command-Line Tools in a Conda Environment}
+\title{Run a command inside a Conda environment}
 \usage{
 run(
   cmd,
@@ -17,79 +17,53 @@ run(
 )
 }
 \arguments{
-\item{cmd}{Character. The main command to be executed in the
-Conda environment.}
+\item{cmd}{Character string with the command to execute.}
 
-\item{...}{Additional arguments to be passed to the command.
-These arguments will be passed directly to the command executed in the
-Conda environment.
-File paths should not contain special characters or spaces.}
+\item{...}{Additional unnamed command arguments passed to \code{cmd}.}
 
-\item{env_name}{Character. The name of the Conda environment where the tool
-will be run. Defaults to \code{"condathis-env"}.
-If the specified environment does not exist,
-it will be created automatically using \code{create_env()}.}
+\item{env_name}{Character string with the target environment name.
+Defaults to \code{"condathis-env"}.
+If the default environment does not exist, it is created automatically.}
 
-\item{method}{Character string. The method to use for running the command.
-Options are \code{"native"}, \code{"auto"}. Defaults to \code{"native"}.
-This argument is \strong{soft deprecated} as changing it don't really changes
-anything.}
+\item{method}{Character string with the backend execution strategy.
+Supported values are \code{"native"} and \code{"auto"}.
+Defaults to \code{"native"}.
+This argument is soft-deprecated and currently does not change behavior.}
 
-\item{verbose}{Character string specifying the verbosity level of the
-function's output.
-Acceptable values are:
-\itemize{
-\item \strong{"output"}: Print the standard output and error from the command-line
-tool to the screen.
-Note that the order of the standard output and error lines may not be
-correct, as standard output is typically buffered.
-\item \strong{"silent"}: Suppress all output from internal command-line tools.
-Equivalent to \code{FALSE}.
-\item \strong{"cmd"}: Print the internal command(s) passed to the command-line tool.
-If the standard output and/or error is redirected to a file or they are
-ignored, they will not be echoed.
-Equivalent to \code{TRUE}.
-\item \strong{"full"}: Print both the internal command(s) (\code{"cmd"}) and their
-standard output and error (\code{"output"}).
-\item Logical values \code{FALSE} and \code{TRUE} are also accepted for backward
-compatibility but are \emph{soft-deprecated}.
-Please use \code{"silent"} or \code{"output"} instead.
-}}
+\item{verbose}{Character string controlling console output.
+Supported values are \code{"output"}, \code{"silent"}, \code{"cmd"}, \code{"spinner"},
+and \code{"full"}. Defaults to \code{"output"}.
+Logical values are accepted for backward compatibility:
+\code{TRUE} maps to \code{"output"} and \code{FALSE} maps to \code{"silent"}.}
 
-\item{error}{Character string. How to handle errors.
-Options are \code{"cancel"} or \code{"continue"}. Defaults to \code{"cancel"}.}
+\item{error}{Character string that controls error behavior.
+Supported values are \code{"cancel"} and \code{"continue"}.
+Defaults to \code{"cancel"}.}
 
-\item{stdout}{Default: "|" keep stdout to the R object
-returned by \code{run()}.
-A character string can be used to define a file path to be used as
-standard output. e.g: "output.txt".}
+\item{stdout}{Standard output target.
+Defaults to \code{"|"} (capture stdout in the returned object).
+Provide a file path to redirect stdout to a file.}
 
-\item{stderr}{Default: "|" keep stderr to the R object
-returned by \code{run()}.
-A character string can be used to define a file path to be used as
-standard error. e.g: "error.txt".}
+\item{stderr}{Standard error target.
+Defaults to \code{"|"} (capture stderr in the returned object).
+Provide a file path to redirect stderr to a file.}
 
-\item{stdin}{Default: \code{NULL} (no \code{stdin} stream).
-A character string can be used to define a file path to be used as
-standard input. e.g: "input.txt".}
+\item{stdin}{Standard input source.
+Defaults to \code{NULL} (no stdin stream).
+Provide a file path to use file contents as stdin.}
 }
 \value{
-An object of class \code{list} representing the result of the command
-execution.
-Contains information about the standard output, standard error,
-and exit status of the command.
+A process result list (from \code{processx::run()}) with command output,
+error output, exit status, and timeout information.
 }
 \description{
-This function allows the execution of command-line tools within a specified
-Conda environment.
-It runs the provided command in the designated Conda environment using the
-Micromamba binaries managed by the \code{condathis} package.
+Executes a command in a Conda environment managed by \code{condathis}.
+The command is run through \verb{micromamba run} using the internal Conda root.
 }
 \details{
-The \code{run()} function provides a flexible way to execute command-line tools
-within Conda environments.
-This is particularly useful for reproducible research and ensuring that
-specific versions of tools are used.
+This function is the main execution entry point in \code{condathis}.
+Use it to run CLI tools with reproducible dependencies isolated in Conda
+environments.
 }
 \examples{
 \dontrun{

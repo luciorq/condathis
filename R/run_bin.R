@@ -1,19 +1,31 @@
-#' Run a Binary from a Conda Environment Without Environment Activation
+#' Run a binary without environment activation
 #'
-#' Executes a binary command from a specified Conda environment without
-#' activating the environment or using its environment variables.
-#' This function temporarily clears Conda and Mamba-related environment
-#' variables to prevent interference, ensuring that the command runs in a clean
-#' environment.
-#' Usually this is not what the user wants as this mode of execution does not
-#' load environment variables and scripts defined in the environment
-#' `activate.d`, check [run()] for the stable function to use.
+#' Executes a binary using files from a target Conda environment, but without
+#' running environment activation scripts.
+#' This is a lower-level execution mode than `run()`.
 #'
-#' @inheritParams run
+#' @param cmd Character string with the command to execute.
+#' @param ... Additional unnamed command arguments passed to `cmd`.
+#' @param env_name Character string with the target environment name.
+#'   Defaults to `"condathis-env"`.
+#' @param verbose Character string controlling console output.
+#'   Supported values are `"output"`, `"silent"`, `"cmd"`, `"spinner"`,
+#'   and `"full"`. Defaults to `"output"`.
+#' @param error Character string that controls error behavior.
+#'   Supported values are `"cancel"` and `"continue"`.
+#'   Defaults to `"cancel"`.
+#' @param stdout Standard output target.
+#'   Defaults to `"|"` (capture stdout in the returned object).
+#'   Provide a file path to redirect stdout to a file.
+#' @param stderr Standard error target.
+#'   Defaults to `"|"` (capture stderr in the returned object).
+#'   Provide a file path to redirect stderr to a file.
+#' @param stdin Standard input source.
+#'   Defaults to `NULL` (no stdin stream).
+#'   Provide a file path to use file contents as stdin.
 #'
-#' @returns An object of class `list` representing the result of the command
-#'   execution. Contains information about the standard output, standard error,
-#'   and exit status of the command.
+#' @returns A process result list (from `processx::run()`) with command output,
+#'   error output, exit status, and timeout information.
 #'
 #' @examples
 #' \dontrun{

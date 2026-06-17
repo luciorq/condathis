@@ -1,14 +1,24 @@
-#' Install Packages in an Existing Conda Environment
-#' @param packages Character vector with the names of the packages and
-#'   version strings if necessary.
-#' @param env_name Name of the Conda environment where the packages are
-#'   going to be installed. Defaults to 'condathis-env'.
+#' Install packages in a Conda environment
 #'
-#' @inheritParams create_env
+#' Installs packages into an existing `condathis` environment.
+#' If the target environment does not exist, it is created first.
 #'
-#' @returns An object of class `list` representing the result of the command
-#'   execution. Contains information about the standard output, standard error,
-#'   and exit status of the command.
+#' @param packages Character vector of package MatchSpec strings to install.
+#' @param env_name Character string with the target environment name.
+#'   Defaults to `"condathis-env"`.
+#' @param channels Character vector with channel names used for dependency
+#'   resolution. Defaults to `"conda-forge"`.
+#' @param channel_priority Character string with channel priority mode.
+#'   Supported values are `"disabled"`, `"strict"`, and `"flexible"`.
+#'   Defaults to `"disabled"`.
+#' @param additional_channels Character vector of additional channels appended
+#'   to `channels`. Defaults to `NULL`.
+#' @param verbose Character string controlling console output.
+#'   Supported values are `"output"`, `"silent"`, `"cmd"`, `"spinner"`,
+#'   and `"full"`. Defaults to `"output"`.
+#'
+#' @returns A process result list (from `processx::run()`) with command output,
+#'   error output, exit status, and timeout information.
 #'
 #' @examples
 #' \dontrun{

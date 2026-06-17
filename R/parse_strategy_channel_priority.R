@@ -1,13 +1,11 @@
-#' Parse Channel Priority Strategy
+#' Parse channel priority strategy
 #'
-#' This function parses the channel priority strategy and returns
-#' the appropriate command-line arguments for `micromamba`.
+#' Maps a channel priority mode to `micromamba` command-line flags.
 #'
-#' @param channel_priority Character string specifying the channel priority
-#' strategy.
+#' @param channel_priority Character string with channel priority mode.
+#'   Supported values are `"disabled"`, `"strict"`, and `"flexible"`.
 #'
-#' @returns A character vector of command-line arguments used by internal
-#' `micromamba` calls.
+#' @returns A character vector of command-line arguments.
 #'
 #' @keywords internal
 #' @noRd

@@ -1,21 +1,13 @@
-#' Check if the Dependencies are Satisfied in the Environment
+#' Check whether dependencies are already satisfied
 #'
-#' This function checks if the installed packages in the environment satisfy the
-#' specified package requirements. It parses each package specification in
-#' `pkg_str_vector`, extracts the package name and version constraints, and
-#' compares them against the installed packages in the environment. The function
-#' returns a logical vector where each element corresponds to whether the
-#' respective package specification is satisfied by the installed packages.
+#' Compares requested package specs with installed packages in an environment.
 #'
-#' @param pkg_str_vector A character vector of package specifications,
-#'   e.g. `c("conda-forge::numpy>=1.8,<2|1.9", "python=3.13")`.
-#' @param env_name A character string specifying the name of the Conda
-#'   environment.
-#' @param verbose A character string specifying the verbosity level for the
-#'  `list_packages()` function. Defaults to "silent".
+#' @param pkg_str_vector Character vector of package MatchSpec strings.
+#' @param env_name Character string with the environment name.
+#' @param verbose Character string passed to `list_packages()`.
+#'   Defaults to `"silent"`.
 #'
-#' @returns A logical vector indicating whether each package specification in
-#' `pkg_str_vector` is satisfied by the packages in the environment.
+#' @returns A logical vector with one value per input specification.
 #'
 #' @keywords internal
 #' @noRd

@@ -451,6 +451,11 @@ vs_parts_starts_with <- function(candidate_parts, prefix_parts) {
 #' Atom-level prefix matching: if the ref atom's literal is empty,
 #' only the numeral needs to match (the candidate's literal can be anything).
 #'
+#' @param cand_seg Candidate segment atom list.
+#' @param ref_seg Reference segment atom list.
+#'
+#' @returns Logical.
+#'
 #' @keywords internal
 #' @noRd
 vs_segment_starts_with <- function(cand_seg, ref_seg) {

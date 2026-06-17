@@ -1,6 +1,23 @@
-#' Define Platform to be used by `create_env()`.
+#' Resolve platform arguments for environment creation
 #'
-#' @inheritParams create_env
+#' Determines whether `--platform` should be set for `micromamba create`.
+#' On Apple Silicon, this helper can fallback to `osx-64` when Rosetta 2 is
+#' available and package availability requires it.
+#'
+#' @param packages Character vector of package MatchSpec strings.
+#' @param platform Character string with a user-specified platform.
+#'   Defaults to `NULL`.
+#' @param channels Character vector with channel names.
+#'   Defaults to `c("conda-forge", "bioconda")`.
+#' @param channel_priority Character string with channel priority mode.
+#'   Defaults to `"disabled"`.
+#' @param additional_channels Character vector of additional channels.
+#'   Defaults to `NULL`.
+#' @param verbose Character string controlling console output.
+#'   Defaults to `"silent"`.
+#'
+#' @returns A character vector with platform CLI arguments, or `NULL` when no
+#'   platform override is needed.
 #'
 #' @keywords internal
 #' @noRd

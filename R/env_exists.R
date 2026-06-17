@@ -1,11 +1,12 @@
-#' Check If Environment Already exists
+#' Check whether a Conda environment exists
 #'
-#' This function checks whether a specified Conda environment already exists
-#' in the available environments. It returns `TRUE` if the environment exists
-#' and `FALSE` otherwise.
+#' Checks whether an environment name is present in the environments managed by
+#' `condathis`.
 #'
-#' @inheritParams create_env
-#' @returns Boolean. `TRUE` if the environment exists and `FALSE` otherwise.
+#' @param env_name Character string with the environment name to check.
+#' @param verbose Character string controlling console output passed to
+#'   `list_envs()`. Defaults to `"silent"`.
+#' @returns `TRUE` when the environment exists and `FALSE` otherwise.
 #' @examples
 #' \dontrun{
 #' condathis::with_sandbox_dir({

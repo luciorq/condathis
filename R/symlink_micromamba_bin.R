@@ -1,17 +1,14 @@
-#' Create a Symlink to the `micromamba` Executable
+#' Create a symlink to the managed micromamba executable
 #'
-#' This function checks whether the `micromamba` binary is already available on the
-#' system's `PATH`. If not, it creates a symbolic link to the binary managed by `condathis`.
-#' Users can specify a custom path to an existing `micromamba` binary or force
-#' the creation of a new symlink.
+#' Creates or refreshes a symlink at `micromamba_bin_path()` that points to a
+#' discovered or user-specified micromamba binary.
 #'
-#' @param path A character string specifying the path to the `micromamba` binary
-#'   to symlink. If `NULL`, the function attempts to locate a user-installed binary.
+#' @param path Character string with the micromamba binary path to link.
+#'   Defaults to `NULL`, which triggers path discovery.
+#' @param force Logical value indicating whether an existing symlink should be
+#'   replaced. Defaults to `FALSE`.
 #'
-#' @param force A logical value indicating whether to overwrite an existing symlink.
-#'   Defaults to `FALSE`.
-#'
-#' @returns Invisibly returns the path to the `micromamba` symlink created or verified.
+#' @returns The symlink path, invisibly.
 #'
 #' @keywords internal
 #' @noRd
@@ -51,6 +48,7 @@ symlink_micromamba_bin <- function(path = NULL, force = FALSE) {
       new_path = umamba_path,
       symbolic = TRUE
     )
+    # False positive from linter as umamba_version is used on cli message.
     umamba_version <- get_micromamba_version(umamba_path = umamba_path)
     cli::cli_inform(
       message = c(

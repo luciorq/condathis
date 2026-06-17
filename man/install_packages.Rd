@@ -2,7 +2,7 @@
 % Please edit documentation in R/install_packages.R
 \name{install_packages}
 \alias{install_packages}
-\title{Install Packages in a Existing Conda Environment}
+\title{Install packages in a Conda environment}
 \usage{
 install_packages(
   packages,
@@ -14,63 +14,32 @@ install_packages(
 )
 }
 \arguments{
-\item{packages}{Character vector with the names of the packages and
-version strings if necessary.}
+\item{packages}{Character vector of package MatchSpec strings to install.}
 
-\item{env_name}{Name of the Conda environment where the packages are
-going to be installed. Defaults to 'condathis-env'.}
+\item{env_name}{Character string with the target environment name.
+Defaults to \code{"condathis-env"}.}
 
-\item{channels}{Character vector. Names of the channels to be included.
-By default 'c("conda-forge", "bioconda")' are used for solving
-dependencies.}
+\item{channels}{Character vector with channel names used for dependency
+resolution. Defaults to \code{"conda-forge"}.}
 
-\item{channel_priority}{Character. Set the channel priority.
-Can be \code{"disabled"}, \code{"strict"}, or \code{"flexible"}. Defaults to \code{"disabled"}.
+\item{channel_priority}{Character string with channel priority mode.
+Supported values are \code{"disabled"}, \code{"strict"}, and \code{"flexible"}.
+Defaults to \code{"disabled"}.}
 
-Note: This is different from the default Conda behavior.
-Where \code{"flexible"} is the default.
-\itemize{
-\item \strong{"disabled"}: The package dependency solver will search for packages
-across all channels without prioritizing any channel.
-\item \strong{"strict"}: Packages and dependencies for those packages will
-be installed from the highest priority channel that contains them and
-fail if dependencies cannot be satisfied from that channel.
-\item \strong{"flexible"}: The solver will prefer packages from higher
-priority channels but will fall back to lower priority channels if
-necessary.
-}}
+\item{additional_channels}{Character vector of additional channels appended
+to \code{channels}. Defaults to \code{NULL}.}
 
-\item{additional_channels}{Character. Additional Channels to be added to the
-default ones.}
-
-\item{verbose}{Character string specifying the verbosity level of the
-function's output.
-Acceptable values are:
-\itemize{
-\item \strong{"output"}: Print the standard output and error from the command-line
-tool to the screen.
-Note that the order of the standard output and error lines may not be
-correct, as standard output is typically buffered.
-\item \strong{"silent"}: Suppress all output from internal command-line tools.
-Equivalent to \code{FALSE}.
-\item \strong{"cmd"}: Print the internal command(s) passed to the command-line tool.
-If the standard output and/or error is redirected to a file or they are
-ignored, they will not be echoed.
-Equivalent to \code{TRUE}.
-\item \strong{"full"}: Print both the internal command(s) (\code{"cmd"}) and their
-standard output and error (\code{"output"}).
-\item Logical values \code{FALSE} and \code{TRUE} are also accepted for backward
-compatibility but are \emph{soft-deprecated}.
-Please use \code{"silent"} or \code{"output"} instead.
-}}
+\item{verbose}{Character string controlling console output.
+Supported values are \code{"output"}, \code{"silent"}, \code{"cmd"}, \code{"spinner"},
+and \code{"full"}. Defaults to \code{"output"}.}
 }
 \value{
-An object of class \code{list} representing the result of the command
-execution. Contains information about the standard output, standard error,
-and exit status of the command.
+A process result list (from \code{processx::run()}) with command output,
+error output, exit status, and timeout information.
 }
 \description{
-Install Packages in a Existing Conda Environment
+Installs packages into an existing \code{condathis} environment.
+If the target environment does not exist, it is created first.
 }
 \examples{
 \dontrun{

@@ -1,8 +1,11 @@
-#' Parse Quiet Flag From Verbosity Level
+#' Parse quiet flag from a verbosity value
 #'
-#' DEPRECATED: As of version 0.1.3, this function is deprecated. Please use the updated verbosity handling functions.
+#' Deprecated internal helper.
 #'
-#' @param verbose Character string specifying the verbosity level.
+#' @param verbose Character or logical verbosity value.
+#'
+#' @returns `"--quiet"` or `NULL` based on the verbosity mode.
+#'
 #' @keywords internal
 #' @noRd
 parse_quiet_flag <- function(verbose) {

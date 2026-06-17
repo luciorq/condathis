@@ -1,14 +1,14 @@
-#' List Packages Installed in a Conda Environment
+#' List packages in a Conda environment
 #'
-#' This function retrieves a list of all packages installed in the specified
-#' Conda environment. The result is returned as a tibble with detailed
-#' information about each package, including its name, version,
-#' and source details.
+#' Returns package metadata for a Conda environment as a tibble.
 #'
-#' @inheritParams run
+#' @param env_name Character string with the target environment name.
+#'   Defaults to `"condathis-env"`.
+#' @param verbose Character string controlling console output.
+#'   Supported values are `"output"`, `"silent"`, `"cmd"`, `"spinner"`,
+#'   and `"full"`. Defaults to `"output"`.
 #'
-#' @returns A data frame (`tibble`) containing all the packages installed in
-#'   the specified environment, with the following columns:
+#' @returns A data frame (`tibble`) with installed packages and the columns:
 #'
 #'   - **base_url**: The base URL of the package source.
 #'   - **build_number**: The build number of the package.

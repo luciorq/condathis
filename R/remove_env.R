@@ -1,12 +1,15 @@
-#' Remove a Conda Environment
+#' Remove a Conda environment
 #'
-#' Remove a Conda environment previously created by `create_env()`.
+#' Removes an environment managed by `condathis`.
 #'
-#' @inheritParams create_env
+#' @param env_name Character string with the environment name to remove.
+#'   Defaults to `"condathis-env"`.
+#' @param verbose Character string controlling console output.
+#'   Supported values are `"silent"`, `"cmd"`, `"output"`, `"spinner"`,
+#'   and `"full"`. Defaults to `"silent"`.
 #'
-#' @returns An object of class `list` representing the result of the command
-#'   execution. Contains information about the standard output, standard error,
-#'   and exit status of the command.
+#' @returns A process result list (from `processx::run()`) with command output,
+#'   error output, exit status, and timeout information.
 #'
 #' @examples
 #' \dontrun{

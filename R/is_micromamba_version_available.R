@@ -1,10 +1,7 @@
-#' Check if Specific Micromamba Version is Available
+#' Check whether a compatible micromamba version is available
 #'
-#' Checks if a compatible version of micromamba is available at the specified
-#'   path.
-#'
-#' @param umamba_path Path to the micromamba executable. If `NULL`, the path
-#'  will be determined using `micromamba_bin_path()`.
+#' @param umamba_path Character path to the micromamba executable.
+#'   Defaults to `NULL`, which uses `micromamba_bin_path()`.
 #'
 #' @returns Logical. `TRUE` if a compatible version of micromamba is available,
 #'   `FALSE` otherwise.

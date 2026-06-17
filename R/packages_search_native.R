@@ -1,8 +1,22 @@
-#' Search For Package in Channels
+#' Check package availability with native search
 #'
-#' Search if Package is available in required Channels
+#' Queries channels with `micromamba search` and checks whether all package
+#' specifications are available.
 #'
-#' @inheritParams create_env
+#' @param packages Character vector of package MatchSpec strings.
+#' @param channels Character vector with channel names.
+#'   Defaults to `c("conda-forge", "bioconda")`.
+#' @param channel_priority Character string with channel priority mode.
+#'   Supported values are `"disabled"`, `"strict"`, and `"flexible"`.
+#'   Defaults to `"disabled"`.
+#' @param additional_channels Character vector of additional channels.
+#'   Defaults to `NULL`.
+#' @param platform Character string with a target platform for search.
+#'   Defaults to `NULL`.
+#' @param verbose Character string controlling console output.
+#'   Defaults to `"silent"`.
+#'
+#' @returns `TRUE` when all package queries are available, otherwise `FALSE`.
 #'
 #' @keywords internal
 #' @noRd

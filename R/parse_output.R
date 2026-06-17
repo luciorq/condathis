@@ -1,18 +1,14 @@
-#' Parse the output of a Condathis command
+#' Parse command output text
 #'
-#' This function processes the result of a [condathis::run()] call by parsing
-#' the specified output stream (`"stdout"`, `"stderr"`, or `"both"`) into
-#' individual, trimmed lines.
+#' Parses output from a `run()` result into trimmed text lines.
 #'
-#' @param res A list containing the result of [condathis::run()], typically
-#'   including `stdout` and `stderr` as character strings.
-#' @param stream A character string specifying the data stream to parse.
-#'   Must be either `"stdout"`, `"stderr"`, or `"both"`.
-#'   Additionally, "plain" can be used to provide raw text as the `res` input.
-#' Defaults to `"stdout"`.
+#' @param res Either a process result list (with `stdout` and/or `stderr`) or a
+#'   character vector when `stream = "plain"`.
+#' @param stream Character string selecting the output source.
+#'   Supported values are `"stdout"`, `"stderr"`, `"both"`, and `"plain"`.
+#'   Defaults to `"stdout"`.
 #'
-#' @returns A character vector where each element is a trimmed line from the
-#'   specified stream.
+#' @returns A character vector with one trimmed line per element.
 #'
 #' @examples
 #' # Example result object from condathis::run()
@@ -30,7 +26,7 @@
 #' # Merge both
 #' parse_output(res, stream = "both")
 #'
-#' # # Parse plain text
+#' # Parse plain text
 #' plain_text <- "This is line one.\nThis is line two.\nThis is line three."
 #' parse_output(plain_text, stream = "plain")
 #'

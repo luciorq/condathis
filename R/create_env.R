@@ -1,61 +1,38 @@
-#' Create a Conda Environment
+#' Create a Conda environment
 #'
-#' Create Conda Environment with specific packages installed to be used
-#'   by `run()`.
+#' Creates a Conda environment managed by `condathis` and installs dependencies
+#' from package specs or from an environment file.
 #'
-#' @param packages Character vector. Names of the packages, and
-#'   version strings if necessary, e.g. 'python=3.13'. The use of the `packages`
-#'   argument assumes that env_file is not used.
-#'
-#' @param env_file Character. Path to the YAML file with Conda Environment
-#'   description. If this argument is used, the `packages` argument should not
-#'   be included in the command.
-#'
-#' @param env_name Character. Name of the Conda environment where the packages
-#'   are going to be installed. Defaults to 'condathis-env'.
-#'
-#' @param channels Character vector. Names of the channels to be included.
-#'   By default 'c("conda-forge", "bioconda")' are used for solving
-#'   dependencies.
-#'
-#' @param channel_priority Character. Set the channel priority.
-#'   Can be `"disabled"`, `"strict"`, or `"flexible"`. Defaults to `"disabled"`.
-#'
-#'   Note: This is different from the default Conda behavior.
-#'   Where `"flexible"` is the default.
-#'   - **"disabled"**: The package dependency solver will search for packages
-#'     across all channels without prioritizing any channel.
-#'   - **"strict"**: Packages and dependencies for those packages will
-#'     be installed from the highest priority channel that contains them and
-#'     fail if dependencies cannot be satisfied from that channel.
-#'   - **"flexible"**: The solver will prefer packages from higher
-#'     priority channels but will fall back to lower priority channels if
-#'     necessary.
-#'
-#' @param additional_channels Character. Additional Channels to be added to the
-#'   default ones.
-#'
-#' @param method Character. Backend method to run `micromamba`, the default is
-#'   "auto" running "native" with the `micromamba` binaries installed
-#'   by `condathis`.
-#'   This argument is **soft deprecated** as changing it don't really change
-#'   anything.
-#'
-#' @param platform Character. Platform to search for `packages`.
-#'   Defaults to `NULL` which will use the current platform.
-#'   E.g. "linux-64", "linux-32", "osx-64", "win-64", "win-32", "noarch".
-#'   Note: on Apple Silicon MacOS will use "osx-64" instead of "osx-arm64"
-#'     if Rosetta 2 is available and any of the `packages` is not available
-#'     for "osx-arm64".
-#'
+#' @param packages Character vector of package MatchSpec strings.
+#'   Examples: `"python=3.13"`, `"bioconda::fastqc==0.12.1"`.
+#'   Defaults to `NULL`.
+#' @param env_file Character string with the path to an environment YAML file.
+#'   Defaults to `NULL`.
+#'   When provided, it is passed to `micromamba create -f`.
+#' @param env_name Character string with the target environment name.
+#'   Defaults to `"condathis-env"`.
+#' @param channels Character vector with channel names used for dependency
+#'   resolution. Defaults to `c("conda-forge", "bioconda")`.
+#' @param channel_priority Character string with channel priority mode.
+#'   Supported values are `"disabled"`, `"strict"`, and `"flexible"`.
+#'   Defaults to `"disabled"`.
+#' @param additional_channels Character vector of additional channels appended
+#'   to `channels`. Defaults to `NULL`.
+#' @param method Character string with the backend execution strategy.
+#'   Supported values are `"native"` and `"auto"`.
+#'   Defaults to `"native"`.
+#'   This argument is soft-deprecated and currently does not change behavior.
+#' @param platform Character string with the platform used for dependency
+#'   solving (for example, `"linux-64"`, `"osx-64"`, `"osx-arm64"`,
+#'   `"win-64"`, `"noarch"`). Defaults to `NULL`.
+#'   On Apple Silicon, `condathis` may fall back to `"osx-64"` when Rosetta 2
+#'   is available and packages are not available for `"osx-arm64"`.
 #' @inheritParams run
+#' @param overwrite Logical value that controls whether an existing environment
+#'   should always be recreated. Defaults to `FALSE`.
 #'
-#' @param overwrite Logical. Should environment always be overwritten?
-#'     Defaults to `FALSE`.
-#'
-#' @returns An object of class `list` representing the result of the command
-#'   execution. Contains information about the standard output, standard error,
-#'   and exit status of the command.
+#' @returns A process result list (from `processx::run()`) with command output,
+#'   error output, exit status, and timeout information.
 #'
 #' @examples
 #' \dontrun{
@@ -67,7 +44,6 @@
 #'     env_name = "fastqc-env",
 #'     verbose = "output"
 #'   )
-#'   #> ! Environment fastqc-env succesfully created.
 #' })
 #' }
 #' @export

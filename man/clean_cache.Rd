@@ -2,30 +2,28 @@
 % Please edit documentation in R/clean_cache.R
 \name{clean_cache}
 \alias{clean_cache}
-\title{Clean Conda Cache}
+\title{Clean Conda cache}
 \usage{
 clean_cache(verbose = c("output", "silent", "cmd", "spinner", "full"))
 }
 \arguments{
-\item{verbose}{A character string indicating the verbosity level of the
-output. It can be one of "silent", "cmd", "output", or "full".
-The default is "output".}
+\item{verbose}{Character string controlling console output.
+Supported values are \code{"output"}, \code{"silent"}, \code{"cmd"}, \code{"spinner"},
+and \code{"full"}. Defaults to \code{"output"}.}
 }
 \value{
-Invisibly returns the result of the underlying command executed.
+A process result list (from \code{processx::run()}) with command output,
+error output, exit status, and timeout information.
 }
 \description{
-This function cleans the Conda cache by removing all packages and tarballs
-from the local cache directory. It is useful for freeing up disk space
-and ensuring that the cache does not contain outdated or unnecessary files.
-This function also removes any additional cache files created by the
-\code{condathis} package in the path reported by
+Removes cached packages and archives from the \code{condathis} Conda root.
+Also removes files from the package cache directory returned by
 \code{tools::R_user_dir(package = "condathis", which = "cache")}.
 }
 \details{
-Packages that are still linked with existing environments are not
-removed. If you expect to clean the whole cache, consider removing
-all existing environments first using \code{list_envs()} and \code{remove_env()}.
+Package files still referenced by existing environments may not be removed.
+To maximize cleanup, remove environments first with \code{list_envs()} and
+\code{remove_env()}.
 }
 \examples{
 \dontrun{

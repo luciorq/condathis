@@ -1,6 +1,9 @@
-#' Retrieve Micromamba Installed Path
+#' Get a user-available micromamba path
 #'
-#' Checks if user already have `micromamba` binaries available on `PATH`.
+#' Returns the best discovered micromamba path from user and system locations.
+#'
+#' @returns A character path when available, or an empty path object when not
+#'   available.
 #'
 #' @keywords internal
 #' @noRd

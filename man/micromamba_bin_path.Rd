@@ -2,27 +2,22 @@
 % Please edit documentation in R/micromamba_bin_path.R
 \name{micromamba_bin_path}
 \alias{micromamba_bin_path}
-\title{Retrieve Path to the \code{micromamba} Executable}
+\title{Get the managed \code{micromamba} binary path}
 \usage{
 micromamba_bin_path()
 }
 \value{
-A character string representing the full path to the \code{micromamba}
-executable.
-The path differs depending on the operating system:
-\itemize{
-\item \strong{Windows}: \verb{<install_dir>/micromamba/Library/bin/micromamba.exe}
-\item \strong{Other OS (e.g., Linux, macOS)}: \verb{<install_dir>/micromamba/bin/micromamba}
-}
+A character string with the full executable path.
+On Windows this points to \code{micromamba.exe} under \code{Library/bin}.
+On other platforms this points to \code{micromamba} under \code{bin}.
 }
 \description{
-This function returns the file path to the \code{micromamba} executable managed
-by the \code{condathis} package. The path is determined based on the system's
-operating system and architecture.
+Returns the expected path to the \code{micromamba} executable managed by
+\code{condathis} for the current operating system.
 }
 \examples{
 condathis::with_sandbox_dir({
-  # Retrieve the path to where micromamba executable is searched
+  # Retrieve the path used by condathis for micromamba
   micromamba_path <- condathis::micromamba_bin_path()
   print(micromamba_path)
 })

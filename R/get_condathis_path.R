@@ -1,13 +1,9 @@
-#' Retrieve System-Dependent Data Path for condathis
+#' Get the system-dependent condathis data path
 #'
-#' Determines the appropriate user data directory for the `condathis` package based on the operating system.
-#'   On macOS, it avoids using paths with spaces due to issues with `micromamba run` failing when there are spaces in the path.
+#' Returns the user data directory used by `condathis`.
+#' On macOS, this helper avoids paths with spaces when possible.
 #'
-#' @details
-#' This function uses the `[tools::R_user_dir()]` function to determine the user data directory.
-#'
-#' @return
-#' A character string representing the path to the user data directory for `condathis`.
+#' @returns A character string with the `condathis` data directory path.
 #'
 #' @keywords internal
 #' @noRd

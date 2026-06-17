@@ -1,32 +1,19 @@
-#' Execute Code in a Temporary Directory
+#' Execute code in an isolated temporary environment
 #'
-#' @description
-#' Runs user-defined code inside a temporary directory, setting up a temporary
-#' working environment. This function is intended for use in examples and tests
-#' and ensures that no data is written to the user's file space.
-#' Environment variables such as `HOME`, `APPDATA`, `R_USER_DATA_DIR`,
-#' `XDG_DATA_HOME`, `LOCALAPPDATA`, and `USERPROFILE` are redirected to
-#' temporary directories.
+#' Evaluates code with temporary home, data, and cache directories.
+#' This is mainly intended for examples and tests so no user files are written.
 #'
-#' @details
-#' This function is not designed for direct use by package users. It is primarily
-#' used to create an isolated environment during examples and tests. The temporary
-#' directories are created automatically and cleaned up after execution.
+#' @param code Expression to evaluate in the sandboxed environment.
+#' @param .local_envir Environment used for local scoping and evaluation.
+#'   Defaults to `parent.frame()`.
 #'
-#' @param code [expression]
-#'   An expression containing the user-defined code to be executed in the
-#'   temporary environment.
-#'
-#' @param .local_envir [environment]
-#'  The environment to use for scoping.
-#'
-#' @return
-#' Returns `NULL`, invisibly.
+#' @returns `NULL`, invisibly.
 #'
 #' @examples
+#' \dontrun{
 #' condathis::with_sandbox_dir(print(fs::path_home()))
 #' condathis::with_sandbox_dir(print(tools::R_user_dir("condathis")))
-#'
+#' }
 #' @export
 with_sandbox_dir <- function(code, .local_envir = base::parent.frame()) {
   tmp_home_path <- withr::local_tempdir(

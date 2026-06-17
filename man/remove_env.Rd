@@ -2,7 +2,7 @@
 % Please edit documentation in R/remove_env.R
 \name{remove_env}
 \alias{remove_env}
-\title{Remove a Conda Environment}
+\title{Remove a Conda environment}
 \usage{
 remove_env(
   env_name = "condathis-env",
@@ -10,37 +10,19 @@ remove_env(
 )
 }
 \arguments{
-\item{env_name}{Character. Name of the Conda environment where the packages
-are going to be installed. Defaults to 'condathis-env'.}
+\item{env_name}{Character string with the environment name to remove.
+Defaults to \code{"condathis-env"}.}
 
-\item{verbose}{Character string specifying the verbosity level of the
-function's output.
-Acceptable values are:
-\itemize{
-\item \strong{"output"}: Print the standard output and error from the command-line
-tool to the screen.
-Note that the order of the standard output and error lines may not be
-correct, as standard output is typically buffered.
-\item \strong{"silent"}: Suppress all output from internal command-line tools.
-Equivalent to \code{FALSE}.
-\item \strong{"cmd"}: Print the internal command(s) passed to the command-line tool.
-If the standard output and/or error is redirected to a file or they are
-ignored, they will not be echoed.
-Equivalent to \code{TRUE}.
-\item \strong{"full"}: Print both the internal command(s) (\code{"cmd"}) and their
-standard output and error (\code{"output"}).
-\item Logical values \code{FALSE} and \code{TRUE} are also accepted for backward
-compatibility but are \emph{soft-deprecated}.
-Please use \code{"silent"} or \code{"output"} instead.
-}}
+\item{verbose}{Character string controlling console output.
+Supported values are \code{"silent"}, \code{"cmd"}, \code{"output"}, \code{"spinner"},
+and \code{"full"}. Defaults to \code{"silent"}.}
 }
 \value{
-An object of class \code{list} representing the result of the command
-execution. Contains information about the standard output, standard error,
-and exit status of the command.
+A process result list (from \code{processx::run()}) with command output,
+error output, exit status, and timeout information.
 }
 \description{
-Remove a Conda environment previously created by \code{create_env()}.
+Removes an environment managed by \code{condathis}.
 }
 \examples{
 \dontrun{

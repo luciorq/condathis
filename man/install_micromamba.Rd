@@ -2,7 +2,7 @@
 % Please edit documentation in R/install_micromamba.R
 \name{install_micromamba}
 \alias{install_micromamba}
-\title{Install Micromamba Binaries in the \code{condathis} Controlled Path}
+\title{Install micromamba binaries in the managed condathis path}
 \usage{
 install_micromamba(
   micromamba_version = "2.6.2-1",
@@ -13,64 +13,33 @@ install_micromamba(
 )
 }
 \arguments{
-\item{micromamba_version}{Character string specifying the version of
-Micromamba to download. Defaults to \code{"2.6.2-1"}.}
+\item{micromamba_version}{Character string with the micromamba version.
+Defaults to \code{"2.6.2-1"}.}
 
-\item{timeout_limit}{Numeric value specifying the timeout limit for
-downloading the Micromamba
-binaries, in seconds. Defaults to \code{3600} seconds (1 hour).}
+\item{timeout_limit}{Numeric download timeout in seconds.
+Defaults to \code{3600}.}
 
-\item{download_method}{Character string passed to the \code{method} argument of
-the \code{utils::download.file()} function used for downloading the binaries
-when the \code{curl} package is not available.
-Defaults to \code{"auto"}.}
+\item{download_method}{Character string passed as the download method when
+\code{utils::download.file()} is used. Defaults to \code{"auto"}.}
 
-\item{force}{Logical. If set to TRUE, the download and installation of the
-Micromamba binaries will be forced, even if they already exist in the
-system or \code{condathis} controlled path. Defaults to FALSE.}
+\item{force}{Logical value that controls forced reinstallation.
+Defaults to \code{FALSE}.}
 
-\item{verbose}{Character string indicating the verbosity level of the
-function.
-Can be one of \code{"full"}, \code{"output"}, \code{"silent"}. Defaults to \code{"output"}.}
+\item{verbose}{Character string controlling console output.
+Supported values are \code{"output"}, \code{"silent"}, \code{"cmd"}, \code{"spinner"},
+and \code{"full"}. Defaults to \code{"output"}.}
 }
 \value{
-Invisibly returns the path to the installed Micromamba binary.
+The installed micromamba binary path, invisibly.
 }
 \description{
-Downloads and installs the Micromamba binaries in the path managed by the
-\code{condathis} package.
-Micromamba is a lightweight implementation of the Conda package manager
-and provides an efficient way
-to create and manage conda environments.
+Downloads and installs the \code{micromamba} executable used by \code{condathis}.
 }
 \details{
-This function checks if Micromamba is already installed in the \code{condathis}
-controlled path. If not, it downloads the specified version from multiple
-mirror sources and installs it.
-
-The download strategy is:
-\itemize{
-\item If system \code{tar} and \code{bzip2} are available, download the compressed
-\code{.tar.bz2} archive (smaller download) and extract it.
-\item If \code{tar} or \code{bzip2} are not available, or if extraction fails,
-download the uncompressed standalone binary directly.
-}
-
-Multiple mirror sources are tried in order:
-\itemize{
-\item GitHub Releases
-(\verb{https://github.com/mamba-org/micromamba-releases/releases/})
-\item micro.mamba.pm (official CDN)
-(\verb{https://micro.mamba.pm/api/micromamba/})
-\item conda-forge via Anaconda
-(\verb{https://api.anaconda.org/download/conda-forge/})
-\item conda-forge via prefix.dev
-(\verb{https://repo.prefix.dev/conda-forge/})
-}
-
-The downloaded binary is verified against the SHA256 checksum published on
-GitHub releases. The \code{curl} package is preferred for downloads when
-available, with \code{utils::download.file()} as a fallback.
+Download mirrors are tried in order until one succeeds.
+When system \code{tar} and \code{bzip2} are available, a compressed archive may be
+used first. Otherwise, or when extraction fails, a standalone binary is
+downloaded.
 }
 \examples{
 \dontrun{

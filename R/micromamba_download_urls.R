@@ -1,18 +1,7 @@
-#' Build Download URLs for Micromamba from Multiple Mirrors
+#' Build micromamba download endpoints from multiple mirrors
 #'
-#' Returns a named list of URL vectors for downloading micromamba binaries
-#' from multiple mirror sources. The mirrors are tried in order of preference.
-#'
-#' Mirror sources (in order):
-#' - **GitHub Releases**: `https://github.com/mamba-org/micromamba-releases/releases/`
-#'   Primary source with both `.tar.bz2` and uncompressed binary formats.
-#' - **micro.mamba.pm**: `https://micro.mamba.pm/api/micromamba/`
-#'   Official CDN URL. Redirects (307) to `api.anaconda.org`.
-#' - **conda-forge via Anaconda**: `https://api.anaconda.org/download/conda-forge/`
-#'   Serves the conda package `.tar.bz2`. The binary is at `bin/micromamba`
-#'   inside the archive (same structure as GitHub releases).
-#' - **conda-forge via prefix.dev**: `https://repo.prefix.dev/conda-forge/`
-#'   Alternative mirror for conda-forge packages. Same `.tar.bz2` format.
+#' Returns endpoint vectors for downloading micromamba binaries from mirrored
+#' sources in priority order.
 #'
 #' @param sys_arch_str Character string. The platform slug returned by
 #'   `is_micromamba_available_for_arch()`, e.g., `"osx-arm64"`, `"linux-64"`.
@@ -20,10 +9,10 @@
 #'   e.g., `"2.6.2-1"`.
 #'
 #' @returns A named list with:
-#'   - `compressed`: Character vector of URLs for `.tar.bz2` archives
-#'   - `uncompressed`: Character vector of URLs for raw binary downloads
-#'   - `sha256`: Character vector of URLs for SHA256 checksum files
-#'   - `check_urls`: Character vector of base URLs to verify connectivity
+#'   - `compressed`: Character vector of `.tar.bz2` archive endpoints.
+#'   - `uncompressed`: Character vector of raw binary endpoints.
+#'   - `sha256`: Character vector of SHA256 checksum endpoints.
+#'   - `check_urls`: Character vector of base endpoints used for connectivity checks.
 #'
 #' @keywords internal
 #' @noRd

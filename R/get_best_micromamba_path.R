@@ -1,8 +1,7 @@
-#' Return the Path of the Best Micromamba Installation to Use
+#' Select the best available micromamba binary path
 #'
-#' Searches multiple locations for a working micromamba binary, in priority
-#' order. Returns the first path that has a valid micromamba with a version
-#' meeting the minimum requirement.
+#' Searches multiple locations in priority order and returns the first path
+#' that points to a compatible micromamba installation.
 #'
 #' Discovery priority:
 #' 1. User override via `getOption("condathis.micromamba_path")`
@@ -12,6 +11,9 @@
 #' 5. Active conda environment (`CONDA_PREFIX`)
 #' 6. condathis managed micromamba-env fallback
 #' 7. System PATH (`Sys.which("micromamba")`)
+#'
+#' @returns A character path to a compatible micromamba binary, or `NULL` when
+#'   no compatible binary is found.
 #'
 #' @keywords internal
 #' @noRd

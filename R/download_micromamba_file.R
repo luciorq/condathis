@@ -1,11 +1,11 @@
-#' Download a File with Robust Error Handling
+#' Download a file with robust error handling
 #'
-#' Downloads a file from a URL, preferring `curl::curl_download()` when the
-#' `curl` package is available, falling back to `utils::download.file()`.
+#' Downloads a file from an endpoint, preferring `curl::curl_download()` when
+#' the `curl` package is available, falling back to `utils::download.file()`.
 #' Wraps downloads in error handling so failures return `FALSE` instead of
 #' throwing errors.
 #'
-#' @param url Character string. The URL to download from.
+#' @param url Character string with the download endpoint.
 #' @param destfile Character string. The destination file path.
 #' @param timeout_limit Numeric. Timeout in seconds for the download.
 #'   Defaults to `3600`.
@@ -76,12 +76,12 @@ download_micromamba_file <- function(
   return(dl_success)
 }
 
-#' Try Downloading from Multiple Mirror URLs
+#' Try downloading from multiple mirror endpoints
 #'
-#' Iterates through a list of URLs and attempts to download from each one
+#' Iterates through endpoint strings and attempts to download from each one
 #' until one succeeds or all fail.
 #'
-#' @param urls Character vector. URLs to try in order.
+#' @param urls Character vector of endpoints to try in order.
 #' @param destfile Character string. The destination file path.
 #' @param timeout_limit Numeric. Timeout in seconds.
 #' @param method Character string. Download method for `utils::download.file()`.

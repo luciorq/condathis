@@ -1,4 +1,4 @@
-#' Parse a Conda MatchSpec String
+#' Parse a Conda MatchSpec string
 #'
 #' Parses a string representation of a Conda package specification into its
 #' constituent parts following the CEP 29 MatchSpec query language
@@ -12,10 +12,8 @@
 #'
 #' This implementation follows:
 #'
-#' - [Conda CEP 29](https://conda.org/learn/ceps/cep-0029/):
-#'   The `MatchSpec` query language.
-#' - [libmamba](https://github.com/mamba-org/mamba):
-#'   at `libmamba/src/specs/match_spec.cpp`.
+#' - Conda Enhancement Proposal 29 (`MatchSpec` query language).
+#' - libmamba implementation at `libmamba/src/specs/match_spec.cpp`.
 #'
 #' @param spec_string A character string containing the `MatchSpec` text
 #'   (e.g., `"numpy>=1.11"`, `"conda-forge::python=3.9"`).
@@ -260,6 +258,17 @@ parse_match_spec <- function(spec_string) {
 
 #' Build the result list with canonical formatting
 #'
+#' @param name Package name.
+#' @param name_space Namespace value.
+#' @param channel_location Channel location value or `NULL`.
+#' @param channel_platform_filters Character vector of channel platform filters.
+#' @param version Normalized version string.
+#' @param build_string Normalized build string.
+#' @param extra_platforms Character vector of extra platforms.
+#' @param extra Named list of extra MatchSpec fields.
+#'
+#' @returns A named list with formatted MatchSpec fields.
+#'
 #' @keywords internal
 #' @noRd
 ms_make_result <- function(
@@ -354,6 +363,10 @@ ms_make_result <- function(
 
 #' Format a Python-style set string
 #'
+#' @param items Character vector of set values.
+#'
+#' @returns A Python-style set string representation.
+#'
 #' @keywords internal
 #' @noRd
 ms_format_python_set <- function(items) {
@@ -371,6 +384,11 @@ ms_format_python_set <- function(items) {
 
 
 #' Format channel string with platform filters for display
+#'
+#' @param location Channel location string.
+#' @param platform_filters Character vector of platform filters.
+#'
+#' @returns A display-ready channel string.
 #'
 #' @keywords internal
 #' @noRd
@@ -394,6 +412,17 @@ ms_format_channel_display <- function(location, platform_filters) {
 # =============================================================================
 
 #' Generate canonical string representation matching libmamba
+#'
+#' @param name Package name.
+#' @param name_space Namespace value.
+#' @param channel_location Channel location value or `NULL`.
+#' @param channel_platform_filters Character vector of channel platform filters.
+#' @param version Normalized version string.
+#' @param build_string Normalized build string.
+#' @param extra_platforms Character vector of extra platforms.
+#' @param extra Named list of extra MatchSpec fields.
+#'
+#' @returns A canonical MatchSpec string.
 #'
 #' @keywords internal
 #' @noRd
@@ -535,6 +564,10 @@ ms_format_canonical <- function(
 
 #' Check if a version spec is complex (expression_size > 1)
 #'
+#' @param version Version specification string.
+#'
+#' @returns `TRUE` when the version specification is complex, otherwise `FALSE`.
+#'
 #' @keywords internal
 #' @noRd
 ms_is_complex_version <- function(version) {
@@ -554,6 +587,10 @@ ms_is_complex_version <- function(version) {
 
 
 #' Find needed quote character for a value
+#'
+#' @param data Character value to quote when needed.
+#'
+#' @returns A quote character (`"` or `'`) or an empty string.
 #'
 #' @keywords internal
 #' @noRd
@@ -627,6 +664,10 @@ ms_split_channel_namespace_spec <- function(str) {
 
 #' Find the rightmost colon not inside brackets or quotes
 #'
+#' @param str Character string to scan.
+#'
+#' @returns Integer position of the matching colon, or `NULL`.
+#'
 #' @keywords internal
 #' @noRd
 ms_rfind_colon_outside_brackets <- function(str) {
@@ -664,6 +705,10 @@ ms_rfind_colon_outside_brackets <- function(str) {
 #' - `"conda-forge/linux-64"` -> location=`"conda-forge"`, filters=`{"linux-64"}`
 #' - `"conda-forge[linux-64]"` -> location=`"conda-forge"`, filters=`{"linux-64"}`
 #' - `"*"` -> location=`"*"`, filters=empty
+#'
+#' @param str Channel string.
+#'
+#' @returns A list with `location` and `platform_filters`.
 #'
 #' @keywords internal
 #' @noRd
@@ -713,6 +758,10 @@ ms_parse_channel <- function(str) {
 
 #' Parse a comma/pipe separated list of platforms
 #'
+#' @param str Character string containing platform values.
+#'
+#' @returns A lowercased character vector of parsed platforms.
+#'
 #' @keywords internal
 #' @noRd
 ms_parse_platform_list <- function(str) {
@@ -724,6 +773,10 @@ ms_parse_platform_list <- function(str) {
 
 
 #' Check if a string is a known conda platform/subdir
+#'
+#' @param str Character platform string.
+#'
+#' @returns `TRUE` when the platform is known, otherwise `FALSE`.
 #'
 #' @keywords internal
 #' @noRd
@@ -752,6 +805,10 @@ ms_is_known_platform <- function(str) {
 
 
 #' Split features string into a character vector
+#'
+#' @param str Character string containing track features.
+#'
+#' @returns A character vector of parsed features.
 #'
 #' @keywords internal
 #' @noRd
@@ -826,6 +883,12 @@ ms_rparse_brackets <- function(str) {
 
 #' Find matching opening bracket from the end
 #'
+#' @param str Character string containing bracketed content.
+#' @param open Opening bracket character.
+#' @param close Closing bracket character.
+#'
+#' @returns Integer position of the matching opening bracket, or `NULL`.
+#'
 #' @keywords internal
 #' @noRd
 ms_rfind_matching_bracket <- function(str, open, close) {
@@ -848,6 +911,10 @@ ms_rfind_matching_bracket <- function(str, open, close) {
 
 
 #' Parse bracket content into key=value pairs
+#'
+#' @param content Character string with bracket content.
+#'
+#' @returns A named list of parsed attributes.
 #'
 #' @keywords internal
 #' @noRd
@@ -880,6 +947,10 @@ ms_parse_bracket_content <- function(content) {
 
 
 #' Split bracket content by commas, respecting quotes and parentheses
+#'
+#' @param str Character string with bracket content.
+#'
+#' @returns A character vector of split key-value pair strings.
 #'
 #' @keywords internal
 #' @noRd
@@ -927,6 +998,10 @@ ms_split_bracket_pairs <- function(str) {
 
 #' Strip surrounding quotes from a string
 #'
+#' @param str Character string.
+#'
+#' @returns Character string with surrounding quotes removed when present.
+#'
 #' @keywords internal
 #' @noRd
 ms_strip_quotes <- function(str) {
@@ -952,6 +1027,10 @@ ms_strip_quotes <- function(str) {
 #'
 #' Follows libmamba's split_name_version_and_build logic.
 #' Package name ends at first version separator character.
+#'
+#' @param str MatchSpec positional string.
+#'
+#' @returns A list with `name`, `version`, and `build`.
 #'
 #' @keywords internal
 #' @noRd
@@ -986,6 +1065,10 @@ ms_split_name_version_build <- function(str) {
 #' 2. Strip trailing `=`
 #' 3. Find last `=` or space position
 #' 4. If last `=` is preceded by an operator char, it's not a build separator
+#'
+#' @param str Version-and-build string.
+#'
+#' @returns A list with `version` and `build`.
 #'
 #' @keywords internal
 #' @noRd
@@ -1065,6 +1148,11 @@ ms_split_version_and_build <- function(str) {
 
 #' Find last position of any character in chars within str
 #'
+#' @param str Character string to inspect.
+#' @param chars Character vector of search characters.
+#'
+#' @returns Integer position of the last match, or `NULL`.
+#'
 #' @keywords internal
 #' @noRd
 ms_find_last_of <- function(str, chars) {
@@ -1093,6 +1181,10 @@ ms_find_last_of <- function(str, chars) {
 #' - Trailing `".*"` on fuzzy versions is stripped: `"=1.8.*"` -> `"=1.8"`
 #' - Trailing `"*"` with no dot: `"1.8*"` -> `"=1.8"` (fuzzy)
 #' - `"*"` alone is free: `"=*"`
+#'
+#' @param version Version string to normalize.
+#'
+#' @returns A normalized version specification string.
 #'
 #' @keywords internal
 #' @noRd
@@ -1155,6 +1247,9 @@ ms_normalize_version <- function(version) {
 #' Bare version atoms get == prefix. Pipe groups get parenthesized
 #' when there are multiple AND groups.
 #'
+#' @param ver Compound version expression string.
+#'
+#' @returns A normalized compound version expression string.
 #'
 #' @keywords internal
 #' @noRd
@@ -1201,6 +1296,10 @@ ms_normalize_compound_version <- function(ver) {
 
 #' Normalize a single version atom (no comma or pipe)
 #'
+#' @param atom Version atom string.
+#'
+#' @returns A normalized version atom string.
+#'
 #' @keywords internal
 #' @noRd
 ms_normalize_version_atom <- function(atom) {
@@ -1238,6 +1337,10 @@ ms_normalize_version_atom <- function(atom) {
 
 #' Normalize build string
 #'
+#' @param build Build string.
+#'
+#' @returns A normalized build string.
+#'
 #' @keywords internal
 #' @noRd
 ms_normalize_build <- function(build) {
@@ -1253,6 +1356,10 @@ ms_normalize_build <- function(build) {
 # =============================================================================
 
 #' Parse a URL-style MatchSpec (archive URL)
+#'
+#' @param url Archive endpoint string.
+#'
+#' @returns A parsed MatchSpec list.
 #'
 #' @keywords internal
 #' @noRd
