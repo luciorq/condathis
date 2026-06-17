@@ -6,7 +6,7 @@
 #' @param sys_arch_str Character string. The platform slug returned by
 #'   `is_micromamba_available_for_arch()`, e.g., `"osx-arm64"`, `"linux-64"`.
 #' @param micromamba_version Character string. The version to download,
-#'   e.g., `"2.6.2-1"`.
+#'   e.g., `"2.8.1-0"`.
 #'
 #' @returns A named list with:
 #'   - `compressed`: Character vector of `.tar.bz2` archive endpoints.
@@ -20,7 +20,7 @@ get_micromamba_urls <- function(sys_arch_str, micromamba_version) {
   github_base <- "https://github.com/mamba-org/micromamba-releases/releases"
 
   # Parse version components for conda-forge URL format
-  # Version format, e.g.: "2.6.2-1" -> version "2.6.2", build "1"
+  # Version format, e.g.: "2.8.1-0" -> version "2.8.1", build "0"
   version_parts <- strsplit(micromamba_version, "-", fixed = TRUE)[[1L]]
   version_num <- version_parts[1L]
   build_num <- version_parts[2L]

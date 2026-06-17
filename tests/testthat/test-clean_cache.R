@@ -15,20 +15,40 @@ testthat::test_that("clean_cache outputs are captured", {
   }
   fs::file_touch(fs::path(r_user_cache, "dummy-file", ext = "txt"))
 
-  clean_cache() |>
-    testthat::expect_message("Cache succesfully removed")
+  testthat::expect_message(
+    object = {
+      clean_cache()
+    },
+    class = "rlang_message",
+    regexp = ".*Cache successfully removed.*"
+  )
 
-  clean_cache(verbose = "output") |>
-    testthat::expect_message("Cache succesfully removed")
+  testthat::expect_message(
+    object = {
+      clean_cache(verbose = "output")
+    },
+    class = "rlang_message",
+    regexp = ".*Cache successfully removed.*"
+  )
 
-  clean_cache(verbose = "full") |>
-    testthat::expect_message("Cache succesfully removed") |>
+  testthat::expect_message(
+    object = {
+      clean_cache(verbose = "full")
+    },
+    class = "rlang_message",
+    regexp = ".*Cache successfully removed.*"
+  ) |>
     testthat::capture_output() |>
     stringr::str_detect(pattern = "^Running.*") |>
     testthat::expect_true()
 
-  clean_cache(verbose = "full") |>
-    testthat::expect_message("Cache succesfully removed") |>
+  testthat::expect_message(
+    object = {
+      clean_cache(verbose = "full")
+    },
+    class = "rlang_message",
+    regexp = ".*Cache successfully removed.*"
+  ) |>
     testthat::capture_output() |>
     stringr::str_detect(pattern = "^Running.*") |>
     testthat::expect_true()

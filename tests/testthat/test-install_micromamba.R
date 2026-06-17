@@ -37,24 +37,34 @@ testthat::test_that("Install micromamba from scratch", {
   if (isTRUE(fs::dir_exists(fs::path(get_install_dir(), "micromamba")))) {
     fs::dir_delete(fs::path(get_install_dir(), "micromamba"))
   }
-  captured_output <- testthat::expect_message(
-    object = {
-      install_micromamba(verbose = "output")
-    }
-  ) |>
-    testthat::capture_output()
+
+  captured_output <- testthat::capture_output(code = {
+    testthat::expect_message(
+      object = {
+        install_micromamba(verbose = "output")
+      },
+      # regexp = ".*successfully.*",
+      class = "rlang_message"
+    )
+  })
   testthat::expect_true(fs::file_exists(micromamba_bin_path()))
 
   captured_output <- suppressMessages(
     testthat::expect_message(
-      install_micromamba(micromamba_version = "1.5.9-0", verbose = "full"),
-      regexp = ".*already.*"
+      object = {
+        install_micromamba(micromamba_version = "1.5.9-0", verbose = "full")
+      },
+      regexp = ".*already.*",
+      class = "rlang_message"
     )
   ) |>
     testthat::capture_output()
   captured_output <- testthat::expect_message(
-    install_micromamba(micromamba_version = "1.5.9-0", verbose = "output"),
-    regexp = ".*already.*"
+    object = {
+      install_micromamba(micromamba_version = "1.5.9-0", verbose = "output")
+    },
+    regexp = ".*already.*",
+    class = "rlang_message"
   ) |>
     testthat::capture_output()
 
@@ -133,7 +143,7 @@ testthat::test_that("Fallback to uncompressed when tar/bzip2 unavailable", {
 testthat::test_that("get_micromamba_urls returns correct structure", {
   urls <- get_micromamba_urls(
     sys_arch_str = "linux-64",
-    micromamba_version = "2.6.2-1"
+    micromamba_version = "2.8.1-0"
   )
 
   testthat::expect_type(urls, "list")
@@ -178,13 +188,13 @@ testthat::test_that("No warnings when tar is unavailable", {
   }
 
   # This should NOT produce any warnings about tar or bzip2
-  captured_output <- testthat::capture_output(
+  captured_output <- testthat::capture_output({
     result <- testthat::expect_no_warning(
       suppressMessages(
         install_micromamba(force = TRUE, verbose = "silent")
       )
     )
-  )
+  })
 
   testthat::expect_true(fs::file_exists(micromamba_bin_path()))
 })

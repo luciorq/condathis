@@ -23,7 +23,7 @@ Development Changelog: [dev](https://github.com/luciorq/condathis/compare/v0.1.3
 
 ### Changed
 
-* Internal `micromamba` version bump to "2.6.2-1".
+* Internal `micromamba` version bump to "2.8.1-0".
 
 * `clean_cache()` now also removes any additional cache files created in the
   path reported by `tools::R_user_dir(package = "condathis", which = "cache")`.

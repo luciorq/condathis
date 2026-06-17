@@ -3,7 +3,7 @@
 #' Downloads and installs the `micromamba` executable used by `condathis`.
 #'
 #' @param micromamba_version Character string with the micromamba version.
-#'   Defaults to `"2.6.2-1"`.
+#'   Defaults to `"2.8.1-0"`.
 #' @param timeout_limit Numeric download timeout in seconds.
 #'   Defaults to `3600`.
 #' @param download_method Character string passed as the download method when
@@ -38,7 +38,7 @@
 #'
 #' @export
 install_micromamba <- function(
-  micromamba_version = "2.6.2-1",
+  micromamba_version = "2.8.1-0",
   timeout_limit = 3600,
   download_method = "auto",
   force = FALSE,
@@ -155,7 +155,7 @@ install_micromamba <- function(
       }
     } else {
       # Clean up any partial download
-      if (file.exists(full_dl_path)) {
+      if (fs::file_exists(full_dl_path)) {
         try(fs::file_delete(full_dl_path), silent = TRUE)
       }
     }
@@ -242,8 +242,8 @@ install_micromamba <- function(
 #' release artifact for the selected version and platform.
 #'
 #' @param bin_path Character string. Path to the micromamba binary to verify.
-#' @param sha256_urls Character vector. Mirror endpoints to try for downloading the
-#'   SHA256 checksum file.
+#' @param sha256_urls Character vector. Mirror endpoints to try for downloading
+#'   the SHA256 checksum file.
 #' @param timeout_limit Numeric. Timeout in seconds.
 #' @param method Character string. Download method.
 #' @param verbose List. Parsed verbose flags from `parse_strategy_verbose()`.
