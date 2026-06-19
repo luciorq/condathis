@@ -119,7 +119,10 @@ github_org := 'luciorq'
   R -q -s -e 'devtools::load_all();devtools::document();';
   just install-deps;
   just install-local;
-  R -q -s -e 'devtools::install(pkg = ".", build_vignettes = TRUE, dependencies = c("Imports", "Suggests", "Depends"), upgrade = "always");';
+  # TODO: `devtools::install()` changed completely its signature by using
+  # + `pak::local_install_deps()` for managing dependencies.
+  # R -q -s -e 'devtools::install(pkg = ".", build_vignettes = TRUE, dependencies = c("Imports", "Suggests", "Depends"), upgrade = "always");';
+  R -q -s -e 'devtools::install(pkg = ".", build_vignettes = TRUE, dependencies = TRUE, upgrade = TRUE);';
   R -q -s -e 'print(vignette(package = "{{ package_name }}"));';
 
 # Install Package Development Dependencies Including Suggests
@@ -177,19 +180,29 @@ github_org := 'luciorq'
 @pre-release:
   #!/usr/bin/env bash
   \builtin set -euxo pipefail;
+  # TODO: Update version on NEWS.md and DESCRIPTION files.
+  # TODO: If using changelog links, also perform a git push and tag,
+  # + so `url_check()` do not fail.
+  # git commit -m "chore: prepare for vX.Y.Z release";
+  # git push;
+  # just git-tag;
+  # git push --tags;
+  # git push upstream --tags;
   R -q -e 'urlchecker::url_check()';
   # R -q -e 'devtools::build_readme()';
   just build-readme;
   R -q -e 'withr::with_options(list(repos = c(CRAN = "https://cloud.r-project.org")), {devtools::check(remote = TRUE, manual = TRUE)})';
   R -q -e 'devtools::check_win_devel()';
-  # R -q -e 'if(!requireNamespace("revdepcheck", quietly=TRUE)) pak::pak("r-lib/revdepcheck");';
+  # R -q -s -e 'if(!requireNamespace("revdepcheck", quietly=TRUE)) pak::pak("r-lib/revdepcheck");';
+  # R -q -e 'revdepcheck::revdep_reset();';
   # R -q -e 'revdepcheck::revdep_check(num_workers = 4);';
-  # Update CRAN comments
+  # TODO: Update CRAN comments with output from `check`.
+  # cat ./cran-comments.md;
   # usethis::use_version('patch')
   # devtools::build_rmd("vignettes/my-vignette.Rmd")
   # just build-vignettes;
   # devtools::submit_cran()
-  # Check your email! Click the link, and check all boxes!
+  # TODO: Check your email! Click the link, and check all boxes!
   \builtin echo "Pre-release checks done!";
 
 # <<< rstats-package-dev-tasks <<<

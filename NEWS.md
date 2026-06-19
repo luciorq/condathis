@@ -1,8 +1,8 @@
-## condathis 0.1.4 (Development Version)
+## condathis 0.1.4
 
-Release Date: Unreleased
+Release Date: 2026-06-19
 
-Development Changelog: [dev](https://github.com/luciorq/condathis/compare/v0.1.3...HEAD)
+Development Changelog: [0.1.4](https://github.com/luciorq/condathis/compare/v0.1.3...v0.1.4)
 
 ### Added
 
