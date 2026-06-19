@@ -7,7 +7,7 @@
 install_packages(
   packages,
   env_name = "condathis-env",
-  channels = c("conda-forge"),
+  channels = c("conda-forge", "bioconda"),
   channel_priority = c("disabled", "strict", "flexible"),
   additional_channels = NULL,
   verbose = c("output", "silent", "cmd", "spinner", "full")
@@ -20,7 +20,7 @@ install_packages(
 Defaults to \code{"condathis-env"}.}
 
 \item{channels}{Character vector with channel names used for dependency
-resolution. Defaults to \code{"conda-forge"}.}
+resolution. Defaults to \code{c("conda-forge", "bioconda")}.}
 
 \item{channel_priority}{Character string with channel priority mode.
 Supported values are \code{"disabled"}, \code{"strict"}, and \code{"flexible"}.

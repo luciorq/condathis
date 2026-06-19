@@ -4,6 +4,7 @@
 #'
 #' @param channel_priority Character string with channel priority mode.
 #'   Supported values are `"disabled"`, `"strict"`, and `"flexible"`.
+#'   Defaults to `"disabled"`.
 #'
 #' @returns A character vector of command-line arguments.
 #'

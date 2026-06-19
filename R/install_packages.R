@@ -7,7 +7,7 @@
 #' @param env_name Character string with the target environment name.
 #'   Defaults to `"condathis-env"`.
 #' @param channels Character vector with channel names used for dependency
-#'   resolution. Defaults to `"conda-forge"`.
+#'   resolution. Defaults to `c("conda-forge", "bioconda")`.
 #' @param channel_priority Character string with channel priority mode.
 #'   Supported values are `"disabled"`, `"strict"`, and `"flexible"`.
 #'   Defaults to `"disabled"`.
@@ -40,7 +40,8 @@ install_packages <- function(
   packages,
   env_name = "condathis-env",
   channels = c(
-    "conda-forge"
+    "conda-forge",
+    "bioconda"
   ),
   channel_priority = c(
     "disabled",

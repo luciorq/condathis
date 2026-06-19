@@ -13,13 +13,13 @@ Development Changelog: [dev](https://github.com/luciorq/condathis/compare/v0.1.3
   For that we added 1 new option and 1 environment variable to control that behavior.
   `condathis_micromamba_path` and `"CONDATHIS_MICROMAMBA_PATH"` respectively.
   The order of discovey is as follows:
-  * User override via `getOption("condathis.micromamba_path")`
-  * User override via `CONDATHIS_MICROMAMBA_PATH` environment variable
-  * condathis internal managed path (`micromamba_bin_path()`)
-  * R-in-conda: micromamba adjacent to R's own installation prefix
-  * Active conda environment (`CONDA_PREFIX`)
-  * condathis managed micromamba-env fallback
-  * System PATH (`Sys.which("micromamba")`)
+  * User override via `getOption("condathis.micromamba_path")`.
+  * User override via `CONDATHIS_MICROMAMBA_PATH` environment variable.
+  * condathis internal managed path (`micromamba_bin_path()`).
+  * R-in-conda: micromamba adjacent to R's own installation prefix.
+  * Active conda environment (`CONDA_PREFIX`).
+  * condathis managed micromamba-env fallback.
+  * System PATH (`Sys.which("micromamba")`).
 
 ### Changed
 
