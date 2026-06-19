@@ -1,11 +1,11 @@
 # Changelog
 
-## condathis 0.1.4 (Development Version)
+## condathis 0.1.4
 
-Release Date: Unreleased
+Release Date: 2026-06-19
 
 Development Changelog:
-[dev](https://github.com/luciorq/condathis/compare/v0.1.3...HEAD)
+[0.1.4](https://github.com/luciorq/condathis/compare/v0.1.3...v0.1.4)
 
 ### Added
 
@@ -21,14 +21,14 @@ Development Changelog:
   `"CONDATHIS_MICROMAMBA_PATH"` respectively. The order of discovey is
   as follows:
 
-  - User override via `getOption("condathis.micromamba_path")`
-  - User override via `CONDATHIS_MICROMAMBA_PATH` environment variable
+  - User override via `getOption("condathis.micromamba_path")`.
+  - User override via `CONDATHIS_MICROMAMBA_PATH` environment variable.
   - condathis internal managed path
-    ([`micromamba_bin_path()`](https://luciorq.github.io/condathis/reference/micromamba_bin_path.md))
-  - R-in-conda: micromamba adjacent to R’s own installation prefix
-  - Active conda environment (`CONDA_PREFIX`)
-  - condathis managed micromamba-env fallback
-  - System PATH (`Sys.which("micromamba")`)
+    ([`micromamba_bin_path()`](https://luciorq.github.io/condathis/reference/micromamba_bin_path.md)).
+  - R-in-conda: micromamba adjacent to R’s own installation prefix.
+  - Active conda environment (`CONDA_PREFIX`).
+  - condathis managed micromamba-env fallback.
+  - System PATH (`Sys.which("micromamba")`).
 
 ### Changed
 

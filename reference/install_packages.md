@@ -9,7 +9,7 @@ target environment does not exist, it is created first.
 install_packages(
   packages,
   env_name = "condathis-env",
-  channels = c("conda-forge"),
+  channels = c("conda-forge", "bioconda"),
   channel_priority = c("disabled", "strict", "flexible"),
   additional_channels = NULL,
   verbose = c("output", "silent", "cmd", "spinner", "full")
@@ -30,7 +30,7 @@ install_packages(
 - channels:
 
   Character vector with channel names used for dependency resolution.
-  Defaults to `"conda-forge"`.
+  Defaults to `c("conda-forge", "bioconda")`.
 
 - channel_priority:
 
