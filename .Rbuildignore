@@ -51,3 +51,6 @@
 ^\.opencode/$
 ^\.positai$
 ^\.claude$
+^TODO\.md$
+^PLAN\.md$
+
