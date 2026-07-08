@@ -22,9 +22,27 @@
       pid check, timeout field, stdin/input, per-command overrides,
       auto-create default env)
 - [x] Write integration test for mixed environments (two real Conda envs:
-      `conda-forge::grep` piped into `conda-forge::sed`)
-- [x] Run `just lint` and `just test` — all 700 tests pass, 0 failures
+      `conda-forge::grep` piped into `conda-forge::sed`; `m2-grep`/`m2-sed`
+      on Windows)
+- [x] Fix `run_pipeline()` letting a raw, uncaught `processx` error escape
+      when a command is not found — now respects `error = "cancel"` /
+      `"continue"` via a `spawn_failures` mechanism, consistent with `run()`
+- [x] Fix `run_pipeline()` error messages breaking or corrupting when a
+      failing command's `stderr` contained curly braces — added
+      `escape_cli_braces()`, applied to stderr, `cmd`, and `env_name`
+- [x] Fix `run_pipeline()` always throwing on a missing custom `env_name`
+      regardless of `error` — `error = "continue"` now reports
+      `status = 127` per affected command instead of aborting the pipeline;
+      `error = "cancel"` keeps the original fail-fast behavior
+- [x] Add regression tests for the three fixes above (command not found ×
+      cancel/continue, brace-escaping, missing custom env × cancel/continue)
+- [x] Run `just lint` and `just test` — all 712 tests pass, 0 failures
 
 ## Remaining / Optional
 
 None — implementation is feature complete per PLAN.md.
+
+See PLAN.md's "Known, intentional divergences from `run()` / `run_bin()`"
+section for behavioral differences that are deliberate design choices, not
+open TODOs (e.g. no `verbose` support, no `micromamba run` activation hooks,
+asymmetric crash-safety defaults, `stdin = "|"` only on `run_pipeline()`).

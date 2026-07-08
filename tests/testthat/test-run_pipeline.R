@@ -122,6 +122,104 @@ test_that("Pipeline with error = continue does not throw on failure", {
   testthat::expect_equal(res$statuses[[1]], 1L)
 })
 
+test_that("Pipeline with missing command and error = continue returns a result", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  create_env(verbose = "silent")
+  res <- run_pipeline(
+    cmds = list(
+      c("this-cmd-does-not-exist-xyz"),
+      c("cat")
+    ),
+    env_name = "condathis-env",
+    error = "continue"
+  )
+  testthat::expect_s3_class(res, "condathis_pipeline")
+  testthat::expect_equal(res$statuses[[1]], 127L)
+  testthat::expect_match(
+    res$processes[[1]]$stderr,
+    "System command 'this-cmd-does-not-exist-xyz' not found"
+  )
+  testthat::expect_equal(res$statuses[[2]], 0L)
+})
+
+test_that("Pipeline with missing command and error = cancel throws a condathis error", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  create_env(verbose = "silent")
+  cnd <- testthat::expect_error(
+    object = run_pipeline(
+      cmds = list(
+        c("this-cmd-does-not-exist-xyz"),
+        c("cat")
+      ),
+      env_name = "condathis-env",
+      error = "cancel"
+    ),
+    class = "condathis_pipeline_status_error"
+  )
+  testthat::expect_match(conditionMessage(cnd), "not found")
+})
+
+test_that("Pipeline error message escapes curly braces in stderr", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  create_env(verbose = "silent")
+  cnd <- testthat::expect_error(
+    object = run_pipeline(
+      cmds = list(
+        c("sh", "-c", "echo 'boom {curly} }brace{' >&2; exit 1"),
+        c("cat")
+      ),
+      env_name = "condathis-env",
+      error = "cancel"
+    ),
+    class = "condathis_pipeline_status_error"
+  )
+  testthat::expect_match(
+    conditionMessage(cnd),
+    "boom \\{curly\\} \\}brace\\{",
+    fixed = FALSE
+  )
+})
+
+test_that("Pipeline with missing custom env and error = continue returns a result", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  res <- run_pipeline(
+    cmds = list(
+      c("echo", "hi"),
+      c("cat")
+    ),
+    env_name = "totally-custom-missing-env",
+    error = "continue"
+  )
+  testthat::expect_s3_class(res, "condathis_pipeline")
+  testthat::expect_equal(res$statuses, c(127L, 127L))
+  testthat::expect_match(
+    res$processes[[1]]$stderr,
+    "Conda environment 'totally-custom-missing-env' does not exist"
+  )
+})
+
+test_that("Pipeline with missing custom env and error = cancel still fails fast", {
+  testthat::expect_error(
+    object = run_pipeline(
+      cmds = list(
+        c("echo", "hi"),
+        c("cat")
+      ),
+      env_name = "totally-custom-missing-env",
+      error = "cancel"
+    ),
+    class = "condathis_pipeline_env_not_found"
+  )
+})
+
 test_that("Pipeline with stdin file", {
   testthat::skip_on_cran()
   testthat::skip_if_offline()

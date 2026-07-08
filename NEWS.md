@@ -67,6 +67,23 @@ Development Changelog: [0.1.4](https://github.com/luciorq/condathis/compare/v0.1
   whose output was redirected to a file or discarded (`NULL`) instead of
   captured with `"|"`.
 
+* Fix `run_pipeline()` letting a raw `processx` error escape uncaught when a
+  command is not found, ignoring the `error` argument entirely. It now
+  matches `run()`: `error = "continue"` reports `status = 127` for that
+  command and keeps running the rest of the pipeline; `error = "cancel"`
+  throws a `condathis_pipeline_status_error` instead of a low-level error.
+
+* Fix `run_pipeline()` error messages breaking (or silently corrupting) when
+  a failing command's `stderr` contained curly braces, since
+  `cli::cli_abort()` interprets `{`/`}` as glue syntax. Captured stderr,
+  command strings, and environment names are now escaped before being
+  embedded in the error message.
+
+* Fix `run_pipeline()` always throwing on a missing custom environment
+  regardless of `error`. `error = "continue"` now reports `status = 127` for
+  commands targeting that environment instead of aborting the whole
+  pipeline; `error = "cancel"` keeps the previous fail-fast behavior.
+
 ## condathis 0.1.3
 
 Release Date: 2025-11-07
