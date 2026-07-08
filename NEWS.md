@@ -6,6 +6,17 @@ Development Changelog: [0.1.4](https://github.com/luciorq/condathis/compare/v0.1
 
 ### Added
 
+* New `run_pipeline()` function for Unix-style pipeline execution
+  (`cmd1 | cmd2 | cmd3`) using `processx` 3.9.0 kernel-level pipes.
+  Each command in the pipeline can run in a different Conda environment.
+  Returns an S3 `condathis_pipeline` object with per-process status, stdout
+  (last process only), stderr, and PID.
+  Supports `stdin` file redirection, `error = "cancel"` / `"continue"`,
+  and automatic crash cleanup via `supervise = TRUE`.
+
+* New `cleanup_tree` and `encoding` arguments in `native_cmd()`, passed
+  through to `processx::run()`.
+
 * New `channel_priority` argument in `create_env()` and `install_packages()`
   to control channel priority strategy.
 

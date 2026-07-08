@@ -18,6 +18,10 @@
 #'   Defaults to `"|"`.
 #' @param stdin Standard input source.
 #'   Defaults to `NULL`.
+#' @param cleanup_tree Logical. Whether to clean up the child process tree
+#'   after the process has finished. Defaults to `FALSE`.
+#' @param encoding Character string. Assumed encoding for stdout/stderr.
+#'   Defaults to `"utf-8"`. Use `"binary"` for raw byte output.
 #'
 #' @returns A process result list from `processx::run()`.
 #'
@@ -37,7 +41,9 @@ native_cmd <- function(
   error = c("cancel", "continue"),
   stdout = "|",
   stderr = "|",
-  stdin = NULL
+  stdin = NULL,
+  cleanup_tree = FALSE,
+  encoding = "utf-8"
 ) {
   rlang::check_required(conda_cmd)
 
@@ -99,7 +105,9 @@ native_cmd <- function(
     stderr = stderr,
     stderr_line_callback = callback_fun_err,
     stdin = stdin,
-    error_on_status = error_var
+    error_on_status = error_var,
+    cleanup_tree = cleanup_tree,
+    encoding = encoding
   )
 
   return(invisible(px_res))

@@ -22,7 +22,7 @@ Imports:
     cli,
     fs,
     jsonlite,
-    processx,
+    processx (>= 3.9.0),
     rlang,
     stringr,
     tools,
