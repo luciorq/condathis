@@ -15,18 +15,18 @@ github_org := 'luciorq'
 # =============================================================================
 
 # Update Package Documentation
-@document:
+document:
   #!/usr/bin/env bash
-  \builtin set -euxo pipefail;
-  R -q -s -e 'devtools::load_all();usethis::use_tidy_description();';
-  R -q -s -e 'devtools::load_all();devtools::document();';
+  \builtin set -euo pipefail;
+  R -q -s -e 'devtools::load_all(quiet=TRUE);usethis::use_tidy_description();';
+  R -q -s -e 'devtools::load_all(quiet=TRUE);devtools::document(quiet=TRUE);';
   \builtin echo "Documentation updated!";
 
 # Lint R Package Code and Documentation
-@lint:
+lint:
   #!/usr/bin/env bash
-  \builtin set -euxo pipefail;
-  R -q -s -e 'devtools::load_all();styler::style_pkg(exclude_dirs = c("packrat", "renv", "revdep"));';
+  \builtin set -euo pipefail;
+  R -q -s -e 'devtools::load_all(quiet=TRUE);withr::with_options(list(styler.quiet=TRUE),code={styler::style_pkg(exclude_dirs=c("packrat","renv","revdep"))});';
   air format ./R/ || true;
   air format ./tests/ || true;
   # TODO: @luciorq: This is not capturing lines where `@return` has a line break just after it it.
@@ -39,24 +39,24 @@ github_org := 'luciorq'
   \builtin echo "Linting done!";
 
 # Run All Unit Tests
-@test: lint
+test: lint
   #!/usr/bin/env bash
-  \builtin set -euxo pipefail;
-  TESTTHAT_CPUS=4 R -q -s -e 'devtools::load_all();devtools::run_examples();';
-  TESTTHAT_CPUS=4 R -q -s -e 'devtools::load_all();devtools::test();';
+  \builtin set -euo pipefail;
+  R -q -s -e 'withr::with_envvar(new=list(`TESTTHAT_CPUS`=4),code={devtools::load_all(quiet=TRUE);devtools::run_examples();});';
+  R -q -s -e 'withr::with_envvar(new=list(`TESTTHAT_CPUS`=4),code={devtools::load_all(quiet=TRUE);devtools::test();});';
   \builtin echo "All tests passed!";
 
 # Build and Lint README File
-@build-readme: lint
+build-readme: lint
   #!/usr/bin/env bash
-  \builtin set -euxo pipefail;
+  \builtin set -euo pipefail;
   # Lint markdown files
   [[ -f ./README.Rmd ]] && cat ./README.Rmd | rumdl check --stdin --disable 'MD046' || true;
   [[ -f ./README.qmd ]] && cat ./README.qmd | rumdl check --stdin --disable 'MD046' || true;
   just install-deps;
   R -q -s -e 'pak::local_install(upgrade=TRUE, dependencies=TRUE);';
   # R -q -s -e 'devtools::install(pkg = ".", build_vignettes = TRUE, dependencies = c("Imports", "Suggests", "Depends"), upgrade = "always");';
-  [[ -f ./README.Rmd ]] && R -q -e 'devtools::load_all();if(file.exists("README.Rmd"))rmarkdown::render("README.Rmd", encoding = "UTF-8")' || true;
+  [[ -f ./README.Rmd ]] && R -q -s -e 'devtools::load_all(quiet=TRUE);if(file.exists("README.Rmd")){rmarkdown::render("README.Rmd", encoding="UTF-8")};' || true;
   [[ -f ./README.qmd ]] && quarto render README.qmd --to gfm || true;
   # Lint Final README.md
   sed -i -e 's|[[:blank:]]*$||g' README.md;
@@ -68,44 +68,44 @@ github_org := 'luciorq'
   \builtin echo "README built and linted!";
 
 # Run All Examples in the Documentation Including `dontrun`
-@test-all-examples: document
+test-all-examples: document
   #!/usr/bin/env bash
-  \builtin set -euxo pipefail;
-  R -q -s -e 'devtools::load_all();devtools::document();devtools::run_examples(run_dontrun = TRUE, run_donttest = TRUE);';
+  \builtin set -euo pipefail;
+  R -q -s -e 'devtools::load_all(quiet=TRUE);devtools::document(quiet=TRUE);devtools::run_examples(run_dontrun = TRUE, run_donttest = TRUE);';
 
 # Run Tests from a Specific Test File
-@test-file file_name:
+test-file file_name:
   #!/usr/bin/env bash
-  \builtin set -euxo pipefail;
-  R -q -s -e 'devtools::load_all();devtools::test_active_file("tests/testthat/test-{{ file_name }}.R")';
+  \builtin set -euo pipefail;
+  R -q -s -e 'devtools::load_all(quiet=TRUE);devtools::test_active_file("tests/testthat/test-{{ file_name }}.R")';
 
 # Run R CMD Check on the Package With Cran Like Checks
-@check: test test-all-examples build-readme
+check: test test-all-examples build-readme
   #!/usr/bin/env bash
-  \builtin set -euxo pipefail;
+  \builtin set -euo pipefail;
   R -q -s -e 'rcmdcheck::rcmdcheck(args = c("--as-cran"), repos = c(CRAN = "https://cloud.r-project.org"));';
 
 # Force GitHub Actions Checks to start for the main branch
-@check-gha-trigger:
+check-gha-trigger:
   #!/usr/bin/env bash
-  \builtin set -euxo pipefail;
+  \builtin set -euo pipefail;
   gh workflow run "r-cmd-check" --ref main;
 
 # Print latest GitHub Actions Checks results for the main branch
-@monitor-gha:
+monitor-gha:
   #!/usr/bin/env bash
-  \builtin set -euxo pipefail;
+  \builtin set -euo pipefail;
   gh run list;
   latest_job_id="$(gh run list -w "r-cmd-check" --json databaseId --jq '.[0].databaseId')";
   gh run view "${latest_job_id}";
 
 # Tag the Latest Commit with Version from the DESCRIPTION File
-@git-tag:
+git-tag:
   #!/usr/bin/env bash
-  \builtin set -euxo pipefail;
+  \builtin set -euo pipefail;
   git pull origin --tags || true;
   git pull upstream --tags || true;
-  __r_pkg_version="$(R -q --no-echo --silent -e 'suppressMessages({pkgload::load_all()});cat(as.character(utils::packageVersion("{{ package_name }}")));')";
+  __r_pkg_version="$(R -q --no-echo --silent -e 'suppressMessages({pkgload::load_all(quiet=TRUE)});cat(as.character(utils::packageVersion("{{ package_name }}")));')";
   \builtin echo -ne "Tagging version: ${__r_pkg_version}\n";
   git tag -a "v${__r_pkg_version}" HEAD -m "Version ${__r_pkg_version} released";
   # git push --tags;
@@ -113,10 +113,10 @@ github_org := 'luciorq'
   # git push upstream --tags;
 
 # Build Vignettes
-@build-vignettes:
+build-vignettes:
   #!/usr/bin/env bash
-  \builtin set -euxo pipefail;
-  R -q -s -e 'devtools::load_all();devtools::document();';
+  \builtin set -euo pipefail;
+  R -q -s -e 'devtools::load_all(quiet=TRUE);devtools::document(quiet=TRUE);';
   just install-deps;
   just install-local;
   # TODO: `devtools::install()` changed completely its signature by using
@@ -126,32 +126,32 @@ github_org := 'luciorq'
   R -q -s -e 'print(vignette(package = "{{ package_name }}"));';
 
 # Install Package Development Dependencies Including Suggests
-@install-deps:
+install-deps:
   #!/usr/bin/env bash
-  \builtin set -euxo pipefail;
+  \builtin set -euo pipefail;
   R -q -s -e 'if(!requireNamespace("pak", quietly=TRUE)) {install.packages("pak")};';
   R -q -s -e 'pak::local_install_dev_deps(upgrade=TRUE, dependencies=TRUE);';
 
 # Install Local Version of the Package With All Dependencies
-@install-local:
+install-local:
   #!/usr/bin/env bash
-  \builtin set -euxo pipefail;
+  \builtin set -euo pipefail;
   R -q -s -e 'if(!requireNamespace("pak", quietly=TRUE)) {install.packages("pak")};';
   R -q -s -e 'pak::local_install(upgrade=TRUE, dependencies=TRUE);';
 
 # Install Dev Environment Dependencies
-@install-dev-deps: install-deps
+install-dev-deps: install-deps
   #!/usr/bin/env bash
-  \builtin set -euxo pipefail;
+  \builtin set -euo pipefail;
   R -q -s -e 'pak::local_install_dev_deps(dependencies="Config/Needs/dev", upgrade=TRUE)';
 
 # Build the pkgdown Website
-@build-pkgdown-website: install-deps
+build-pkgdown-website: install-deps
   #!/usr/bin/env bash
-  \builtin set -euxo pipefail;
+  \builtin set -euo pipefail;
   R -q -s -e 'pak::pak("pkgdown", upgrade=TRUE, dependencies=TRUE);';
   R -q -s -e 'pkgdown::build_favicons(overwrite=FALSE);';
-  R -q -s -e 'devtools::document();devtools::load_all();pkgdown::build_site();';
+  R -q -s -e 'devtools::document(quiet=TRUE);devtools::load_all(quiet=TRUE);pkgdown::build_site();';
   # Steps for manually deploying the pkgdown website,
   # + not necessary if using GitHub Actions.
   # git add docs/;
@@ -161,25 +161,25 @@ github_org := 'luciorq'
   # git push;
 
 # Release a New Version on GitHub Releases Using Content From NEWS.md
-@release-github:
+release-github:
   #!/usr/bin/env bash
-  \builtin set -euxo pipefail;
-  # Using `gh` cli to create a new release
-  # gh release create v0.1.0 --title "v0.1.0" --notes "First Zenodo archiving release"
-  # Using `usethis` to create a new release
+  \builtin set -euo pipefail;
+  # Using `gh` cli to create a new release.
+  # e.g.: `gh release create v0.1.0 --title "v0.1.0" --notes "First Zenodo archiving release"`.
+  # Using `usethis` to create a new release.
   # First, change the NEWS.md header temporarily to make usethis happy
   # + Check: <https://github.com/r-lib/pkgdown/issues/2897>
   # + <https://github.com/r-lib/usethis/issues/2130>
   # + <https://github.com/tidyverse/style/issues/245#issuecomment-2959459898>
   sed -i -e "s|^## {{ package_name }}|# {{ package_name }}|g" NEWS.md;
-  R -q -e 'devtools::load_all();usethis::use_github_release();';
+  R -q -e 'devtools::load_all(quiet=TRUE);usethis::use_github_release();';
   sed -i -e "s|^# {{ package_name }}|## {{ package_name }}|g" NEWS.md;
   \builtin echo "Check the GH Releases!";
 
 # Steps to Run Before Releasing a New Version
-@pre-release:
+pre-release:
   #!/usr/bin/env bash
-  \builtin set -euxo pipefail;
+  \builtin set -euo pipefail;
   # TODO: Update version on NEWS.md and DESCRIPTION files.
   # TODO: If using changelog links, also perform a git push and tag,
   # + so `url_check()` do not fail.
@@ -188,22 +188,29 @@ github_org := 'luciorq'
   # just git-tag;
   # git push --tags;
   # git push upstream --tags;
-  R -q -e 'urlchecker::url_check()';
-  # R -q -e 'devtools::build_readme()';
+  R -q -s -e 'urlchecker::url_check()';
+  # R -q -s -e 'devtools::build_readme()';
   just build-readme;
-  R -q -e 'withr::with_options(list(repos = c(CRAN = "https://cloud.r-project.org")), {devtools::check(remote = TRUE, manual = TRUE)})';
-  R -q -e 'devtools::check_win_devel()';
+  R -q -s -e 'withr::with_options(list(repos = c(CRAN = "https://cloud.r-project.org")), {devtools::check(remote = TRUE, manual = TRUE)})';
+  R -q -s -e 'devtools::check_win_devel()';
   # R -q -s -e 'if(!requireNamespace("revdepcheck", quietly=TRUE)) pak::pak("r-lib/revdepcheck");';
-  # R -q -e 'revdepcheck::revdep_reset();';
-  # R -q -e 'revdepcheck::revdep_check(num_workers = 4);';
+  # R -q -s -e 'revdepcheck::revdep_reset();';
+  # R -q -s -e 'revdepcheck::revdep_check(num_workers = 4);';
   # TODO: Update CRAN comments with output from `check`.
   # cat ./cran-comments.md;
   # usethis::use_version('patch')
   # devtools::build_rmd("vignettes/my-vignette.Rmd")
   # just build-vignettes;
-  # devtools::submit_cran()
-  # TODO: Check your email! Click the link, and check all boxes!
   \builtin echo "Pre-release checks done!";
+  # TODO: This step needs to be run manually, from R.
+  # + Wait for previous `check_win_devel()` to finish.
+  # devtools::submit_cran();
+  # TODO: Check your email! Click the link, and check all boxes!
+  # TODO: When accepted run:
+  # just release-github;
+  # TODO: Update Zenodo archive with the new release.
+  # + Update the DOI badge in the README file.
+  \builtin echo "Release successful!";
 
 # <<< rstats-package-dev-tasks <<<
 
@@ -212,9 +219,9 @@ github_org := 'luciorq'
 # =============================================================================
 
 # Install Package in a New Clean Conda Environment
-@check-install-conda tag_version='main':
+check-install-conda tag_version='main':
   #!/usr/bin/env bash
-  \builtin set -euxo pipefail;
+  \builtin set -euo pipefail;
   micromamba create -n {{ package_name }}-env -y --override-channels -c conda-forge \
     r-base r-devtools r-remotes r-rlang r-withr r-stringr r-jsonlite r-fs r-cli r-processx r-ps micromamba r-curl curl;
   micromamba run -n {{ package_name }}-env R -q -e 'remotes::install_github("{{ github_org }}/{{ package_name }}@{{ tag_version }}");';

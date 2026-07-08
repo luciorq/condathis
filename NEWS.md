@@ -11,11 +11,15 @@ Development Changelog: [0.1.4](https://github.com/luciorq/condathis/compare/v0.1
   Each command in the pipeline can run in a different Conda environment.
   Returns an S3 `condathis_pipeline` object with per-process status, stdout
   (last process only), stderr, and PID.
-  Supports `stdin` file redirection, `error = "cancel"` / `"continue"`,
-  and automatic crash cleanup via `supervise = TRUE`.
+  Supports `stdin` file redirection, writable `stdin = "|"` with an `input`
+  value written to the first command, per-command `stdout`/`stderr`
+  overrides in the `cmds` named list spec (`stdout` only on the last
+  command), `error = "cancel"` / `"continue"`, and automatic crash cleanup
+  via `supervise = TRUE`. The default `env_name` environment is now
+  auto-created when missing, matching `run()`.
 
-* New `cleanup_tree` and `encoding` arguments in `native_cmd()`, passed
-  through to `processx::run()`.
+* New `cleanup_tree`, `encoding`, and `linux_pdeathsig` arguments in
+  `native_cmd()`, passed through to `processx::run()`.
 
 * New `channel_priority` argument in `create_env()` and `install_packages()`
   to control channel priority strategy.
@@ -54,6 +58,14 @@ Development Changelog: [0.1.4](https://github.com/luciorq/condathis/compare/v0.1
 ### Fixed
 
 * Fix error in `create_env()` when packages were specified with `"channel::package"` environment was always recreated.
+
+* Fix `run_pipeline()` checking that Conda environments exist before
+  attempting to auto-create the missing default environment, which made the
+  auto-create path unreachable.
+
+* Fix `run_pipeline()` crashing when reading `stdout`/`stderr` for a process
+  whose output was redirected to a file or discarded (`NULL`) instead of
+  captured with `"|"`.
 
 ## condathis 0.1.3
 

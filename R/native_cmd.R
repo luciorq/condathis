@@ -22,6 +22,9 @@
 #'   after the process has finished. Defaults to `FALSE`.
 #' @param encoding Character string. Assumed encoding for stdout/stderr.
 #'   Defaults to `"utf-8"`. Use `"binary"` for raw byte output.
+#' @param linux_pdeathsig Logical. On Linux, whether to send `SIGKILL` to the
+#'   child process if the parent R process dies. Has no effect on other
+#'   platforms. Defaults to `FALSE`.
 #'
 #' @returns A process result list from `processx::run()`.
 #'
@@ -43,7 +46,8 @@ native_cmd <- function(
   stderr = "|",
   stdin = NULL,
   cleanup_tree = FALSE,
-  encoding = "utf-8"
+  encoding = "utf-8",
+  linux_pdeathsig = FALSE
 ) {
   rlang::check_required(conda_cmd)
 
@@ -107,7 +111,8 @@ native_cmd <- function(
     stdin = stdin,
     error_on_status = error_var,
     cleanup_tree = cleanup_tree,
-    encoding = encoding
+    encoding = encoding,
+    linux_pdeathsig = linux_pdeathsig
   )
 
   return(invisible(px_res))

@@ -9,6 +9,7 @@ run_pipeline(
   stdout = "|",
   stderr = "|",
   stdin = NULL,
+  input = NULL,
   error = c("cancel", "continue"),
   env_name = "condathis-env"
 )
@@ -18,21 +19,31 @@ run_pipeline(
 \itemize{
 \item A character vector: \code{c("cmd", "arg1", ...)} — runs in the
 default \code{env_name}.
-\item A named list with \code{cmd} (character vector) and \code{env_name}
-(character string, optional) to specify a per-command environment.
+\item A named list with \code{cmd} (character vector) and, optionally,
+\code{env_name} (character string) to specify a per-command environment,
+\code{stderr} to override the top-level \code{stderr} target for this command,
+and \code{stdout} to override the top-level \code{stdout} target — only
+allowed on the \strong{last} command, since every other command's
+standard output is always piped to the next command.
 }}
 
 \item{stdout}{Standard output target for the \strong{last} process.
 \code{"|"} (default) captures output in the result. Use a file path to
-redirect to a file, or \code{NULL} to discard.}
+redirect to a file, or \code{NULL} to discard. Can be overridden per-command
+for the last command only (see \code{cmds}).}
 
 \item{stderr}{Standard error target for \strong{all} processes.
 \code{"|"} (default) captures stderr per-process. Use a file path to
-redirect all stderr to a file, or \code{NULL} to discard.}
+redirect all stderr to a file, or \code{NULL} to discard. Can be overridden
+per-command (see \code{cmds}).}
 
 \item{stdin}{Standard input source for the \strong{first} process.
 \code{NULL} (default) discards input. Provide a file path to redirect file
-contents as stdin.}
+contents as stdin, or \code{"|"} to write \code{input} to the first process.}
+
+\item{input}{Character or raw vector written to the first process's
+standard input when \code{stdin = "|"}. Defaults to \code{NULL}. Ignored (and
+must not be set) when \code{stdin} is not \code{"|"}.}
 
 \item{error}{Character string controlling error behavior.
 Supported values are \code{"cancel"} and \code{"continue"}.
@@ -62,8 +73,16 @@ Commands that do not specify an environment use the default \code{env_name}.
 \examples{
 \dontrun{
 condathis::with_sandbox_dir({
+  # On Windows, "grep" and other GNU tools are packaged under the
+  # "m2-" prefix (MSYS2), e.g. "conda-forge::m2-grep".
+  grep_pkg <- if (startsWith(get_sys_arch(), "Windows")) {
+    "conda-forge::m2-grep"
+  } else {
+    "conda-forge::grep"
+  }
+
   create_env("bioconda::samtools", env_name = "samtools-env")
-  create_env("conda-forge::grep", env_name = "grep-env")
+  create_env(grep_pkg, env_name = "grep-env")
 
   # Pipeline with per-command environments
   res <- run_pipeline(

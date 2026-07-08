@@ -13,18 +13,27 @@
 #'   \itemize{
 #'     \item A character vector: `c("cmd", "arg1", ...)` — runs in the
 #'       default `env_name`.
-#'     \item A named list with `cmd` (character vector) and `env_name`
-#'       (character string, optional) to specify a per-command environment.
+#'     \item A named list with `cmd` (character vector) and, optionally,
+#'       `env_name` (character string) to specify a per-command environment,
+#'       `stderr` to override the top-level `stderr` target for this command,
+#'       and `stdout` to override the top-level `stdout` target — only
+#'       allowed on the **last** command, since every other command's
+#'       standard output is always piped to the next command.
 #'   }
 #' @param stdout Standard output target for the **last** process.
 #'   `"|"` (default) captures output in the result. Use a file path to
-#'   redirect to a file, or `NULL` to discard.
+#'   redirect to a file, or `NULL` to discard. Can be overridden per-command
+#'   for the last command only (see `cmds`).
 #' @param stderr Standard error target for **all** processes.
 #'   `"|"` (default) captures stderr per-process. Use a file path to
-#'   redirect all stderr to a file, or `NULL` to discard.
+#'   redirect all stderr to a file, or `NULL` to discard. Can be overridden
+#'   per-command (see `cmds`).
 #' @param stdin Standard input source for the **first** process.
 #'   `NULL` (default) discards input. Provide a file path to redirect file
-#'   contents as stdin.
+#'   contents as stdin, or `"|"` to write `input` to the first process.
+#' @param input Character or raw vector written to the first process's
+#'   standard input when `stdin = "|"`. Defaults to `NULL`. Ignored (and
+#'   must not be set) when `stdin` is not `"|"`.
 #' @param error Character string controlling error behavior.
 #'   Supported values are `"cancel"` and `"continue"`.
 #'   Defaults to `"cancel"`.
@@ -42,8 +51,16 @@
 #' @examples
 #' \dontrun{
 #' condathis::with_sandbox_dir({
+#'   # On Windows, "grep" and other GNU tools are packaged under the
+#'   # "m2-" prefix (MSYS2), e.g. "conda-forge::m2-grep".
+#'   grep_pkg <- if (startsWith(get_sys_arch(), "Windows")) {
+#'     "conda-forge::m2-grep"
+#'   } else {
+#'     "conda-forge::grep"
+#'   }
+#'
 #'   create_env("bioconda::samtools", env_name = "samtools-env")
-#'   create_env("conda-forge::grep", env_name = "grep-env")
+#'   create_env(grep_pkg, env_name = "grep-env")
 #'
 #'   # Pipeline with per-command environments
 #'   res <- run_pipeline(
@@ -75,11 +92,21 @@ run_pipeline <- function(
   stdout = "|",
   stderr = "|",
   stdin = NULL,
+  input = NULL,
   error = c("cancel", "continue"),
   env_name = "condathis-env"
 ) {
   error <- rlang::arg_match(error)
   error_var <- isTRUE(identical(error, "cancel"))
+
+  if (!is.null(input) && !identical(stdin, "|")) {
+    cli::cli_abort(
+      message = c(
+        `x` = "{.field input} can only be used when {.field stdin} is {.val {\"|\"}}."
+      ),
+      class = "condathis_pipeline_invalid_input"
+    )
+  }
 
   tmp_dir_path <- withr::local_tempdir(pattern = "condathis-tmp")
   withr::local_envvar(
@@ -98,8 +125,9 @@ run_pipeline <- function(
     )
   }
 
-  check_envs_exist(parsed)
+  check_stdout_overrides(parsed, n_cmds = n_cmds)
   precreate_envs(parsed, tmp_dir_path = tmp_dir_path)
+  check_envs_exist(parsed)
 
   pipes <- vector("list", max(0L, n_cmds - 1L))
   if (n_cmds > 1L) {
@@ -120,12 +148,19 @@ run_pipeline <- function(
       tmp_dir = tmp_dir_path
     )
 
+    stdout_i <- if (i == n_cmds) {
+      parsed[[i]]$stdout %||% stdout
+    } else {
+      pipes[[i]][[2L]]
+    }
+    stderr_i <- parsed[[i]]$stderr %||% stderr
+
     procs[[i]] <- processx::process$new(
       command = cmd_vec[1L],
       args = cmd_vec[-1L],
       stdin = if (i == 1L) stdin else pipes[[i - 1L]][[1L]],
-      stdout = if (i == n_cmds) stdout else pipes[[i]][[2L]],
-      stderr = "|",
+      stdout = stdout_i,
+      stderr = stderr_i,
       env = c("current", activation_envvars),
       supervise = TRUE,
       cleanup_tree = TRUE
@@ -137,6 +172,15 @@ run_pipeline <- function(
     close(pipes[[idx]][[2L]])
   }
   rm(pipes)
+
+  if (identical(stdin, "|")) {
+    if (!is.null(input)) {
+      procs[[1L]]$write_input(input)
+    }
+    if (procs[[1L]]$has_input_connection()) {
+      close(procs[[1L]]$get_input_connection())
+    }
+  }
 
   timeout_flag <- FALSE
   for (i in seq_len(n_cmds)) {
@@ -154,14 +198,17 @@ run_pipeline <- function(
     env_name_i <- parsed[[i]]$env_name
 
     p_stdout <- NA_character_
-    if (i == n_cmds) {
+    if (i == n_cmds && isTRUE(proc_i$has_output_connection())) {
       p_stdout <- proc_i$read_all_output()
       if (is.null(p_stdout)) p_stdout <- ""
     }
 
-    p_stderr <- proc_i$read_all_error()
-    if (is.null(p_stderr)) {
-      p_stderr <- ""
+    p_stderr <- ""
+    if (isTRUE(proc_i$has_error_connection())) {
+      p_stderr <- proc_i$read_all_error()
+      if (is.null(p_stderr)) {
+        p_stderr <- ""
+      }
     }
 
     p_status <- proc_i$get_exit_status()
@@ -250,6 +297,8 @@ parse_cmds_spec <- function(cmds, default_env_name) {
       }
       cmd_vec <- spec
       env_name_i <- default_env_name
+      stdout_i <- NULL
+      stderr_i <- NULL
     } else if (rlang::is_list(spec)) {
       if (
         is.null(spec$cmd) ||
@@ -265,6 +314,8 @@ parse_cmds_spec <- function(cmds, default_env_name) {
       }
       cmd_vec <- spec$cmd
       env_name_i <- spec$env_name %||% default_env_name
+      stdout_i <- spec$stdout %||% NULL
+      stderr_i <- spec$stderr %||% NULL
     } else {
       cli::cli_abort(
         message = c(
@@ -276,11 +327,35 @@ parse_cmds_spec <- function(cmds, default_env_name) {
 
     parsed[[i]] <- list(
       cmd = cmd_vec,
-      env_name = env_name_i
+      env_name = env_name_i,
+      stdout = stdout_i,
+      stderr = stderr_i
     )
   }
 
   return(parsed)
+}
+
+check_stdout_overrides <- function(parsed, n_cmds) {
+  if (n_cmds < 2L) {
+    return(invisible(NULL))
+  }
+  for (i in seq_len(n_cmds - 1L)) {
+    if (!is.null(parsed[[i]]$stdout)) {
+      cli::cli_abort(
+        message = c(
+          `x` = "Command {i} cannot override {.field stdout}.",
+          `!` = paste(
+            "Only the last command's {.field stdout} can be overridden;",
+            "every other command's standard output is always piped to the",
+            "next command."
+          )
+        ),
+        class = "condathis_pipeline_invalid_stdout_override"
+      )
+    }
+  }
+  return(invisible(NULL))
 }
 
 check_envs_exist <- function(parsed) {
