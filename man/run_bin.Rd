@@ -12,7 +12,11 @@ run_bin(
   error = c("cancel", "continue"),
   stdout = "|",
   stderr = "|",
-  stdin = NULL
+  stdin = NULL,
+  input = NULL,
+  supervise = FALSE,
+  cleanup_tree = FALSE,
+  linux_pdeathsig = FALSE
 )
 }
 \arguments{
@@ -41,11 +45,29 @@ Provide a file path to redirect stderr to a file.}
 
 \item{stdin}{Standard input source.
 Defaults to \code{NULL} (no stdin stream).
-Provide a file path to use file contents as stdin.}
+Provide a file path to use file contents as stdin, or \code{"|"} to write
+\code{input} to the process.}
+
+\item{input}{Character or raw vector written to the process's standard
+input when \code{stdin = "|"}. Defaults to \code{NULL}. Ignored (and must not be
+set) when \code{stdin} is not \code{"|"}. Note: live stdout/stderr echoing,
+spinner, and timeout are not available when \code{input} triggers the
+writable-stdin code path.}
+
+\item{supervise}{Logical. Whether the process should be supervised by the
+\code{processx} supervisor for crash-safe cleanup. Defaults to \code{FALSE}.}
+
+\item{cleanup_tree}{Logical. Whether to clean up the child process tree
+on crash/interrupt. Defaults to \code{FALSE}.}
+
+\item{linux_pdeathsig}{Logical. On Linux, whether to send \code{SIGKILL} to the
+child process if the parent R process dies. Has no effect on other
+platforms. Defaults to \code{FALSE}.}
 }
 \value{
-A process result list (from \code{processx::run()}) with command output,
-error output, exit status, and timeout information.
+A \code{condathis_result} S3 object (a classed list, still usable as
+a plain list) with \code{status}, \code{stdout}, \code{stderr}, \code{timeout}, \code{pid},
+\code{cmd}, and \code{env_name}.
 }
 \description{
 Executes a binary using files from a target Conda environment, but without

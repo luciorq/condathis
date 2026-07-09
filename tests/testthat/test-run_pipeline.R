@@ -496,3 +496,22 @@ test_that("Pipeline format and print methods work", {
   testthat::expect_type(formatted, "character")
   testthat::expect_match(formatted, "condathis_pipeline")
 })
+
+test_that("Pipeline accepts overridden crash-safety parameters", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  create_env(verbose = "silent")
+  res <- run_pipeline(
+    cmds = list(
+      c("echo", "hi"),
+      c("cat")
+    ),
+    env_name = "condathis-env",
+    supervise = FALSE,
+    cleanup_tree = FALSE,
+    linux_pdeathsig = TRUE,
+    error = "continue"
+  )
+  testthat::expect_equal(res$statuses, c(0L, 0L))
+})

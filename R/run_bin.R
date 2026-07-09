@@ -22,10 +22,24 @@
 #'   Provide a file path to redirect stderr to a file.
 #' @param stdin Standard input source.
 #'   Defaults to `NULL` (no stdin stream).
-#'   Provide a file path to use file contents as stdin.
+#'   Provide a file path to use file contents as stdin, or `"|"` to write
+#'   `input` to the process.
+#' @param input Character or raw vector written to the process's standard
+#'   input when `stdin = "|"`. Defaults to `NULL`. Ignored (and must not be
+#'   set) when `stdin` is not `"|"`. Note: live stdout/stderr echoing,
+#'   spinner, and timeout are not available when `input` triggers the
+#'   writable-stdin code path.
+#' @param supervise Logical. Whether the process should be supervised by the
+#'   `processx` supervisor for crash-safe cleanup. Defaults to `FALSE`.
+#' @param cleanup_tree Logical. Whether to clean up the child process tree
+#'   on crash/interrupt. Defaults to `FALSE`.
+#' @param linux_pdeathsig Logical. On Linux, whether to send `SIGKILL` to the
+#'   child process if the parent R process dies. Has no effect on other
+#'   platforms. Defaults to `FALSE`.
 #'
-#' @returns A process result list (from `processx::run()`) with command output,
-#'   error output, exit status, and timeout information.
+#' @returns A `condathis_result` S3 object (a classed list, still usable as
+#'   a plain list) with `status`, `stdout`, `stderr`, `timeout`, `pid`,
+#'   `cmd`, and `env_name`.
 #'
 #' @examples
 #' \dontrun{
@@ -57,7 +71,11 @@ run_bin <- function(
   error = c("cancel", "continue"),
   stdout = "|",
   stderr = "|",
-  stdin = NULL
+  stdin = NULL,
+  input = NULL,
+  supervise = FALSE,
+  cleanup_tree = FALSE,
+  linux_pdeathsig = FALSE
 ) {
   error <- rlang::arg_match(error)
   if (identical(error, "cancel")) {
@@ -67,6 +85,15 @@ run_bin <- function(
   }
 
   rlang::check_dots_unnamed()
+
+  if (!is.null(input) && !identical(stdin, "|")) {
+    cli::cli_abort(
+      message = c(
+        `x` = "{.field input} can only be used when {.field stdin} is {.val {\"|\"}}."
+      ),
+      class = "condathis_run_invalid_input"
+    )
+  }
 
   verbose_list <- parse_strategy_verbose(verbose = verbose)
 
@@ -98,18 +125,51 @@ run_bin <- function(
   }
   px_res <- rethrow_error_run(
     expr = {
-      processx::run(
-        command = cmd_path,
-        args = args_vector,
-        spinner = verbose_list$spinner_flag,
-        echo_cmd = verbose_list$cmd,
-        echo = verbose_output,
-        stdout = stdout,
-        stderr = stderr,
-        stdin = stdin,
-        error_on_status = error_var
-      )
+      if (identical(stdin, "|")) {
+        run_process_with_input(
+          command = cmd_path,
+          args = args_vector,
+          input = input,
+          stdout = stdout,
+          stderr = stderr,
+          echo_cmd = verbose_list$cmd,
+          echo = verbose_output,
+          error_on_status = error_var,
+          cleanup_tree = cleanup_tree,
+          supervise = supervise,
+          linux_pdeathsig = linux_pdeathsig
+        )
+      } else {
+        processx::run(
+          command = cmd_path,
+          args = args_vector,
+          spinner = verbose_list$spinner_flag,
+          echo_cmd = verbose_list$cmd,
+          echo = verbose_output,
+          stdout = stdout,
+          stderr = stderr,
+          stdin = stdin,
+          error_on_status = error_var,
+          cleanup_tree = cleanup_tree,
+          supervise = supervise,
+          linux_pdeathsig = linux_pdeathsig
+        )
+      }
     }
   )
-  return(invisible(px_res))
+
+  cmd_string <- paste(
+    shQuote(as.character(c(cmd, args_vector))),
+    collapse = " "
+  )
+  result <- new_condathis_result(
+    status = px_res$status,
+    stdout = px_res$stdout,
+    stderr = px_res$stderr,
+    timeout = if (is.null(px_res$timeout)) FALSE else px_res$timeout,
+    pid = if (is.null(px_res$pid)) NA_integer_ else px_res$pid,
+    cmd = cmd_string,
+    env_name = env_name
+  )
+  return(invisible(result))
 }

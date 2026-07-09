@@ -40,6 +40,15 @@
 #' @param env_name Character string with the default Conda environment name
 #'   for commands that do not specify their own.
 #'   Defaults to `"condathis-env"`.
+#' @param supervise Logical. Whether each process should be supervised by
+#'   the `processx` supervisor for crash-safe cleanup. Defaults to `TRUE`
+#'   (unlike `run()`/`run_bin()`, which default to `FALSE`) since a pipeline
+#'   manages multiple concurrently connected processes.
+#' @param cleanup_tree Logical. Whether to clean up each process's child
+#'   tree on crash/interrupt. Defaults to `TRUE`.
+#' @param linux_pdeathsig Logical. On Linux, whether to send `SIGKILL` to
+#'   each child process if the parent R process dies. Has no effect on
+#'   other platforms. Defaults to `FALSE`.
 #'
 #' @returns A `condathis_pipeline` S3 object with per-process results:
 #'   \item{statuses}{Integer vector of exit statuses, one per command.}
@@ -94,7 +103,10 @@ run_pipeline <- function(
   stdin = NULL,
   input = NULL,
   error = c("cancel", "continue"),
-  env_name = "condathis-env"
+  env_name = "condathis-env",
+  supervise = TRUE,
+  cleanup_tree = TRUE,
+  linux_pdeathsig = FALSE
 ) {
   error <- rlang::arg_match(error)
   error_var <- isTRUE(identical(error, "cancel"))
@@ -180,8 +192,9 @@ run_pipeline <- function(
           stdout = stdout_i,
           stderr = stderr_i,
           env = c("current", activation_envvars),
-          supervise = TRUE,
-          cleanup_tree = TRUE
+          supervise = supervise,
+          cleanup_tree = cleanup_tree,
+          linux_pdeathsig = linux_pdeathsig
         )
       },
       system_command_status_error = function(cnd) cnd,

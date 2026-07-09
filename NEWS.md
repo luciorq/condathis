@@ -21,6 +21,23 @@ Development Changelog: [0.1.4](https://github.com/luciorq/condathis/compare/v0.1
 * New `cleanup_tree`, `encoding`, and `linux_pdeathsig` arguments in
   `native_cmd()`, passed through to `processx::run()`.
 
+* `run()` and `run_bin()` gain feature parity with `run_pipeline()`:
+  * New `supervise`, `cleanup_tree`, and `linux_pdeathsig` arguments for
+    crash-safe process cleanup (previously only available, and always on,
+    in `run_pipeline()`). Default to `FALSE`, preserving existing behavior.
+  * New `input` argument: writable `stdin = "|"` support, writing
+    character/raw data directly to the process's standard input — matching
+    `run_pipeline()`'s `input` argument. Previously `stdin` only accepted
+    `NULL` or a file path.
+  * Both now return a `condathis_result` S3 object instead of a plain
+    `processx::run()` list. It remains fully usable as a list (`res$status`,
+    `res$stdout`, etc. are unchanged) and adds `pid`, `cmd`, and `env_name`
+    fields plus `print()`/`format()` methods, mirroring `condathis_pipeline`.
+
+* `run_pipeline()`'s `supervise`, `cleanup_tree` (previously always `TRUE`),
+  and `linux_pdeathsig` (new) are now overridable arguments instead of
+  hardcoded, for full parity with `run()`/`run_bin()`.
+
 * New `channel_priority` argument in `create_env()` and `install_packages()`
   to control channel priority strategy.
 

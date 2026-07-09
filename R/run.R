@@ -28,10 +28,26 @@
 #'   Provide a file path to redirect stderr to a file.
 #' @param stdin Standard input source.
 #'   Defaults to `NULL` (no stdin stream).
-#'   Provide a file path to use file contents as stdin.
+#'   Provide a file path to use file contents as stdin, or `"|"` to write
+#'   `input` to the process.
+#' @param input Character or raw vector written to the process's standard
+#'   input when `stdin = "|"`. Defaults to `NULL`. Ignored (and must not be
+#'   set) when `stdin` is not `"|"`. Note: live stdout/stderr echoing,
+#'   spinner, and timeout are not available when `input` triggers the
+#'   writable-stdin code path.
+#' @param supervise Logical. Whether the process should be supervised by the
+#'   `processx` supervisor for crash-safe cleanup — the process (and its
+#'   descendants, with `cleanup_tree = TRUE`) is killed if the R session
+#'   crashes. Defaults to `FALSE`.
+#' @param cleanup_tree Logical. Whether to clean up the child process tree
+#'   (not just the direct child) on crash/interrupt. Defaults to `FALSE`.
+#' @param linux_pdeathsig Logical. On Linux, whether to send `SIGKILL` to the
+#'   child process if the parent R process dies. Has no effect on other
+#'   platforms. Defaults to `FALSE`.
 #'
-#' @returns A process result list (from `processx::run()`) with command output,
-#'   error output, exit status, and timeout information.
+#' @returns A `condathis_result` S3 object (a classed list, still usable as
+#'   a plain list) with `status`, `stdout`, `stderr`, `timeout`, `pid`,
+#'   `cmd`, and `env_name`.
 #'
 #' @details
 #' This function is the main execution entry point in `condathis`.
@@ -78,7 +94,11 @@ run <- function(
   error = c("cancel", "continue"),
   stdout = "|",
   stderr = "|",
-  stdin = NULL
+  stdin = NULL,
+  input = NULL,
+  supervise = FALSE,
+  cleanup_tree = FALSE,
+  linux_pdeathsig = FALSE
 ) {
   rlang::check_dots_unnamed()
   rlang::check_required(cmd)
@@ -88,6 +108,14 @@ run <- function(
         `x` = "{.field cmd} need to be a {.code character} string."
       ),
       class = "condathis_run_null_cmd"
+    )
+  }
+  if (!is.null(input) && !identical(stdin, "|")) {
+    cli::cli_abort(
+      message = c(
+        `x` = "{.field input} can only be used when {.field stdin} is {.val {\"|\"}}."
+      ),
+      class = "condathis_run_invalid_input"
     )
   }
   method <- rlang::arg_match(method)
@@ -124,10 +152,28 @@ run <- function(
           error = error,
           stdout = stdout,
           stderr = stderr,
-          stdin = stdin
+          stdin = stdin,
+          input = input,
+          supervise = supervise,
+          cleanup_tree = cleanup_tree,
+          linux_pdeathsig = linux_pdeathsig
         )
       }
     )
   }
-  return(invisible(px_res))
+
+  cmd_string <- paste(
+    shQuote(as.character(c(cmd, unlist(list(...))))),
+    collapse = " "
+  )
+  result <- new_condathis_result(
+    status = px_res$status,
+    stdout = px_res$stdout,
+    stderr = px_res$stderr,
+    timeout = if (is.null(px_res$timeout)) FALSE else px_res$timeout,
+    pid = if (is.null(px_res$pid)) NA_integer_ else px_res$pid,
+    cmd = cmd_string,
+    env_name = env_name
+  )
+  return(invisible(result))
 }

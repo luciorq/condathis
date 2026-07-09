@@ -11,7 +11,10 @@ run_pipeline(
   stdin = NULL,
   input = NULL,
   error = c("cancel", "continue"),
-  env_name = "condathis-env"
+  env_name = "condathis-env",
+  supervise = TRUE,
+  cleanup_tree = TRUE,
+  linux_pdeathsig = FALSE
 )
 }
 \arguments{
@@ -52,6 +55,18 @@ Defaults to \code{"cancel"}.}
 \item{env_name}{Character string with the default Conda environment name
 for commands that do not specify their own.
 Defaults to \code{"condathis-env"}.}
+
+\item{supervise}{Logical. Whether each process should be supervised by
+the \code{processx} supervisor for crash-safe cleanup. Defaults to \code{TRUE}
+(unlike \code{run()}/\code{run_bin()}, which default to \code{FALSE}) since a pipeline
+manages multiple concurrently connected processes.}
+
+\item{cleanup_tree}{Logical. Whether to clean up each process's child
+tree on crash/interrupt. Defaults to \code{TRUE}.}
+
+\item{linux_pdeathsig}{Logical. On Linux, whether to send \code{SIGKILL} to
+each child process if the parent R process dies. Has no effect on
+other platforms. Defaults to \code{FALSE}.}
 }
 \value{
 A \code{condathis_pipeline} S3 object with per-process results:
