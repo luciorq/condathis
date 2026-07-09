@@ -31,27 +31,66 @@ The implementation uses `processx::conn_create_pipepair()` to connect processes
 directly — no `sh -c` wrappers. This works identically on Linux, macOS, and
 Windows.
 
-### S3 return type
+### S3 return types (`condathis_pipeline` and `condathis_result`)
 
-Returns a `condathis_pipeline` S3 object with per-process status, stdout
-(only last process), stderr, and PID, nested under `$processes`. This differs
-from `run()`/`run_bin()`, which return a plain (unclassed) `processx::run()`
-result list — intentional, since a pipeline has multiple per-command results
-to carry.
+`run_pipeline()` returns a `condathis_pipeline` S3 object with per-process
+status, stdout (only last process), stderr, and PID, nested under
+`$processes`.
 
-### Crash safety
+`run()` and `run_bin()` were later reconciled to match: they now return a
+`condathis_result` S3 object (`R/run_result.R`) instead of a plain
+(unclassed) `processx::run()` list. `condathis_result` is a plain list under
+the hood — `res$status`, `res$stdout`, `res$stderr`, `res$timeout` behave
+exactly as before, so this is non-breaking for existing callers (including
+`parse_output()`, which only requires list-like `$stdout`/`$stderr` access)
+— with `pid`, `cmd`, and `env_name` fields added, plus `format()`/`print()`
+methods, mirroring the per-process shape used inside
+`condathis_pipeline$processes`.
 
-Each process is created with `supervise = TRUE` and `cleanup_tree = TRUE` for
-cross-platform crash safety. This is stronger than `run()`/`run_bin()`, which
-don't enable either (not currently exposed as parameters there).
+### Crash safety (`supervise`, `cleanup_tree`, `linux_pdeathsig`)
+
+`run_pipeline()` creates every process with these three arguments, defaulting
+to `supervise = TRUE, cleanup_tree = TRUE, linux_pdeathsig = FALSE` — but,
+after reconciliation, they are overridable parameters rather than hardcoded.
+
+`run()` and `run_bin()` gained the same three parameters, defaulting to
+`FALSE` (preserving prior behavior, and matching `processx`'s own defaults)
+so existing callers see no behavior change unless they opt in.
 
 ### Writable stdin (`stdin = "|"` + `input`)
 
-The first process's stdin can be `"|"` (a pipe) with in-memory data supplied
-via the `input` argument, written with `process$write_input()` and then
-closed. `input` is rejected unless `stdin = "|"`. This capability does not
-exist on `run()`/`run_bin()`, which only accept a file path or `NULL` for
-`stdin`.
+A process's stdin can be `"|"` (a pipe) with in-memory data supplied via the
+`input` argument, written with `process$write_input()` and then closed.
+`input` is rejected unless `stdin = "|"`.
+
+`run_pipeline()` had this from the start (first process only). `run()` and
+`run_bin()` gained it during reconciliation — but they can't get it for free,
+because `processx::run()` provides no way to reach the `stdin = "|"`
+connection it creates internally. Confirmed empirically: calling
+`processx::run(stdin = "|")` directly deadlocks (times out) since nothing
+ever writes to or closes that pipe. So `R/run_process_with_input.R` adds a
+`processx::process$new()`-based helper — spawn, write `input`, close stdin,
+`$wait()`, collect `status`/`stdout`/`stderr`/`pid` — used by `native_cmd()`
+and `run_bin()` **only** when `stdin = "|"` is requested; the common
+`stdin = NULL`/file-path path is untouched and still goes through
+`processx::run()` unchanged.
+
+To keep error handling identical either way, the helper returns a
+`processx::run()`-shaped list on success, and on non-zero exit (when
+`error_on_status = TRUE`) throws a condition with class
+`"system_command_status_error"` and `status`/`stderr` fields — the same
+minimal contract a real `processx::run()` failure carries (verified
+by inspecting a live failure's condition object) — so the existing,
+unmodified `rethrow_error_run()` catches and formats it identically,
+regardless of which code path actually ran the process. A missing
+executable is not special-cased either: `process$new()`'s raw
+`rlib_error_3_0`/`c_error` condition is left to propagate, which
+`rethrow_error_run()` already catches the same way it does for a normal
+`processx::run()` "command not found" failure.
+
+Trade-off, documented in the `input` parameter docs: this path has no live
+stdout/stderr streaming, spinner, or timeout — it's a synchronous
+write-then-wait, unlike `processx::run()`'s full-featured polling loop.
 
 ### Per-command `stdout`/`stderr` overrides
 
@@ -158,13 +197,20 @@ Parent R process
 | File                     | Action                                                      |
 |--------------------------|-------------------------------------------------------------|
 | `DESCRIPTION`            | `processx` → `processx (>= 3.9.0)`                          |
-| `R/native_cmd.R`         | Added `cleanup_tree`, `encoding`, `linux_pdeathsig` params  |
+| `R/native_cmd.R`         | Added `cleanup_tree`, `encoding`, `linux_pdeathsig`, `input`, `supervise`; branches to `run_process_with_input()` when `stdin = "|"` |
 | `R/conda_activation.R`   | `get_activation_envvars()` helper                           |
 | `R/pipeline_result.R`    | S3 `condathis_pipeline` class (`format`/`print`/`as.list`)  |
-| `R/run_pipeline.R`       | `run_pipeline()` main function + internal helpers: `parse_cmds_spec()`, `check_stdout_overrides()`, `precreate_envs()`, `escape_cli_braces()`, `kill_processes()` |
-| `NAMESPACE`              | `export(run_pipeline)`                                      |
+| `R/run_result.R`         | **New** — S3 `condathis_result` class (`format`/`print`/`as.list`), returned by `run()`/`run_bin()` |
+| `R/run_process_with_input.R` | **New** — shared `process$new()`-based helper for `stdin = "|"` + `input`, used by `native_cmd()` and `run_bin()` |
+| `R/run_pipeline.R`       | `run_pipeline()` main function + internal helpers: `parse_cmds_spec()`, `check_stdout_overrides()`, `precreate_envs()`, `escape_cli_braces()`, `kill_processes()`; `supervise`/`cleanup_tree`/`linux_pdeathsig` now parameters |
+| `R/run.R`                | Added `input`, `supervise`, `cleanup_tree`, `linux_pdeathsig`; returns `condathis_result` |
+| `R/run_bin.R`            | Same additions as `R/run.R`; branches to `run_process_with_input()` when `stdin = "|"` |
+| `R/run_internal_native.R` | Forwards `input`/`supervise`/`cleanup_tree`/`linux_pdeathsig` to `native_cmd()` |
+| `NAMESPACE`              | `export(run_pipeline)`; new S3 methods for `condathis_result`  |
 | `tests/testthat/test-native_cmd.R` | Extended for `linux_pdeathsig`                       |
-| `tests/testthat/test-run_pipeline.R` | Pipeline tests, incl. spawn-failure and mixed-env integration tests |
+| `tests/testthat/test-run_pipeline.R` | Pipeline tests, incl. spawn-failure, mixed-env, and crash-safety-override tests |
+| `tests/testthat/test-run.R`, `test-run_bin.R` | `condathis_result` class, `input`/`stdin = "|"`, crash-safety params |
+| `README.qmd` / `README.md` | "Known Caveats" updated — pipes and writable stdin are now supported |
 | `NEWS.md`                | Changelog entries                                            |
 
 ## Open Questions (Answered)
@@ -184,20 +230,27 @@ Parent R process
 
 ## Known, intentional divergences from `run()` / `run_bin()`
 
-Documented here so they aren't mistaken for bugs later:
+Crash safety, writable `stdin = "|"` + `input`, and return-shape parity have
+since been reconciled (see the sections above) — `run()`, `run_bin()`, and
+`run_pipeline()` now share the same parameters and the same family of S3
+result classes. Two divergences remain, and are structural rather than
+parameter gaps, so they are not planned to be reconciled:
 
-- **No `verbose` parameter.** `run_pipeline()` always runs silently; there is
-  no live command echo or spinner support like `run()`'s
-  `verbose = "cmd"/"output"/"full"`.
+- **No `verbose` parameter on `run_pipeline()`.** It always runs silently;
+  there is no live command echo or spinner support like `run()`'s
+  `verbose = "cmd"/"output"/"full"`. Reconciling this would require
+  `run_pipeline()` to poll and interleave output across N concurrently
+  running processes rather than one, which is a materially different
+  problem from `processx::run()`'s single-process polling loop.
 - **Environment activation mechanism differs.** `run()` goes through
   `micromamba run -n <env>` (executes `activate.d` hooks). `run_pipeline()`
   sets a fixed handful of env vars directly (see "Per-command environment
-  activation" above) and never invokes micromamba.
-- **Crash safety is one-directional.** `run_pipeline()` always supervises;
-  `run()`/`run_bin()` never do, and don't expose it as a parameter.
-- **Writable `stdin = "|"` + `input`** only exists on `run_pipeline()`.
-- **Return shape.** Classed `condathis_pipeline` S3 object vs. plain list.
+  activation" above) and never invokes micromamba, because
+  `processx::pipeline$new()`/`process$new()` takes one `env` per process and
+  there is no per-process `micromamba run` wrapper that would still let
+  stdout flow directly, kernel-to-kernel, into the next command's stdin.
 
-None of these are currently planned to be reconciled; `run_pipeline()` is a
-distinct execution mode (parallel spawn + kernel pipes) with different
-constraints than `run()`'s single `micromamba run` invocation.
+`run_pipeline()` remains a distinct execution mode (parallel spawn + kernel
+pipes) with different constraints than `run()`'s single `micromamba run`
+invocation; the two divergences above follow directly from that, not from
+an unaddressed parity gap.

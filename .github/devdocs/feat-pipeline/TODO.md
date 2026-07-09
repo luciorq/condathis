@@ -38,11 +38,52 @@
       cancel/continue, brace-escaping, missing custom env × cancel/continue)
 - [x] Run `just lint` and `just test` — all 712 tests pass, 0 failures
 
+## Reconciliation: feature parity between `run()`, `run_bin()`, and `run_pipeline()`
+
+- [x] Crash safety: add `supervise`, `cleanup_tree`, `linux_pdeathsig`
+      arguments to `run()` and `run_bin()` (default `FALSE`, preserving
+      existing behavior). Made `run_pipeline()`'s `supervise`/`cleanup_tree`
+      (previously hardcoded `TRUE`) and `linux_pdeathsig` (new) overridable
+      arguments too, default `TRUE`/`TRUE`/`FALSE`.
+- [x] Writable `stdin = "|"` + `input`: add to `run()` and `run_bin()`.
+      Since `processx::run()` has no way to write to a `stdin = "|"`
+      connection it creates internally (confirmed: `stdin = "|"` alone
+      deadlocks the child), added `R/run_process_with_input.R` — a
+      `processx::process$new()`-based helper mirroring
+      `run_pipeline()`'s own first-process input-writing logic, returning a
+      `processx::run()`-shaped list so it slots into the existing
+      `rethrow_error_run()` error handling unchanged. `native_cmd()` and
+      `run_bin()` now branch to it only when `stdin = "|"`; the common case
+      (`stdin = NULL`/file path) is untouched.
+      Trade-off (documented in the `input` param docs): no live
+      stdout/stderr streaming, spinner, or timeout on this code path.
+- [x] Return shape: new `R/run_result.R` — S3 class `condathis_result`
+      (`new_condathis_result()`, `format()`, `print()`, `as.list()`),
+      returned by `run()` and `run_bin()` instead of a plain
+      `processx::run()` list. Remains a plain list under the hood
+      (`res$status`/`res$stdout`/etc. unaffected — verified `parse_output()`
+      and existing tests that do `res$status` still work unchanged) with
+      `pid`, `cmd`, `env_name` fields added, mirroring
+      `condathis_pipeline`'s per-process shape.
+- [x] Add `condathis_run_invalid_input` validation (mirrors
+      `run_pipeline()`'s `condathis_pipeline_invalid_input`): `input`
+      requires `stdin = "|"` on both `run()` and `run_bin()`.
+- [x] Add test coverage: `condathis_result` class/fields/print, `input` +
+      `stdin = "|"` (success and failure, `error = "cancel"`/`"continue"`),
+      invalid `input` without `stdin = "|"`, crash-safety params accepted
+      on all three functions, `run_pipeline()`'s override params.
+- [x] Update README.qmd/README.md "Known Caveats" — no longer claims pipes
+      are unsupported or that `stdin` only accepts files.
+- [x] Run `just lint` and `just test` — all 735 tests pass, 0 failures.
+
 ## Remaining / Optional
 
-None — implementation is feature complete per PLAN.md.
+None — implementation is feature complete per PLAN.md, including the
+`run()`/`run_bin()`/`run_pipeline()` reconciliation above.
 
 See PLAN.md's "Known, intentional divergences from `run()` / `run_bin()`"
-section for behavioral differences that are deliberate design choices, not
-open TODOs (e.g. no `verbose` support, no `micromamba run` activation hooks,
-asymmetric crash-safety defaults, `stdin = "|"` only on `run_pipeline()`).
+section for the behavioral differences that remain deliberate design
+choices (not open TODOs): no `verbose` support on `run_pipeline()`, and
+`run_pipeline()` not going through `micromamba run` (so `activate.d` hook
+scripts aren't executed) — the environment-activation and process-topology
+differences are structural, not something a shared parameter can reconcile.

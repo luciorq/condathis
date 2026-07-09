@@ -43,7 +43,7 @@ test: lint
   #!/usr/bin/env bash
   \builtin set -euo pipefail;
   R -q -s -e 'withr::with_envvar(new=list(`TESTTHAT_CPUS`=4),code={devtools::load_all(quiet=TRUE);devtools::run_examples();});';
-  R -q -s -e 'withr::with_envvar(new=list(`TESTTHAT_CPUS`=4),code={devtools::load_all(quiet=TRUE);devtools::test();});';
+  R -q -s -e 'withr::with_envvar(new=list(`TESTTHAT_CPUS`=4),code={withr::with_options(list(crayon.enabled=FALSE,cli.unicode=FALSE),code={devtools::load_all(quiet=TRUE);devtools::test(pkg=".");})});';
   \builtin echo "All tests passed!";
 
 # Build and Lint README File
@@ -211,6 +211,47 @@ pre-release:
   # TODO: Update Zenodo archive with the new release.
   # + Update the DOI badge in the README file.
   \builtin echo "Release successful!";
+
+# Link current branch devdocs to project root
+link-dev-docs branch_name:
+  #!/usr/bin/env bash
+  \builtin set -euo pipefail;
+  # Example usage: `just link-dev-docs feat-new-feature`
+  dev_docs_dir='.github/devdocs/{{ branch_name }}';
+  if [[ ! -d "${dev_docs_dir}" ]]; then
+    \mkdir -p "${dev_docs_dir}";
+  fi;
+  for file_name in PLAN.md TODO.md; do
+    # Check if the file exists in the devdocs directory
+    if [[ ! -f ${dev_docs_dir}/${file_name} ]]; then
+      \builtin echo -ne "${file_name} does not exist in the devdocs directory for branch: {{ branch_name }}\n";
+      \builtin continue;
+    fi
+    if [[ ! -f "${file_name}" && ! -L "${file_name}" ]]; then
+      \builtin echo -ne "${file_name} does not exist in the project root. Creating symlink from ${dev_docs_dir}/${file_name} to project root\n";
+      \ln -s "${dev_docs_dir}/${file_name}" ./"${file_name}";
+      \builtin continue;
+    fi
+    # Check if file_name is a symlink but pointing to a different file
+    if [[ -L "${file_name}" && "$(readlink "${file_name}")" != "${dev_docs_dir}/${file_name}" ]]; then
+      \builtin echo -ne "${file_name} is a symlink but pointing to a different file. Check it's content.\n";
+      \builtin continue;
+    fi
+    diff_res="$(diff "${file_name}" "${dev_docs_dir}/${file_name}")";
+    diff_exit_code=${?:-1};
+    if [[ ${diff_exit_code} -ne 0 && -n "${diff_res}" && -f "${dev_docs_dir}/${file_name}" ]]; then
+      \builtin echo -ne "Differences found in ${file_name} for branch: {{ branch_name }}. Check before continuing.\n";
+      \builtin echo -ne "${diff_res}\n";
+      \builtin continue;
+    fi
+    # Check if none of them are symlinks and there is no difference, then create symlinks from devdocs to project root
+    if [[ ${diff_exit_code} -eq 0 && -f "${dev_docs_dir}/${file_name}" && ! -L "${file_name}" ]]; then
+      \builtin echo -ne "No differences found in ${file_name} for branch: {{ branch_name }}\n";
+      \builtin echo -ne "Creating symlink from ${dev_docs_dir}/${file_name} to project root\n";
+      \rm -f ./"${file_name}";
+      \ln -s "${dev_docs_dir}/${file_name}" ./"${file_name}";
+    fi
+  done
 
 # <<< rstats-package-dev-tasks <<<
 
