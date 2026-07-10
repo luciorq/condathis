@@ -76,14 +76,60 @@
       are unsupported or that `stdin` only accepts files.
 - [x] Run `just lint` and `just test` — all 735 tests pass, 0 failures.
 
+## Activation-mechanism divergence: exploratory building block
+
+- [x] Add `R/get_micromamba_activation_envvars.R` — `get_micromamba_activation_envvars(env_name)`,
+      **not wired into `run_pipeline()`, `run()`, or `run_bin()` yet**.
+      Resolves the *real* `micromamba run -n <env>` activation (including
+      `activate.d` hook scripts) by spawning `Rscript` through it, dumping
+      its environment as JSON, and diffing against a clean baseline —
+      verified empirically that activation vars like `CONDA_PREFIX`/`PATH`
+      come through correctly. Returns a named character vector in the same
+      shape as `get_activation_envvars()`
+      (`env = c("current", get_micromamba_activation_envvars(env_name))`),
+      so it's a drop-in candidate for `run_pipeline()`'s activation overlay
+      once validated further, and — since it resolves activation vars
+      independently of wrapping a command in `micromamba run` — a candidate
+      building block for consolidating `run()` (currently: wrap `cmd` in
+      `micromamba run -n <env> cmd`) with `run_bin()` (currently: run the
+      binary directly, no activation) into "resolve activation vars once,
+      then execute like `run_bin()` with that overlay."
+      Cached per `env_name`, invalidated when the environment's
+      `conda-meta` directory changes (package install/remove) via a cheap
+      file-count + max-mtime fingerprint (`activation_cache_stamp()`), not
+      full content hashing — no new dependency needed for that.
+      Known noise sources filtered out (verified against real captured
+      output): dump-subprocess artifacts (`R_ENVIRON`, `R_PROFILE`,
+      `R_SESSION_TMPDIR`, `PROCESSX_PS2*`), shell-session state
+      (`PWD`, `OLDPWD`, `SHLVL`, `PS1`, `_`), and `TMPDIR` (condathis
+      manages that separately per-call already).
+      Known limitation, not yet resolved: on a machine where R itself runs
+      from inside an already-activated environment (e.g. R installed via
+      pixi/conda), the diff can still pick up nested-activation artifacts
+      (`CONDA_PREFIX_1`, `CONDA_SHLVL` > 1) that reflect the *host's*
+      activation stack, not the target env's — needs more investigation
+      before this is wired into anything that assumes a from-scratch
+      activation.
+- [x] Add `tests/testthat/test-get_micromamba_activation_envvars.R` —
+      correctness of resolved vars, noise filtering, missing-env error,
+      usability as a `process$new(env = ...)` overlay, caching (hit/miss/
+      forced-recompute), `reset_micromamba_activation_cache()`, and
+      `activation_cache_stamp()` invalidation on `conda-meta` changes.
+- [x] Run `just lint` and `just test` — all 753 tests pass, 0 failures.
+
 ## Remaining / Optional
 
-None — implementation is feature complete per PLAN.md, including the
+Implementation is feature complete per PLAN.md, including the
 `run()`/`run_bin()`/`run_pipeline()` reconciliation above.
+`get_micromamba_activation_envvars()` exists as a standalone, tested
+building block but is intentionally **not wired into anything yet** — see
+its known limitation above before doing so.
 
 See PLAN.md's "Known, intentional divergences from `run()` / `run_bin()`"
 section for the behavioral differences that remain deliberate design
 choices (not open TODOs): no `verbose` support on `run_pipeline()`, and
 `run_pipeline()` not going through `micromamba run` (so `activate.d` hook
-scripts aren't executed) — the environment-activation and process-topology
-differences are structural, not something a shared parameter can reconcile.
+scripts aren't executed by default) — the environment-activation and
+process-topology differences are structural, not something a shared
+parameter can reconcile; `get_micromamba_activation_envvars()` is a step
+toward closing that gap, once its known limitation is resolved.

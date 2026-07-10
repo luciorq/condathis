@@ -206,10 +206,12 @@ Parent R process
 | `R/run.R`                | Added `input`, `supervise`, `cleanup_tree`, `linux_pdeathsig`; returns `condathis_result` |
 | `R/run_bin.R`            | Same additions as `R/run.R`; branches to `run_process_with_input()` when `stdin = "|"` |
 | `R/run_internal_native.R` | Forwards `input`/`supervise`/`cleanup_tree`/`linux_pdeathsig` to `native_cmd()` |
+| `R/get_micromamba_activation_envvars.R` | **New** — `get_micromamba_activation_envvars()`, real `micromamba run` activation resolution + caching. Standalone; not wired into anything yet |
 | `NAMESPACE`              | `export(run_pipeline)`; new S3 methods for `condathis_result`  |
 | `tests/testthat/test-native_cmd.R` | Extended for `linux_pdeathsig`                       |
 | `tests/testthat/test-run_pipeline.R` | Pipeline tests, incl. spawn-failure, mixed-env, and crash-safety-override tests |
 | `tests/testthat/test-run.R`, `test-run_bin.R` | `condathis_result` class, `input`/`stdin = "|"`, crash-safety params |
+| `tests/testthat/test-get_micromamba_activation_envvars.R` | **New** — resolution correctness, noise filtering, caching, cache invalidation |
 | `README.qmd` / `README.md` | "Known Caveats" updated — pipes and writable stdin are now supported |
 | `NEWS.md`                | Changelog entries                                            |
 
@@ -249,6 +251,22 @@ parameter gaps, so they are not planned to be reconciled:
   `processx::pipeline$new()`/`process$new()` takes one `env` per process and
   there is no per-process `micromamba run` wrapper that would still let
   stdout flow directly, kernel-to-kernel, into the next command's stdin.
+  `R/get_micromamba_activation_envvars.R` is a first step toward closing
+  this specific gap — it resolves the *real* `activate.d`-inclusive
+  activation as a plain env-var overlay (same shape as
+  `get_activation_envvars()`), decoupled from wrapping the target command
+  in `micromamba run`, so it's a candidate replacement for
+  `get_activation_envvars()` inside `run_pipeline()`. **Not wired in yet**:
+  it has a known limitation (nested-activation artifacts like
+  `CONDA_PREFIX_1`/`CONDA_SHLVL` leak through when R itself runs from an
+  already-activated environment) and costs two extra subprocess spawns per
+  unique `env_name` the first time it's resolved (mitigated by its
+  per-`env_name` cache, invalidated on `conda-meta` changes, but not free
+  for a pipeline's first run). The same helper is also being considered as
+  the mechanism to consolidate `run()` (wraps `cmd` in `micromamba run`)
+  with `run_bin()` (no activation at all): resolve activation vars once,
+  then run like `run_bin()` with `env = c("current", <vars>)`, rather than
+  two separate code paths with different activation semantics.
 
 `run_pipeline()` remains a distinct execution mode (parallel spawn + kernel
 pipes) with different constraints than `run()`'s single `micromamba run`
