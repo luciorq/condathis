@@ -79,6 +79,21 @@ install_packages <- function(
     additional_channels
   )
 
+  previous_channels <- get_env_history_channels(env_name = env_name)
+  missing_channels <- setdiff(
+    previous_channels,
+    c(channels, additional_channels)
+  )
+  if (isTRUE(length(missing_channels) > 0L)) {
+    cli::cli_warn(
+      message = c(
+        "!" = "Environment {.field {env_name}} was previously installed using channel{?s} {.field {missing_channels}}, not included in this call.",
+        "i" = "Dependency resolution may differ from previous installs. Consider adding {.field {missing_channels}} to {.arg channels} or {.arg additional_channels}."
+      ),
+      class = "condathis_install_missing_previous_channels"
+    )
+  }
+
   px_res <- rethrow_error_cmd(
     expr = {
       native_cmd(
