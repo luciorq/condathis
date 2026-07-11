@@ -1,8 +1,6 @@
-## condathis 0.1.4
+## condathis 0.1.5
 
-Release Date: 2026-06-19
-
-Development Changelog: [0.1.4](https://github.com/luciorq/condathis/compare/v0.1.3...v0.1.4)
+Development Changelog: [0.1.5](https://github.com/luciorq/condathis/compare/v0.1.4...v0.1.5)
 
 ### Added
 
@@ -37,6 +35,41 @@ Development Changelog: [0.1.4](https://github.com/luciorq/condathis/compare/v0.1
 * `run_pipeline()`'s `supervise`, `cleanup_tree` (previously always `TRUE`),
   and `linux_pdeathsig` (new) are now overridable arguments instead of
   hardcoded, for full parity with `run()`/`run_bin()`.
+
+### Fixed
+
+* Fix `run_pipeline()` checking that Conda environments exist before
+  attempting to auto-create the missing default environment, which made the
+  auto-create path unreachable.
+
+* Fix `run_pipeline()` crashing when reading `stdout`/`stderr` for a process
+  whose output was redirected to a file or discarded (`NULL`) instead of
+  captured with `"|"`.
+
+* Fix `run_pipeline()` letting a raw `processx` error escape uncaught when a
+  command is not found, ignoring the `error` argument entirely. It now
+  matches `run()`: `error = "continue"` reports `status = 127` for that
+  command and keeps running the rest of the pipeline; `error = "cancel"`
+  throws a `condathis_pipeline_status_error` instead of a low-level error.
+
+* Fix `run_pipeline()` error messages breaking (or silently corrupting) when
+  a failing command's `stderr` contained curly braces, since
+  `cli::cli_abort()` interprets `{`/`}` as glue syntax. Captured stderr,
+  command strings, and environment names are now escaped before being
+  embedded in the error message.
+
+* Fix `run_pipeline()` always throwing on a missing custom environment
+  regardless of `error`. `error = "continue"` now reports `status = 127` for
+  commands targeting that environment instead of aborting the whole
+  pipeline; `error = "cancel"` keeps the previous fail-fast behavior.
+
+## condathis 0.1.4
+
+Release Date: 2026-06-19
+
+Development Changelog: [0.1.4](https://github.com/luciorq/condathis/compare/v0.1.3...v0.1.4)
+
+### Added
 
 * New `channel_priority` argument in `create_env()` and `install_packages()`
   to control channel priority strategy.
@@ -75,31 +108,6 @@ Development Changelog: [0.1.4](https://github.com/luciorq/condathis/compare/v0.1
 ### Fixed
 
 * Fix error in `create_env()` when packages were specified with `"channel::package"` environment was always recreated.
-
-* Fix `run_pipeline()` checking that Conda environments exist before
-  attempting to auto-create the missing default environment, which made the
-  auto-create path unreachable.
-
-* Fix `run_pipeline()` crashing when reading `stdout`/`stderr` for a process
-  whose output was redirected to a file or discarded (`NULL`) instead of
-  captured with `"|"`.
-
-* Fix `run_pipeline()` letting a raw `processx` error escape uncaught when a
-  command is not found, ignoring the `error` argument entirely. It now
-  matches `run()`: `error = "continue"` reports `status = 127` for that
-  command and keeps running the rest of the pipeline; `error = "cancel"`
-  throws a `condathis_pipeline_status_error` instead of a low-level error.
-
-* Fix `run_pipeline()` error messages breaking (or silently corrupting) when
-  a failing command's `stderr` contained curly braces, since
-  `cli::cli_abort()` interprets `{`/`}` as glue syntax. Captured stderr,
-  command strings, and environment names are now escaped before being
-  embedded in the error message.
-
-* Fix `run_pipeline()` always throwing on a missing custom environment
-  regardless of `error`. `error = "continue"` now reports `status = 127` for
-  commands targeting that environment instead of aborting the whole
-  pipeline; `error = "cancel"` keeps the previous fail-fast behavior.
 
 ## condathis 0.1.3
 
