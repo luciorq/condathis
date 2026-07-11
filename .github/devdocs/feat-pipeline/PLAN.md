@@ -202,16 +202,17 @@ Parent R process
 | `R/pipeline_result.R`    | S3 `condathis_pipeline` class (`format`/`print`/`as.list`)  |
 | `R/run_result.R`         | **New** — S3 `condathis_result` class (`format`/`print`/`as.list`), returned by `run()`/`run_bin()` |
 | `R/run_process_with_input.R` | **New** — shared `process$new()`-based helper for `stdin = "|"` + `input`, used by `native_cmd()` and `run_bin()` |
-| `R/run_pipeline.R`       | `run_pipeline()` main function + internal helpers: `parse_cmds_spec()`, `check_stdout_overrides()`, `precreate_envs()`, `escape_cli_braces()`, `kill_processes()`; `supervise`/`cleanup_tree`/`linux_pdeathsig` now parameters |
-| `R/run.R`                | Added `input`, `supervise`, `cleanup_tree`, `linux_pdeathsig`; returns `condathis_result` |
-| `R/run_bin.R`            | Same additions as `R/run.R`; branches to `run_process_with_input()` when `stdin = "|"` |
+| `R/run_pipeline.R`       | `run_pipeline()` main function + internal helpers: `parse_cmds_spec()`, `check_stdout_overrides()`, `precreate_envs()`, `escape_cli_braces()`, `kill_processes()`; `supervise`/`cleanup_tree`/`linux_pdeathsig` now parameters; new `activate = TRUE` toggles real vs. hand-rolled activation |
+| `R/run.R`                | Added `input`, `supervise`, `cleanup_tree`, `linux_pdeathsig`; returns `condathis_result`. **Deliberately not given an `activate` argument this round** |
+| `R/run_bin.R`            | Same additions as `R/run.R`; branches to `run_process_with_input()` when `stdin = "|"`; new `activate = TRUE` overlays real `micromamba run` activation (skipped gracefully if `env_name` doesn't exist) — validated to match `run()`'s `CONDA_PREFIX`/`PATH` |
 | `R/run_internal_native.R` | Forwards `input`/`supervise`/`cleanup_tree`/`linux_pdeathsig` to `native_cmd()` |
-| `R/get_micromamba_activation_envvars.R` | **New** — `get_micromamba_activation_envvars()`, real `micromamba run` activation resolution + caching. Standalone; not wired into anything yet |
+| `R/get_micromamba_activation_envvars.R` | `get_micromamba_activation_envvars()`, real `micromamba run` activation resolution + caching. Now wired into `run_bin()`/`run_pipeline()` via `activate = TRUE` |
+| `R/condathis-package.R`  | **New** — `.onLoad()` resolves and caches `R.home("bin")`-derived `Rscript` path at package load time (`get_condathis_rscript_path()`), fixing an `R_HOME`-corruption bug (see below) that only surfaced once `get_micromamba_activation_envvars()` was called from inside a caller's own `get_clean_conda_envvars()` scope |
 | `NAMESPACE`              | `export(run_pipeline)`; new S3 methods for `condathis_result`  |
 | `tests/testthat/test-native_cmd.R` | Extended for `linux_pdeathsig`                       |
-| `tests/testthat/test-run_pipeline.R` | Pipeline tests, incl. spawn-failure, mixed-env, and crash-safety-override tests |
-| `tests/testthat/test-run.R`, `test-run_bin.R` | `condathis_result` class, `input`/`stdin = "|"`, crash-safety params |
-| `tests/testthat/test-get_micromamba_activation_envvars.R` | **New** — resolution correctness, noise filtering, caching, cache invalidation |
+| `tests/testthat/test-run_pipeline.R` | Pipeline tests, incl. spawn-failure, mixed-env, crash-safety-override, and `activate` tests |
+| `tests/testthat/test-run.R`, `test-run_bin.R` | `condathis_result` class, `input`/`stdin = "|"`, crash-safety params, `activate` (incl. `run_bin(activate = TRUE)` vs `run()` equivalence) |
+| `tests/testthat/test-get_micromamba_activation_envvars.R` | Resolution correctness, noise filtering, caching, cache invalidation, `R_HOME`-corruption-inside-caller's-scope regression test |
 | `README.qmd` / `README.md` | "Known Caveats" updated — pipes and writable stdin are now supported |
 | `NEWS.md`                | Changelog entries                                            |
 
@@ -244,31 +245,48 @@ parameter gaps, so they are not planned to be reconciled:
   `run_pipeline()` to poll and interleave output across N concurrently
   running processes rather than one, which is a materially different
   problem from `processx::run()`'s single-process polling loop.
-- **Environment activation mechanism differs.** `run()` goes through
-  `micromamba run -n <env>` (executes `activate.d` hooks). `run_pipeline()`
-  sets a fixed handful of env vars directly (see "Per-command environment
-  activation" above) and never invokes micromamba, because
-  `processx::pipeline$new()`/`process$new()` takes one `env` per process and
-  there is no per-process `micromamba run` wrapper that would still let
-  stdout flow directly, kernel-to-kernel, into the next command's stdin.
-  `R/get_micromamba_activation_envvars.R` is a first step toward closing
-  this specific gap — it resolves the *real* `activate.d`-inclusive
-  activation as a plain env-var overlay (same shape as
-  `get_activation_envvars()`), decoupled from wrapping the target command
-  in `micromamba run`, so it's a candidate replacement for
-  `get_activation_envvars()` inside `run_pipeline()`. **Not wired in yet**:
-  it has a known limitation (nested-activation artifacts like
-  `CONDA_PREFIX_1`/`CONDA_SHLVL` leak through when R itself runs from an
-  already-activated environment) and costs two extra subprocess spawns per
-  unique `env_name` the first time it's resolved (mitigated by its
-  per-`env_name` cache, invalidated on `conda-meta` changes, but not free
-  for a pipeline's first run). The same helper is also being considered as
-  the mechanism to consolidate `run()` (wraps `cmd` in `micromamba run`)
-  with `run_bin()` (no activation at all): resolve activation vars once,
-  then run like `run_bin()` with `env = c("current", <vars>)`, rather than
-  two separate code paths with different activation semantics.
+- **Environment activation mechanism — now closable via `activate`,
+  `run()` itself intentionally untouched this round.** `run()` still
+  always goes through `micromamba run -n <env>` (executes `activate.d`
+  hooks). `run_pipeline()`'s per-process activation and `run_bin()`'s
+  (previously nonexistent) activation now share a real, `activate.d`
+  -inclusive mechanism too: both gained an `activate = TRUE` argument
+  that, when the target env exists, overlays
+  `get_micromamba_activation_envvars(env_name)` — the same env-var-overlay
+  shape `get_activation_envvars()` already used, just resolved via a real
+  `micromamba run` instead of a fixed, hand-rolled var list.
+  `run_pipeline(activate = FALSE)` and `run_bin(activate = FALSE)` fall
+  back to the original mechanisms (hand-rolled overlay, and no activation
+  at all, respectively). Validated `run_bin(activate = TRUE)` against
+  `run()` directly: identical `CONDA_PREFIX` and activated `PATH` for the
+  same `env_name`.
+  Costs and caveats carried over from `get_micromamba_activation_envvars()`
+  still apply: the nested-activation artifact limitation (documented
+  above) is unresolved, and the first pipeline/`run_bin()` call touching a
+  given `env_name` with `activate = TRUE` pays for two extra subprocess
+  spawns (mitigated by the per-`env_name` cache).
+  **A second instance of the `R_HOME`-corruption bug was found while
+  wiring this in** (`get_clean_conda_envvars()` sets `R_HOME = ""` via
+  `withr::local_envvar()`, corrupting subsequent `R.home()` calls anywhere
+  up the call stack for the scope's duration): `run_bin()`/`run_pipeline()`
+  apply their *own* clean-envvar scope before calling
+  `get_micromamba_activation_envvars()`, so the original fix (resolve
+  `R.home()` before *that function's own* clean-envvar scope) wasn't
+  sufficient — the caller had already corrupted it first. Fixed properly
+  by resolving `R.home("bin")` once at package load time
+  (`.onLoad()` in `R/condathis-package.R`, exposed via
+  `get_condathis_rscript_path()`), before any condathis function has had a
+  chance to touch `R_HOME` — this sidesteps the ordering problem entirely,
+  since per-caller ordering fixes don't compose when clean-envvar scopes
+  nest.
+  `run()` itself was deliberately left unchanged in this round (explicit
+  scoping: "before trying to modify `run()`"); consolidating `run()` with
+  `run_bin(activate = TRUE)` — resolve activation vars once, then run like
+  `run_bin()` with that overlay, instead of wrapping the command in
+  `micromamba run` — remains the candidate follow-up sketched in the
+  "S3 return types" section above, not yet started.
 
 `run_pipeline()` remains a distinct execution mode (parallel spawn + kernel
 pipes) with different constraints than `run()`'s single `micromamba run`
-invocation; the two divergences above follow directly from that, not from
-an unaddressed parity gap.
+invocation; the `verbose` divergence above follows directly from that, not
+from an unaddressed parity gap.

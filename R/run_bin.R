@@ -36,6 +36,20 @@
 #' @param linux_pdeathsig Logical. On Linux, whether to send `SIGKILL` to the
 #'   child process if the parent R process dies. Has no effect on other
 #'   platforms. Defaults to `FALSE`.
+#' @param activate Logical. Whether to resolve and apply `env_name`'s real
+#'   `micromamba run` activation (via `get_micromamba_activation_envvars()`,
+#'   including any package `activate.d` hook scripts) as an environment
+#'   overlay before running `cmd`. Defaults to `TRUE`. Silently skipped
+#'   (`cmd` still runs, unactivated) when `env_name` does not exist, so
+#'   `error = "continue"`-style fallback to a binary outside any managed
+#'   environment keeps working. Set to `FALSE` to restore the original,
+#'   activation-free `run_bin()` behavior — `cmd` still resolves against
+#'   `env_name`'s `bin/` directory (falling back to `PATH`), but the child
+#'   process otherwise inherits the caller's environment unmodified. This
+#'   is the mechanism that makes `run_bin(activate = TRUE)` behave like
+#'   `run()`, minus the different binary-resolution strategy: `run()`
+#'   resolves `cmd` via the activated `PATH` inside a `micromamba run`
+#'   wrapper, while `run_bin()` always resolves `cmd` itself beforehand.
 #'
 #' @returns A `condathis_result` S3 object (a classed list, still usable as
 #'   a plain list) with `status`, `stdout`, `stderr`, `timeout`, `pid`,
@@ -75,7 +89,8 @@ run_bin <- function(
   input = NULL,
   supervise = FALSE,
   cleanup_tree = FALSE,
-  linux_pdeathsig = FALSE
+  linux_pdeathsig = FALSE,
+  activate = TRUE
 ) {
   error <- rlang::arg_match(error)
   if (identical(error, "cancel")) {
@@ -119,6 +134,15 @@ run_bin <- function(
     new = list(fs::path(env_dir, "bin")),
     action = "prefix"
   )
+
+  activation_env <- NULL
+  if (isTRUE(activate) && fs::dir_exists(env_dir)) {
+    activation_env <- c(
+      "current",
+      get_micromamba_activation_envvars(env_name = env_name)
+    )
+  }
+
   args_vector <- c(...)
   if (isTRUE(rlang::is_null(args_vector))) {
     args_vector <- character(length = 0L)
@@ -134,6 +158,7 @@ run_bin <- function(
           stderr = stderr,
           echo_cmd = verbose_list$cmd,
           echo = verbose_output,
+          env = activation_env,
           error_on_status = error_var,
           cleanup_tree = cleanup_tree,
           supervise = supervise,
@@ -149,6 +174,7 @@ run_bin <- function(
           stdout = stdout,
           stderr = stderr,
           stdin = stdin,
+          env = activation_env,
           error_on_status = error_var,
           cleanup_tree = cleanup_tree,
           supervise = supervise,

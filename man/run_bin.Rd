@@ -16,7 +16,8 @@ run_bin(
   input = NULL,
   supervise = FALSE,
   cleanup_tree = FALSE,
-  linux_pdeathsig = FALSE
+  linux_pdeathsig = FALSE,
+  activate = TRUE
 )
 }
 \arguments{
@@ -63,6 +64,21 @@ on crash/interrupt. Defaults to \code{FALSE}.}
 \item{linux_pdeathsig}{Logical. On Linux, whether to send \code{SIGKILL} to the
 child process if the parent R process dies. Has no effect on other
 platforms. Defaults to \code{FALSE}.}
+
+\item{activate}{Logical. Whether to resolve and apply \code{env_name}'s real
+\verb{micromamba run} activation (via \code{get_micromamba_activation_envvars()},
+including any package \code{activate.d} hook scripts) as an environment
+overlay before running \code{cmd}. Defaults to \code{TRUE}. Silently skipped
+(\code{cmd} still runs, unactivated) when \code{env_name} does not exist, so
+\code{error = "continue"}-style fallback to a binary outside any managed
+environment keeps working. Set to \code{FALSE} to restore the original,
+activation-free \code{run_bin()} behavior — \code{cmd} still resolves against
+\code{env_name}'s \verb{bin/} directory (falling back to \code{PATH}), but the child
+process otherwise inherits the caller's environment unmodified. This
+is the mechanism that makes \code{run_bin(activate = TRUE)} behave like
+\code{run()}, minus the different binary-resolution strategy: \code{run()}
+resolves \code{cmd} via the activated \code{PATH} inside a \verb{micromamba run}
+wrapper, while \code{run_bin()} always resolves \code{cmd} itself beforehand.}
 }
 \value{
 A \code{condathis_result} S3 object (a classed list, still usable as

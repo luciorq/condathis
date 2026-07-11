@@ -171,12 +171,13 @@ activation_ignore_pattern_vars <- function() {
 #' @keywords internal
 #' @noRd
 resolve_micromamba_activation_envvars <- function(env_name, env_dir) {
-  # Resolved before get_clean_conda_envvars() is applied below, since that
-  # sets R_HOME = "" and R.home() reads R_HOME at call time.
-  rscript_path <- fs::path(R.home("bin"), "Rscript")
-  if (identical(.Platform$OS.type, "windows")) {
-    rscript_path <- paste0(rscript_path, ".exe")
-  }
+  # Resolved from the package-load-time cache, not R.home() here: a caller
+  # further up the stack (e.g. run_bin(), run_pipeline()) may have already
+  # applied its own get_clean_conda_envvars() scope, which sets R_HOME = ""
+  # for the whole R session for the duration of that scope — corrupting any
+  # R.home() call made after that point, regardless of ordering local to
+  # this function. See condathis-package.R.
+  rscript_path <- get_condathis_rscript_path()
 
   tmp_dir_path <- withr::local_tempdir(pattern = "condathis-activation")
   withr::local_envvar(

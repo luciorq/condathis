@@ -515,3 +515,47 @@ test_that("Pipeline accepts overridden crash-safety parameters", {
   )
   testthat::expect_equal(res$statuses, c(0L, 0L))
 })
+
+test_that("Pipeline with activate = TRUE resolves real micromamba activation", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  create_env(verbose = "silent")
+  res <- run_pipeline(
+    cmds = list(
+      c("printenv", "CONDA_PREFIX"),
+      c("cat")
+    ),
+    env_name = "condathis-env",
+    activate = TRUE,
+    error = "continue"
+  )
+  testthat::expect_equal(res$statuses, c(0L, 0L))
+  testthat::expect_match(
+    trimws(res$processes[[2]]$stdout),
+    "condathis-env",
+    fixed = TRUE
+  )
+})
+
+test_that("Pipeline with activate = FALSE uses the hand-rolled activation", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  create_env(verbose = "silent")
+  res <- run_pipeline(
+    cmds = list(
+      c("printenv", "CONDA_PREFIX"),
+      c("cat")
+    ),
+    env_name = "condathis-env",
+    activate = FALSE,
+    error = "continue"
+  )
+  testthat::expect_equal(res$statuses, c(0L, 0L))
+  testthat::expect_match(
+    trimws(res$processes[[2]]$stdout),
+    "condathis-env",
+    fixed = TRUE
+  )
+})

@@ -117,19 +117,81 @@
       `activation_cache_stamp()` invalidation on `conda-meta` changes.
 - [x] Run `just lint` and `just test` — all 753 tests pass, 0 failures.
 
+## Wiring `get_micromamba_activation_envvars()` into `run_bin()` and `run_pipeline()`
+
+- [x] Add `activate = TRUE` argument to `run_bin()`. When `TRUE` (now the
+      default — see note below) and `env_name` exists, overlays
+      `get_micromamba_activation_envvars(env_name)` as
+      `env = c("current", <vars>)` on top of the existing PATH-prefix
+      behavior. Silently skipped (falls back to the pre-existing,
+      activation-free behavior) when `env_name` does not exist, so
+      `run_bin()`'s established "works with a binary outside any managed
+      environment" fallback still works unchanged. `cmd` resolution itself
+      is unchanged — `run_bin()` still resolves `cmd_path` explicitly
+      rather than relying on the activated `PATH`, unlike `run()`.
+- [x] Add `activate = TRUE` argument to `run_pipeline()` (single toggle
+      for the whole pipeline, not per-command). Replaces the per-process
+      `get_activation_envvars()` call with
+      `get_micromamba_activation_envvars(env_name_i)` when `TRUE`. Env
+      existence is already guaranteed by `precreate_envs()`/
+      `missing_envs` by the time this runs, so no extra existence check
+      needed there (unlike `run_bin()`).
+- [x] **Found and fixed a second instance of the `R_HOME` corruption bug**
+      (see the "known noise sources" note above — that was the same root
+      cause, first found in isolation). This time it was worse: `run_bin()`
+      and `run_pipeline()` *themselves* apply their own
+      `get_clean_conda_envvars()` scope (setting `R_HOME = ""`) *before*
+      calling `get_micromamba_activation_envvars()`, so the earlier fix
+      (resolve `R.home()` before that function's own clean-envvar scope)
+      didn't help — `R_HOME` was already corrupted by the caller. Confirmed
+      by reproduction: `run_bin(activate = TRUE)` failed with
+      `/bin/Rscript: No such file or directory`. Fixed properly this time:
+      added `.onLoad()` in `R/condathis-package.R` that resolves and caches
+      `R.home("bin")`-derived `Rscript` path once, at package load time —
+      before any condathis function has had a chance to touch `R_HOME` —
+      via `get_condathis_rscript_path()`. This sidesteps the ordering
+      problem entirely rather than requiring every caller in the chain to
+      resolve `R.home()` before its own `get_clean_conda_envvars()` call,
+      which does not compose when scopes nest.
+- [x] Validated `run_bin(activate = TRUE)` against `run()` directly, as
+      requested: same `CONDA_PREFIX`, same activated `PATH` (env's `bin/`
+      present) — confirmed identical for both `printenv CONDA_PREFIX` and
+      `printenv PATH`. `run_bin(activate = FALSE)` confirmed to preserve
+      the original no-activation behavior.
+- [x] Add test coverage: `run_bin(activate = TRUE)` vs `run()` equivalence
+      (`CONDA_PREFIX`, `PATH`), `run_bin(activate = FALSE)` no-activation
+      behavior, `run_bin(activate = TRUE)` graceful fallback for a missing
+      env, `run_pipeline(activate = TRUE/FALSE)`, and a regression test
+      pinning down the `R_HOME`-corruption-via-caller's-own-scope bug.
+- [x] Run `just lint` and `just test` — all 767 tests pass, 0 failures.
+
 ## Remaining / Optional
 
 Implementation is feature complete per PLAN.md, including the
-`run()`/`run_bin()`/`run_pipeline()` reconciliation above.
-`get_micromamba_activation_envvars()` exists as a standalone, tested
-building block but is intentionally **not wired into anything yet** — see
-its known limitation above before doing so.
+`run()`/`run_bin()`/`run_pipeline()` reconciliation and the
+`get_micromamba_activation_envvars()` wiring above. `run()` itself is not
+yet touched — see the user's explicit "before trying to modify `run()`"
+scoping for this round of work; consolidating `run()` with
+`run_bin(activate = TRUE)` (as sketched in PLAN.md) remains a candidate
+follow-up, not yet started.
+
+**Flagging a default-value decision, not just an implementation detail**:
+both new `activate` arguments default to `TRUE`, per explicit instruction.
+For `run_pipeline()` this is additive (it always activated *something*
+before; `TRUE` just makes that more accurate, at the cost of two extra
+subprocess spawns per unique `env_name` on first use, mitigated by
+caching). For `run_bin()`, though, this is a real change to a previously
+zero-activation-by-default, documented "lower-level, no activation"
+function — existing callers that relied on `run_bin()` running completely
+unactivated (e.g., to avoid inheriting `CONDA_PREFIX`/`PATH` overlay) will
+now get activation vars by default unless they pass `activate = FALSE`.
+No existing test broke (verified), but this is a behavior change worth the
+user's awareness, not merely an implementation footnote.
 
 See PLAN.md's "Known, intentional divergences from `run()` / `run_bin()`"
 section for the behavioral differences that remain deliberate design
-choices (not open TODOs): no `verbose` support on `run_pipeline()`, and
-`run_pipeline()` not going through `micromamba run` (so `activate.d` hook
-scripts aren't executed by default) — the environment-activation and
-process-topology differences are structural, not something a shared
-parameter can reconcile; `get_micromamba_activation_envvars()` is a step
-toward closing that gap, once its known limitation is resolved.
+choices (not open TODOs): no `verbose` support on `run_pipeline()`. The
+"environment activation mechanism differs" divergence noted there is now
+closed for `run_bin()`/`run_pipeline()` (both can do real `micromamba run`
+activation via `activate = TRUE`) — `run()` was intentionally left
+untouched this round.

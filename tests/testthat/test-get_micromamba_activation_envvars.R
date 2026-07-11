@@ -19,6 +19,31 @@ test_that("get_micromamba_activation_envvars() resolves real activation vars", {
   testthat::expect_match(envvars[["PATH"]], "condathis-env", fixed = TRUE)
 })
 
+test_that("get_micromamba_activation_envvars() works inside a caller's own clean-envvar scope", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  # Regression test: get_clean_conda_envvars() sets R_HOME = "" via
+  # withr::local_envvar(), which corrupts R.home() for the remainder of
+  # that scope. run_bin()/run_pipeline() apply that scope themselves
+  # *before* calling get_micromamba_activation_envvars(), so resolving
+  # Rscript's path via a live R.home() call inside this function (rather
+  # than the package-load-time cache in condathis-package.R) fails here
+  # with "/bin/Rscript: No such file or directory" even though it works
+  # fine when get_micromamba_activation_envvars() is called directly.
+  create_env(verbose = "silent")
+  reset_micromamba_activation_cache("condathis-env")
+
+  tmp_dir_path <- withr::local_tempdir()
+  withr::local_envvar(.new = get_clean_conda_envvars(tmp_dir = tmp_dir_path))
+
+  envvars <- get_micromamba_activation_envvars(
+    "condathis-env",
+    use_cache = FALSE
+  )
+  testthat::expect_true("CONDA_PREFIX" %in% names(envvars))
+})
+
 test_that("get_micromamba_activation_envvars() drops known noise variables", {
   testthat::skip_on_cran()
   testthat::skip_if_offline()

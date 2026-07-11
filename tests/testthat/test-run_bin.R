@@ -132,3 +132,94 @@ test_that("run_bin() accepts crash-safety parameters", {
   )
   testthat::expect_equal(res$status, 0L)
 })
+
+test_that("run_bin(activate = TRUE) resolves the same CONDA_PREFIX as run()", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  create_env(verbose = "silent")
+
+  res_run <- run(
+    "printenv",
+    "CONDA_PREFIX",
+    env_name = "condathis-env",
+    verbose = "silent",
+    error = "continue"
+  )
+  res_bin <- run_bin(
+    "printenv",
+    "CONDA_PREFIX",
+    env_name = "condathis-env",
+    activate = TRUE,
+    verbose = "silent",
+    error = "continue"
+  )
+
+  testthat::expect_equal(res_run$status, 0L)
+  testthat::expect_equal(res_bin$status, 0L)
+  testthat::expect_equal(trimws(res_bin$stdout), trimws(res_run$stdout))
+  testthat::expect_match(
+    trimws(res_bin$stdout),
+    "condathis-env",
+    fixed = TRUE
+  )
+})
+
+test_that("run_bin(activate = TRUE) sets an activated PATH like run()", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  create_env(verbose = "silent")
+  env_bin_dir <- fs::path(get_env_dir("condathis-env"), "bin")
+
+  res_run <- run(
+    "printenv",
+    "PATH",
+    env_name = "condathis-env",
+    verbose = "silent",
+    error = "continue"
+  )
+  res_bin <- run_bin(
+    "printenv",
+    "PATH",
+    env_name = "condathis-env",
+    activate = TRUE,
+    verbose = "silent",
+    error = "continue"
+  )
+
+  testthat::expect_match(res_run$stdout, env_bin_dir, fixed = TRUE)
+  testthat::expect_match(res_bin$stdout, env_bin_dir, fixed = TRUE)
+})
+
+test_that("run_bin(activate = FALSE) does not set CONDA_PREFIX", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  create_env(verbose = "silent")
+  res <- run_bin(
+    "printenv",
+    "CONDA_PREFIX",
+    env_name = "condathis-env",
+    activate = FALSE,
+    verbose = "silent",
+    error = "continue"
+  )
+  testthat::expect_true(res$status != 0L || !nzchar(trimws(res$stdout)))
+})
+
+test_that("run_bin(activate = TRUE) falls back gracefully for a missing env", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  res <- run_bin(
+    "Rfakeexec",
+    "--version",
+    env_name = "fake-env-does-not-exist",
+    activate = TRUE,
+    verbose = "silent",
+    error = "continue"
+  )
+  testthat::expect_true(is.numeric(res$status))
+  testthat::expect_true(res$status != 0L)
+})

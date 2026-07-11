@@ -49,6 +49,15 @@
 #' @param linux_pdeathsig Logical. On Linux, whether to send `SIGKILL` to
 #'   each child process if the parent R process dies. Has no effect on
 #'   other platforms. Defaults to `FALSE`.
+#' @param activate Logical. Whether to resolve each command's environment
+#'   via `get_micromamba_activation_envvars()` — a real `micromamba run`
+#'   activation (including package `activate.d` hook scripts), cached per
+#'   `env_name`. Defaults to `TRUE`. Set to `FALSE` to use the original,
+#'   faster hand-rolled activation (`get_activation_envvars()`: a fixed set
+#'   of `CONDA_*`/`MAMBA_*` variables, no `activate.d` execution). The
+#'   first pipeline call touching a given `env_name` with `activate = TRUE`
+#'   pays for two extra subprocess spawns to resolve it; repeat calls for
+#'   the same, unchanged environment hit the cache.
 #'
 #' @returns A `condathis_pipeline` S3 object with per-process results:
 #'   \item{statuses}{Integer vector of exit statuses, one per command.}
@@ -106,7 +115,8 @@ run_pipeline <- function(
   env_name = "condathis-env",
   supervise = TRUE,
   cleanup_tree = TRUE,
-  linux_pdeathsig = FALSE
+  linux_pdeathsig = FALSE,
+  activate = TRUE
 ) {
   error <- rlang::arg_match(error)
   error_var <- isTRUE(identical(error, "cancel"))
@@ -170,11 +180,15 @@ run_pipeline <- function(
 
     env_dir <- get_env_dir(env_name = env_name_i)
 
-    activation_envvars <- get_activation_envvars(
-      env_name = env_name_i,
-      env_dir = env_dir,
-      tmp_dir = tmp_dir_path
-    )
+    activation_envvars <- if (isTRUE(activate)) {
+      get_micromamba_activation_envvars(env_name = env_name_i)
+    } else {
+      get_activation_envvars(
+        env_name = env_name_i,
+        env_dir = env_dir,
+        tmp_dir = tmp_dir_path
+      )
+    }
 
     stdout_i <- if (i == n_cmds) {
       parsed[[i]]$stdout %||% stdout
