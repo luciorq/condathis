@@ -80,29 +80,37 @@ test_that("run_bin() returns a condathis_result object", {
   testthat::skip_on_cran()
   testthat::skip_if_offline()
 
-  create_env(verbose = "silent")
+  create_env(
+    test_os_pkg("coreutils"),
+    env_name = "run-bin-cli-tools-env",
+    verbose = "silent"
+  )
   res <- run_bin(
     "echo",
     "hello",
-    env_name = "condathis-env",
+    env_name = "run-bin-cli-tools-env",
     verbose = "silent"
   )
   testthat::expect_s3_class(res, "condathis_result")
   testthat::expect_equal(res$status, 0L)
   testthat::expect_true(is.numeric(res$pid))
-  testthat::expect_equal(res$env_name, "condathis-env")
+  testthat::expect_equal(res$env_name, "run-bin-cli-tools-env")
 })
 
 test_that("run_bin() supports stdin = '|' with input", {
   testthat::skip_on_cran()
   testthat::skip_if_offline()
 
-  create_env(verbose = "silent")
+  create_env(
+    test_os_pkg("coreutils"),
+    env_name = "run-bin-cli-tools-env",
+    verbose = "silent"
+  )
   res <- run_bin(
     "sort",
     stdin = "|",
     input = "b\na\nc\n",
-    env_name = "condathis-env",
+    env_name = "run-bin-cli-tools-env",
     verbose = "silent"
   )
   sorted <- strsplit(trimws(res$stdout), "\n")[[1]]
@@ -120,14 +128,18 @@ test_that("run_bin() accepts crash-safety parameters", {
   testthat::skip_on_cran()
   testthat::skip_if_offline()
 
-  create_env(verbose = "silent")
+  create_env(
+    test_os_pkg("coreutils"),
+    env_name = "run-bin-cli-tools-env",
+    verbose = "silent"
+  )
   res <- run_bin(
     "echo",
     "hi",
     supervise = TRUE,
     cleanup_tree = TRUE,
     linux_pdeathsig = TRUE,
-    env_name = "condathis-env",
+    env_name = "run-bin-cli-tools-env",
     verbose = "silent"
   )
   testthat::expect_equal(res$status, 0L)
@@ -137,19 +149,23 @@ test_that("run_bin(activate = TRUE) resolves the same CONDA_PREFIX as run()", {
   testthat::skip_on_cran()
   testthat::skip_if_offline()
 
-  create_env(verbose = "silent")
+  create_env(
+    test_os_pkg("coreutils"),
+    env_name = "run-bin-cli-tools-env",
+    verbose = "silent"
+  )
 
   res_run <- run(
     "printenv",
     "CONDA_PREFIX",
-    env_name = "condathis-env",
+    env_name = "run-bin-cli-tools-env",
     verbose = "silent",
     error = "continue"
   )
   res_bin <- run_bin(
     "printenv",
     "CONDA_PREFIX",
-    env_name = "condathis-env",
+    env_name = "run-bin-cli-tools-env",
     activate = TRUE,
     verbose = "silent",
     error = "continue"
@@ -160,7 +176,7 @@ test_that("run_bin(activate = TRUE) resolves the same CONDA_PREFIX as run()", {
   testthat::expect_equal(trimws(res_bin$stdout), trimws(res_run$stdout))
   testthat::expect_match(
     trimws(res_bin$stdout),
-    "condathis-env",
+    "run-bin-cli-tools-env",
     fixed = TRUE
   )
 })
@@ -169,20 +185,24 @@ test_that("run_bin(activate = TRUE) sets an activated PATH like run()", {
   testthat::skip_on_cran()
   testthat::skip_if_offline()
 
-  create_env(verbose = "silent")
-  env_bin_dir <- fs::path(get_env_dir("condathis-env"), "bin")
+  create_env(
+    test_os_pkg("coreutils"),
+    env_name = "run-bin-cli-tools-env",
+    verbose = "silent"
+  )
+  env_bin_dir <- fs::path(get_env_dir("run-bin-cli-tools-env"), "bin")
 
   res_run <- run(
     "printenv",
     "PATH",
-    env_name = "condathis-env",
+    env_name = "run-bin-cli-tools-env",
     verbose = "silent",
     error = "continue"
   )
   res_bin <- run_bin(
     "printenv",
     "PATH",
-    env_name = "condathis-env",
+    env_name = "run-bin-cli-tools-env",
     activate = TRUE,
     verbose = "silent",
     error = "continue"
@@ -196,11 +216,15 @@ test_that("run_bin(activate = FALSE) does not set CONDA_PREFIX", {
   testthat::skip_on_cran()
   testthat::skip_if_offline()
 
-  create_env(verbose = "silent")
+  create_env(
+    test_os_pkg("coreutils"),
+    env_name = "run-bin-cli-tools-env",
+    verbose = "silent"
+  )
   res <- run_bin(
     "printenv",
     "CONDA_PREFIX",
-    env_name = "condathis-env",
+    env_name = "run-bin-cli-tools-env",
     activate = FALSE,
     verbose = "silent",
     error = "continue"

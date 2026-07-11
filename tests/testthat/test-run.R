@@ -71,14 +71,23 @@ test_that("Run returns a condathis_result object", {
   testthat::skip_on_cran()
   testthat::skip_if_offline()
 
-  create_env(verbose = "silent")
-  res <- run("echo", "hello", env_name = "condathis-env", verbose = "silent")
+  create_env(
+    test_os_pkg("coreutils"),
+    env_name = "run-cli-tools-env",
+    verbose = "silent"
+  )
+  res <- run(
+    "echo",
+    "hello",
+    env_name = "run-cli-tools-env",
+    verbose = "silent"
+  )
   testthat::expect_s3_class(res, "condathis_result")
   testthat::expect_equal(res$status, 0L)
   testthat::expect_match(res$stdout, "hello")
   testthat::expect_true(is.numeric(res$pid))
   testthat::expect_match(res$cmd, "echo")
-  testthat::expect_equal(res$env_name, "condathis-env")
+  testthat::expect_equal(res$env_name, "run-cli-tools-env")
 
   formatted <- format(res)
   testthat::expect_type(formatted, "character")
@@ -89,12 +98,16 @@ test_that("Run supports stdin = '|' with input", {
   testthat::skip_on_cran()
   testthat::skip_if_offline()
 
-  create_env(verbose = "silent")
+  create_env(
+    test_os_pkg("coreutils"),
+    env_name = "run-cli-tools-env",
+    verbose = "silent"
+  )
   res <- run(
     "sort",
     stdin = "|",
     input = "b\na\nc\na\nb\n",
-    env_name = "condathis-env",
+    env_name = "run-cli-tools-env",
     verbose = "silent"
   )
   testthat::expect_s3_class(res, "condathis_result")
@@ -113,13 +126,18 @@ test_that("Run with stdin = '|' respects error = cancel/continue", {
   testthat::skip_on_cran()
   testthat::skip_if_offline()
 
-  create_env(verbose = "silent")
+  create_env(
+    c(test_os_pkg("coreutils"), test_os_pkg("bash")),
+    env_name = "run-cli-tools-env",
+    verbose = "silent"
+  )
   res <- run(
-    "sh",
+    "bash",
     "-c",
     "cat; exit 1",
     stdin = "|",
     input = "boom\n",
+    env_name = "run-cli-tools-env",
     error = "continue",
     verbose = "silent"
   )
@@ -128,11 +146,12 @@ test_that("Run with stdin = '|' respects error = cancel/continue", {
 
   testthat::expect_error(
     object = run(
-      "sh",
+      "bash",
       "-c",
       "cat >&2; exit 1",
       stdin = "|",
       input = "boom\n",
+      env_name = "run-cli-tools-env",
       error = "cancel",
       verbose = "silent"
     ),
@@ -144,14 +163,18 @@ test_that("Run accepts crash-safety parameters", {
   testthat::skip_on_cran()
   testthat::skip_if_offline()
 
-  create_env(verbose = "silent")
+  create_env(
+    test_os_pkg("coreutils"),
+    env_name = "run-cli-tools-env",
+    verbose = "silent"
+  )
   res <- run(
     "echo",
     "hi",
     supervise = TRUE,
     cleanup_tree = TRUE,
     linux_pdeathsig = TRUE,
-    env_name = "condathis-env",
+    env_name = "run-cli-tools-env",
     verbose = "silent"
   )
   testthat::expect_equal(res$status, 0L)

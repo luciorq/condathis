@@ -30,6 +30,8 @@ get_env_history_channels <- function(env_name) {
     pkg_lines,
     "^[+-]https?://[^/]+/(.+)/[^/]+::"
   )
-  channels <- unique(stats::na.omit(channel_matches[, 2]))
+
+  channels_vec <- channel_matches[, 2]
+  channels <- unique(channels_vec[!is.na(channels_vec)])
   return(as.character(channels))
 }

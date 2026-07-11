@@ -1,3 +1,7 @@
+pipeline_cli_pkgs <- function() {
+  c(test_os_pkg("coreutils"), test_os_pkg("bash"), test_os_pkg("util-linux"))
+}
+
 test_that("Pipeline rejects non-list cmds", {
   testthat::expect_error(
     object = run_pipeline(c("echo", "hello")),
@@ -50,13 +54,17 @@ test_that("Pipeline runs two commands in same environment", {
   testthat::skip_on_cran()
   testthat::skip_if_offline()
 
-  create_env(verbose = "silent")
+  create_env(
+    pipeline_cli_pkgs(),
+    env_name = "run-pipeline-cli-tools-env",
+    verbose = "silent"
+  )
   res <- run_pipeline(
     cmds = list(
       c("echo", "hello world"),
       c("tr", "[:lower:]", "[:upper:]")
     ),
-    env_name = "condathis-env",
+    env_name = "run-pipeline-cli-tools-env",
     error = "continue"
   )
   testthat::expect_s3_class(res, "condathis_pipeline")
@@ -72,13 +80,17 @@ test_that("Pipeline returns per-process stderr", {
   testthat::skip_on_cran()
   testthat::skip_if_offline()
 
-  create_env(verbose = "silent")
+  create_env(
+    pipeline_cli_pkgs(),
+    env_name = "run-pipeline-cli-tools-env",
+    verbose = "silent"
+  )
   res <- run_pipeline(
     cmds = list(
       c("echo", "hello"),
       c("cat")
     ),
-    env_name = "condathis-env",
+    env_name = "run-pipeline-cli-tools-env",
     error = "continue"
   )
   testthat::expect_type(res$processes[[1]]$stderr, "character")
@@ -89,7 +101,11 @@ test_that("Pipeline with error = cancel throws on failure", {
   testthat::skip_on_cran()
   testthat::skip_if_offline()
 
-  create_env(verbose = "silent")
+  create_env(
+    pipeline_cli_pkgs(),
+    env_name = "run-pipeline-cli-tools-env",
+    verbose = "silent"
+  )
   testthat::expect_error(
     object = {
       run_pipeline(
@@ -97,7 +113,7 @@ test_that("Pipeline with error = cancel throws on failure", {
           c("false"),
           c("echo", "never reached")
         ),
-        env_name = "condathis-env",
+        env_name = "run-pipeline-cli-tools-env",
         error = "cancel"
       )
     },
@@ -109,13 +125,17 @@ test_that("Pipeline with error = continue does not throw on failure", {
   testthat::skip_on_cran()
   testthat::skip_if_offline()
 
-  create_env(verbose = "silent")
+  create_env(
+    pipeline_cli_pkgs(),
+    env_name = "run-pipeline-cli-tools-env",
+    verbose = "silent"
+  )
   res <- run_pipeline(
     cmds = list(
       c("false"),
       c("echo", "still runs")
     ),
-    env_name = "condathis-env",
+    env_name = "run-pipeline-cli-tools-env",
     error = "continue"
   )
   testthat::expect_s3_class(res, "condathis_pipeline")
@@ -126,13 +146,17 @@ test_that("Pipeline with missing command and error = continue returns a result",
   testthat::skip_on_cran()
   testthat::skip_if_offline()
 
-  create_env(verbose = "silent")
+  create_env(
+    pipeline_cli_pkgs(),
+    env_name = "run-pipeline-cli-tools-env",
+    verbose = "silent"
+  )
   res <- run_pipeline(
     cmds = list(
       c("this-cmd-does-not-exist-xyz"),
       c("cat")
     ),
-    env_name = "condathis-env",
+    env_name = "run-pipeline-cli-tools-env",
     error = "continue"
   )
   testthat::expect_s3_class(res, "condathis_pipeline")
@@ -148,14 +172,18 @@ test_that("Pipeline with missing command and error = cancel throws a condathis e
   testthat::skip_on_cran()
   testthat::skip_if_offline()
 
-  create_env(verbose = "silent")
+  create_env(
+    pipeline_cli_pkgs(),
+    env_name = "run-pipeline-cli-tools-env",
+    verbose = "silent"
+  )
   cnd <- testthat::expect_error(
     object = run_pipeline(
       cmds = list(
         c("this-cmd-does-not-exist-xyz"),
         c("cat")
       ),
-      env_name = "condathis-env",
+      env_name = "run-pipeline-cli-tools-env",
       error = "cancel"
     ),
     class = "condathis_pipeline_status_error"
@@ -167,14 +195,18 @@ test_that("Pipeline error message escapes curly braces in stderr", {
   testthat::skip_on_cran()
   testthat::skip_if_offline()
 
-  create_env(verbose = "silent")
+  create_env(
+    pipeline_cli_pkgs(),
+    env_name = "run-pipeline-cli-tools-env",
+    verbose = "silent"
+  )
   cnd <- testthat::expect_error(
     object = run_pipeline(
       cmds = list(
-        c("sh", "-c", "echo 'boom {curly} }brace{' >&2; exit 1"),
+        c("bash", "-c", "echo 'boom {curly} }brace{' >&2; exit 1"),
         c("cat")
       ),
-      env_name = "condathis-env",
+      env_name = "run-pipeline-cli-tools-env",
       error = "cancel"
     ),
     class = "condathis_pipeline_status_error"
@@ -224,7 +256,11 @@ test_that("Pipeline with stdin file", {
   testthat::skip_on_cran()
   testthat::skip_if_offline()
 
-  create_env(verbose = "silent")
+  create_env(
+    pipeline_cli_pkgs(),
+    env_name = "run-pipeline-cli-tools-env",
+    verbose = "silent"
+  )
   tmpfile <- withr::local_tempfile(lines = c("b", "a", "c", "a", "b"))
   res <- run_pipeline(
     cmds = list(
@@ -232,7 +268,7 @@ test_that("Pipeline with stdin file", {
       c("uniq")
     ),
     stdin = tmpfile,
-    env_name = "condathis-env",
+    env_name = "run-pipeline-cli-tools-env",
     error = "continue"
   )
   testthat::expect_s3_class(res, "condathis_pipeline")
@@ -282,13 +318,17 @@ test_that("Pipeline intermediate processes report NA stdout", {
   testthat::skip_on_cran()
   testthat::skip_if_offline()
 
-  create_env(verbose = "silent")
+  create_env(
+    pipeline_cli_pkgs(),
+    env_name = "run-pipeline-cli-tools-env",
+    verbose = "silent"
+  )
   res <- run_pipeline(
     cmds = list(
       c("echo", "hello"),
       c("cat")
     ),
-    env_name = "condathis-env",
+    env_name = "run-pipeline-cli-tools-env",
     error = "continue"
   )
   testthat::expect_true(is.na(res$processes[[1]]$stdout))
@@ -299,14 +339,18 @@ test_that("Pipeline supports three chained commands", {
   testthat::skip_on_cran()
   testthat::skip_if_offline()
 
-  create_env(verbose = "silent")
+  create_env(
+    pipeline_cli_pkgs(),
+    env_name = "run-pipeline-cli-tools-env",
+    verbose = "silent"
+  )
   res <- run_pipeline(
     cmds = list(
       c("echo", "hello world"),
       c("tr", "[:lower:]", "[:upper:]"),
       c("rev")
     ),
-    env_name = "condathis-env",
+    env_name = "run-pipeline-cli-tools-env",
     error = "continue"
   )
   testthat::expect_length(res$statuses, 3L)
@@ -319,11 +363,18 @@ test_that("Pipeline accepts fully named list specs", {
   testthat::skip_on_cran()
   testthat::skip_if_offline()
 
-  create_env(verbose = "silent")
+  create_env(
+    pipeline_cli_pkgs(),
+    env_name = "run-pipeline-cli-tools-env",
+    verbose = "silent"
+  )
   res <- run_pipeline(
     cmds = list(
-      list(cmd = c("echo", "named spec"), env_name = "condathis-env"),
-      list(cmd = c("cat"), env_name = "condathis-env")
+      list(
+        cmd = c("echo", "named spec"),
+        env_name = "run-pipeline-cli-tools-env"
+      ),
+      list(cmd = c("cat"), env_name = "run-pipeline-cli-tools-env")
     ),
     error = "continue"
   )
@@ -335,13 +386,17 @@ test_that("Pipeline reports a positive integer pid per process", {
   testthat::skip_on_cran()
   testthat::skip_if_offline()
 
-  create_env(verbose = "silent")
+  create_env(
+    pipeline_cli_pkgs(),
+    env_name = "run-pipeline-cli-tools-env",
+    verbose = "silent"
+  )
   res <- run_pipeline(
     cmds = list(
       c("echo", "hello"),
       c("cat")
     ),
-    env_name = "condathis-env",
+    env_name = "run-pipeline-cli-tools-env",
     error = "continue"
   )
   for (p in res$processes) {
@@ -354,13 +409,17 @@ test_that("Pipeline result has a logical timeout field", {
   testthat::skip_on_cran()
   testthat::skip_if_offline()
 
-  create_env(verbose = "silent")
+  create_env(
+    pipeline_cli_pkgs(),
+    env_name = "run-pipeline-cli-tools-env",
+    verbose = "silent"
+  )
   res <- run_pipeline(
     cmds = list(
       c("echo", "hello"),
       c("cat")
     ),
-    env_name = "condathis-env",
+    env_name = "run-pipeline-cli-tools-env",
     error = "continue"
   )
   testthat::expect_type(res$timeout, "logical")
@@ -371,7 +430,11 @@ test_that("Pipeline stdin = '|' writes input to the first process", {
   testthat::skip_on_cran()
   testthat::skip_if_offline()
 
-  create_env(verbose = "silent")
+  create_env(
+    pipeline_cli_pkgs(),
+    env_name = "run-pipeline-cli-tools-env",
+    verbose = "silent"
+  )
   res <- run_pipeline(
     cmds = list(
       c("sort"),
@@ -379,7 +442,7 @@ test_that("Pipeline stdin = '|' writes input to the first process", {
     ),
     stdin = "|",
     input = "b\na\nc\na\nb\n",
-    env_name = "condathis-env",
+    env_name = "run-pipeline-cli-tools-env",
     error = "continue"
   )
   last_stdout <- res$processes[[2]]$stdout
@@ -391,14 +454,18 @@ test_that("Pipeline stdin = '|' with no input closes cleanly", {
   testthat::skip_on_cran()
   testthat::skip_if_offline()
 
-  create_env(verbose = "silent")
+  create_env(
+    pipeline_cli_pkgs(),
+    env_name = "run-pipeline-cli-tools-env",
+    verbose = "silent"
+  )
   res <- run_pipeline(
     cmds = list(
       c("cat"),
       c("cat")
     ),
     stdin = "|",
-    env_name = "condathis-env",
+    env_name = "run-pipeline-cli-tools-env",
     error = "continue"
   )
   testthat::expect_equal(res$statuses, c(0L, 0L))
@@ -409,14 +476,18 @@ test_that("Pipeline supports per-command stderr override to a file", {
   testthat::skip_on_cran()
   testthat::skip_if_offline()
 
-  create_env(verbose = "silent")
+  create_env(
+    pipeline_cli_pkgs(),
+    env_name = "run-pipeline-cli-tools-env",
+    verbose = "silent"
+  )
   errfile <- withr::local_tempfile()
   res <- run_pipeline(
     cmds = list(
-      list(cmd = c("sh", "-c", "echo to-file-err >&2"), stderr = errfile),
+      list(cmd = c("bash", "-c", "echo to-file-err >&2"), stderr = errfile),
       c("cat")
     ),
-    env_name = "condathis-env",
+    env_name = "run-pipeline-cli-tools-env",
     error = "continue"
   )
   testthat::expect_equal(res$processes[[1]]$stderr, "")
@@ -427,14 +498,18 @@ test_that("Pipeline supports per-command stdout override on the last command", {
   testthat::skip_on_cran()
   testthat::skip_if_offline()
 
-  create_env(verbose = "silent")
+  create_env(
+    pipeline_cli_pkgs(),
+    env_name = "run-pipeline-cli-tools-env",
+    verbose = "silent"
+  )
   outfile <- withr::local_tempfile()
   res <- run_pipeline(
     cmds = list(
       c("echo", "to a file"),
       list(cmd = c("cat"), stdout = outfile)
     ),
-    env_name = "condathis-env",
+    env_name = "run-pipeline-cli-tools-env",
     error = "continue"
   )
   testthat::expect_true(is.na(res$processes[[2]]$stdout))
@@ -483,13 +558,17 @@ test_that("Pipeline format and print methods work", {
   testthat::skip_on_cran()
   testthat::skip_if_offline()
 
-  create_env(verbose = "silent")
+  create_env(
+    pipeline_cli_pkgs(),
+    env_name = "run-pipeline-cli-tools-env",
+    verbose = "silent"
+  )
   res <- run_pipeline(
     cmds = list(
       c("echo", "test"),
       c("cat")
     ),
-    env_name = "condathis-env",
+    env_name = "run-pipeline-cli-tools-env",
     error = "continue"
   )
   formatted <- format(res)
@@ -501,13 +580,17 @@ test_that("Pipeline accepts overridden crash-safety parameters", {
   testthat::skip_on_cran()
   testthat::skip_if_offline()
 
-  create_env(verbose = "silent")
+  create_env(
+    pipeline_cli_pkgs(),
+    env_name = "run-pipeline-cli-tools-env",
+    verbose = "silent"
+  )
   res <- run_pipeline(
     cmds = list(
       c("echo", "hi"),
       c("cat")
     ),
-    env_name = "condathis-env",
+    env_name = "run-pipeline-cli-tools-env",
     supervise = FALSE,
     cleanup_tree = FALSE,
     linux_pdeathsig = TRUE,
@@ -520,20 +603,24 @@ test_that("Pipeline with activate = TRUE resolves real micromamba activation", {
   testthat::skip_on_cran()
   testthat::skip_if_offline()
 
-  create_env(verbose = "silent")
+  create_env(
+    pipeline_cli_pkgs(),
+    env_name = "run-pipeline-cli-tools-env",
+    verbose = "silent"
+  )
   res <- run_pipeline(
     cmds = list(
       c("printenv", "CONDA_PREFIX"),
       c("cat")
     ),
-    env_name = "condathis-env",
+    env_name = "run-pipeline-cli-tools-env",
     activate = TRUE,
     error = "continue"
   )
   testthat::expect_equal(res$statuses, c(0L, 0L))
   testthat::expect_match(
     trimws(res$processes[[2]]$stdout),
-    "condathis-env",
+    "run-pipeline-cli-tools-env",
     fixed = TRUE
   )
 })
@@ -542,20 +629,24 @@ test_that("Pipeline with activate = FALSE uses the hand-rolled activation", {
   testthat::skip_on_cran()
   testthat::skip_if_offline()
 
-  create_env(verbose = "silent")
+  create_env(
+    pipeline_cli_pkgs(),
+    env_name = "run-pipeline-cli-tools-env",
+    verbose = "silent"
+  )
   res <- run_pipeline(
     cmds = list(
       c("printenv", "CONDA_PREFIX"),
       c("cat")
     ),
-    env_name = "condathis-env",
+    env_name = "run-pipeline-cli-tools-env",
     activate = FALSE,
     error = "continue"
   )
   testthat::expect_equal(res$statuses, c(0L, 0L))
   testthat::expect_match(
     trimws(res$processes[[2]]$stdout),
-    "condathis-env",
+    "run-pipeline-cli-tools-env",
     fixed = TRUE
   )
 })
