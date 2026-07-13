@@ -29,6 +29,7 @@ lint:
   R -q -s -e 'devtools::load_all(quiet=TRUE);withr::with_options(list(styler.quiet=TRUE),code={styler::style_pkg(exclude_dirs=c("packrat","renv","revdep"))});';
   air format ./R/ || true;
   air format ./tests/ || true;
+  (jarl check . --select ALL || jarl check . --select ALL --statistics) || true;
   # TODO: @luciorq: This is not capturing lines where `@return` has a line break just after it it.
   find ./R/ -type f -name "*.R" -exec sed -i -e "s|^#' \@return |#' \@returns |g" {} +
   find ./R/ -type f -name "*.R" -exec sed -i -e "s|^#' \@return$|#' \@returns|g" {} +
