@@ -290,3 +290,53 @@ parameter gaps, so they are not planned to be reconciled:
 pipes) with different constraints than `run()`'s single `micromamba run`
 invocation; the `verbose` divergence above follows directly from that, not
 from an unaddressed parity gap.
+
+## Additional work landed on this branch (unrelated to the pipeline feature)
+
+Not part of the pipeline design above — recorded here only because both
+shipped on `feat-pipeline` as separate follow-up requests, see TODO.md for
+the checklist.
+
+### `install_packages()` channel-mismatch warning
+
+`create_env()` and `install_packages()` both accept independent `channels`/
+`additional_channels` arguments and always pass `--override-channels`, so
+nothing previously connected the channels an environment was originally
+built with to the channels used in a later `install_packages()` call —
+e.g. `create_env("python", channels = "conda-forge")` followed by
+`install_packages("fastqc", channels = "bioconda")` silently drops
+`conda-forge` for that install.
+
+Rather than tracking channels in a condathis-side cache (which would drift
+from reality if the environment were modified outside condathis), the
+channels an environment actually used are recovered from micromamba's own
+record: `<env>/conda-meta/history` lists every install transaction as
+`+<channel-url>::<pkg>-<version>-<build>` lines. `get_env_history_channels()`
+(`R/get_env_history_channels.R`) extracts the channel segment from those
+URLs via `stringr::str_match()`, returning `character(0)` when the file
+doesn't exist yet (a freshly created, empty environment has none).
+`install_packages()` compares that against the current call's
+`channels`/`additional_channels` with `setdiff()` and warns
+(`condathis_install_missing_previous_channels`) when something would be
+dropped — install still proceeds, since dropping a channel isn't
+necessarily wrong, just worth surfacing.
+
+### Test-suite Windows portability
+
+Several tests called bare system binaries (`echo`, `cat`, `sort`, `sh`,
+`ls`, `printenv`, `tr`, `uniq`, `rev`, `false`) against conda environments
+that never installed them, so they only worked by relying on the host's
+`PATH` — true on Unix, and on GitHub's `windows-latest` runner only because
+Git for Windows happens to be preinstalled and on `PATH`. A plain Windows
+machine without Git Bash would fail. This mirrors the design already used
+for the mixed-environment pipeline test (`conda-forge::grep`/`sed` on Unix,
+`m2-grep`/`m2-sed` on Windows) — extended to every other bare command in
+the suite via a new `tests/testthat/helper-cli-tools.R` (`test_os_pkg()`)
+and per-file dedicated environments installing `coreutils`/`bash`
+(`util-linux` additionally, for `rev`). `sh` calls were changed to
+`bash -c`, since neither `coreutils` nor `bash` installs a standalone `sh`
+binary. The shared `"condathis-env"` base environment was deliberately
+left untouched (not given these packages) since `test-create_base_env.R`
+deletes and recreates it empty elsewhere in the suite, and tests run across
+parallel worker processes — mutating a widely shared env name risked
+flakiness for no benefit; dedicated per-file env names were used instead.

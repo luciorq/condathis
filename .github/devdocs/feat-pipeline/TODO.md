@@ -195,3 +195,33 @@ choices (not open TODOs): no `verbose` support on `run_pipeline()`. The
 closed for `run_bin()`/`run_pipeline()` (both can do real `micromamba run`
 activation via `activate = TRUE`) — `run()` was intentionally left
 untouched this round.
+
+## Additional work landed on this branch (unrelated to the pipeline feature)
+
+Two follow-up requests were done on `feat-pipeline` while it was the active
+branch. Neither touches pipeline code; noted here since they shipped as
+part of the same branch/PR.
+
+- [x] `install_packages()` channel-mismatch warning: new
+      `R/get_env_history_channels.R` (`@noRd`) parses `conda-meta/history`
+      to recover the channels packages already in an environment actually
+      came from; `install_packages()` warns
+      (`condathis_install_missing_previous_channels`) when the current
+      call's `channels`/`additional_channels` would drop one of those.
+      Install still proceeds — warning only. Tests:
+      `test-get_env_history_channels.R` (parser, no network),
+      `test-install_packages.R` (real env, network).
+- [x] Test-suite Windows portability: `test-run.R`, `test-run_bin.R`,
+      `test-run_output_file.R`, and `test-run_pipeline.R` previously called
+      bare `echo`/`cat`/`sort`/`sh`/`ls`/`printenv`/`tr`/`uniq`/`rev`/`false`
+      against environments that never installed them, relying on the host's
+      system `PATH` — not guaranteed on Windows without Git Bash. Added
+      `tests/testthat/helper-cli-tools.R` (`test_os_pkg()`, resolving to
+      `m2-*` conda-forge packages on Windows) and dedicated per-file test
+      environments that install `coreutils`/`bash`/`util-linux` for real;
+      `sh` calls switched to `bash -c` (neither `coreutils` nor `bash`
+      installs a standalone `sh`). Left untouched: argument-validation tests
+      that never spawn a process, the "auto-creates the default
+      environment" test (whose point is the empty auto-created env, not
+      command output), and `run("R", ...)` calls (R is inherently on `PATH`
+      since it's the test runner). Full suite: 773 passed, 0 failed.

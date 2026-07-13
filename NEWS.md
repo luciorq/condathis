@@ -36,6 +36,14 @@ Development Changelog: [0.1.5](https://github.com/luciorq/condathis/compare/v0.1
   and `linux_pdeathsig` (new) are now overridable arguments instead of
   hardcoded, for full parity with `run()`/`run_bin()`.
 
+* `install_packages()` now warns when the target environment was previously
+  installed using a channel that is not included in the current call (e.g.
+  creating an environment with `channels = "conda-forge"` and later calling
+  `install_packages()` with `channels = "bioconda"` only). The channel used
+  is recorded per package in the environment's `conda-meta/history` file;
+  dropping a previously-used channel can change how dependencies resolve.
+  The install still proceeds — this is a warning, not an error.
+
 ### Fixed
 
 * Fix `run_pipeline()` checking that Conda environments exist before
