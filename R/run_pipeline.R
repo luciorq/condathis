@@ -3,7 +3,7 @@
 #' @description
 #' Executes a sequence of commands where each command's standard output is
 #' piped as standard input to the next command (like a Unix shell pipeline).
-#' Data flows directly between child processes via kernel-level pipes — the
+#' Data flows directly between child processes via kernel-level pipes, the
 #' parent R process only sees the output of the final command.
 #'
 #' Each command in the pipeline can run in a **different** Conda environment.
@@ -11,12 +11,12 @@
 #'
 #' @param cmds A list of command specifications. Each element is either:
 #'   \itemize{
-#'     \item A character vector: `c("cmd", "arg1", ...)` — runs in the
+#'     \item A character vector: `c("cmd", "arg1", ...)`. Runs in the
 #'       default `env_name`.
 #'     \item A named list with `cmd` (character vector) and, optionally,
 #'       `env_name` (character string) to specify a per-command environment,
 #'       `stderr` to override the top-level `stderr` target for this command,
-#'       and `stdout` to override the top-level `stdout` target — only
+#'       and `stdout` to override the top-level `stdout` target, only
 #'       allowed on the **last** command, since every other command's
 #'       standard output is always piped to the next command.
 #'   }
@@ -50,7 +50,7 @@
 #'   each child process if the parent R process dies. Has no effect on
 #'   other platforms. Defaults to `FALSE`.
 #' @param activate Logical. Whether to resolve each command's environment
-#'   via `get_micromamba_activation_envvars()` — a real `micromamba run`
+#'   via `get_micromamba_activation_envvars()`, a real `micromamba run`
 #'   activation (including package `activate.d` hook scripts), cached per
 #'   `env_name`. Defaults to `TRUE`. Set to `FALSE` to use the original,
 #'   faster hand-rolled activation (`get_activation_envvars()`: a fixed set
@@ -338,7 +338,7 @@ run_pipeline <- function(
     }
     cli::cli_abort(
       message = c(
-        `x` = "Pipeline failed — {sum(all_statuses != 0L, na.rm = TRUE)} command(s) exited with non-zero status",
+        `x` = "Pipeline failed {.value {sum(all_statuses != 0L, na.rm = TRUE)}} command(s) exited with non-zero status",
         `!` = "Failed commands:",
         failed_lines
       ),

@@ -1,11 +1,11 @@
-## condathis 0.1.5
+## condathis 0.1.5 (Development Version)
 
-Development Changelog: [0.1.5](https://github.com/luciorq/condathis/compare/v0.1.4...v0.1.5)
+Development Changelog: [dev](https://github.com/luciorq/condathis/compare/v0.1.4...HEAD)
 
 ### Added
 
 * New `run_pipeline()` function for Unix-style pipeline execution
-  (`cmd1 | cmd2 | cmd3`) using `processx` 3.9.0 kernel-level pipes.
+  (`cmd1 | cmd2 | cmd3`) based on `processx` 3.9.0 kernel-level pipes.
   Each command in the pipeline can run in a different Conda environment.
   Returns an S3 `condathis_pipeline` object with per-process status, stdout
   (last process only), stderr, and PID.
@@ -13,11 +13,26 @@ Development Changelog: [0.1.5](https://github.com/luciorq/condathis/compare/v0.1
   value written to the first command, per-command `stdout`/`stderr`
   overrides in the `cmds` named list spec (`stdout` only on the last
   command), `error = "cancel"` / `"continue"`, and automatic crash cleanup
-  via `supervise = TRUE`. The default `env_name` environment is now
-  auto-created when missing, matching `run()`.
+  via `supervise = TRUE`.
 
-* New `cleanup_tree`, `encoding`, and `linux_pdeathsig` arguments in
-  `native_cmd()`, passed through to `processx::run()`.
+* New arguments that exists in both `run()`, `run_bin()`, `run_pipeline()`:
+  * New `supervise`, `cleanup_tree`, and `linux_pdeathsig` arguments for
+    crash-safe process cleanup
+    . Default to `FALSE`, preserving existing behavior.
+  * New `input` argument: writable `stdin = "|"` support, writing
+    character/raw data directly to the process's standard input — matching
+    `run_pipeline()`'s `input` argument. Previously `stdin` only accepted
+    `NULL` or a file path.
+  * Both now return a `condathis_result` S3 object instead of a plain
+    `processx::run()` list. It remains fully usable as a list (`res$status`,
+    `res$stdout`, etc. are unchanged) and adds `pid`, `cmd`, and `env_name`
+    fields plus `print()`/`format()` methods, mirroring `condathis_pipeline`.
+
+* `run_pipeline()`'s `supervise`, `cleanup_tree` (previously always `TRUE`),
+  and `linux_pdeathsig` (new) are now overridable arguments instead of
+  hardcoded, for full parity with `run()`/`run_bin()`.
+
+### Changed
 
 * `run()` and `run_bin()` gain feature parity with `run_pipeline()`:
   * New `supervise`, `cleanup_tree`, and `linux_pdeathsig` arguments for
@@ -35,6 +50,7 @@ Development Changelog: [0.1.5](https://github.com/luciorq/condathis/compare/v0.1
 * `run_pipeline()`'s `supervise`, `cleanup_tree` (previously always `TRUE`),
   and `linux_pdeathsig` (new) are now overridable arguments instead of
   hardcoded, for full parity with `run()`/`run_bin()`.
+
 
 * `install_packages()` now warns when the target environment was previously
   installed using a channel that is not included in the current call (e.g.

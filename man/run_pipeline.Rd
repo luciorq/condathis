@@ -21,12 +21,12 @@ run_pipeline(
 \arguments{
 \item{cmds}{A list of command specifications. Each element is either:
 \itemize{
-\item A character vector: \code{c("cmd", "arg1", ...)} — runs in the
+\item A character vector: \code{c("cmd", "arg1", ...)}. Runs in the
 default \code{env_name}.
 \item A named list with \code{cmd} (character vector) and, optionally,
 \code{env_name} (character string) to specify a per-command environment,
 \code{stderr} to override the top-level \code{stderr} target for this command,
-and \code{stdout} to override the top-level \code{stdout} target — only
+and \code{stdout} to override the top-level \code{stdout} target, only
 allowed on the \strong{last} command, since every other command's
 standard output is always piped to the next command.
 }}
@@ -70,7 +70,7 @@ each child process if the parent R process dies. Has no effect on
 other platforms. Defaults to \code{FALSE}.}
 
 \item{activate}{Logical. Whether to resolve each command's environment
-via \code{get_micromamba_activation_envvars()} — a real \verb{micromamba run}
+via \code{get_micromamba_activation_envvars()}, a real \verb{micromamba run}
 activation (including package \code{activate.d} hook scripts), cached per
 \code{env_name}. Defaults to \code{TRUE}. Set to \code{FALSE} to use the original,
 faster hand-rolled activation (\code{get_activation_envvars()}: a fixed set
@@ -90,7 +90,7 @@ A \code{condathis_pipeline} S3 object with per-process results:
 \description{
 Executes a sequence of commands where each command's standard output is
 piped as standard input to the next command (like a Unix shell pipeline).
-Data flows directly between child processes via kernel-level pipes — the
+Data flows directly between child processes via kernel-level pipes, the
 parent R process only sees the output of the final command.
 
 Each command in the pipeline can run in a \strong{different} Conda environment.
