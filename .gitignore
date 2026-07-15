@@ -53,3 +53,4 @@ src/rust/vendor
 src/Makevars
 src/Makevars.win
 .claude
+vignettes/articles/data-raw/

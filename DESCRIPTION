@@ -38,7 +38,7 @@ VignetteBuilder:
 Config/Needs/dev: devtools, pkgload, remotes, rcmdcheck, covr, testthat,
     usethis, pak, knitr, quarto, pkgdown, roxygen2, roxygen2md, lintr,
     styler
-Config/Needs/website: quarto
+Config/Needs/website: quarto, png
 Config/roxygen2/markdown: TRUE
 Config/roxygen2/version: 8.0.0
 Config/testthat/edition: 3
