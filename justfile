@@ -84,7 +84,15 @@ test-file file_name:
 check: test test-all-examples build-readme
   #!/usr/bin/env bash
   \builtin set -euo pipefail;
-  R -q -s -e 'rcmdcheck::rcmdcheck(args = c("--as-cran"), repos = c(CRAN = "https://cloud.r-project.org"));';
+  if [[ $(\builtin command -v qpdf) ]]; then 
+    R -q -s -e 'withr::with_envvar(new=list(`_R_CHECK_SYSTEM_CLOCK_`="0"),code={rcmdcheck::rcmdcheck(args = c("--as-cran"), repos = c(CRAN = "https://cloud.r-project.org"));});';
+  else
+    \builtin echo -ne '\n\nNOTE: LaTeX and PDF handling tools missing.\n';
+    \builtin echo -ne '  - Skipping Building Manuals\nNOTE: Before submitting to CRAN, check it in a machine that can handle PDF manuals.\n';
+    \builtin echo -ne '  - Try installing `R -q -s -e "tinytex::install_tinytex()"`\n';
+    \builtin echo -ne '  - Also `pixi global install qpdf ghostscript`\n\n';
+    R -q -s -e 'withr::with_envvar(new=list(`_R_CHECK_SYSTEM_CLOCK_`="0"),code={rcmdcheck::rcmdcheck(args = c("--as-cran", "--no-manual"), repos = c(CRAN = "https://cloud.r-project.org"));});';
+  fi
 
 # Force GitHub Actions Checks to start for the main branch
 check-gha-trigger:

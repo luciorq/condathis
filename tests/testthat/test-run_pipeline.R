@@ -583,6 +583,32 @@ test_that("Pipeline does not deadlock on a large stderr from a non-last command"
   testthat::expect_match(trimws(res$processes[[2]]$stdout), "hi")
 })
 
+test_that("Pipeline stdin = '|' does not truncate large input to the first command", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  # Regression test: writing `input` once and closing immediately silently
+  # truncates it past the OS pipe buffer (confirmed empirically: only 8192
+  # of 200000 bytes delivered on macOS, no error). `wc -c` independently
+  # counts exactly how many bytes the first command actually received on
+  # its stdin, isolating this from any read-side accounting.
+  create_env(
+    pipeline_cli_pkgs(),
+    env_name = "run-pipeline-cli-tools-env",
+    verbose = "silent"
+  )
+  res <- run_pipeline(
+    cmds = list(
+      c("wc", "-c"),
+      c("cat")
+    ),
+    stdin = "|",
+    input = strrep("A", 200000),
+    env_name = "run-pipeline-cli-tools-env"
+  )
+  testthat::expect_equal(trimws(res$processes[[2]]$stdout), "200000")
+})
+
 test_that("Pipeline supports per-command stderr override to a file", {
   testthat::skip_on_cran()
   testthat::skip_if_offline()

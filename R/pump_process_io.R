@@ -1,28 +1,45 @@
-#' Drain a process's stdout/stderr without deadlocking
+#' Write input to a process's stdin while draining stdout/stderr, all
+#' interleaved, without deadlocking or silently truncating
 #'
-#' Draining stdout and stderr sequentially — read one fully to EOF, then the
-#' other — deadlocks once combined output exceeds the OS pipe buffer (64KB
-#' on Linux, much smaller on macOS/Windows): the child blocks on `write()`
-#' to whichever stream isn't being read yet, so it never reaches EOF on the
-#' stream we *are* reading either. Calling `proc$wait()` before reading
-#' anything is the same bug with one stream. This polls both connections
-#' together, once per loop iteration, so neither stream's OS buffer can ever
-#' fill up while the other is being drained — the same approach
-#' `processx::run()` uses internally. Verified empirically: sequential
-#' draining reproducibly hangs with >64KB on both streams; this loop drains
-#' 200KB on each in well under a second.
+#' Two distinct hazards, both confirmed empirically (not just reasoned
+#' about), both fixed by the same interleaved poll loop:
+#'
+#' 1. **Truncated writes.** `proc$write_input()`'s underlying write is a
+#'    single, non-blocking syscall that can — and does — write less than
+#'    asked and silently return the undelivered remainder, which the R
+#'    wrapper discards. Calling it once and closing immediately after
+#'    truncates any `input` bigger than the OS pipe buffer with no error:
+#'    confirmed on macOS, `input` of 200,000 bytes silently delivered only
+#'    8,192 to the child, verified independently with `wc -c` on the
+#'    receiving end. This retries the write with the returned leftover
+#'    instead of discarding it.
+#' 2. **Deadlock.** Draining stdout and stderr sequentially — or waiting for
+#'    the process to exit before reading either — deadlocks once combined
+#'    output exceeds the OS pipe buffer (64KB on Linux, much smaller on
+#'    macOS/Windows): the child blocks on `write()` to whichever stream
+#'    isn't being read yet, so it never finishes. Retrying a stdin write
+#'    without concurrently draining stdout has the same failure mode one
+#'    level up — a child that echoes input to output (e.g. `cat`) blocks
+#'    writing its own output once *that* pipe fills, which stalls it from
+#'    reading more stdin, which stalls the write retry forever. This polls
+#'    all three directions together, once per loop iteration, matching how
+#'    `processx::run()` avoids the same class of hazard internally.
 #'
 #' `read_output()`/`read_error()` (text) or `read_output_bytes()`/
-#' `read_error_bytes()` (`binary = TRUE`) are used depending on `binary`,
-#' since `processx`'s own `read_all_output()`/`read_all_error()` additionally
+#' `read_error_bytes()` (`binary = TRUE`) are used for reads, since
+#' `processx`'s own `read_all_output()`/`read_all_error()` additionally
 #' mangle raw bytes into hex-string characters when reading in binary mode
 #' (they concatenate chunks with `paste0()`, which coerces `raw` to per-byte
 #' hex text).
 #'
 #' Callers must call `proc$wait()` themselves *after* this returns — never
-#' before, and never in between draining the two streams.
+#' before, and never in between.
 #'
 #' @param proc A `processx::process` object.
+#' @param input `NULL`, a character string, or a raw vector to write to
+#'   `proc`'s stdin (which must have been created with `stdin = "|"`). The
+#'   input connection is always closed once fully written (or immediately,
+#'   when `input` is `NULL`), signaling EOF to the child.
 #' @param want_stdout,want_stderr Logical. Whether to drain that stream at
 #'   all. Actual draining additionally requires the process to have a piped
 #'   connection for it (e.g. `run_pipeline()` only pipes stdout for its last
@@ -36,8 +53,9 @@
 #'
 #' @keywords internal
 #' @noRd
-read_all_streams <- function(
+pump_process_io <- function(
   proc,
+  input = NULL,
   want_stdout = TRUE,
   want_stderr = TRUE,
   binary = FALSE
@@ -45,14 +63,36 @@ read_all_streams <- function(
   has_out <- isTRUE(want_stdout) && isTRUE(proc$has_output_connection())
   has_err <- isTRUE(want_stderr) && isTRUE(proc$has_error_connection())
 
+  pending_input <- input
+  input_done <- is.null(input)
+  if (isTRUE(input_done) && isTRUE(proc$has_input_connection())) {
+    close(proc$get_input_connection())
+  }
+
   out_chunks <- list()
   err_chunks <- list()
 
   while (
-    (has_out && isTRUE(proc$is_incomplete_output())) ||
+    isFALSE(input_done) ||
+      (has_out && isTRUE(proc$is_incomplete_output())) ||
       (has_err && isTRUE(proc$is_incomplete_error()))
   ) {
-    proc$poll_io(-1)
+    # Short timeout while still writing, so a full pipe doesn't stall the
+    # retry indefinitely; once input is fully sent, block until more
+    # output/error data (or EOF) is actually ready.
+    proc$poll_io(if (isTRUE(input_done)) -1 else 200)
+
+    if (isFALSE(input_done)) {
+      leftover <- proc$write_input(pending_input)
+      if (length(leftover) == 0L) {
+        input_done <- TRUE
+        if (isTRUE(proc$has_input_connection())) {
+          close(proc$get_input_connection())
+        }
+      }
+      pending_input <- leftover
+    }
+
     if (has_out && isTRUE(proc$is_incomplete_output())) {
       chunk <- if (isTRUE(binary)) {
         proc$read_output_bytes(-1)

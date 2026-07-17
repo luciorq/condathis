@@ -254,13 +254,25 @@ run_pipeline <- function(
   }
   rm(pipes)
 
+  # Write `input` to the first process's stdin while draining *its* stderr
+  # (never its stdout — that's piped straight into the second command, not
+  # captured by R) concurrently, via pump_process_io(). Writing once and
+  # closing immediately, as this used to do, silently truncates `input`
+  # larger than the OS pipe buffer — confirmed empirically, not just
+  # reasoned about (see pump_process_io()) — and not draining stderr while
+  # writing risks the same deadlock class pump_process_io() is built to
+  # avoid, one level up. This fully drains the first process's stderr to
+  # EOF as a side effect, so the main loop below reuses this result for
+  # process 1 instead of draining it a second time.
+  first_proc_streams <- NULL
   if (identical(stdin, "|") && !is.null(procs[[1L]])) {
-    if (!is.null(input)) {
-      procs[[1L]]$write_input(input)
-    }
-    if (procs[[1L]]$has_input_connection()) {
-      close(procs[[1L]]$get_input_connection())
-    }
+    first_proc_streams <- pump_process_io(
+      procs[[1L]],
+      input = input,
+      want_stdout = FALSE,
+      want_stderr = TRUE,
+      binary = binary
+    )
   }
 
   timeout_flag <- FALSE
@@ -283,19 +295,25 @@ run_pipeline <- function(
       empty_stream <- if (isTRUE(binary)) raw(0L) else ""
 
       # Drain this process's own stream(s) *before* wait()ing on it — see
-      # read_all_streams() for why: wait()-then-read (or draining stdout and
+      # pump_process_io() for why: wait()-then-read (or draining stdout and
       # stderr sequentially, for the last command which has both piped)
       # deadlocks once output exceeds the OS pipe buffer. Each process's
       # captured streams are independent of every other process's, so
       # draining/waiting one at a time (rather than across the whole
       # pipeline at once) is safe: the inter-process stdout-to-stdin
       # chaining is plain OS-level piping, with no R-side buffering.
-      streams <- read_all_streams(
-        proc_i,
-        want_stdout = identical(i, n_cmds),
-        want_stderr = TRUE,
-        binary = binary
-      )
+      # Process 1's stderr was already fully drained above (interleaved
+      # with writing it `input`), reuse that instead of draining it again.
+      streams <- if (identical(i, 1L) && !is.null(first_proc_streams)) {
+        first_proc_streams
+      } else {
+        pump_process_io(
+          proc_i,
+          want_stdout = identical(i, n_cmds),
+          want_stderr = TRUE,
+          binary = binary
+        )
+      }
       proc_i$wait()
 
       p_stdout <- streams$stdout %||% NA_character_

@@ -283,6 +283,30 @@ test_that("Run with stdin = '|' does not deadlock when stdout and stderr are bot
   testthat::expect_equal(nchar(res$stderr), 200000L)
 })
 
+test_that("Run with stdin = '|' does not truncate large input", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  # Regression test: write_input() once, then close immediately, silently
+  # truncates `input` past the OS pipe buffer — confirmed empirically: only
+  # 8192 of 200000 bytes delivered on macOS, no error. `wc -c` independently
+  # counts exactly how many bytes the child received on stdin.
+  create_env(
+    test_os_pkg("coreutils"),
+    env_name = "run-cli-tools-env",
+    verbose = "silent"
+  )
+  res <- run(
+    "wc",
+    "-c",
+    stdin = "|",
+    input = strrep("A", 200000),
+    env_name = "run-cli-tools-env",
+    verbose = "silent"
+  )
+  testthat::expect_equal(trimws(res$stdout), "200000")
+})
+
 test_that("format.condathis_result previews raw stdout without erroring", {
   testthat::skip_on_cran()
   testthat::skip_if_offline()
