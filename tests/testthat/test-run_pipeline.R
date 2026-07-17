@@ -532,6 +532,57 @@ test_that("Pipeline rejects non-logical binary argument", {
   )
 })
 
+test_that("Pipeline does not deadlock when the last command's stdout and stderr are both large", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  # Regression test: draining stdout and stderr sequentially (or calling
+  # wait() before draining either) deadlocks once combined output exceeds
+  # the OS pipe buffer (64KB on Linux, smaller on macOS/Windows) — the
+  # child blocks on write() to whichever stream isn't being read yet, so it
+  # never reaches EOF on the stream that IS being read either. 200KB on
+  # each stream comfortably exceeds every platform's default pipe buffer.
+  create_env(
+    pipeline_cli_pkgs(),
+    env_name = "run-pipeline-cli-tools-env",
+    verbose = "silent"
+  )
+  res <- run_pipeline(
+    cmds = list(
+      c("echo", "start"),
+      c(
+        "bash",
+        "-c",
+        "yes A | head -c 200000; yes B | head -c 200000 1>&2"
+      )
+    ),
+    env_name = "run-pipeline-cli-tools-env"
+  )
+  last <- res$processes[[2]]
+  testthat::expect_equal(nchar(last$stdout), 200000L)
+  testthat::expect_equal(nchar(last$stderr), 200000L)
+})
+
+test_that("Pipeline does not deadlock on a large stderr from a non-last command", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  create_env(
+    pipeline_cli_pkgs(),
+    env_name = "run-pipeline-cli-tools-env",
+    verbose = "silent"
+  )
+  res <- run_pipeline(
+    cmds = list(
+      c("bash", "-c", "echo hi; yes B | head -c 200000 1>&2"),
+      c("cat")
+    ),
+    env_name = "run-pipeline-cli-tools-env"
+  )
+  testthat::expect_equal(nchar(res$processes[[1]]$stderr), 200000L)
+  testthat::expect_match(trimws(res$processes[[2]]$stdout), "hi")
+})
+
 test_that("Pipeline supports per-command stderr override to a file", {
   testthat::skip_on_cran()
   testthat::skip_if_offline()

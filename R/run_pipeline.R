@@ -264,13 +264,6 @@ run_pipeline <- function(
   }
 
   timeout_flag <- FALSE
-  for (i in seq_len(n_cmds)) {
-    proc_i <- procs[[i]]
-    if (!is.null(proc_i)) {
-      proc_i$wait()
-    }
-  }
-
   processes <- vector("list", n_cmds)
   all_statuses <- integer(n_cmds)
   any_failed <- FALSE
@@ -289,27 +282,24 @@ run_pipeline <- function(
     } else {
       empty_stream <- if (isTRUE(binary)) raw(0L) else ""
 
-      p_stdout <- NA_character_
-      if (i == n_cmds && isTRUE(proc_i$has_output_connection())) {
-        p_stdout <- if (isTRUE(binary)) {
-          read_all_stream_binary(proc_i, "output")
-        } else {
-          proc_i$read_all_output()
-        }
-        if (is.null(p_stdout)) p_stdout <- empty_stream
-      }
+      # Drain this process's own stream(s) *before* wait()ing on it — see
+      # read_all_streams() for why: wait()-then-read (or draining stdout and
+      # stderr sequentially, for the last command which has both piped)
+      # deadlocks once output exceeds the OS pipe buffer. Each process's
+      # captured streams are independent of every other process's, so
+      # draining/waiting one at a time (rather than across the whole
+      # pipeline at once) is safe: the inter-process stdout-to-stdin
+      # chaining is plain OS-level piping, with no R-side buffering.
+      streams <- read_all_streams(
+        proc_i,
+        want_stdout = identical(i, n_cmds),
+        want_stderr = TRUE,
+        binary = binary
+      )
+      proc_i$wait()
 
-      p_stderr <- empty_stream
-      if (isTRUE(proc_i$has_error_connection())) {
-        p_stderr <- if (isTRUE(binary)) {
-          read_all_stream_binary(proc_i, "error")
-        } else {
-          proc_i$read_all_error()
-        }
-        if (is.null(p_stderr)) {
-          p_stderr <- empty_stream
-        }
-      }
+      p_stdout <- streams$stdout %||% NA_character_
+      p_stderr <- streams$stderr %||% empty_stream
 
       p_status <- proc_i$get_exit_status()
       if (is.null(p_status)) {

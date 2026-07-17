@@ -20,12 +20,13 @@
 #' spinner, and no timeout support — `input` is a synchronous write-then-wait
 #' operation.
 #'
-#' When `encoding = "binary"`, stdout/stderr are accumulated with
-#' `read_all_stream_binary()` instead of `proc$read_all_output()` /
-#' `read_all_error()`, which mangle raw bytes into hex-string characters when
-#' the process encoding is `"binary"` (they concatenate chunks with
-#' `paste0()`, which coerces `raw` to per-byte hex text). Binary streams are
-#' never echoed to the console.
+#' stdout/stderr are drained with `read_all_streams()`, not
+#' `proc$read_all_output()`/`read_all_error()` directly — draining
+#' sequentially (or after `wait()`, as this function used to) deadlocks once
+#' combined output exceeds the OS pipe buffer, and `read_all_output()`/
+#' `read_all_error()` additionally mangle raw bytes into hex-string
+#' characters when `encoding = "binary"`. Binary streams are never echoed to
+#' the console.
 #'
 #' @keywords internal
 #' @noRd
@@ -65,30 +66,17 @@ run_process_with_input <- function(
     close(proc$get_input_connection())
   }
 
-  proc$wait()
-
   is_binary <- identical(encoding, "binary")
   empty_stream <- if (isTRUE(is_binary)) raw(0L) else ""
 
-  p_stdout <- empty_stream
-  if (isTRUE(proc$has_output_connection())) {
-    p_stdout <- if (isTRUE(is_binary)) {
-      read_all_stream_binary(proc, "output")
-    } else {
-      proc$read_all_output()
-    }
-    if (is.null(p_stdout)) p_stdout <- empty_stream
-  }
+  # Drain both streams concurrently *before* wait() — see read_all_streams()
+  # for why: sequential draining (or wait()-then-read) deadlocks once
+  # combined output exceeds the OS pipe buffer.
+  streams <- read_all_streams(proc, binary = is_binary)
+  proc$wait()
 
-  p_stderr <- empty_stream
-  if (isTRUE(proc$has_error_connection())) {
-    p_stderr <- if (isTRUE(is_binary)) {
-      read_all_stream_binary(proc, "error")
-    } else {
-      proc$read_all_error()
-    }
-    if (is.null(p_stderr)) p_stderr <- empty_stream
-  }
+  p_stdout <- if (is.null(streams$stdout)) empty_stream else streams$stdout
+  p_stderr <- if (is.null(streams$stderr)) empty_stream else streams$stderr
 
   p_status <- proc$get_exit_status()
   if (is.null(p_status)) {

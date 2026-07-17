@@ -256,6 +256,33 @@ test_that("Run rejects non-logical binary argument", {
   )
 })
 
+test_that("Run with stdin = '|' does not deadlock when stdout and stderr are both large", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  # Regression test: run_process_with_input() used to call wait() before
+  # draining either stream, which deadlocks once combined output exceeds
+  # the OS pipe buffer (64KB on Linux, smaller on macOS/Windows) — the
+  # child blocks on write() to whichever stream isn't read yet, so it never
+  # exits, so wait() never returns.
+  create_env(
+    c(test_os_pkg("coreutils"), test_os_pkg("bash")),
+    env_name = "run-cli-tools-env",
+    verbose = "silent"
+  )
+  res <- run(
+    "bash",
+    "-c",
+    "cat; yes B | head -c 200000 1>&2",
+    stdin = "|",
+    input = strrep("A", 200000),
+    env_name = "run-cli-tools-env",
+    verbose = "silent"
+  )
+  testthat::expect_equal(nchar(res$stdout), 200000L)
+  testthat::expect_equal(nchar(res$stderr), 200000L)
+})
+
 test_that("format.condathis_result previews raw stdout without erroring", {
   testthat::skip_on_cran()
   testthat::skip_if_offline()
