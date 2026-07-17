@@ -9,8 +9,10 @@
 #' mirroring `condathis_pipeline`'s per-process result shape.
 #'
 #' @param status Integer exit status.
-#' @param stdout Character string with stdout, or `NA` if not captured.
-#' @param stderr Character string with stderr, or `NA` if not captured.
+#' @param stdout Character string or raw vector with stdout, or `NA` if not
+#'   captured.
+#' @param stderr Character string or raw vector with stderr, or `NA` if not
+#'   captured.
 #' @param timeout Logical. Whether the process was killed due to timeout.
 #' @param pid Integer process ID, or `NA_integer_` when unavailable.
 #' @param cmd Character string with the command and arguments.
@@ -59,19 +61,13 @@ format.condathis_result <- function(x, ...) {
   if (!is.null(x$pid) && !is.na(x$pid)) {
     lines <- c(lines, sprintf("  pid: %d", x$pid))
   }
-  if (!is.null(x$stdout) && !is.na(x$stdout) && nzchar(x$stdout)) {
-    first_line <- strsplit(x$stdout, "\n")[[1]][1]
-    if (nchar(first_line) > 60) {
-      first_line <- paste0(substr(first_line, 1, 57), "...")
-    }
-    lines <- c(lines, sprintf("  stdout: %s", first_line))
+  stdout_preview <- stream_preview_line(x$stdout)
+  if (!is.null(stdout_preview)) {
+    lines <- c(lines, sprintf("  stdout: %s", stdout_preview))
   }
-  if (!is.null(x$stderr) && !is.na(x$stderr) && nzchar(x$stderr)) {
-    first_line <- strsplit(x$stderr, "\n")[[1]][1]
-    if (nchar(first_line) > 60) {
-      first_line <- paste0(substr(first_line, 1, 57), "...")
-    }
-    lines <- c(lines, sprintf("  stderr: %s", first_line))
+  stderr_preview <- stream_preview_line(x$stderr)
+  if (!is.null(stderr_preview)) {
+    lines <- c(lines, sprintf("  stderr: %s", stderr_preview))
   }
   paste0(lines, collapse = "\n")
 }

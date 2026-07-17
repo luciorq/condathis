@@ -472,6 +472,66 @@ test_that("Pipeline stdin = '|' with no input closes cleanly", {
   testthat::expect_equal(res$processes[[2]]$stdout, "")
 })
 
+test_that("Pipeline with binary = TRUE round-trips raw bytes", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  create_env(
+    pipeline_cli_pkgs(),
+    env_name = "run-pipeline-cli-tools-env",
+    verbose = "silent"
+  )
+
+  raw_bytes <- as.raw(c(0x00, 0x01, 0xFF, 0x41, 0x0A, 0xFE, 0x00))
+  tmp_file <- withr::local_tempfile()
+  writeBin(raw_bytes, tmp_file)
+
+  res <- run_pipeline(
+    cmds = list(
+      c("cat", tmp_file),
+      c("cat")
+    ),
+    env_name = "run-pipeline-cli-tools-env",
+    binary = TRUE
+  )
+  last_stdout <- res$processes[[2]]$stdout
+  testthat::expect_true(is.raw(last_stdout))
+  testthat::expect_identical(last_stdout, raw_bytes)
+
+  formatted <- format(res)
+  testthat::expect_type(formatted, "character")
+  testthat::expect_match(formatted, "binary data, 7 bytes")
+})
+
+test_that("Pipeline with binary = FALSE (default) still captures text", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  create_env(
+    pipeline_cli_pkgs(),
+    env_name = "run-pipeline-cli-tools-env",
+    verbose = "silent"
+  )
+  res <- run_pipeline(
+    cmds = list(
+      c("echo", "hi"),
+      c("cat")
+    ),
+    env_name = "run-pipeline-cli-tools-env"
+  )
+  testthat::expect_true(is.character(res$processes[[2]]$stdout))
+})
+
+test_that("Pipeline rejects non-logical binary argument", {
+  testthat::expect_error(
+    object = run_pipeline(
+      cmds = list(c("echo", "hi"), c("cat")),
+      binary = "yes"
+    ),
+    class = "condathis_pipeline_invalid_binary_arg"
+  )
+})
+
 test_that("Pipeline supports per-command stderr override to a file", {
   testthat::skip_on_cran()
   testthat::skip_if_offline()

@@ -20,6 +20,13 @@
 #' spinner, and no timeout support — `input` is a synchronous write-then-wait
 #' operation.
 #'
+#' When `encoding = "binary"`, stdout/stderr are accumulated with
+#' `read_all_stream_binary()` instead of `proc$read_all_output()` /
+#' `read_all_error()`, which mangle raw bytes into hex-string characters when
+#' the process encoding is `"binary"` (they concatenate chunks with
+#' `paste0()`, which coerces `raw` to per-byte hex text). Binary streams are
+#' never echoed to the console.
+#'
 #' @keywords internal
 #' @noRd
 run_process_with_input <- function(
@@ -60,16 +67,27 @@ run_process_with_input <- function(
 
   proc$wait()
 
-  p_stdout <- ""
+  is_binary <- identical(encoding, "binary")
+  empty_stream <- if (isTRUE(is_binary)) raw(0L) else ""
+
+  p_stdout <- empty_stream
   if (isTRUE(proc$has_output_connection())) {
-    p_stdout <- proc$read_all_output()
-    if (is.null(p_stdout)) p_stdout <- ""
+    p_stdout <- if (isTRUE(is_binary)) {
+      read_all_stream_binary(proc, "output")
+    } else {
+      proc$read_all_output()
+    }
+    if (is.null(p_stdout)) p_stdout <- empty_stream
   }
 
-  p_stderr <- ""
+  p_stderr <- empty_stream
   if (isTRUE(proc$has_error_connection())) {
-    p_stderr <- proc$read_all_error()
-    if (is.null(p_stderr)) p_stderr <- ""
+    p_stderr <- if (isTRUE(is_binary)) {
+      read_all_stream_binary(proc, "error")
+    } else {
+      proc$read_all_error()
+    }
+    if (is.null(p_stderr)) p_stderr <- empty_stream
   }
 
   p_status <- proc$get_exit_status()
@@ -78,7 +96,9 @@ run_process_with_input <- function(
   }
   p_pid <- proc$get_pid()
 
-  if (isTRUE(echo)) {
+  # Binary streams are never echoed to the console, raw bytes have no
+  # sensible terminal representation.
+  if (isTRUE(echo) && isFALSE(is_binary)) {
     if (nzchar(p_stdout)) {
       cat(p_stdout)
     }

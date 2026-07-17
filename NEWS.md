@@ -32,6 +32,17 @@ Development Changelog: [dev](https://github.com/luciorq/condathis/compare/v0.1.4
   and `linux_pdeathsig` (new) are now overridable arguments instead of
   hardcoded, for full parity with `run()`/`run_bin()`.
 
+* New `binary` argument (defaults to `FALSE`) on `run()`, `run_bin()`, and
+  `run_pipeline()`: captures stdout/stderr as raw vectors instead of
+  decoding them as UTF-8 text, so binary output (images, compressed data,
+  etc.) round-trips correctly. Since a process's stdout and stderr share one
+  encoding, both streams come back raw when `TRUE` — check with `is.raw()`
+  before treating either as text. `format()`/`print()` on the resulting
+  `condathis_result`/`condathis_pipeline` objects, and `parse_output()`, all
+  handle raw streams safely (`parse_output()` errors with class
+  `condathis_parse_output_binary_stream` if asked to parse one). Binary
+  streams are never live-echoed to the console.
+
 ### Changed
 
 * `run()` and `run_bin()` gain feature parity with `run_pipeline()`:

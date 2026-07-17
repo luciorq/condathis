@@ -124,6 +124,60 @@ test_that("run_bin() rejects input without stdin = '|'", {
   )
 })
 
+test_that("run_bin() with binary = TRUE round-trips raw bytes from a file", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  create_env(
+    test_os_pkg("coreutils"),
+    env_name = "run-bin-cli-tools-env",
+    verbose = "silent"
+  )
+
+  raw_bytes <- as.raw(c(0x00, 0x01, 0xFF, 0x41, 0x0A, 0xFE, 0x00))
+  tmp_file <- withr::local_tempfile()
+  writeBin(raw_bytes, tmp_file)
+
+  res <- run_bin(
+    "cat",
+    tmp_file,
+    env_name = "run-bin-cli-tools-env",
+    binary = TRUE,
+    verbose = "silent"
+  )
+  testthat::expect_true(is.raw(res$stdout))
+  testthat::expect_identical(res$stdout, raw_bytes)
+})
+
+test_that("run_bin() with binary = TRUE round-trips raw bytes through stdin", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  create_env(
+    test_os_pkg("coreutils"),
+    env_name = "run-bin-cli-tools-env",
+    verbose = "silent"
+  )
+
+  raw_bytes <- as.raw(c(0x00, 0x01, 0xFF, 0x41, 0x0A, 0xFE, 0x00))
+  res <- run_bin(
+    "cat",
+    stdin = "|",
+    input = raw_bytes,
+    env_name = "run-bin-cli-tools-env",
+    binary = TRUE,
+    verbose = "silent"
+  )
+  testthat::expect_identical(res$stdout, raw_bytes)
+})
+
+test_that("run_bin() rejects non-logical binary argument", {
+  testthat::expect_error(
+    object = run_bin("echo", "hello", binary = "yes", verbose = "silent"),
+    class = "condathis_run_invalid_binary_arg"
+  )
+})
+
 test_that("run_bin() accepts crash-safety parameters", {
   testthat::skip_on_cran()
   testthat::skip_if_offline()

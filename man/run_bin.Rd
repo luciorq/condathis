@@ -14,6 +14,7 @@ run_bin(
   stderr = "|",
   stdin = NULL,
   input = NULL,
+  binary = FALSE,
   supervise = FALSE,
   cleanup_tree = FALSE,
   linux_pdeathsig = FALSE,
@@ -54,6 +55,14 @@ input when \code{stdin = "|"}. Defaults to \code{NULL}. Ignored (and must not be
 set) when \code{stdin} is not \code{"|"}. Note: live stdout/stderr echoing,
 spinner, and timeout are not available when \code{input} triggers the
 writable-stdin code path.}
+
+\item{binary}{Logical. Whether to capture stdout/stderr as raw vectors
+instead of decoding them as UTF-8 text. Defaults to \code{FALSE}. Since a
+process's stdout and stderr share a single encoding, both streams are
+returned raw when \code{TRUE}, even if only one of them actually carries
+binary data — check with \code{is.raw()} before treating either as text.
+Binary streams are never live-echoed to the console, regardless of
+\code{verbose}.}
 
 \item{supervise}{Logical. Whether the process should be supervised by the
 \code{processx} supervisor for crash-safe cleanup. Defaults to \code{FALSE}.}

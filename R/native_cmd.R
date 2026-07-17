@@ -73,6 +73,10 @@ native_cmd <- function(
   if (isFALSE(stderr %in% c("|", ""))) {
     verbose_output <- FALSE
   }
+  # Binary streams have no sensible terminal representation, never echo them.
+  if (identical(encoding, "binary")) {
+    verbose_output <- FALSE
+  }
 
   # Try to find a valid micromamba from any known location
   umamba_bin_path <- get_best_micromamba_path()

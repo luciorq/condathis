@@ -42,20 +42,7 @@ rethrow_error_run <- function(expr, env = parent.frame()) {
   if (isFALSE(rlang::is_null(err_cnd)) && !isFALSE(env[["error_var"]])) {
     additional_lines <- NULL
     if (isTRUE("stderr" %in% names(err_cnd))) {
-      err_vector <- stringr::str_replace_all(
-        stringr::str_replace_all(
-          string = err_cnd[["stderr"]],
-          pattern = stringr::fixed("{"),
-          replacement = stringr::fixed("{{")
-        ),
-        pattern = stringr::fixed("}"),
-        replacement = stringr::fixed("}}")
-      )
-      additional_lines <- stringr::str_split(
-        string = stringr::str_trim(err_vector),
-        pattern = stringr::regex("\\R"),
-        simplify = FALSE
-      )[[1]]
+      additional_lines <- stream_display_lines(err_cnd[["stderr"]])
     }
 
     status_code <- NULL

@@ -17,6 +17,8 @@
 #' @param stdin Standard input source. Defaults to `NULL`.
 #' @param input Character or raw vector written to stdin when
 #'   `stdin = "|"`. Defaults to `NULL`.
+#' @param binary Logical. Whether to capture stdout/stderr as raw vectors
+#'   instead of UTF-8 text. Defaults to `FALSE`.
 #' @param supervise Logical. Whether to supervise the process for crash-safe
 #'   cleanup. Defaults to `FALSE`.
 #' @param cleanup_tree Logical. Whether to clean up the child process tree
@@ -44,6 +46,7 @@ run_internal_native <- function(
   stderr = "|",
   stdin = NULL,
   input = NULL,
+  binary = FALSE,
   supervise = FALSE,
   cleanup_tree = FALSE,
   linux_pdeathsig = FALSE
@@ -100,6 +103,7 @@ run_internal_native <- function(
     stderr = stderr,
     stdin = stdin,
     input = input,
+    encoding = if (isTRUE(binary)) "binary" else "utf-8",
     supervise = supervise,
     cleanup_tree = cleanup_tree,
     linux_pdeathsig = linux_pdeathsig

@@ -35,6 +35,13 @@
 #'   set) when `stdin` is not `"|"`. Note: live stdout/stderr echoing,
 #'   spinner, and timeout are not available when `input` triggers the
 #'   writable-stdin code path.
+#' @param binary Logical. Whether to capture stdout/stderr as raw vectors
+#'   instead of decoding them as UTF-8 text. Defaults to `FALSE`. Since a
+#'   process's stdout and stderr share a single encoding, both streams are
+#'   returned raw when `TRUE`, even if only one of them actually carries
+#'   binary data — check with `is.raw()` before treating either as text.
+#'   Binary streams are never live-echoed to the console, regardless of
+#'   `verbose`.
 #' @param supervise Logical. Whether the process should be supervised by the
 #'   `processx` supervisor for crash-safe cleanup — the process (and its
 #'   descendants, with `cleanup_tree = TRUE`) is killed if the R session
@@ -96,6 +103,7 @@ run <- function(
   stderr = "|",
   stdin = NULL,
   input = NULL,
+  binary = FALSE,
   supervise = FALSE,
   cleanup_tree = FALSE,
   linux_pdeathsig = FALSE
@@ -116,6 +124,14 @@ run <- function(
         `x` = "{.field input} can only be used when {.field stdin} is {.val {\"|\"}}."
       ),
       class = "condathis_run_invalid_input"
+    )
+  }
+  if (isFALSE(rlang::is_bool(binary))) {
+    cli::cli_abort(
+      message = c(
+        `x` = "{.field binary} needs to be a single {.cls logical} value."
+      ),
+      class = "condathis_run_invalid_binary_arg"
     )
   }
   method <- rlang::arg_match(method)
@@ -154,6 +170,7 @@ run <- function(
           stderr = stderr,
           stdin = stdin,
           input = input,
+          binary = binary,
           supervise = supervise,
           cleanup_tree = cleanup_tree,
           linux_pdeathsig = linux_pdeathsig

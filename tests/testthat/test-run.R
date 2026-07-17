@@ -179,3 +179,104 @@ test_that("Run accepts crash-safety parameters", {
   )
   testthat::expect_equal(res$status, 0L)
 })
+
+test_that("Run with binary = TRUE round-trips raw bytes from a file", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  create_env(
+    test_os_pkg("coreutils"),
+    env_name = "run-cli-tools-env",
+    verbose = "silent"
+  )
+
+  # includes an embedded NUL and 0xFF, both invalid as standalone UTF-8
+  raw_bytes <- as.raw(c(0x00, 0x01, 0xFF, 0x41, 0x0A, 0xFE, 0x00))
+  tmp_file <- withr::local_tempfile()
+  writeBin(raw_bytes, tmp_file)
+
+  res <- run(
+    "cat",
+    tmp_file,
+    env_name = "run-cli-tools-env",
+    binary = TRUE,
+    verbose = "silent"
+  )
+  testthat::expect_true(is.raw(res$stdout))
+  testthat::expect_identical(res$stdout, raw_bytes)
+})
+
+test_that("Run with binary = TRUE round-trips raw bytes through stdin", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  create_env(
+    test_os_pkg("coreutils"),
+    env_name = "run-cli-tools-env",
+    verbose = "silent"
+  )
+
+  raw_bytes <- as.raw(c(0x00, 0x01, 0xFF, 0x41, 0x0A, 0xFE, 0x00))
+  res <- run(
+    "cat",
+    stdin = "|",
+    input = raw_bytes,
+    env_name = "run-cli-tools-env",
+    binary = TRUE,
+    verbose = "silent"
+  )
+  testthat::expect_identical(res$stdout, raw_bytes)
+})
+
+test_that("Run with binary = FALSE (default) still captures text", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  create_env(
+    test_os_pkg("coreutils"),
+    env_name = "run-cli-tools-env",
+    verbose = "silent"
+  )
+  res <- run(
+    "echo",
+    "hello",
+    env_name = "run-cli-tools-env",
+    verbose = "silent"
+  )
+  testthat::expect_true(is.character(res$stdout))
+
+  formatted <- format(res)
+  testthat::expect_type(formatted, "character")
+})
+
+test_that("Run rejects non-logical binary argument", {
+  testthat::expect_error(
+    object = run("echo", "hello", binary = "yes", verbose = "silent"),
+    class = "condathis_run_invalid_binary_arg"
+  )
+})
+
+test_that("format.condathis_result previews raw stdout without erroring", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  create_env(
+    test_os_pkg("coreutils"),
+    env_name = "run-cli-tools-env",
+    verbose = "silent"
+  )
+  raw_bytes <- as.raw(c(0x00, 0x01, 0xFF))
+  tmp_file <- withr::local_tempfile()
+  writeBin(raw_bytes, tmp_file)
+
+  res <- run(
+    "cat",
+    tmp_file,
+    env_name = "run-cli-tools-env",
+    binary = TRUE,
+    verbose = "silent"
+  )
+  formatted <- format(res)
+  testthat::expect_type(formatted, "character")
+  testthat::expect_match(formatted, "binary data, 3 bytes")
+})

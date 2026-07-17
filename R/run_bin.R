@@ -29,6 +29,13 @@
 #'   set) when `stdin` is not `"|"`. Note: live stdout/stderr echoing,
 #'   spinner, and timeout are not available when `input` triggers the
 #'   writable-stdin code path.
+#' @param binary Logical. Whether to capture stdout/stderr as raw vectors
+#'   instead of decoding them as UTF-8 text. Defaults to `FALSE`. Since a
+#'   process's stdout and stderr share a single encoding, both streams are
+#'   returned raw when `TRUE`, even if only one of them actually carries
+#'   binary data — check with `is.raw()` before treating either as text.
+#'   Binary streams are never live-echoed to the console, regardless of
+#'   `verbose`.
 #' @param supervise Logical. Whether the process should be supervised by the
 #'   `processx` supervisor for crash-safe cleanup. Defaults to `FALSE`.
 #' @param cleanup_tree Logical. Whether to clean up the child process tree
@@ -87,6 +94,7 @@ run_bin <- function(
   stderr = "|",
   stdin = NULL,
   input = NULL,
+  binary = FALSE,
   supervise = FALSE,
   cleanup_tree = FALSE,
   linux_pdeathsig = FALSE,
@@ -109,11 +117,24 @@ run_bin <- function(
       class = "condathis_run_invalid_input"
     )
   }
+  if (isFALSE(rlang::is_bool(binary))) {
+    cli::cli_abort(
+      message = c(
+        `x` = "{.field binary} needs to be a single {.cls logical} value."
+      ),
+      class = "condathis_run_invalid_binary_arg"
+    )
+  }
 
   verbose_list <- parse_strategy_verbose(verbose = verbose)
 
   verbose_output <- verbose_list$output
   if (isFALSE(stderr %in% c("|", ""))) {
+    verbose_output <- FALSE
+  }
+  encoding <- if (isTRUE(binary)) "binary" else "utf-8"
+  # Binary streams have no sensible terminal representation, never echo them.
+  if (isTRUE(binary)) {
     verbose_output <- FALSE
   }
 
@@ -162,7 +183,8 @@ run_bin <- function(
           error_on_status = error_var,
           cleanup_tree = cleanup_tree,
           supervise = supervise,
-          linux_pdeathsig = linux_pdeathsig
+          linux_pdeathsig = linux_pdeathsig,
+          encoding = encoding
         )
       } else {
         processx::run(
@@ -178,7 +200,8 @@ run_bin <- function(
           error_on_status = error_var,
           cleanup_tree = cleanup_tree,
           supervise = supervise,
-          linux_pdeathsig = linux_pdeathsig
+          linux_pdeathsig = linux_pdeathsig,
+          encoding = encoding
         )
       }
     }

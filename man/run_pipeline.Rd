@@ -10,6 +10,7 @@ run_pipeline(
   stderr = "|",
   stdin = NULL,
   input = NULL,
+  binary = FALSE,
   error = c("cancel", "continue"),
   env_name = "condathis-env",
   supervise = TRUE,
@@ -48,6 +49,11 @@ contents as stdin, or \code{"|"} to write \code{input} to the first process.}
 \item{input}{Character or raw vector written to the first process's
 standard input when \code{stdin = "|"}. Defaults to \code{NULL}. Ignored (and
 must not be set) when \code{stdin} is not \code{"|"}.}
+
+\item{binary}{Logical. Whether to capture every process's stderr, and the
+last process's stdout, as raw vectors instead of decoding them as UTF-8
+text. Defaults to \code{FALSE}. Applies to the whole pipeline; there is no
+per-command override.}
 
 \item{error}{Character string controlling error behavior.
 Supported values are \code{"cancel"} and \code{"continue"}.

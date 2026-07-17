@@ -34,6 +34,10 @@
 #' @param input Character or raw vector written to the first process's
 #'   standard input when `stdin = "|"`. Defaults to `NULL`. Ignored (and
 #'   must not be set) when `stdin` is not `"|"`.
+#' @param binary Logical. Whether to capture every process's stderr, and the
+#'   last process's stdout, as raw vectors instead of decoding them as UTF-8
+#'   text. Defaults to `FALSE`. Applies to the whole pipeline; there is no
+#'   per-command override.
 #' @param error Character string controlling error behavior.
 #'   Supported values are `"cancel"` and `"continue"`.
 #'   Defaults to `"cancel"`.
@@ -111,6 +115,7 @@ run_pipeline <- function(
   stderr = "|",
   stdin = NULL,
   input = NULL,
+  binary = FALSE,
   error = c("cancel", "continue"),
   env_name = "condathis-env",
   supervise = TRUE,
@@ -129,6 +134,15 @@ run_pipeline <- function(
       class = "condathis_pipeline_invalid_input"
     )
   }
+  if (isFALSE(rlang::is_bool(binary))) {
+    cli::cli_abort(
+      message = c(
+        `x` = "{.field binary} needs to be a single {.cls logical} value."
+      ),
+      class = "condathis_pipeline_invalid_binary_arg"
+    )
+  }
+  pipeline_encoding <- if (isTRUE(binary)) "binary" else "utf-8"
 
   tmp_dir_path <- withr::local_tempdir(pattern = "condathis-tmp")
   withr::local_envvar(
@@ -208,7 +222,8 @@ run_pipeline <- function(
           env = c("current", activation_envvars),
           supervise = supervise,
           cleanup_tree = cleanup_tree,
-          linux_pdeathsig = linux_pdeathsig
+          linux_pdeathsig = linux_pdeathsig,
+          encoding = pipeline_encoding
         )
       },
       system_command_status_error = function(cnd) cnd,
@@ -272,17 +287,27 @@ run_pipeline <- function(
       p_stdout <- NA_character_
       p_pid <- NA_integer_
     } else {
+      empty_stream <- if (isTRUE(binary)) raw(0L) else ""
+
       p_stdout <- NA_character_
       if (i == n_cmds && isTRUE(proc_i$has_output_connection())) {
-        p_stdout <- proc_i$read_all_output()
-        if (is.null(p_stdout)) p_stdout <- ""
+        p_stdout <- if (isTRUE(binary)) {
+          read_all_stream_binary(proc_i, "output")
+        } else {
+          proc_i$read_all_output()
+        }
+        if (is.null(p_stdout)) p_stdout <- empty_stream
       }
 
-      p_stderr <- ""
+      p_stderr <- empty_stream
       if (isTRUE(proc_i$has_error_connection())) {
-        p_stderr <- proc_i$read_all_error()
+        p_stderr <- if (isTRUE(binary)) {
+          read_all_stream_binary(proc_i, "error")
+        } else {
+          proc_i$read_all_error()
+        }
         if (is.null(p_stderr)) {
-          p_stderr <- ""
+          p_stderr <- empty_stream
         }
       }
 
@@ -324,7 +349,14 @@ run_pipeline <- function(
             p$status
           )
         )
-        if (nzchar(p$stderr)) {
+        if (isTRUE(is.raw(p$stderr))) {
+          if (length(p$stderr) > 0L) {
+            failed_lines <- c(
+              failed_lines,
+              sprintf("       <binary data, %d bytes>", length(p$stderr))
+            )
+          }
+        } else if (nzchar(p$stderr)) {
           stderr_lines <- strsplit(p$stderr, "\n")[[1]]
           stderr_lines <- stderr_lines[nzchar(stderr_lines)]
           for (sl in utils::head(stderr_lines, 10L)) {

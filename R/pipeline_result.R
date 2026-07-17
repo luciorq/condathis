@@ -10,8 +10,9 @@
 #'   - `cmd`: Character string with the command and arguments.
 #'   - `env_name`: Character string with the Conda environment name.
 #'   - `status`: Integer exit status.
-#'   - `stdout`: Character string with stdout, or `NA` for non-last processes.
-#'   - `stderr`: Character string with stderr.
+#'   - `stdout`: Character string or raw vector with stdout, or `NA` for
+#'     non-last processes.
+#'   - `stderr`: Character string or raw vector with stderr.
 #'   - `pid`: Integer process ID.
 #' @param timeout Logical. Whether the pipeline was killed due to timeout.
 #'
@@ -49,31 +50,19 @@ format.condathis_pipeline <- function(x, ...) {
     } else {
       paste("exit:", status_str)
     }
-    stdout_preview <- ""
-    if (!is.na(p$stdout) && nzchar(p$stdout)) {
-      first_line <- strsplit(p$stdout, "\n")[[1]][1]
-      if (nchar(first_line) > 60) {
-        first_line <- paste0(substr(first_line, 1, 57), "...")
-      }
-      stdout_preview <- sprintf("  stdout: %s", first_line)
-    }
-    stderr_preview <- ""
-    if (nzchar(p$stderr)) {
-      first_line <- strsplit(p$stderr, "\n")[[1]][1]
-      if (nchar(first_line) > 60) {
-        first_line <- paste0(substr(first_line, 1, 57), "...")
-      }
-      stderr_preview <- sprintf("  stderr: %s", first_line)
-    }
+    stdout_first_line <- stream_preview_line(p$stdout)
+    stderr_first_line <- stream_preview_line(p$stderr)
     lines <- c(
       lines,
       sprintf("  [%d] %s (%s)", i, p$cmd, p$env_name),
       sprintf("       status: %s", status_icon)
     )
-    if (nzchar(stdout_preview)) {
-      lines <- c(lines, stdout_preview)
+    if (!is.null(stdout_first_line)) {
+      lines <- c(lines, sprintf("  stdout: %s", stdout_first_line))
     }
-    if (nzchar(stderr_preview)) lines <- c(lines, stderr_preview)
+    if (!is.null(stderr_first_line)) {
+      lines <- c(lines, sprintf("  stderr: %s", stderr_first_line))
+    }
   }
   paste0(lines, collapse = "\n")
 }
