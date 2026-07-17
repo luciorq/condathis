@@ -273,7 +273,7 @@ test_that("Run with stdin = '|' does not deadlock when stdout and stderr are bot
   res <- run(
     "bash",
     "-c",
-    "cat; yes B | head -c 200000 1>&2",
+    "cat; printf '%*s' 200000 '' | tr ' ' 'B' 1>&2",
     stdin = "|",
     input = strrep("A", 200000),
     env_name = "run-cli-tools-env",

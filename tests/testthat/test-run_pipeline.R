@@ -542,6 +542,11 @@ test_that("Pipeline does not deadlock when the last command's stdout and stderr 
   # child blocks on write() to whichever stream isn't being read yet, so it
   # never reaches EOF on the stream that IS being read either. 200KB on
   # each stream comfortably exceeds every platform's default pipe buffer.
+  # `printf '%*s' N '' | tr ' ' 'X'` (not `yes X | head -c N`) generates
+  # exactly N bytes: `yes | head -c` doesn't reliably stop `yes` under
+  # MSYS2/Windows bash (SIGPIPE from `head` closing its read end isn't
+  # delivered the same way), so `yes` keeps writing well past N bytes —
+  # confirmed directly on Windows (600KB+ and still growing).
   create_env(
     pipeline_cli_pkgs(),
     env_name = "run-pipeline-cli-tools-env",
@@ -553,7 +558,10 @@ test_that("Pipeline does not deadlock when the last command's stdout and stderr 
       c(
         "bash",
         "-c",
-        "yes A | head -c 200000; yes B | head -c 200000 1>&2"
+        paste(
+          "printf '%*s' 200000 '' | tr ' ' 'A';",
+          "printf '%*s' 200000 '' | tr ' ' 'B' 1>&2"
+        )
       )
     ),
     env_name = "run-pipeline-cli-tools-env"
@@ -574,7 +582,7 @@ test_that("Pipeline does not deadlock on a large stderr from a non-last command"
   )
   res <- run_pipeline(
     cmds = list(
-      c("bash", "-c", "echo hi; yes B | head -c 200000 1>&2"),
+      c("bash", "-c", "echo hi; printf '%*s' 200000 '' | tr ' ' 'B' 1>&2"),
       c("cat")
     ),
     env_name = "run-pipeline-cli-tools-env"
