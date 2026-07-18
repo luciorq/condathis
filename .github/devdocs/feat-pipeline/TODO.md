@@ -258,14 +258,15 @@ corrupting binary payloads. See PLAN.md for full design/rationale.
       any 2+ command pipeline — see next section, a separate pre-existing
       bug this surfaced, not caused by this work.**
 
-## `run_pipeline()` hangs indefinitely on native Windows — root cause confirmed
+## `run_pipeline()` hangs indefinitely on native Windows — fixed
 
-**Root cause confirmed. Two real, permanent correctness fixes applied
+**Fixed.** Two real, permanent correctness fixes applied
 (`conn_create_proc_pipepair()`, per-iteration pipe closes, `poll_connection`)
 — none of which alone or combined fixed the hang. The actual cause
-(`supervise = TRUE`) is isolated and A/B-confirmed, but the fix is a
-behavior change pending a maintainer decision, not yet applied.** Full
-write-up in PLAN.md's corresponding section — summary here:
+(`supervise = TRUE`) was isolated and A/B-confirmed, then fixed by forcing
+`supervise = FALSE` on Windows only (`get_sys_arch()`-gated), leaving the
+`TRUE` default and its crash-safety guarantee untouched on Linux/macOS.
+Full write-up in PLAN.md's corresponding section — summary here:
 
 - [x] Confirm the hang is real and reproducible — simplest case,
       `run_pipeline(cmds = list(c("echo", "hello"), c("cat")))`.
@@ -294,21 +295,81 @@ write-up in PLAN.md's corresponding section — summary here:
         (no source change): **hang gone, 0.66s.** Confirmed the inverse
         immediately after in the same script/session: `TRUE` **hung
         again**. This is the cause.
-- [x] Plausible mechanism recorded: `supervise = TRUE` spawns a
-      `supervisor.exe` helper per child on Windows (confirmed via
-      `tasklist`), which likely inherits its own handle to the piped
-      stdout — the child's own handle closing on exit isn't sufficient to
-      signal EOF if the supervisor still holds a live duplicate.
-- [ ] **Maintainer decision needed, not to be applied unilaterally**: how
-      to fix `supervise` — options and trade-offs written up in PLAN.md
-      (default `FALSE` everywhere / gate on Windows only / per-position
-      like `poll_connection`, untested).
-- [ ] Implement whichever option is chosen.
-- [ ] Re-verify with the full `test-run_pipeline.R` suite on all three
-      testbeds (Linux, `omicron` macOS, `kappa` Windows — system R only).
-- [ ] Revisit whether `testthat::skip_on_os("windows")` is still needed
-      once the fix lands (likely not) — **maintainer decision, not
-      unilateral**, same caveat as before.
+- [x] Mechanism recorded, then confirmed by upstream: `supervise = TRUE`
+      spawns a `supervisor.exe` helper per child on Windows (confirmed via
+      `tasklist`). `processx` 3.9.0's own "Process cleanup" vignette
+      independently documents this exact failure mode under a "Windows
+      Defender caveat" — antivirus may flag/quarantine/block
+      `supervisor.exe` — and explicitly recommends package authors expose
+      a way to disable the supervisor as a Windows workaround. See
+      PLAN.md for the full quote.
+- [x] Fix implemented: `run_pipeline()` computes `effective_supervise <-
+      if (get_sys_arch() matches "^Windows") FALSE else supervise` and
+      passes that to every `process$new()` call instead of the raw
+      `supervise` argument. Chosen over "default `FALSE` everywhere"
+      (would silently weaken crash-safety on Linux/macOS, where nothing is
+      broken) and the untested per-position variant (no evidence it was
+      needed once the real cause was found).
+- [x] Re-verified with the full `test-run_pipeline.R` suite: 77/77 on
+      Linux, macOS (`omicron`), and Windows (`kappa`) — the Windows run
+      confirmed genuinely executing (not silently skipped; see the
+      `NOT_CRAN` quoting note below) with 0 errors, only the pre-existing
+      benign tzdata warnings.
+- [x] `testthat::skip_on_os("windows")` was never added, so there's
+      nothing to revisit — the multi-command pipeline tests always ran
+      unconditionally on Windows; they just weren't failing loudly because
+      of the `NOT_CRAN` issue below, not because they were skipped by OS.
+- [ ] **Open, not decided or implemented**: upstream's "Process cleanup"
+      vignette recommends a *general* user-facing escape hatch (option or
+      env var) to disable the supervisor package-wide, not just the
+      Windows-gated default inside `run_pipeline()` that's already applied.
+      Would need a naming/design decision (e.g. `options(condathis.supervise
+      = FALSE)` or `CONDATHIS_SUPERVISE=false`) — not required for the
+      Windows hang itself, which is already fixed independent of this.
+
+### Unrelated finding along the way: `NOT_CRAN` silently not propagating via `ssh kappa "... set NOT_CRAN=true && ..."`
+
+`cmd.exe`'s `set VAR=value && next_command` includes the trailing space
+before `&&` in the value — `Sys.getenv("NOT_CRAN")` came back as `"true "`
+(trailing space), which `testthat::skip_on_cran()` correctly treats as not
+set (it requires an exact `"true"` match), silently skipping every
+`skip_on_cran()`-gated test instead of running them. This made several
+earlier "N/N pass" results in this investigation actually mean "N/N
+*skipped*, 0 run" — not caught until a differently-shaped failure (a real,
+separate bug — see below) surfaced once tests were actually executing.
+Fixed for future remote Windows test invocations by quoting the
+assignment: `set "NOT_CRAN=true" && ...`.
+
+## Fixed: `install_micromamba()` intermittently reports a fresh binary as missing on Windows
+
+Surfaced only once `NOT_CRAN` was actually propagating (see above) and
+real tests started running: `install_micromamba(force = TRUE)` failed
+once with `condathis_install_error_missing_bzip2` ("was not downloaded or
+extracted successfully"), then succeeded immediately on manual retry with
+no code change in between. Consistent with a Windows antivirus real-time
+scan briefly holding its own handle on the just-extracted/just-downloaded
+`micromamba.exe`, making `fs::file_exists()` return `FALSE` for a moment
+even though the file is actually present. Fixed by wrapping both
+post-extraction and final existence checks in a small
+`file_exists_retry()` helper (5 attempts, 0.2s apart) in
+`R/install_micromamba.R`. Re-verified: 3 consecutive full `test-
+install_micromamba.R` runs (25/25 each) and an 8-attempt manual stress
+test (5× `force = TRUE` reinstall via the compressed/`tar`+`bzip2` path, 3×
+via the raw-binary fallback path with `PATH` restricted like the test
+does) all clean on `kappa` after the fix.
+
+## Fixed: `get_micromamba_activation_envvars()` caching test flaky on `PROCESSX_PS3...`
+
+The noise-filter regex only matched `^PROCESSX_PS2`, but `processx` also
+sets a `PROCESSX_PS3...` tracking variable (both PID/hash-suffixed, fresh
+on every subprocess spawn) that leaked through unfiltered — making the
+"caches per `env_name`" test's `identical(envvars_first, envvars_forced)`
+check fail nondeterministically (it forces a second, fresh resolution via
+`use_cache = FALSE`, which necessarily spawns a new subprocess with a new
+`PROCESSX_PS3...` value). Broadened to `^PROCESSX_PS[0-9]` in
+`R/get_micromamba_activation_envvars.R`; matching test assertion in
+`test-get_micromamba_activation_envvars.R` broadened the same way.
+Re-verified: 5 consecutive clean runs on Linux, 3 on macOS, 3 on Windows.
 
 **Process hygiene note for future remote Windows testing:** killing the
 local `ssh`/`timeout` wrapper does **not** kill the remote process tree —

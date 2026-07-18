@@ -427,15 +427,20 @@ large-input + large-output scenarios in text and binary mode.
   **hangs on Windows** — see below, a separate, pre-existing, unrelated bug
   this investigation surfaced rather than introduced.
 
-## `run_pipeline()` hangs indefinitely on native Windows — root cause confirmed
+## `run_pipeline()` hangs indefinitely on native Windows — fixed
 
-**Status: root cause confirmed and isolated. Partial fix applied
-(`conn_create_proc_pipepair()` + `poll_connection`, both correctness
-improvements per `processx`'s own reference implementation, kept
-permanently). The actual fix — changing `run_pipeline()`'s `supervise`
-default or behavior — is a design decision pending maintainer input, not
-yet applied.** Recorded here so the investigation doesn't have to be
-redone.
+**Status: fixed.** Root cause confirmed and isolated (see below), plus two
+independent correctness fixes (`conn_create_proc_pipepair()` +
+`poll_connection`, matching `processx::pipeline`'s own reference
+implementation). The actual fix landed: `run_pipeline()` now forces
+`supervise = FALSE` on Windows specifically (`get_sys_arch()`-gated,
+matching the existing `test_os_pkg()` pattern), leaving the `supervise =
+TRUE` default untouched on Linux/macOS, where the hang does not occur and
+the crash-safety guarantee it exists for is unaffected. Verified with the
+full `test-run_pipeline.R` suite (77/77) on all three testbeds after the
+fix, including on `kappa` with `NOT_CRAN` correctly propagated (see the
+cmd.exe quoting note further down) — genuinely passing, not silently
+skipped. Recorded here so the investigation doesn't have to be redone.
 
 ### What's confirmed
 
@@ -543,51 +548,63 @@ difference:
    `FALSE` case's output/timing intact above it in the log. This is about
    as clean an A/B isolation as this kind of bug allows.
 
-   Mechanistically plausible: `supervise = TRUE` spawns an extra
-   `supervisor.exe` helper process per child on Windows (confirmed via
-   `tasklist` — `supervisor.exe` entries were present, parented under the
-   hung `Rscript.exe`, alongside orphaned `cat.exe`). A supervisor that
+   Mechanistically plausible at the time: `supervise = TRUE` spawns an
+   extra `supervisor.exe` helper process per child on Windows (confirmed
+   via `tasklist` — `supervisor.exe` entries were present, parented under
+   the hung `Rscript.exe`, alongside orphaned `cat.exe`). A supervisor that
    inherits its own handle to the piped stdout/stdin would explain exactly
-   the previously-observed symptom ("command 2 never sees EOF even though
-   command 1 already exited cleanly") — the child's own handle closing on
-   exit isn't enough if the supervisor watching it still holds a live
-   duplicate.
+   the observed symptom ("command 2 never sees EOF even though command 1
+   already exited cleanly") — the child's own handle closing on exit isn't
+   enough if the supervisor watching it still holds a live duplicate.
 
-**Not yet done / needs a decision:** `run_pipeline()`'s `supervise`
-default is intentional (crash-safety for a multi-process pipeline), so
-changing it is a behavior change, not a pure bug fix — this needs explicit
-maintainer sign-off rather than a unilateral change. Options, roughly in
-order of how closely they match the known-working reference:
-- Default `supervise` to `FALSE` for every process (exactly matches
-  `processx::pipeline`'s own behavior, which is demonstrated working on
-  this Windows box) — simplest, but loses the crash-safety guarantee
-  `run_pipeline()` currently promises for every stage, on every platform,
-  not just Windows.
-- Force `supervise = FALSE` only on Windows (`get_sys_arch()`-gated),
-  keeping the existing default elsewhere — preserves current behavior on
-  Linux/macOS exactly, fixes Windows, but means `run_pipeline()`'s
-  crash-safety guarantee silently differs by platform.
-  Position-based (`supervise = FALSE` for non-last processes only, `TRUE`
-  for the last, mirroring the already-applied `poll_connection` pattern)
-  was considered but **not tested** — a hand-rolled two-process repro
-  meant to isolate this hit an unrelated script bug (`stdin = NULL` vs
-  `"|"` on the first attempt, then a second, unexplained `"attempt to
-  apply non-function"` error) and was abandoned rather than debugged
-  further, since the full-`FALSE` case was already conclusively confirmed
-  and further precision didn't seem worth more Windows round-trips. If
-  this path is wanted, it needs its own clean repro.
+   **Confirmed by upstream documentation after the fact.** `processx`
+   3.9.0's own "Process cleanup" article (`vignette("cleanup",
+   package = "processx")`), by the package author, has a "Windows Defender
+   caveat" under the supervisor section: *"`supervisor.exe` is a small
+   standalone executable bundled with the `processx` package. Windows
+   Defender and other antivirus products may flag, quarantine, or block
+   it. If `supervise = TRUE` fails on Windows or the supervisor does not
+   start, check your antivirus software..."* — and, directly actionable
+   for a package author in our exact position: *"If you are a package
+   developer using `processx`, consider exposing an option to let users
+   disable the supervisor (e.g. via an option or environment variable).
+   This gives Windows users a workaround if antivirus software blocks
+   `supervisor.exe`."* This doesn't change what was already done (see
+   below) but replaces the "plausible hypothesis" framing above with an
+   upstream-documented, known Windows failure mode.
 
-### What's needed to actually finish this (not started)
+**Decision made and applied:** `run_pipeline()` now computes
+`effective_supervise <- if (get_sys_arch() matches "^Windows") FALSE else
+supervise` and passes that to every `process$new()` call. Chosen over the
+alternatives that were on the table:
+- Default `supervise` to `FALSE` for every process everywhere (exactly
+  matches `processx::pipeline`'s own behavior) — rejected: would silently
+  weaken the crash-safety guarantee on Linux/macOS too, where nothing is
+  broken.
+- Position-based (`supervise = FALSE` for non-last processes only, `TRUE`
+  for the last, mirroring the `poll_connection` pattern) — considered but
+  never tested (a hand-rolled repro to isolate it hit unrelated script
+  bugs and was abandoned once the full-`FALSE`/Windows-only case was
+  already conclusively confirmed working). Not pursued further since the
+  applied fix already matches upstream's own recommended shape (an
+  antivirus-driven, opt-out-by-default-on-Windows workaround), not a
+  finer-grained one.
 
-1. Maintainer decision on which `supervise` option above (or another) to
-   take, since all of them are behavior changes to a documented default.
-2. Implement the chosen option in `R/run_pipeline.R`.
-3. Re-verify with the full `test-run_pipeline.R` suite on all three
-   testbeds (Linux, macOS via `omicron`, Windows via `kappa`, system R
-   only — never `pixi` on the remotes).
-4. Revisit whether `testthat::skip_on_os("windows")` is still needed once
-   the fix lands — likely not, but **flagging this as a decision for the
-   maintainer, not something to be applied unilaterally**, same as before.
+Re-verified with the full `test-run_pipeline.R` suite: 77/77 on Linux,
+macOS (`omicron`), and Windows (`kappa`) — the Windows run confirmed
+genuinely executing, not silently skipped (see the `NOT_CRAN` cmd.exe
+quoting note in TODO.md).
+
+**Possible follow-up, not yet decided or implemented:** upstream's
+broader suggestion is a general user-facing escape hatch (option or env
+var) to disable the supervisor package-wide, for any `condathis` function,
+not just the platform-gated default inside `run_pipeline()`. Worth
+considering since `supervise` is currently only a per-call argument — a
+user who wants it off everywhere (e.g. to avoid antivirus friction
+entirely) has to pass it on every call. Not implemented; would need a
+naming/design decision (e.g. `options(condathis.supervise = FALSE)` or
+`CONDATHIS_SUPERVISE=false`) and isn't required for the Windows hang,
+which is already fixed independent of this.
 
 ### Secondary finding along the way: `yes X | head -c N` is unreliable on Windows
 
