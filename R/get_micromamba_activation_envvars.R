@@ -163,7 +163,13 @@ activation_ignore_exact_vars <- function() {
 #' @keywords internal
 #' @noRd
 activation_ignore_pattern_vars <- function() {
-  "^PROCESSX_PS2"
+  # `processx` embeds a fresh PID/hash into these on every subprocess it
+  # spawns (observed: `PROCESSX_PS2...` and `PROCESSX_PS3...`, i.e. more
+  # than one numbered variant, presumably one per nesting level of spawned
+  # subprocess) — matching only `PS2` let `PS3` leak through unfiltered,
+  # making two otherwise-identical resolutions of the same env compare as
+  # different and breaking the caching test non-deterministically.
+  "^PROCESSX_PS[0-9]"
 }
 
 #' Spawn `Rscript` through `micromamba run` and diff its environment

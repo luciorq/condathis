@@ -168,18 +168,54 @@ run_pipeline <- function(
     error_var = error_var
   )
 
-  pipes <- vector("list", max(0L, n_cmds - 1L))
-  if (n_cmds > 1L) {
-    for (idx in seq_len(n_cmds - 1L)) {
-      pipes[[idx]] <- processx::conn_create_pipepair()
-    }
+  # `supervise = TRUE` (the default) hangs `run_pipeline()` indefinitely on
+  # native Windows for any 2+ command pipeline — confirmed via a clean A/B
+  # test on a real Windows machine: overriding to `FALSE` fixes it
+  # instantly (well under 1s), switching back to `TRUE` reproduces the hang,
+  # in the same R session. `processx::pipeline`'s own reference
+  # implementation never enables `supervise` at all (every process gets
+  # `process$new()`'s own `FALSE` default) and does not hang. A
+  # `supervisor.exe` helper process was observed (via `tasklist`) to
+  # outlive the piped child on Windows; it likely holds its own handle to
+  # the piped stdout, which would explain the reader never seeing EOF even
+  # after the writer process has already exited. Rather than dropping the
+  # crash-safety guarantee `run_pipeline()` intentionally adds on every
+  # platform (its whole reason for defaulting to `TRUE`, unlike `run()`/
+  # `run_bin()`), only Windows is forced to `FALSE` here.
+  effective_supervise <- if (
+    isTRUE(stringr::str_detect(get_sys_arch(), "^Windows"))
+  ) {
+    FALSE
+  } else {
+    supervise
   }
 
   procs <- vector("list", n_cmds)
   spawn_failures <- vector("list", n_cmds)
+  prev_read <- NULL
+
   for (i in seq_len(n_cmds)) {
     cmd_vec <- parsed[[i]]$cmd
     env_name_i <- parsed[[i]]$env_name
+
+    # `conn_create_proc_pipepair()`, not `conn_create_pipepair()`, is the
+    # constructor documented for wiring two child processes together
+    # (`?processx::processx_connections`): its ends are synchronous/
+    # blocking, which is "required for child-process stdin/stdout on
+    # Windows". `conn_create_pipepair()`'s ends are non-blocking, meant for
+    # R-side reading/writing (e.g. this package's own `pump_process_io()`,
+    # used for `run()`/`run_bin()`'s `stdin = "|"` handling) — using it here
+    # instead is what caused `run_pipeline()` to hang indefinitely on
+    # Windows for any 2+ command pipeline. Confirmed by comparing against
+    # `processx::pipeline`'s own `initialize()` method, which uses
+    # `conn_create_proc_pipepair()` and is documented to work on Windows.
+    next_pipe <- if (i < n_cmds) processx::conn_create_proc_pipepair() else NULL
+    stdin_i <- if (i == 1L) stdin else prev_read
+    stdout_i <- if (i == n_cmds) {
+      parsed[[i]]$stdout %||% stdout
+    } else {
+      next_pipe[[1L]]
+    }
 
     if (env_name_i %in% missing_envs) {
       spawn_failures[[i]] <- list(
@@ -189,70 +225,76 @@ run_pipeline <- function(
           env_name_i
         )
       )
-      next
-    }
-
-    env_dir <- get_env_dir(env_name = env_name_i)
-
-    activation_envvars <- if (isTRUE(activate)) {
-      get_micromamba_activation_envvars(env_name = env_name_i)
     } else {
-      get_activation_envvars(
-        env_name = env_name_i,
-        env_dir = env_dir,
-        tmp_dir = tmp_dir_path
-      )
-    }
+      env_dir <- get_env_dir(env_name = env_name_i)
 
-    stdout_i <- if (i == n_cmds) {
-      parsed[[i]]$stdout %||% stdout
-    } else {
-      pipes[[i]][[2L]]
-    }
-    stderr_i <- parsed[[i]]$stderr %||% stderr
-
-    spawn_result <- tryCatch(
-      expr = {
-        processx::process$new(
-          command = cmd_vec[1L],
-          args = cmd_vec[-1L],
-          stdin = if (i == 1L) stdin else pipes[[i - 1L]][[1L]],
-          stdout = stdout_i,
-          stderr = stderr_i,
-          env = c("current", activation_envvars),
-          supervise = supervise,
-          cleanup_tree = cleanup_tree,
-          linux_pdeathsig = linux_pdeathsig,
-          encoding = pipeline_encoding
-        )
-      },
-      system_command_status_error = function(cnd) cnd,
-      rlib_error_3_0 = function(cnd) cnd,
-      c_error = function(cnd) cnd
-    )
-
-    if (inherits(spawn_result, "condition")) {
-      stderr_msg <- if (
-        isTRUE(stringr::str_detect(
-          conditionMessage(spawn_result),
-          "Native call to"
-        ))
-      ) {
-        sprintf("System command '%s' not found\n", cmd_vec[1L])
+      activation_envvars <- if (isTRUE(activate)) {
+        get_micromamba_activation_envvars(env_name = env_name_i)
       } else {
-        "Unknown Error\n"
+        get_activation_envvars(
+          env_name = env_name_i,
+          env_dir = env_dir,
+          tmp_dir = tmp_dir_path
+        )
       }
-      spawn_failures[[i]] <- list(status = 127L, stderr = stderr_msg)
-    } else {
-      procs[[i]] <- spawn_result
-    }
-  }
 
-  for (idx in seq_len(n_cmds - 1L)) {
-    close(pipes[[idx]][[1L]])
-    close(pipes[[idx]][[2L]])
+      stderr_i <- parsed[[i]]$stderr %||% stderr
+
+      spawn_result <- tryCatch(
+        expr = {
+          processx::process$new(
+            command = cmd_vec[1L],
+            args = cmd_vec[-1L],
+            stdin = stdin_i,
+            stdout = stdout_i,
+            stderr = stderr_i,
+            poll_connection = if (i < n_cmds) FALSE else NULL,
+            env = c("current", activation_envvars),
+            supervise = effective_supervise,
+            cleanup_tree = cleanup_tree,
+            linux_pdeathsig = linux_pdeathsig,
+            encoding = pipeline_encoding
+          )
+        },
+        system_command_status_error = function(cnd) cnd,
+        rlib_error_3_0 = function(cnd) cnd,
+        c_error = function(cnd) cnd
+      )
+
+      if (inherits(spawn_result, "condition")) {
+        stderr_msg <- if (
+          isTRUE(stringr::str_detect(
+            conditionMessage(spawn_result),
+            "Native call to"
+          ))
+        ) {
+          sprintf("System command '%s' not found\n", cmd_vec[1L])
+        } else {
+          "Unknown Error\n"
+        }
+        spawn_failures[[i]] <- list(status = 127L, stderr = stderr_msg)
+      } else {
+        procs[[i]] <- spawn_result
+      }
+    }
+
+    # Close the parent's copies of this stage's pipe ends as soon as
+    # they've been handed to a process (or would have been, had spawning
+    # not failed) — never defer closing until every process in the
+    # pipeline has spawned. A write end left open in the parent (even
+    # though the child holds its own copy) keeps the read end from ever
+    # seeing EOF once the child exits, which is the same deadlock class
+    # `pump_process_io()` avoids one level down, just at the OS-handle
+    # level instead of the R-read level. Mirrors `processx::pipeline`'s
+    # own `initialize()`.
+    if (!is.null(next_pipe)) {
+      close(next_pipe[[1L]])
+    }
+    if (i > 1L) {
+      close(prev_read)
+    }
+    prev_read <- if (!is.null(next_pipe)) next_pipe[[2L]] else NULL
   }
-  rm(pipes)
 
   # Write `input` to the first process's stdin while draining *its* stderr
   # (never its stdout — that's piped straight into the second command, not

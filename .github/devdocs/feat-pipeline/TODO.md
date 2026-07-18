@@ -196,6 +196,129 @@ closed for `run_bin()`/`run_pipeline()` (both can do real `micromamba run`
 activation via `activate = TRUE`) — `run()` was intentionally left
 untouched this round.
 
+## Binary output support (`binary` argument) + two real I/O bugs found and fixed
+
+Prompted by writing an article showcasing `run_pipeline()` piping binary
+image data between Conda environments (OpenSlide/`libvips` → ImageMagick),
+which surfaced that stdout/stderr were always decoded as UTF-8 text,
+corrupting binary payloads. See PLAN.md for full design/rationale.
+
+- [x] Add `binary = FALSE` argument to `run()`, `run_bin()`, `run_pipeline()`
+      — captures stdout/stderr as raw vectors instead of UTF-8 text when
+      `TRUE`. Both streams become raw together (one shared `processx`
+      encoding per process), not just stdout.
+- [x] Update `format.condathis_result()`, `format.condathis_pipeline()`, and
+      `parse_output()` to check `is.raw()` on **both** stdout and stderr
+      independently before running character-only operations
+      (`nzchar()`/`strsplit()`/etc.) — `parse_output()` aborts with class
+      `condathis_parse_output_binary_stream` naming exactly which stream(s)
+      are binary, rather than crashing inside `stringr` calls.
+- [x] Fix real bug: `processx`'s `read_all_output()`/`read_all_error()`
+      mangle raw bytes into hex-string characters when `encoding =
+      "binary"` (they `paste0()`-concatenate chunks, which coerces `raw` to
+      per-byte hex text) — confirmed empirically. Fixed by reading via
+      `read_output_bytes()`/`read_error_bytes()` in a loop instead.
+- [x] **Fix real bug (deadlock, any platform, plain text too)**:
+      `run_process_with_input()` and `run_pipeline()` both called
+      `proc$wait()` before draining any output — deadlocks once combined
+      stdout+stderr exceeds the OS pipe buffer (64KB on Linux, smaller on
+      macOS/Windows), since the child blocks writing to whichever stream
+      isn't being read, so it never exits. Confirmed by reproducing the
+      hang directly with `processx::process$new()`.
+- [x] **Fix real bug (silent truncation, any platform)**:
+      `proc$write_input()` is a single non-blocking write that can
+      short-write and returns the undelivered leftover, which the R
+      wrapper discards — writing once and closing immediately silently
+      truncated `input` larger than the OS pipe buffer, no error. Confirmed
+      on Windows: 200,000-byte `input` delivered only 8,192 bytes,
+      independently verified with `wc -c` on the receiving end.
+- [x] New shared helper `pump_process_io()` (`R/pump_process_io.R`, née
+      `R/read_all_stream_binary.R`/`R/read_all_streams.R` as its scope
+      grew) fixing both bugs at once: one loop that polls a process's
+      stdin/stdout/stderr together, retrying the stdin write with
+      `write_input()`'s returned leftover, and draining whatever's
+      currently available on stdout/stderr each iteration. Wired into
+      `run_process_with_input()` (replaces the old write→close→wait→read
+      sequence) and `run_pipeline()` (replaces the old "wait on every
+      process, then read every process" two-pass structure with
+      drain-then-wait per process, reusing the first command's
+      already-fully-drained stderr from its own input-writing phase instead
+      of draining it twice).
+- [x] Add regression tests (`test-run.R`, `test-run_pipeline.R`):
+      200,000-byte round-trips through both bugs' exact failure conditions.
+      Byte generation via `printf '%*s' N '' | tr ' ' 'X'`, not
+      `yes X | head -c N` — the latter doesn't reliably terminate under
+      MSYS2/Windows bash (see PLAN.md's "Open Problem" section).
+- [x] Verify cross-platform via SSH against `gamma` (local Ubuntu), and
+      `omicron`/`kappa` (macOS ARM / Windows 11 test-bed machines), **using
+      each machine's system R, not `pixi`'s R** (corrected after an initial
+      pass mistakenly used `pixi`'s trampoline `R`/`Rscript` on `omicron`).
+      `run()`/`run_bin()`: clean on all three, including the new regression
+      tests. `run_pipeline()`: clean on Linux/macOS; **hangs on Windows for
+      any 2+ command pipeline — see next section, a separate pre-existing
+      bug this surfaced, not caused by this work.**
+
+## `run_pipeline()` hangs indefinitely on native Windows — root cause confirmed
+
+**Root cause confirmed. Two real, permanent correctness fixes applied
+(`conn_create_proc_pipepair()`, per-iteration pipe closes, `poll_connection`)
+— none of which alone or combined fixed the hang. The actual cause
+(`supervise = TRUE`) is isolated and A/B-confirmed, but the fix is a
+behavior change pending a maintainer decision, not yet applied.** Full
+write-up in PLAN.md's corresponding section — summary here:
+
+- [x] Confirm the hang is real and reproducible — simplest case,
+      `run_pipeline(cmds = list(c("echo", "hello"), c("cat")))`.
+- [x] Rule out: this session's `binary`/deadlock/truncation changes,
+      extra child processes from a `yes`/`head`/`tr` subpipeline, `pixi`'s
+      R specifically (all previously ruled out, see PLAN.md).
+- [x] Isolate the hang point: second command's stdout never sees EOF even
+      after the first command exits cleanly.
+- [x] Diff against `processx::pipeline$new()` (a working reference on the
+      same Windows box, supplied by the user as a live counter-example)
+      and test each difference in isolation on Windows:
+  - [x] `conn_create_pipepair()` → `conn_create_proc_pipepair()` (the
+        latter is documented as required — synchronous/blocking — for
+        Windows child stdin/stdout). **Applied, kept. Tested alone: did
+        not fix the hang.**
+  - [x] Close each pipe end immediately per-iteration instead of
+        deferring all closes until the whole pipeline has spawned.
+        **Applied, kept. Bundled with the above, still did not fix the
+        hang.**
+  - [x] `poll_connection = FALSE` for every non-last process (matches
+        `pipeline$new()` exactly). **Applied, kept. Combined with both
+        above: still did not fix the hang.**
+  - [x] `supervise`: `pipeline$new()` never enables it (every process gets
+        `process$new()`'s own `FALSE` default); `run_pipeline()` defaults
+        it to `TRUE`. Tested by overriding to `FALSE` in the repro call
+        (no source change): **hang gone, 0.66s.** Confirmed the inverse
+        immediately after in the same script/session: `TRUE` **hung
+        again**. This is the cause.
+- [x] Plausible mechanism recorded: `supervise = TRUE` spawns a
+      `supervisor.exe` helper per child on Windows (confirmed via
+      `tasklist`), which likely inherits its own handle to the piped
+      stdout — the child's own handle closing on exit isn't sufficient to
+      signal EOF if the supervisor still holds a live duplicate.
+- [ ] **Maintainer decision needed, not to be applied unilaterally**: how
+      to fix `supervise` — options and trade-offs written up in PLAN.md
+      (default `FALSE` everywhere / gate on Windows only / per-position
+      like `poll_connection`, untested).
+- [ ] Implement whichever option is chosen.
+- [ ] Re-verify with the full `test-run_pipeline.R` suite on all three
+      testbeds (Linux, `omicron` macOS, `kappa` Windows — system R only).
+- [ ] Revisit whether `testthat::skip_on_os("windows")` is still needed
+      once the fix lands (likely not) — **maintainer decision, not
+      unilateral**, same caveat as before.
+
+**Process hygiene note for future remote Windows testing:** killing the
+local `ssh`/`timeout` wrapper does **not** kill the remote process tree —
+each hung repro attempt left orphaned `Rscript.exe`/`cat.exe`/
+`supervisor.exe` processes running on `kappa` indefinitely (visible via
+`tasklist`), which then blocked subsequent `scp` uploads of the same
+filename (`Failure` writing to a file still open on the remote side).
+Clean up with `taskkill /F /IM <name>.exe /T` for each relevant process
+name before re-running a repro that previously hung.
+
 ## Additional work landed on this branch (unrelated to the pipeline feature)
 
 Two follow-up requests were done on `feat-pipeline` while it was the active

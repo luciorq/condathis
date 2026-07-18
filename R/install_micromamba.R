@@ -150,7 +150,9 @@ install_micromamba <- function(
         try(fs::file_delete(full_dl_path), silent = TRUE)
       }
 
-      if (isTRUE(extract_result) && isTRUE(fs::file_exists(umamba_bin_path))) {
+      if (
+        isTRUE(extract_result) && isTRUE(file_exists_retry(umamba_bin_path))
+      ) {
         extraction_succeeded <- TRUE
       }
     } else {
@@ -185,7 +187,7 @@ install_micromamba <- function(
   }
 
   # --- Verify the binary exists ---
-  if (isFALSE(fs::file_exists(umamba_bin_path))) {
+  if (isFALSE(file_exists_retry(umamba_bin_path))) {
     cli::cli_abort(
       message = c(
         `x` = "{.file {umamba_bin_path}} was not downloaded or extracted successfully.",
@@ -393,4 +395,30 @@ compute_sha256 <- function(file_path) {
       NA_character_
     }
   )
+}
+
+#' Poll for a file's existence with a short backoff
+#'
+#' On Windows, antivirus real-time scanning can briefly hold its own handle
+#' on a just-extracted or just-downloaded executable, making
+#' `fs::file_exists()` return `FALSE` for a few hundred milliseconds even
+#' though extraction/download already succeeded — observed directly as an
+#' intermittent `install_micromamba()` failure on a real Windows machine
+#' (`force = TRUE` failed once, then succeeded on immediate retry with no
+#' code change in between). A short poll absorbs that race without masking
+#' a genuine missing file: it still returns `FALSE` if the file never shows
+#' up within `attempts * delay_secs`.
+#'
+#' @keywords internal
+#' @noRd
+file_exists_retry <- function(path, attempts = 5L, delay_secs = 0.2) {
+  for (i in seq_len(attempts)) {
+    if (isTRUE(fs::file_exists(path))) {
+      return(TRUE)
+    }
+    if (i < attempts) {
+      Sys.sleep(delay_secs)
+    }
+  }
+  return(FALSE)
 }

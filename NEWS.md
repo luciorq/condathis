@@ -98,6 +98,47 @@ Development Changelog: [dev](https://github.com/luciorq/condathis/compare/v0.1.4
   commands targeting that environment instead of aborting the whole
   pipeline; `error = "cancel"` keeps the previous fail-fast behavior.
 
+* Fix `run_pipeline()` hanging indefinitely on native Windows for any
+  pipeline of 2 or more commands. Caused by three compounding issues in how
+  inter-process pipes were created and managed: using the non-blocking,
+  R-facing `processx::conn_create_pipepair()` instead of
+  `conn_create_proc_pipepair()` (documented as required for correct
+  child-to-child stdin/stdout behavior on Windows); deferring the parent's
+  own copies of pipe handles from closing until every process in the
+  pipeline had spawned, instead of closing each one immediately after use;
+  and defaulting every process to `supervise = TRUE`, which spawns an extra
+  Windows helper process per stage that can itself hold the piped stdout
+  open, preventing the next stage from ever seeing EOF. `run_pipeline()`
+  now forces `supervise = FALSE` on Windows regardless of the `supervise`
+  argument (unaffected on Linux/macOS, where the hang does not occur).
+
+* Fix `run()`/`run_bin()`'s `stdin = "|"` silently truncating `input`
+  larger than the OS pipe buffer (confirmed: only 8192 of 200000 bytes
+  delivered on macOS, no error) — a single non-blocking `write_input()`
+  call can short-write and discard the undelivered remainder. Also fixes a
+  related deadlock in `run()`, `run_bin()`, and `run_pipeline()`: reading
+  `stdout` and `stderr` sequentially (or calling `wait()` before draining
+  either) can hang once combined output exceeds the OS pipe buffer, because
+  the child blocks writing to whichever stream isn't being read yet. Both
+  fixed by a shared internal helper that writes/polls/drains all of a
+  process's streams concurrently instead of one at a time.
+
+* Fix `install_micromamba()` intermittently reporting a freshly
+  downloaded/extracted `micromamba` binary as missing on Windows.
+  Antivirus real-time scanning can briefly hold its own handle on a
+  just-written executable, making a `file.exists()` check performed
+  immediately afterward return `FALSE` even though the file is present —
+  confirmed directly (a `force = TRUE` reinstall failed once, then
+  succeeded on an immediate retry with no code change). The existence
+  check now polls briefly before giving up.
+
+* Fix `get_micromamba_activation_envvars()`'s noise-filtering only
+  stripping `processx`'s `PROCESSX_PS2...` tracking variable and not the
+  similarly PID/hash-suffixed `PROCESSX_PS3...` (and potentially further
+  numbered variants), letting it leak into the returned environment
+  variables and making two otherwise-identical resolutions of the same
+  Conda environment compare as different on every call.
+
 ## condathis 0.1.4
 
 Release Date: 2026-06-19
