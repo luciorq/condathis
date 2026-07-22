@@ -244,7 +244,20 @@ test_that("run_bin(activate = TRUE) sets an activated PATH like run()", {
     env_name = "run-bin-cli-tools-env",
     verbose = "silent"
   )
-  env_bin_dir <- fs::path(get_env_dir("run-bin-cli-tools-env"), "bin")
+  env_dir <- get_env_dir("run-bin-cli-tools-env")
+  is_windows <- isTRUE(stringr::str_detect(get_sys_arch(), "^Windows"))
+  # Windows Conda environments put binaries directly in the prefix root
+  # (plus `Library/...`/`Scripts`), not in a `bin` subdirectory like
+  # Linux/macOS, so the directory PATH is expected to contain differs by
+  # platform.
+  env_marker_dir <- if (isTRUE(is_windows)) env_dir else fs::path(env_dir, "bin")
+  # `fs::path()` always returns a leading drive letter (`C:/...`) on
+  # Windows, but the actual PATH string is reported in whatever
+  # msys/cygwin mount convention the reading subprocess uses (`/c/...` via
+  # a direct native exe, `/cygdrive/c/...` via Rtools' own bash) — neither
+  # of which matches `C:/...` verbatim. Everything after the drive letter
+  # is unaffected by that translation, so match on that portion only.
+  env_marker <- sub("^[A-Za-z]:", "", env_marker_dir)
 
   res_run <- run(
     "printenv",
@@ -262,8 +275,8 @@ test_that("run_bin(activate = TRUE) sets an activated PATH like run()", {
     error = "continue"
   )
 
-  testthat::expect_match(res_run$stdout, env_bin_dir, fixed = TRUE)
-  testthat::expect_match(res_bin$stdout, env_bin_dir, fixed = TRUE)
+  testthat::expect_match(res_run$stdout, env_marker, fixed = TRUE)
+  testthat::expect_match(res_bin$stdout, env_marker, fixed = TRUE)
 })
 
 test_that("run_bin(activate = FALSE) does not set CONDA_PREFIX", {

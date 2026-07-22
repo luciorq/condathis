@@ -163,13 +163,18 @@ activation_ignore_exact_vars <- function() {
 #' @keywords internal
 #' @noRd
 activation_ignore_pattern_vars <- function() {
-  # `processx` embeds a fresh PID/hash into these on every subprocess it
-  # spawns (observed: `PROCESSX_PS2...` and `PROCESSX_PS3...`, i.e. more
-  # than one numbered variant, presumably one per nesting level of spawned
-  # subprocess) — matching only `PS2` let `PS3` leak through unfiltered,
-  # making two otherwise-identical resolutions of the same env compare as
-  # different and breaking the caching test non-deterministically.
-  "^PROCESSX_PS[0-9]"
+  # `processx` embeds a fresh hex hash into these on every subprocess it
+  # spawns (observed e.g. `PROCESSX_PSc84243e8843f4_...` on Linux and
+  # `PROCESSX_PSf046e9e523d_...` on Windows) — the hash is arbitrary hex,
+  # not a decimal counter, so it does not reliably start with a digit.
+  # Matching `^PROCESSX_PS[0-9]` only caught it when the hash happened to
+  # start with 0-9, leaking the variable through otherwise (non-
+  # deterministically on Linux, deterministically whenever the hash starts
+  # with a letter, as reproduced on Windows), which broke the caching test
+  # by making two otherwise-identical resolutions of the same env compare
+  # as different. The whole `PROCESSX_PS*` namespace is owned by
+  # `processx`, so matching just the prefix is safe.
+  "^PROCESSX_PS"
 }
 
 #' Spawn `Rscript` through `micromamba run` and diff its environment

@@ -56,7 +56,7 @@ test_that("get_micromamba_activation_envvars() drops known noise variables", {
   testthat::expect_false("TMPDIR" %in% names(envvars))
   testthat::expect_false("PWD" %in% names(envvars))
   testthat::expect_false("SHLVL" %in% names(envvars))
-  testthat::expect_false(any(grepl("^PROCESSX_PS[0-9]", names(envvars))))
+  testthat::expect_false(any(grepl("^PROCESSX_PS", names(envvars))))
 })
 
 test_that("get_micromamba_activation_envvars() errors on a missing environment", {
