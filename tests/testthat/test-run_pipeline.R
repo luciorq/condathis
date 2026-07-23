@@ -730,6 +730,35 @@ test_that("Pipeline format and print methods work", {
   testthat::expect_match(formatted, "condathis_pipeline")
 })
 
+test_that("Pipeline per-process entries are condathis_result objects", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  create_env(
+    pipeline_cli_pkgs(),
+    env_name = "run-pipeline-cli-tools-env",
+    verbose = "silent"
+  )
+  res <- run_pipeline(
+    cmds = list(
+      c("echo", "test"),
+      c("cat")
+    ),
+    env_name = "run-pipeline-cli-tools-env",
+    error = "continue"
+  )
+  for (p in res$processes) {
+    testthat::expect_s3_class(p, "condathis_result")
+    testthat::expect_false(p$timeout)
+  }
+
+  # format()/print() work directly on an individual stage, not just on the
+  # whole pipeline result.
+  formatted <- format(res$processes[[1]])
+  testthat::expect_type(formatted, "character")
+  testthat::expect_match(formatted, "condathis_result")
+})
+
 test_that("Pipeline accepts overridden crash-safety parameters", {
   testthat::skip_on_cran()
   testthat::skip_if_offline()

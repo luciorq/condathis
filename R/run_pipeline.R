@@ -65,9 +65,12 @@
 #'
 #' @returns A `condathis_pipeline` S3 object with per-process results:
 #'   \item{statuses}{Integer vector of exit statuses, one per command.}
-#'   \item{processes}{List of per-process result lists, each with:
-#'     `cmd`, `env_name`, `status`, `stdout` (`NA` for non-last processes),
-#'     `stderr`, and `pid`.}
+#'   \item{processes}{List of per-process `condathis_result` objects (the
+#'     same class `run()`/`run_bin()` return), each with `cmd`, `env_name`,
+#'     `status`, `stdout` (`NA` for non-last processes), `stderr`, `pid`,
+#'     and `timeout` (always `FALSE`; per-process timeouts are not
+#'     currently tracked). `format()`/`print()` work directly on an
+#'     individual `processes[[i]]`, not just on the whole pipeline result.}
 #'   \item{timeout}{Logical. Whether the pipeline timed out.}
 #'
 #' @examples
@@ -389,13 +392,14 @@ run_pipeline <- function(
       any_failed <- TRUE
     }
 
-    processes[[i]] <- list(
-      cmd = cmd_string,
-      env_name = env_name_i,
+    processes[[i]] <- new_condathis_result(
       status = p_status,
       stdout = p_stdout,
       stderr = p_stderr,
-      pid = p_pid
+      timeout = FALSE,
+      pid = p_pid,
+      cmd = cmd_string,
+      env_name = env_name_i
     )
   }
 

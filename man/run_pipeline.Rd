@@ -88,9 +88,12 @@ the same, unchanged environment hit the cache.}
 \value{
 A \code{condathis_pipeline} S3 object with per-process results:
 \item{statuses}{Integer vector of exit statuses, one per command.}
-\item{processes}{List of per-process result lists, each with:
-\code{cmd}, \code{env_name}, \code{status}, \code{stdout} (\code{NA} for non-last processes),
-\code{stderr}, and \code{pid}.}
+\item{processes}{List of per-process \code{condathis_result} objects (the
+same class \code{run()}/\code{run_bin()} return), each with \code{cmd}, \code{env_name},
+\code{status}, \code{stdout} (\code{NA} for non-last processes), \code{stderr}, \code{pid},
+and \code{timeout} (always \code{FALSE}; per-process timeouts are not
+currently tracked). \code{format()}/\code{print()} work directly on an
+individual \code{processes[[i]]}, not just on the whole pipeline result.}
 \item{timeout}{Logical. Whether the pipeline timed out.}
 }
 \description{
