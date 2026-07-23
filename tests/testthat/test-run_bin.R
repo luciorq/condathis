@@ -250,7 +250,11 @@ test_that("run_bin(activate = TRUE) sets an activated PATH like run()", {
   # (plus `Library/...`/`Scripts`), not in a `bin` subdirectory like
   # Linux/macOS, so the directory PATH is expected to contain differs by
   # platform.
-  env_marker_dir <- if (isTRUE(is_windows)) env_dir else fs::path(env_dir, "bin")
+  env_marker_dir <- if (isTRUE(is_windows)) {
+    env_dir
+  } else {
+    fs::path(env_dir, "bin")
+  }
   # `fs::path()` always returns a leading drive letter (`C:/...`) on
   # Windows, but the actual PATH string is reported in whatever
   # msys/cygwin mount convention the reading subprocess uses (`/c/...` via

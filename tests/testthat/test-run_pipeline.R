@@ -30,6 +30,15 @@ test_that("Pipeline rejects invalid command spec", {
   )
 })
 
+test_that("Pipeline rejects a named list spec missing cmd", {
+  testthat::expect_error(
+    object = run_pipeline(
+      list(list(env_name = "condathis-env"), c("cat"))
+    ),
+    class = "condathis_pipeline_invalid_cmd_spec"
+  )
+})
+
 test_that("Pipeline rejects empty command vector", {
   testthat::expect_error(
     object = run_pipeline(list(character(0L), c("echo", "hello"))),

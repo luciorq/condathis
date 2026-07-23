@@ -10,7 +10,10 @@ testthat::test_that("install_packages warns when previous channels are dropped",
   # Windows or on modern (arm64) macOS runners regardless of anything
   # `condathis` does. See the cross-platform equivalent below, which
   # exercises the same warning logic with `conda-forge`-only channels.
-  testthat::skip_if_not(testthat:::system_os() == "linux", "This test requires Linux")
+  testthat::skip_if_not(
+    tolower(Sys.info()[["sysname"]]) == "linux",
+    "This test requires Linux"
+  )
 
   condathis::with_sandbox_dir({
     px_res <- create_env(

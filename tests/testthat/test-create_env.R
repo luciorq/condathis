@@ -22,6 +22,45 @@ testthat::test_that("create_env invalid method arg", {
   )
 })
 
+testthat::test_that("create_env rejects a non-logical overwrite argument", {
+  testthat::expect_error(
+    object = {
+      create_env(NULL, overwrite = "yes")
+    },
+    class = "condathis_create_invalid_overwrite_arg"
+  )
+})
+
+testthat::test_that("create_env rejects a missing env_file", {
+  testthat::expect_error(
+    object = {
+      create_env(env_file = "definitely-does-not-exist.yml")
+    },
+    class = "condathis_create_missing_env_file"
+  )
+})
+
+testthat::test_that("create_env rethrows a failing micromamba command", {
+  testthat::skip_if_offline()
+  testthat::skip_on_cran()
+
+  testthat::expect_error(
+    object = {
+      create_env(
+        packages = "this-package-definitely-does-not-exist-xyz-condathis-test",
+        env_name = "condathis-cmd-status-error-test-env",
+        channels = "conda-forge",
+        verbose = "silent"
+      )
+    },
+    class = "condathis_cmd_status_error"
+  )
+
+  if (fs::dir_exists(get_env_dir("condathis-cmd-status-error-test-env"))) {
+    fs::dir_delete(get_env_dir("condathis-cmd-status-error-test-env"))
+  }
+})
+
 testthat::test_that("conda env is created", {
   testthat::skip_if_offline()
   testthat::skip_on_cran()
