@@ -40,6 +40,39 @@ testthat::test_that("create_env rejects a missing env_file", {
   )
 })
 
+testthat::test_that("create_env returns a condathis_result when dependencies are already satisfied", {
+  testthat::skip_if_offline()
+  testthat::skip_on_cran()
+
+  create_env(
+    packages = "zlib",
+    env_name = "condathis-already-satisfied-test-env",
+    channels = "conda-forge",
+    verbose = "silent"
+  )
+
+  # Second call with the same package: satisfies_dependencies() short-circuits
+  # before ever calling native_cmd(), so this return value is hand-built
+  # rather than derived from a real process result.
+  px_res <- create_env(
+    packages = "zlib",
+    env_name = "condathis-already-satisfied-test-env",
+    channels = "conda-forge",
+    verbose = "silent"
+  )
+  testthat::expect_s3_class(px_res, "condathis_result")
+  testthat::expect_equal(px_res$status, 0L)
+  testthat::expect_equal(
+    px_res$env_name,
+    "condathis-already-satisfied-test-env"
+  )
+
+  remove_env(
+    env_name = "condathis-already-satisfied-test-env",
+    verbose = "silent"
+  )
+})
+
 testthat::test_that("create_env rethrows a failing micromamba command", {
   testthat::skip_if_offline()
   testthat::skip_on_cran()
@@ -70,7 +103,9 @@ testthat::test_that("conda env is created", {
     env_name = "condathis-create-test-env",
     verbose = "silent"
   )
+  testthat::expect_s3_class(px_res, "condathis_result")
   testthat::expect_equal(px_res$status, 0L)
+  testthat::expect_equal(px_res$env_name, "condathis-create-test-env")
 
   # Ensure micromamba is installed at the internal path for further tests.
   # With the discovery chain, native_cmd() may use an external micromamba

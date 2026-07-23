@@ -35,6 +35,7 @@ testthat::test_that("install_packages warns when previous channels are dropped",
       },
       class = "condathis_install_missing_previous_channels"
     )
+    testthat::expect_s3_class(install_res, "condathis_result")
     testthat::expect_equal(install_res$status, 0L)
 
     # No warning when the previously used channel is included again.
@@ -81,6 +82,7 @@ testthat::test_that("install_packages warns when previous channels are dropped (
       },
       class = "condathis_install_missing_previous_channels"
     )
+    testthat::expect_s3_class(install_res, "condathis_result")
     testthat::expect_equal(install_res$status, 0L)
 
     # No warning when the previously used channel is included again.

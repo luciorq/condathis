@@ -39,7 +39,9 @@ testthat::test_that("remove_env removes a real environment", {
     env_name = "condathis-remove-test-env",
     verbose = "silent"
   )
+  testthat::expect_s3_class(px_res, "condathis_result")
   testthat::expect_equal(px_res$status, 0L)
+  testthat::expect_equal(px_res$env_name, "condathis-remove-test-env")
   testthat::expect_false(env_exists("condathis-remove-test-env"))
   testthat::expect_false(fs::dir_exists(get_env_dir(
     "condathis-remove-test-env"

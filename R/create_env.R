@@ -31,8 +31,9 @@
 #' @param overwrite Logical value that controls whether an existing environment
 #'   should always be recreated. Defaults to `FALSE`.
 #'
-#' @returns A process result list (from `processx::run()`) with command output,
-#'   error output, exit status, and timeout information.
+#' @returns A `condathis_result` S3 object (a classed list, still usable as
+#'   a plain list) with `status`, `stdout`, `stderr`, `timeout`, `pid`,
+#'   `cmd`, and `env_name`.
 #'
 #' @examples
 #' \dontrun{
@@ -146,6 +147,11 @@ create_env <- function(
     additional_channels
   )
 
+  cmd_string <- paste(
+    c("micromamba", "create", "-n", env_name, packages_arg),
+    collapse = " "
+  )
+
   platform_args <- NULL
   if (isFALSE(rlang::is_null(packages))) {
     platform_args <- define_platform(
@@ -188,7 +194,15 @@ create_env <- function(
           )
         }
         return(invisible(
-          list(status = 0L, stdout = "", stderr = "", timeout = FALSE)
+          new_condathis_result(
+            status = 0L,
+            stdout = "",
+            stderr = "",
+            timeout = FALSE,
+            pid = NA_integer_,
+            cmd = cmd_string,
+            env_name = env_name
+          )
         ))
       }
     }
@@ -233,5 +247,14 @@ create_env <- function(
     )
   }
 
-  return(invisible(px_res))
+  result <- new_condathis_result(
+    status = px_res$status,
+    stdout = px_res$stdout,
+    stderr = px_res$stderr,
+    timeout = if (is.null(px_res$timeout)) FALSE else px_res$timeout,
+    pid = if (is.null(px_res$pid)) NA_integer_ else px_res$pid,
+    cmd = cmd_string,
+    env_name = env_name
+  )
+  return(invisible(result))
 }
