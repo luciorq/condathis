@@ -60,8 +60,9 @@ Logical values are accepted for backward compatibility:
 should always be recreated. Defaults to \code{FALSE}.}
 }
 \value{
-A process result list (from \code{processx::run()}) with command output,
-error output, exit status, and timeout information.
+A \code{condathis_result} S3 object (a classed list, still usable as
+a plain list) with \code{status}, \code{stdout}, \code{stderr}, \code{timeout}, \code{pid},
+\code{cmd}, and \code{env_name}.
 }
 \description{
 Creates a Conda environment managed by \code{condathis} and installs dependencies
