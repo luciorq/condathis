@@ -240,10 +240,26 @@ run_pipeline <- function(
 
       stderr_i <- parsed[[i]]$stderr %||% stderr
 
+      # A bare command name is resolved by the OS against the *calling* R
+      # process's own ambient PATH, not against `env` above (Windows'
+      # `CreateProcess`, like POSIX `execvp()`, locates the executable
+      # image before the child's own environment block takes effect) — so
+      # without this, a command only "works" here by coincidence, if
+      # something of the same name happens to already be reachable outside
+      # `env_name_i` entirely (confirmed on Windows: a 3-command pipeline
+      # using `rev` failed outright, since no `rev` exists anywhere on the
+      # ambient PATH, even though the target environment has its own).
+      # Falls back to the bare name, preserving the existing
+      # "command not found" behavior below, when `cmd_vec[1L]` isn't found
+      # inside `env_dir` itself (e.g. it's expected to resolve via `PATH`
+      # some other way, or genuinely doesn't exist).
+      resolved_cmd <- resolve_env_bin_path(env_dir, cmd_vec[1L]) %||%
+        cmd_vec[1L]
+
       spawn_result <- tryCatch(
         expr = {
           processx::process$new(
-            command = cmd_vec[1L],
+            command = resolved_cmd,
             args = cmd_vec[-1L],
             stdin = stdin_i,
             stdout = stdout_i,

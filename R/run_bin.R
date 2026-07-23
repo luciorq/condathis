@@ -139,20 +139,30 @@ run_bin <- function(
   }
 
   env_dir <- get_env_dir(env_name = env_name)
-  cmd_path <- fs::path(env_dir, "bin", cmd)
+  # `<env_dir>/bin` only exists on Linux/macOS; Windows environments spread
+  # binaries across `Library/mingw-w64/bin`, `Library/usr/bin`,
+  # `Library/bin`, `Scripts`, and the prefix root itself (see
+  # `resolve_env_bin_path()`). Falling straight back to `Sys.which(cmd)`
+  # without searching those first would silently run whatever same-named
+  # program happens to already be on the caller's ambient PATH instead of
+  # this environment's own binary — defeating environment isolation (e.g.
+  # resolving `sort` to Windows' own `System32/sort.exe` instead of the
+  # environment's coreutils build).
+  cmd_path <- resolve_env_bin_path(env_dir, cmd)
 
-  if (
-    isFALSE(fs::file_exists(cmd_path)) &&
-      isTRUE(fs::file_exists(Sys.which(cmd)))
-  ) {
-    cmd_path <- normalizePath(Sys.which(cmd), mustWork = FALSE)
+  if (is.null(cmd_path)) {
+    cmd_path <- if (isTRUE(fs::file_exists(Sys.which(cmd)))) {
+      normalizePath(Sys.which(cmd), mustWork = FALSE)
+    } else {
+      fs::path(env_dir, "bin", cmd)
+    }
   }
   tmp_dir_path <- withr::local_tempdir(pattern = "condathis-tmp")
   withr::local_envvar(
     .new = get_clean_conda_envvars(tmp_dir = tmp_dir_path)
   )
   withr::local_path(
-    new = list(fs::path(env_dir, "bin")),
+    new = as.list(env_bin_search_dirs(env_dir)),
     action = "prefix"
   )
 

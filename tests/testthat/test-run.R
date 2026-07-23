@@ -265,6 +265,16 @@ test_that("Run with stdin = '|' does not deadlock when stdout and stderr are bot
   # the OS pipe buffer (64KB on Linux, smaller on macOS/Windows) — the
   # child blocks on write() to whichever stream isn't read yet, so it never
   # exits, so wait() never returns.
+  #
+  # Byte generation uses `head -c N /dev/zero | tr '\0' 'X'`, not
+  # `printf '%*s' N ''` — `run()` always spawns `bash` via `micromamba run`
+  # (through `native_cmd()`), and confirmed directly on Windows: literal
+  # `%` characters are silently stripped somewhere in `micromamba run`'s
+  # own Windows argument handling (even a bare `echo '100% done'` comes
+  # back as `100 done`), corrupting `printf`'s format string and any
+  # command containing one. `head`/`tr` invoked directly (bypassing
+  # `micromamba run`, e.g. from `run_pipeline()`) are unaffected — this is
+  # specific to arguments that cross that wrapper, not a `condathis` bug.
   create_env(
     c(test_os_pkg("coreutils"), test_os_pkg("bash")),
     env_name = "run-cli-tools-env",
@@ -273,7 +283,7 @@ test_that("Run with stdin = '|' does not deadlock when stdout and stderr are bot
   res <- run(
     "bash",
     "-c",
-    "cat; printf '%*s' 200000 '' | tr ' ' 'B' 1>&2",
+    "cat; head -c 200000 /dev/zero | tr '\\0' 'B' 1>&2",
     stdin = "|",
     input = strrep("A", 200000),
     env_name = "run-cli-tools-env",

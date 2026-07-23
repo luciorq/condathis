@@ -640,3 +640,198 @@ left untouched (not given these packages) since `test-create_base_env.R`
 deletes and recreates it empty elsewhere in the suite, and tests run across
 parallel worker processes — mutating a widely shared env name risked
 flakiness for no benefit; dedicated per-file env names were used instead.
+
+## 2026-07-22: `run_bin()`/`run_pipeline()` binary resolution silently bypasses environment isolation on Windows
+
+**Status: fixed, verified on `kappa`.** Triggered by `r-cmd-check` going
+red on `windows-latest` (7 failures) and `macos-latest`/arm64 (1 failure)
+on this branch's HEAD. Recorded here in full because two of the seven
+Windows failures turned out to share one previously-undiscovered root
+cause serious enough to be worth a dedicated write-up — not just a test
+fixup — plus a third, unrelated finding about `micromamba run` itself.
+
+### The bug: bare command names never actually go through the target environment on Windows
+
+`run_bin()`'s binary resolution was:
+
+```r
+cmd_path <- fs::path(env_dir, "bin", cmd)
+if (isFALSE(fs::file_exists(cmd_path)) && isTRUE(fs::file_exists(Sys.which(cmd)))) {
+  cmd_path <- normalizePath(Sys.which(cmd), mustWork = FALSE)
+}
+```
+
+`<env_dir>/bin` is a Linux/macOS-only Conda layout assumption. Confirmed
+directly on `kappa`: a Windows environment installing only
+`m2-coreutils`/`m2-bash` has **no `bin` directory at all** at its prefix
+root — every actual binary (`sort.exe`, `echo.exe`, `cat.exe`, ...) lives
+under `Library/usr/bin/` instead (real conda/micromamba activation on
+Windows adds `<prefix>`, `Library/mingw-w64/bin`, `Library/usr/bin`,
+`Library/bin`, `Scripts`, and `bin`, in that order, to `PATH` — confirmed
+against a real captured activated `PATH` string). So `cmd_path` always
+failed the existence check, and the code fell through to
+`Sys.which(cmd)` — the *ambient* system `PATH`, entirely unrelated to
+`env_name`.
+
+Confirmed via direct SSH repro on `kappa` that this isn't hypothetical:
+
+```
+> where sort
+C:\Windows\SYSTEM32\sort.exe
+C:\Users\admin\.pixi\bin\sort.exe
+```
+
+`run_bin("sort", stdin = "|", input = "b\na\nc\n", env_name = "...")`
+silently resolved to **Windows' own legacy `SYSTEM32\sort.exe`** (the
+MS-DOS `SORT` command, not GNU `sort`) instead of the target
+environment's coreutils build — which chokes on piped UTF-8 text,
+producing literal `???` bytes instead of sorted output (this is
+`test-run_bin.R`'s `"supports stdin = '|' with input"` failure). Verified
+the fix, not just the symptom, by spawning the *correct* binary's real
+path directly via `processx` (bypassing `run_bin()` entirely): produces
+correct sorted output every time. This is a real environment-isolation
+bypass, not merely a wrong-encoding bug — `run_bin()` was silently
+running a different, arbitrary, same-named program instead of the one
+belonging to the isolated environment it was asked for.
+
+`run_pipeline()` has the identical root cause via a different code path:
+it spawns a bare command name directly —
+`processx::process$new(command = cmd_vec[1L], ..., env = c("current",
+activation_envvars))` — relying on the OS to locate the executable. But
+neither Windows' `CreateProcess` nor POSIX's `execvp()` resolve a bare
+command name against the `env =` argument being handed to the *child* —
+they resolve it against the *calling* process's own current environment,
+before the child's environment block ever takes effect. So the
+`activation_envvars`'s correctly-activated `PATH` is never consulted for
+the initial spawn at all. Confirmed via `test-run_pipeline.R`'s
+`"supports three chained commands"` failure (`echo | tr | rev`, the
+`rev` stage returning `NA` stdout) and a direct SSH check on `kappa`:
+
+```
+> where rev
+INFO: Could not find files for the given pattern(s).
+> where tr
+C:\Users\admin\.pixi\bin\tr.exe
+> where cat
+C:\Users\admin\.pixi\bin\cat.exe
+```
+
+`rev` isn't reachable anywhere on `kappa`'s ambient `PATH`, so that stage
+genuinely failed to spawn — while the *other* stages in the same test
+(`echo`, `tr`) only appeared to work by sheer coincidence, because tools
+of those names happened to already exist elsewhere on the ambient `PATH`
+(Rtools/`pixi`), never actually touching the target `env_name` either.
+This means `run_pipeline()`'s Windows binary resolution was silently
+broken for *any* pipeline command not coincidentally present elsewhere on
+the host's `PATH` — the 2-command tests in the existing suite happened to
+only ever use `echo`/`tr`/`cat`/`sort`/`grep`/`sed`, all of which are
+common enough to exist on a dev/CI Windows box's `PATH` by accident.
+
+### The fix
+
+New shared helper, `R/resolve_env_bin_path.R`:
+
+- `env_bin_search_dirs(env_dir)`: `<env_dir>/bin` on Linux/macOS; the full
+  Windows Conda activation directory list (prefix root,
+  `Library/mingw-w64/bin`, `Library/usr/bin`, `Library/bin`, `Scripts`,
+  `bin`) on Windows.
+- `resolve_env_bin_path(env_dir, cmd)`: searches those directories, trying
+  every `PATHEXT` extension on Windows (a bare `fs::file_exists()` check
+  does not do the implicit extension search a shell/`CreateProcess`
+  would), returning an absolute path or `NULL`. Never falls back to the
+  ambient `PATH` itself — that stays the caller's explicit, visible
+  decision, not something blurred inside the resolver.
+
+`run_bin()`: `cmd_path` resolution now tries `resolve_env_bin_path()`
+first, falling back to `Sys.which()` (unchanged) only when the
+environment itself doesn't have the binary — preserving the documented
+"falls back to a binary outside any managed environment" behavior for
+genuinely-missing commands, while no longer preferring an *ambient*
+same-named binary over one that actually exists inside `env_name`. Its
+`withr::local_path()` PATH-prefix was also widened from just
+`<env_dir>/bin` to every directory in `env_bin_search_dirs()`.
+
+`run_pipeline()`: resolves `cmd_vec[1L]` through
+`resolve_env_bin_path(env_dir, cmd_vec[1L]) %||% cmd_vec[1L]` before
+spawning — falling back to the bare name, preserving the existing
+"command not found" `spawn_failures` behavior unchanged, when the
+environment doesn't have it (e.g. the existing
+`"this-cmd-does-not-exist-xyz"` test).
+
+Verified on `kappa`: `test-run_bin.R` and `test-run_pipeline.R` both went
+from 1 failure each to 0 (only pre-existing, benign `unknown timezone`/
+`linux_pdeathsig is ignored` warnings remain). No regressions on Linux
+(both files still 0 failures, `pkgload::load_all()` + `test_file()`).
+
+### Unrelated finding along the way: `micromamba run` silently strips `%` characters on Windows
+
+After the fix above, `test-run.R`'s `"does not deadlock when stdout and
+stderr are both large"` still failed on `kappa` (`stderr` came back as a
+single character instead of 200,000 bytes). Isolated via a sequence of
+increasingly narrow repros run directly on `kappa`:
+
+- Spawning `bash` directly (bypassing `run()`'s `native_cmd()` →
+  `micromamba run -n <env> -- bash -c "..."` wrapper entirely): the exact
+  same command, same `pump_process_io()` drain loop, worked perfectly —
+  200,000 bytes on both streams, every time.
+- Spawning the same command *through* `micromamba run` (i.e. `micromamba`
+  itself as the child, `bash` as its grandchild) reproduced the failure
+  reliably, independent of payload size (tried 1,000 through 200,000
+  bytes — all truncated to 1 byte).
+- Narrowed to the exact trigger with a minimal case: a bare
+  `bash -c "echo '100% done'"` run through `micromamba run -n <env> --
+  bash -c "..."` comes back as `'100 done'` — the literal `%` character is
+  gone. `printf '[%d]' 20` (this test's actual byte-generation idiom,
+  `printf '%*s' N ''`, relies on the same mechanism) comes back as
+  `'[d]'` — the entire `%d` conversion, argument and all, is silently
+  dropped.
+
+This is **a bug in `micromamba run`'s own Windows argument/command-line
+handling**, not in `condathis` — confirmed by the fact that spawning
+`bash` directly (as `run_pipeline()` already does, never going through
+`micromamba run`) preserves `%` correctly, and `run_pipeline()`'s own,
+otherwise identical, `printf '%*s'`-based deadlock regression tests
+already passed cleanly on `kappa` before and after this investigation.
+Not fixed in `condathis` code. Fixed by changing this one test's
+byte-generation idiom to `head -c N /dev/zero | tr '\0' 'X'`, which
+avoids `%` entirely and was independently verified correct on `kappa`
+through the exact same `micromamba run` path. Worth remembering for any
+future test — or real user code — that pipes a `%`-containing command
+through `run()`/`run_bin()` (both always wrap via `micromamba run`) on
+Windows; `run_pipeline()` (spawns directly, no `micromamba run` hop) is
+not affected.
+
+### Also touched in the same investigation
+
+- `test-install_packages.R`'s `bioconda::fastqc` test: confirmed against
+  bioconda's own repodata (`linux-64`/`osx-64`/`noarch` only, and the
+  `noarch` build's own dependencies aren't available for `win-64`/
+  `osx-arm64` either) that this is a genuine bioconda platform-support
+  gap, not a bug — bioconda has never supported Windows and doesn't ship
+  native Apple Silicon builds. Guarded with
+  `skip_if_not(system_os() == "linux")`; added a `conda-forge`-only
+  cross-platform test exercising the same channel-history-warning logic.
+- `test-run_bin.R`'s `"sets an activated PATH like run()"`: not a missing
+  feature — Windows has no `<prefix>/bin` at all (see above), and the
+  captured `PATH` string is translated differently depending on which
+  subprocess reads it (`/cygdrive/c/...` vs `/c/...` vs `fs::path()`'s own
+  `C:/...`). Made the assertion OS-aware and drive-letter-agnostic instead
+  of skipping it.
+- Corrected the `^PROCESSX_PS[0-9]` fix recorded in TODO.md's "caching
+  test flaky on `PROCESSX_PS3...`" section: the suffix is a random *hex*
+  hash, not a small decimal counter, so `[0-9]` only ever matched by luck.
+  Widened to `^PROCESSX_PS`.
+
+### Verification method
+
+All Windows-specific fixes above were verified against the real `kappa`
+test-bed (not reasoned about blind) via a fresh, disposable, **non-git**
+scratch checkout (`condathis-verify-ci`, populated via `tar`/`scp`),
+deliberately not touching the pre-existing git checkout of this repo
+already present on `kappa`, which had unrelated uncommitted work in
+progress at the time (`git status` showed modified files on `main` before
+touching anything). Cleaned up afterward: the scratch directory, plus
+orphaned `Rscript.exe`/`bash.exe` processes left behind by one
+intentionally-hanging repro script (see the process-hygiene note in
+TODO.md — still the right cleanup command:
+`taskkill /F /IM <name>.exe /T`).
