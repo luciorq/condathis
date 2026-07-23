@@ -76,20 +76,37 @@ list_packages <- function(
       )
     }
   )
-  if (identical(px_res$status, 0L)) {
-    pkgs_df <- jsonlite::fromJSON(px_res$stdout)
-    if (identical(length(pkgs_df), 0L)) {
-      pkgs_df <- base::data.frame(
-        "base_url" = character(0L),
-        "build_number" = integer(0L),
-        "build_string" = character(0L),
-        "channel" = character(0L),
-        "dist_name" = character(0L),
-        "name" = character(0L),
-        "platform" = character(0L),
-        "version" = character(0L)
-      )
-    }
+  if (isFALSE(identical(px_res$status, 0L))) {
+    # As with `list_envs()`: `rethrow_error_cmd()` already aborts with
+    # `condathis_cmd_status_error` whenever `native_cmd()` itself throws
+    # (its default `error = "cancel"` makes the underlying
+    # `processx::run()` throw on a non-zero exit, not return one) — this
+    # only triggers if `px_res` is ever returned with a non-zero status
+    # without throwing. Raising the same class here, rather than falling
+    # through with `pkgs_df` never assigned (which used to surface as a
+    # raw, uninformative `Error: object 'pkgs_df' not found`), keeps this
+    # function's failure mode consistent with the rest of the package.
+    cli::cli_abort(
+      message = c(
+        `x` = "Failed to list packages in environment {.field {env_name}}.",
+        `!` = "{.code micromamba list} exited with status {.val {px_res$status}}."
+      ),
+      class = "condathis_cmd_status_error"
+    )
+  }
+
+  pkgs_df <- jsonlite::fromJSON(px_res$stdout)
+  if (identical(length(pkgs_df), 0L)) {
+    pkgs_df <- base::data.frame(
+      "base_url" = character(0L),
+      "build_number" = integer(0L),
+      "build_string" = character(0L),
+      "channel" = character(0L),
+      "dist_name" = character(0L),
+      "name" = character(0L),
+      "platform" = character(0L),
+      "version" = character(0L)
+    )
   }
   pkgs_df <- base::unclass(pkgs_df)
   base::attr(pkgs_df, "class") <- c("tbl_df", "tbl", "data.frame")
