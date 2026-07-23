@@ -62,6 +62,27 @@ Development Changelog: [dev](https://github.com/luciorq/condathis/compare/v0.1.4
   and `linux_pdeathsig` (new) are now overridable arguments instead of
   hardcoded, for full parity with `run()`/`run_bin()`.
 
+* **Breaking (minor):** `create_env()`, `install_packages()`, `remove_env()`,
+  and `clean_cache()` now return the same kind of result object as `run()`/
+  `run_bin()` (a `condathis_result`), instead of a plain, unlabeled list.
+  If your code only reads `res$status`, `res$stdout`, or `res$stderr`,
+  nothing changes — that keeps working exactly as before. What's new: every
+  result now also includes `res$pid`, `res$cmd`, and `res$env_name`, and
+  simply printing a result (e.g. typing it at the console, or letting it
+  auto-print) now shows a short, readable summary instead of a raw list
+  dump. The one thing that *can* break: code that checks the exact class
+  of the result (for example `is.list(res) && !inherits(res, "condathis_result")`,
+  or anything comparing `class(res)` to `"list"`). If you need a plain list
+  back, `as.list(res)` gives you one.
+
+* **Breaking (minor):** in `run_pipeline()`'s result, each step in
+  `res$processes` (e.g. `res$processes[[1]]`) is now that same kind of
+  result object too, not a plain list. You can now `print()` or `format()`
+  a single step on its own, not just the whole pipeline result. Each step
+  also gains a `timeout` field (currently always `FALSE`; per-step timeouts
+  aren't tracked yet). As above, `res$status`/`res$stdout`/`res$stderr`/
+  `res$cmd`/`res$env_name`/`res$pid` all still work the same way; only code
+  checking the exact class of an individual step is affected.
 
 * `install_packages()` now warns when the target environment was previously
   installed using a channel that is not included in the current call (e.g.
@@ -138,6 +159,17 @@ Development Changelog: [dev](https://github.com/luciorq/condathis/compare/v0.1.4
   numbered variants), letting it leak into the returned environment
   variables and making two otherwise-identical resolutions of the same
   Conda environment compare as different on every call.
+
+* Fix `list_envs()` occasionally returning a plain number instead of a
+  character vector of environment names, in the rare case where the
+  underlying command failed in an unusual way. It now always reports that
+  kind of failure as a proper error, so code calling `list_envs()` can
+  rely on always getting back either a vector of names or an informative
+  error — never a bare number.
+
+* Fix `list_packages()` crashing with a confusing, low-level R error
+  (`object 'pkgs_df' not found`) in that same kind of rare failure case.
+  It now reports a clear, consistent error instead.
 
 ## condathis 0.1.4
 

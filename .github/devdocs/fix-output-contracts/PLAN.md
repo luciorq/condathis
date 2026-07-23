@@ -140,9 +140,10 @@ short-circuit path), `test-run.R` (34/34), `test-run_bin.R` (26/26) all
 clean. `test-install_packages.R` clean except one **pre-existing,
 unrelated** intermittent failure — see "Known unrelated flake" below.
 
-## Fix 2 — planned: `run_pipeline()`'s per-process entries become real `condathis_result` objects
+## Fix 2 — DONE: `run_pipeline()`'s per-process entries become real `condathis_result` objects
 
-**Status: not started.**
+**Status: done, committed** (`feat: individual pipeline output slots are
+classed as condathis_result`).
 
 `res$processes[[i]]` currently has the same field names as
 `condathis_result` (`cmd`/`env_name`/`status`/`stdout`/`stderr`/`pid`)
@@ -162,18 +163,25 @@ works identically on a classed list). Also update
 `new_condathis_pipeline()`'s own `stopifnot(is.list(processes))` — a
 `condathis_result` still `is.list()`, so no change needed there.
 
-**Open question**: does each pipeline stage get its own real `pid`? Since
-`run_pipeline()` spawns each stage via `processx::process$new()` directly
-(not `processx::run()`), `proc_i$get_pid()` **is** available and already
-captured (`p_pid <- proc_i$get_pid()`) — so, unlike fix 1's functions,
-pipeline stages can get a *real*, non-`NA` `pid`. Confirm this doesn't
-change already-tested behavior (existing "Pipeline reports a positive
-integer pid per process" test should keep passing unchanged, since it
-already expects a real pid).
+**Open question, resolved**: each pipeline stage does get a real, non-`NA`
+`pid` — `run_pipeline()` spawns each stage via `processx::process$new()`
+directly (not `processx::run()`), so `proc_i$get_pid()` was already being
+captured before this fix and just gets threaded through unchanged. The
+existing "Pipeline reports a positive integer pid per process" test kept
+passing unchanged, confirming this. `timeout` per stage is `FALSE`
+(honest — per-process timeouts aren't tracked, matching the pipeline's own
+always-`FALSE` overall `timeout`).
 
-## Fix 3 — planned: `list_envs()` always raises on failure, never returns a numeric fallback
+Landed: `processes[[i]] <- list(...)` → `new_condathis_result(...)`;
+`format.condathis_pipeline()` needed no changes, as predicted (reads
+fields by `$name`); new test confirms `res$processes[[i]]` is
+`condathis_result`-classed and that `format()`/`print()` work directly on
+an individual stage. `test-run_pipeline.R`: 82 → 88 passing assertions,
+0 failures, before and after `air format`.
 
-**Status: not started, design decided.**
+## Fix 3 — DONE: `list_envs()` always raises on failure, never returns a numeric fallback
+
+**Status: done, committed** (`refactor: standardize list_envs output`).
 
 Drop the `else { return(px_res$status) }` branch entirely (see finding
 above — it's real, reachable, dangerous code, not dead code, and
@@ -195,9 +203,16 @@ behavior but not real-world behavior for any caller relying on today's
   `create_env()`/etc.'s already-established behavior for the same
   underlying failure class) instead of returning an integer.
 
-## Fix 4 — planned: `list_packages()` raises a proper `condathis_*` class instead of leaking an internal variable name
+Landed exactly as planned. Verified the trigger condition (`native_cmd()`
+mocked to return, not throw, a non-zero status) live before writing the
+test. `test-list_envs.R`: 8/8. Every file that depends on `list_envs()`/
+`env_exists()` re-verified clean: `test-create_env.R` (37/37),
+`test-clean_cache.R`, `test-create_nested_env.R`, `test-env_exists.R`,
+`test-remove_env.R`.
 
-**Status: not started, design decided.**
+## Fix 4 — DONE: `list_packages()` raises a proper `condathis_*` class instead of leaking an internal variable name
+
+**Status: done, committed** (`fix: error when list_package can't run`).
 
 Currently, if `native_cmd()` ever returned (rather than threw) with a
 nonzero status, `pkgs_df` is never assigned, and the function crashes
@@ -213,6 +228,25 @@ fix 3's reasoning: today this branch shouldn't be reachable given
 code with a bad failure mode" shape as `list_envs()`, same fix shape).
 New test: same mocking approach as fix 3's, asserting a
 `condathis_*`-classed error rather than a raw `simpleError`.
+
+Landed via the "let `rethrow_error_cmd()`'s own `condathis_cmd_status_error`
+be the only path" option — no new error class introduced, matching fix 3's
+shape exactly. `test-list_packages.R`: 4/4. `test-create_nested_env.R` and
+`test-create_env.R` (both call `list_packages()` for real) re-verified
+clean.
+
+### Post-fix cleanup: `roxygenize()`'s unexpected `DESCRIPTION` version bump
+
+Running `roxygen2::roxygenize()` to regenerate `man/*.Rd` for fixes 2 and 3
+came with `DESCRIPTION`'s dev version bumping from `0.1.4.9003` to
+`0.1.4.9004` as a side effect. Investigated before trusting it: no
+`Config/roxygen2`-adjacent version-bump hook found in `DESCRIPTION`, and a
+second, isolated `roxygenize()` call did not bump it further — not a
+repeatable, intentional behavior tied to this package's build config, and
+not something requested as part of any of the four fixes. Reverted once,
+but the user committed everything (including that version bump)
+themselves, deliberately, before the revert could land — so it stands as
+the user's own call, not an artifact of the fix work itself.
 
 ## Known unrelated flake, discovered while verifying fix 1 (not scheduled as one of the four fixes above)
 
