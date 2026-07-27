@@ -29,6 +29,8 @@
 #'   platforms. Defaults to `FALSE`.
 #' @param supervise Logical. Whether the process should be supervised by the
 #'   `processx` supervisor for crash-safe cleanup. Defaults to `FALSE`.
+#' @param timeout Numeric. Maximum number of seconds to let the command run
+#'   before it's killed. Defaults to `Inf` (no limit).
 #'
 #' @returns A process result list from `processx::run()` (or an equivalent
 #'   list from `run_process_with_input()` when `stdin = "|"`).
@@ -54,7 +56,8 @@ native_cmd <- function(
   cleanup_tree = FALSE,
   encoding = "utf-8",
   linux_pdeathsig = FALSE,
-  supervise = FALSE
+  supervise = FALSE,
+  timeout = Inf
 ) {
   rlang::check_required(conda_cmd)
 
@@ -121,7 +124,8 @@ native_cmd <- function(
       cleanup_tree = cleanup_tree,
       supervise = supervise,
       linux_pdeathsig = linux_pdeathsig,
-      encoding = encoding
+      encoding = encoding,
+      timeout = timeout
     )
   } else {
     px_res <- processx::run(
@@ -139,7 +143,8 @@ native_cmd <- function(
       cleanup_tree = cleanup_tree,
       encoding = encoding,
       linux_pdeathsig = linux_pdeathsig,
-      supervise = supervise
+      supervise = supervise,
+      timeout = timeout
     )
   }
 

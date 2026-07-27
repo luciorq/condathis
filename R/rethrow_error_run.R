@@ -15,8 +15,14 @@ rethrow_error_run <- function(expr, env = parent.frame()) {
     expr = {
       px_res <- rlang::eval_bare(expr = code, env = env)
     },
-    classes = c("system_command_status_error", "rlib_error_3_0", "c_error")
+    classes = c(
+      "system_command_status_error",
+      "system_command_timeout_error",
+      "rlib_error_3_0",
+      "c_error"
+    )
   )
+  is_timeout <- isTRUE(inherits(err_cnd, "system_command_timeout_error"))
 
   if (
     isFALSE(rlang::is_null(env[["stdin"]])) &&
@@ -54,6 +60,18 @@ rethrow_error_run <- function(expr, env = parent.frame()) {
     }
     env[["status_code"]] <- status_code
 
+    if (isTRUE(is_timeout)) {
+      cli::cli_abort(
+        message = c(
+          `x` = "System command {.field {cmd}} timed out",
+          `!` = "Timeout: {timeout} seconds",
+          additional_lines
+        ),
+        class = "condathis_run_timeout_error",
+        .envir = env
+      )
+    }
+
     cli::cli_abort(
       message = c(
         `x` = "System command {.field {cmd}} failed",
@@ -72,7 +90,12 @@ rethrow_error_run <- function(expr, env = parent.frame()) {
       status_code <- err_cnd[["status"]]
     }
 
-    if (
+    if (isTRUE(is_timeout)) {
+      stderr_msg <- sprintf(
+        "Command timed out after %s seconds",
+        env[["timeout"]]
+      )
+    } else if (
       isFALSE(rlang::is_null(err_cnd[["message"]])) &&
         isTRUE(stringr::str_detect(err_cnd[["message"]], "Native call to"))
     ) {
@@ -88,7 +111,7 @@ rethrow_error_run <- function(expr, env = parent.frame()) {
       status = status_code,
       stdout = "",
       stderr = stderr_msg,
-      timeout = FALSE
+      timeout = is_timeout
     )
   }
 

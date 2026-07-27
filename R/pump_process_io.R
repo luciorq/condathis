@@ -45,11 +45,19 @@
 #'   connection for it (e.g. `run_pipeline()` only pipes stdout for its last
 #'   command).
 #' @param binary Logical. Read raw bytes (`TRUE`) or UTF-8 text (`FALSE`).
+#' @param deadline Numeric. An absolute point in time, comparable to
+#'   `proc.time()[["elapsed"]]`, after which draining stops even if the
+#'   process hasn't finished — e.g. `proc.time()[["elapsed"]] + timeout`.
+#'   Defaults to `Inf` (never times out, the original behavior). Does
+#'   **not** kill the process itself; the caller is responsible for that
+#'   (see the `timeout` element of the return value) and for calling
+#'   `proc$wait()` regardless, same as always.
 #'
 #' @returns A list with `stdout`/`stderr` elements, each a raw vector
 #'   (`binary = TRUE`) or a character string (`binary = FALSE`), or `NULL`
 #'   when the corresponding stream was not drained (no `want_*`, or no piped
-#'   connection).
+#'   connection); and a `timeout` logical element, `TRUE` if `deadline` was
+#'   reached before the process finished.
 #'
 #' @keywords internal
 #' @noRd
@@ -58,7 +66,8 @@ pump_process_io <- function(
   input = NULL,
   want_stdout = TRUE,
   want_stderr = TRUE,
-  binary = FALSE
+  binary = FALSE,
+  deadline = Inf
 ) {
   has_out <- isTRUE(want_stdout) && isTRUE(proc$has_output_connection())
   has_err <- isTRUE(want_stderr) && isTRUE(proc$has_error_connection())
@@ -71,16 +80,37 @@ pump_process_io <- function(
 
   out_chunks <- list()
   err_chunks <- list()
+  timed_out <- FALSE
 
   while (
     isFALSE(input_done) ||
       (has_out && isTRUE(proc$is_incomplete_output())) ||
       (has_err && isTRUE(proc$is_incomplete_error()))
   ) {
+    deadline_hit <- isTRUE(is.finite(deadline)) &&
+      proc.time()[["elapsed"]] >= deadline
+
     # Short timeout while still writing, so a full pipe doesn't stall the
     # retry indefinitely; once input is fully sent, block until more
-    # output/error data (or EOF) is actually ready.
-    proc$poll_io(if (isTRUE(input_done)) -1 else 200)
+    # output/error data (or EOF) is actually ready — unless a finite
+    # `deadline` is active, in which case that indefinite wait is replaced
+    # with the same short poll used while writing, so the loop keeps
+    # coming back around to check the deadline instead of blocking past it.
+    # Once the deadline itself has been reached, poll non-blockingly (`0`)
+    # instead of skipping straight to `break`: killing a process discards
+    # any output still sitting unread in its connection (confirmed
+    # empirically — `processx` invalidates the connection on `kill()`), so
+    # this last, instant drain is the only chance to recover data the
+    # child already produced before the caller kills it.
+    proc$poll_io(
+      if (isTRUE(deadline_hit)) {
+        0
+      } else if (isTRUE(input_done) && isFALSE(is.finite(deadline))) {
+        -1
+      } else {
+        200
+      }
+    )
 
     if (isFALSE(input_done)) {
       leftover <- proc$write_input(pending_input)
@@ -119,6 +149,11 @@ pump_process_io <- function(
         err_chunks[[length(err_chunks) + 1L]] <- chunk
       }
     }
+
+    if (isTRUE(deadline_hit)) {
+      timed_out <- TRUE
+      break
+    }
   }
 
   combine <- function(chunks) {
@@ -130,6 +165,7 @@ pump_process_io <- function(
 
   return(list(
     stdout = if (has_out) combine(out_chunks) else NULL,
-    stderr = if (has_err) combine(err_chunks) else NULL
+    stderr = if (has_err) combine(err_chunks) else NULL,
+    timeout = timed_out
   ))
 }

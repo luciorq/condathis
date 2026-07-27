@@ -53,6 +53,16 @@
 #' @param linux_pdeathsig Logical. On Linux, whether to send `SIGKILL` to
 #'   each child process if the parent R process dies. Has no effect on
 #'   other platforms. Defaults to `FALSE`.
+#' @param timeout Numeric. Maximum number of seconds to let the whole
+#'   pipeline run before every process in it is killed. Defaults to `Inf`
+#'   (no limit, the previous behavior). Applies to the pipeline as a whole
+#'   (a single shared deadline across every command), not per-command. On
+#'   expiry, every still-running process is killed (`status = -9`, matching
+#'   `processx::run()`'s own convention) and, gated by `error` exactly like
+#'   a non-zero exit status, `error = "cancel"` aborts with class
+#'   `condathis_pipeline_timeout_error` while `error = "continue"` returns
+#'   normally with `result$timeout` (and each killed process's own
+#'   `timeout`) set to `TRUE`.
 #' @param activate Logical. Whether to resolve each command's environment
 #'   via `get_micromamba_activation_envvars()`, a real `micromamba run`
 #'   activation (including package `activate.d` hook scripts), cached per
@@ -68,9 +78,10 @@
 #'   \item{processes}{List of per-process `condathis_result` objects (the
 #'     same class `run()`/`run_bin()` return), each with `cmd`, `env_name`,
 #'     `status`, `stdout` (`NA` for non-last processes), `stderr`, `pid`,
-#'     and `timeout` (always `FALSE`; per-process timeouts are not
-#'     currently tracked). `format()`/`print()` work directly on an
-#'     individual `processes[[i]]`, not just on the whole pipeline result.}
+#'     and `timeout` (`TRUE` for whichever process(es) were still running
+#'     when the pipeline's `timeout` expired, `FALSE` otherwise).
+#'     `format()`/`print()` work directly on an individual `processes[[i]]`,
+#'     not just on the whole pipeline result.}
 #'   \item{timeout}{Logical. Whether the pipeline timed out.}
 #'
 #' @examples
@@ -124,7 +135,8 @@ run_pipeline <- function(
   supervise = TRUE,
   cleanup_tree = TRUE,
   linux_pdeathsig = FALSE,
-  activate = TRUE
+  activate = TRUE,
+  timeout = Inf
 ) {
   error <- rlang::arg_match(error)
   error_var <- isTRUE(identical(error, "cancel"))
@@ -146,6 +158,12 @@ run_pipeline <- function(
     )
   }
   pipeline_encoding <- if (isTRUE(binary)) "binary" else "utf-8"
+
+  pipeline_deadline <- if (isTRUE(is.finite(timeout))) {
+    proc.time()[["elapsed"]] + timeout
+  } else {
+    Inf
+  }
 
   tmp_dir_path <- withr::local_tempdir(pattern = "condathis-tmp")
   withr::local_envvar(
@@ -330,7 +348,8 @@ run_pipeline <- function(
       input = input,
       want_stdout = FALSE,
       want_stderr = TRUE,
-      binary = binary
+      binary = binary,
+      deadline = pipeline_deadline
     )
   }
 
@@ -345,6 +364,7 @@ run_pipeline <- function(
     env_name_i <- parsed[[i]]$env_name
     cmd_string <- paste(shQuote(cmd_vec), collapse = " ")
 
+    p_timeout <- FALSE
     if (!is.null(spawn_failures[[i]])) {
       p_status <- spawn_failures[[i]]$status
       p_stderr <- spawn_failures[[i]]$stderr
@@ -363,6 +383,11 @@ run_pipeline <- function(
       # chaining is plain OS-level piping, with no R-side buffering.
       # Process 1's stderr was already fully drained above (interleaved
       # with writing it `input`), reuse that instead of draining it again.
+      # Every stage shares the same absolute `pipeline_deadline`: once one
+      # stage times out, later stages' own check reads as already elapsed
+      # too — but `pump_process_io()` still does one last non-blocking
+      # drain before reporting it, so already-buffered output (e.g. this
+      # stage received before an upstream stage was killed) isn't lost.
       streams <- if (identical(i, 1L) && !is.null(first_proc_streams)) {
         first_proc_streams
       } else {
@@ -370,8 +395,25 @@ run_pipeline <- function(
           proc_i,
           want_stdout = identical(i, n_cmds),
           want_stderr = TRUE,
-          binary = binary
+          binary = binary,
+          deadline = pipeline_deadline
         )
+      }
+
+      p_timeout <- isTRUE(streams$timeout)
+      if (isTRUE(p_timeout)) {
+        # Kill only *this* stage, and only after having drained it above —
+        # `kill()` invalidates a process's own connection immediately
+        # (confirmed empirically), discarding anything still unread, so
+        # draining downstream stages before reaching this point (rather
+        # than killing every process up front) is what lets them keep
+        # whatever they'd already produced. Killing this one process also
+        # closes its stdout pipe, so the next stage (reading from it) sees
+        # EOF and can finish draining normally instead of blocking further.
+        timeout_flag <- TRUE
+        if (proc_i$is_alive()) {
+          proc_i$kill()
+        }
       }
       proc_i$wait()
 
@@ -394,10 +436,23 @@ run_pipeline <- function(
       status = p_status,
       stdout = p_stdout,
       stderr = p_stderr,
-      timeout = FALSE,
+      timeout = p_timeout,
       pid = p_pid,
       cmd = cmd_string,
       env_name = env_name_i
+    )
+  }
+
+  if (isTRUE(error_var) && isTRUE(timeout_flag)) {
+    n_killed <- sum(
+      vapply(processes, function(p) isTRUE(p$timeout), logical(1L))
+    )
+    cli::cli_abort(
+      message = c(
+        `x` = "Pipeline timed out after {timeout} seconds",
+        `!` = "Killed {n_killed} still-running command(s)."
+      ),
+      class = "condathis_pipeline_timeout_error"
     )
   }
 

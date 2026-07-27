@@ -15,8 +15,14 @@
 #' `rlib_error_3_0`/`c_error`), also already handled by
 #' `rethrow_error_run()`.
 #'
-#' Unlike `processx::run()`, there is no live streaming of stdout/stderr, no
-#' spinner, and no timeout support.
+#' Unlike `processx::run()`, there is no live streaming of stdout/stderr or
+#' spinner. `timeout` mirrors `processx::run()`'s own contract as closely as
+#' possible: on expiry the process is killed (`proc$kill()`), `status` reads
+#' `-9` (matching `processx::run()`'s own convention for a killed process,
+#' confirmed empirically), `timeout = TRUE` is set, and — gated by
+#' `error_on_status` exactly like a regular non-zero exit — a condition of
+#' class `"system_command_timeout_error"` is signaled instead of
+#' `"system_command_status_error"`, so callers can tell the two apart.
 #'
 #' Writing `input` and draining stdout/stderr are fully interleaved via
 #' `pump_process_io()`, not a write-then-wait-then-read sequence — see that
@@ -44,8 +50,15 @@ run_process_with_input <- function(
   cleanup_tree = FALSE,
   supervise = FALSE,
   linux_pdeathsig = FALSE,
-  encoding = "utf-8"
+  encoding = "utf-8",
+  timeout = Inf
 ) {
+  deadline <- if (isTRUE(is.finite(timeout))) {
+    proc.time()[["elapsed"]] + timeout
+  } else {
+    Inf
+  }
+
   proc <- processx::process$new(
     command = command,
     args = args,
@@ -63,7 +76,17 @@ run_process_with_input <- function(
   is_binary <- identical(encoding, "binary")
   empty_stream <- if (isTRUE(is_binary)) raw(0L) else ""
 
-  streams <- pump_process_io(proc, input = input, binary = is_binary)
+  streams <- pump_process_io(
+    proc,
+    input = input,
+    binary = is_binary,
+    deadline = deadline
+  )
+
+  p_timeout <- isTRUE(streams$timeout)
+  if (isTRUE(p_timeout)) {
+    proc$kill()
+  }
   proc$wait()
 
   p_stdout <- if (is.null(streams$stdout)) empty_stream else streams$stdout
@@ -89,6 +112,14 @@ run_process_with_input <- function(
       !is.na(p_status) &&
       !identical(p_status, 0L)
   ) {
+    if (isTRUE(p_timeout)) {
+      rlang::abort(
+        message = sprintf("Command timed out after %s seconds", timeout),
+        class = "system_command_timeout_error",
+        status = p_status,
+        stderr = p_stderr
+      )
+    }
     rlang::abort(
       message = sprintf("Command failed with status %d", p_status),
       class = "system_command_status_error",
@@ -101,7 +132,7 @@ run_process_with_input <- function(
     status = p_status,
     stdout = p_stdout,
     stderr = p_stderr,
-    timeout = FALSE,
+    timeout = p_timeout,
     pid = p_pid
   ))
 }

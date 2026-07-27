@@ -4,6 +4,8 @@
 #' If the target environment does not exist, it is created first.
 #'
 #' @param packages Character vector of package MatchSpec strings to install.
+#'   Required; must not be `NULL` (use `create_env()` to create an empty
+#'   environment instead).
 #' @param env_name Character string with the target environment name.
 #'   Defaults to `"condathis-env"`.
 #' @param channels Character vector with channel names used for dependency
@@ -58,16 +60,25 @@ install_packages <- function(
     "full"
   )
 ) {
+  if (missing(packages) || rlang::is_null(packages)) {
+    cli::cli_abort(
+      message = c(
+        `x` = "{.arg packages} must be a character vector of package names."
+      ),
+      class = "condathis_install_packages_missing_packages"
+    )
+  }
+  validate_env_name(
+    env_name,
+    class = "condathis_install_packages_invalid_env_name"
+  )
+
   verbose_list <- parse_strategy_verbose(verbose = verbose)
   channel_priority_args <- parse_strategy_channel_priority(
     channel_priority = channel_priority
   )
 
-  if (
-    isFALSE(any(
-      list_envs(verbose = verbose_list$internal_verbose) %in% env_name
-    ))
-  ) {
+  if (isFALSE(env_exists(env_name, verbose = verbose_list$internal_verbose))) {
     create_env(
       packages = NULL,
       env_name = env_name,

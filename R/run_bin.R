@@ -26,9 +26,9 @@
 #'   `input` to the process.
 #' @param input Character or raw vector written to the process's standard
 #'   input when `stdin = "|"`. Defaults to `NULL`. Ignored (and must not be
-#'   set) when `stdin` is not `"|"`. Note: live stdout/stderr echoing,
-#'   spinner, and timeout are not available when `input` triggers the
-#'   writable-stdin code path.
+#'   set) when `stdin` is not `"|"`. Note: live (real-time) stdout/stderr
+#'   streaming and the spinner are not available when `input` triggers the
+#'   writable-stdin code path; `timeout` still works.
 #' @param binary Logical. Whether to capture stdout/stderr as raw vectors
 #'   instead of decoding them as UTF-8 text. Defaults to `FALSE`. Since a
 #'   process's stdout and stderr share a single encoding, both streams are
@@ -43,6 +43,12 @@
 #' @param linux_pdeathsig Logical. On Linux, whether to send `SIGKILL` to the
 #'   child process if the parent R process dies. Has no effect on other
 #'   platforms. Defaults to `FALSE`.
+#' @param timeout Numeric. Maximum number of seconds to let the command run
+#'   before it's killed. Defaults to `Inf` (no limit, the previous
+#'   behavior). On expiry, the process is killed, `timeout` is `TRUE` in the
+#'   returned result, and `error = "cancel"` aborts with class
+#'   `condathis_run_timeout_error` (`error = "continue"` returns normally
+#'   with `status = -9`).
 #' @param activate Logical. Whether to resolve and apply `env_name`'s real
 #'   `micromamba run` activation (via `get_micromamba_activation_envvars()`,
 #'   including any package `activate.d` hook scripts) as an environment
@@ -98,7 +104,8 @@ run_bin <- function(
   supervise = FALSE,
   cleanup_tree = FALSE,
   linux_pdeathsig = FALSE,
-  activate = TRUE
+  activate = TRUE,
+  timeout = Inf
 ) {
   error <- rlang::arg_match(error)
   if (identical(error, "cancel")) {
@@ -194,7 +201,8 @@ run_bin <- function(
           cleanup_tree = cleanup_tree,
           supervise = supervise,
           linux_pdeathsig = linux_pdeathsig,
-          encoding = encoding
+          encoding = encoding,
+          timeout = timeout
         )
       } else {
         processx::run(
@@ -211,7 +219,8 @@ run_bin <- function(
           cleanup_tree = cleanup_tree,
           supervise = supervise,
           linux_pdeathsig = linux_pdeathsig,
-          encoding = encoding
+          encoding = encoding,
+          timeout = timeout
         )
       }
     }

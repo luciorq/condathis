@@ -25,6 +25,8 @@
 #'   after the process has finished. Defaults to `FALSE`.
 #' @param linux_pdeathsig Logical. On Linux, whether to send `SIGKILL` to the
 #'   child process if the parent R process dies. Defaults to `FALSE`.
+#' @param timeout Numeric. Maximum number of seconds to let the command run
+#'   before it's killed. Defaults to `Inf` (no limit).
 #'
 #' @returns A process result list from `processx::run()`.
 #'
@@ -49,7 +51,8 @@ run_internal_native <- function(
   binary = FALSE,
   supervise = FALSE,
   cleanup_tree = FALSE,
-  linux_pdeathsig = FALSE
+  linux_pdeathsig = FALSE,
+  timeout = Inf
 ) {
   if (isTRUE(is_windows())) {
     micromamba_bat_path <- fs::path(
@@ -106,7 +109,8 @@ run_internal_native <- function(
     encoding = if (isTRUE(binary)) "binary" else "utf-8",
     supervise = supervise,
     cleanup_tree = cleanup_tree,
-    linux_pdeathsig = linux_pdeathsig
+    linux_pdeathsig = linux_pdeathsig,
+    timeout = timeout
   )
   return(invisible(px_res))
 }
