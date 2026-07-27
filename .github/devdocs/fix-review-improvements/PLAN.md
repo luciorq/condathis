@@ -154,16 +154,110 @@ for the full implementation detail.
   `lifecycle` or drop it — it clutters the two most-used signatures.
 - **No `timeout` argument** on `run()`/`run_bin()`/`run_pipeline()` despite
   `processx` supporting it. A hung CLI tool hangs the R session with no
-  built-in escape. Real feature gap.
+  built-in escape. Real feature gap. **Status: DONE.**
+
+  New `timeout = Inf` argument on `run()`, `run_bin()`, and `run_pipeline()`.
+  Threaded through both `processx` execution paths in the codebase:
+  - `processx::run()` (used directly by `native_cmd()`'s non-stdin branch
+    and `run_bin()`'s non-stdin branch): `timeout` passed straight through;
+    `processx`'s own native timeout support does the rest. Confirmed
+    empirically before writing any code: on expiry `processx::run()` kills
+    the process (`status = -9`, `timeout = TRUE` in its result) and, with
+    `error_on_status = TRUE`, throws a distinct condition class
+    `system_command_timeout_error` (inherits `system_command_error`,
+    `rlib_error_3_0`, `rlib_error`, `error`, `condition`) instead of the
+    regular `system_command_status_error` — with `error_on_status = FALSE`
+    it returns normally, no error.
+  - `run_process_with_input()` (the hand-rolled `processx::process$new()` +
+    `pump_process_io()` path used whenever `stdin = "|"`, which
+    `processx::run()` itself doesn't support): `pump_process_io()`
+    (`R/pump_process_io.R`) gained a `deadline` parameter (an absolute
+    `proc.time()[["elapsed"]]` timestamp, default `Inf`) checked each loop
+    iteration; on expiry it stops draining, reports `timeout = TRUE`, and
+    the caller kills the process. Confirmed empirically that manually
+    killing a `process$new()` object (`proc$kill(); proc$wait()`) produces
+    the identical `status = -9` convention `processx::run()` uses natively,
+    so both paths report timeouts identically regardless of which one ran
+    the command. `run_process_with_input()` then throws the same
+    `system_command_timeout_error` class (hand-rolled via `rlang::abort()`,
+    since it doesn't inherit `rlib_error_3_0` automatically the way
+    `processx`'s own condition does — added explicitly to
+    `rethrow_error_run()`'s caught classes to compensate), gated by
+    `error_on_status` exactly like a normal failure — **not** unconditional
+    (an earlier design draft got this wrong and was self-corrected before
+    writing code: a timeout must respect `error = "continue"` the same way
+    a regular failure does).
+
+  Found and fixed a real pre-existing bug in `rethrow_error_run()` along the
+  way: its "continue mode" synthesized-result branch hardcoded
+  `timeout = FALSE` unconditionally, which would have silently misreported
+  a genuine timeout as a normal failure once this feature existed. Also
+  added a distinct abort class per surface for the cancel-mode case
+  (`condathis_run_timeout_error` for `run()`/`run_bin()`,
+  `condathis_pipeline_timeout_error` for `run_pipeline()`) instead of
+  reusing the regular status-error class, so callers can `tryCatch()`
+  a timeout specifically.
+
+  `run_pipeline()` needed its own design since it manages multiple
+  `processx::process$new()` stages directly with real inter-process pipes:
+  `timeout` is a single shared deadline for the *whole* pipeline (not
+  per-command), computed once and passed to every stage's
+  `pump_process_io()` call. A subtlety found only by testing against a real
+  multi-stage pipeline, not by reasoning: `kill()` on a `processx` process
+  immediately invalidates its own connection object, discarding anything
+  still unread — confirmed empirically (`p$kill(); p$wait(); p$read_output(-1)`
+  errors with "Invalid (uninitialized or closed?) connection object", even
+  for output already sitting in the OS pipe buffer). An early draft handled
+  the shared deadline by killing every process as soon as the first stage
+  timed out, which lost real output later stages had already produced but
+  not yet drained. Fixed two ways: (1) `pump_process_io()` always attempts
+  one last non-blocking (`poll_io(0)`) drain in the same iteration the
+  deadline is hit, instead of bailing out before reading anything, so
+  already-buffered data is never lost; (2) `run_pipeline()` kills only the
+  one stage whose own drain call reported the timeout (after having drained
+  it), not every process up front — killing that stage closes its stdout
+  pipe, so the next stage sees EOF and finishes draining normally on its
+  own. Verified live: a 2-stage pipeline (`sh -c "echo hello; sleep 5" |
+  cat`) with `timeout = 1` correctly preserves `"hello\n"` in the final
+  result even though both processes end up killed.
 - **Uneven input validation.** `install_packages()` and `clean_cache()`
   validate nothing; `install_packages(packages)` with no args gives a bare
   base-R error, not a `condathis_*` class; `get_env_dir()` doesn't validate
   `env_name`. A shared `env_name` validator (the one just added to
-  `env_exists()`) could be reused.
+  `env_exists()`) could be reused. **Status: DONE** (except `clean_cache()`
+  — see note below).
+
+  New internal `validate_env_name(env_name, class, call)` helper
+  (`R/validate_env_name.R`): the exact type-check `env_exists()` already
+  had (single, non-missing, non-`NA` character string), extracted so every
+  call site can reuse it while keeping its own distinct, already-documented
+  error class via the `class` argument. `env_exists()` itself now calls it
+  instead of inlining the check. `get_env_dir()` now calls it too (class
+  `condathis_get_env_dir_invalid_env_name`) — previously a bad `env_name`
+  (e.g. a length-2 vector) silently produced a nonsensical vector of paths
+  via `fs::path()`'s vectorization instead of erroring. `install_packages()`
+  now calls it as well (class
+  `condathis_install_packages_invalid_env_name`), and separately gained a
+  proper `condathis_install_packages_missing_packages`-classed abort for a
+  missing or `NULL` `packages` argument (previously a bare base-R "argument
+  is missing" error, or — for explicit `NULL` — no error at all until
+  `native_cmd()` failed confusingly downstream).
+
+  Deliberately did **not** touch `clean_cache()`: it has no `env_name`
+  argument at all (cache cleanup isn't tied to a specific environment), so
+  there's nothing for the shared validator to attach to — the original
+  finding's phrasing was imprecise on this point.
 - **`install_packages()` existence check reads backwards.**
   `R/install_packages.R:66–69`: `any(list_envs(...) %in% env_name)` — works
   but awkward; `env_exists(env_name)` (or `env_name %in% list_envs()`) is
-  clearer and matches every other call site.
+  clearer and matches every other call site. **Status: DONE** — switched to
+  `env_exists(env_name, verbose = verbose_list$internal_verbose)` directly.
+  Deliberately *not* used inside `get_env_dir()` itself: `env_exists()`
+  calls `list_envs()`, a real `micromamba` invocation, which would make a
+  pure path-builder function do heavy I/O and require `micromamba` to
+  already be installed — `get_env_dir()` only needs the lightweight type
+  check, which is exactly why the validator was extracted as its own
+  function separate from `env_exists()`.
 - **`micro.mamba.pm` dead mirror** (see severity-1 probe). **Status: DONE**
   — dropped from `get_micromamba_urls()`'s `compressed` and `check_urls`
   lists. The "harden `try_download_from_mirrors()`" half of the original

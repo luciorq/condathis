@@ -14,7 +14,9 @@ install_packages(
 )
 }
 \arguments{
-\item{packages}{Character vector of package MatchSpec strings to install.}
+\item{packages}{Character vector of package MatchSpec strings to install.
+Required; must not be \code{NULL} (use \code{create_env()} to create an empty
+environment instead).}
 
 \item{env_name}{Character string with the target environment name.
 Defaults to \code{"condathis-env"}.}

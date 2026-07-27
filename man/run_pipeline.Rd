@@ -16,7 +16,8 @@ run_pipeline(
   supervise = TRUE,
   cleanup_tree = TRUE,
   linux_pdeathsig = FALSE,
-  activate = TRUE
+  activate = TRUE,
+  timeout = Inf
 )
 }
 \arguments{
@@ -84,6 +85,17 @@ of \verb{CONDA_*}/\verb{MAMBA_*} variables, no \code{activate.d} execution). The
 first pipeline call touching a given \code{env_name} with \code{activate = TRUE}
 pays for two extra subprocess spawns to resolve it; repeat calls for
 the same, unchanged environment hit the cache.}
+
+\item{timeout}{Numeric. Maximum number of seconds to let the whole
+pipeline run before every process in it is killed. Defaults to \code{Inf}
+(no limit, the previous behavior). Applies to the pipeline as a whole
+(a single shared deadline across every command), not per-command. On
+expiry, every still-running process is killed (\code{status = -9}, matching
+\code{processx::run()}'s own convention) and, gated by \code{error} exactly like
+a non-zero exit status, \code{error = "cancel"} aborts with class
+\code{condathis_pipeline_timeout_error} while \code{error = "continue"} returns
+normally with \code{result$timeout} (and each killed process's own
+\code{timeout}) set to \code{TRUE}.}
 }
 \value{
 A \code{condathis_pipeline} S3 object with per-process results:
@@ -91,9 +103,10 @@ A \code{condathis_pipeline} S3 object with per-process results:
 \item{processes}{List of per-process \code{condathis_result} objects (the
 same class \code{run()}/\code{run_bin()} return), each with \code{cmd}, \code{env_name},
 \code{status}, \code{stdout} (\code{NA} for non-last processes), \code{stderr}, \code{pid},
-and \code{timeout} (always \code{FALSE}; per-process timeouts are not
-currently tracked). \code{format()}/\code{print()} work directly on an
-individual \code{processes[[i]]}, not just on the whole pipeline result.}
+and \code{timeout} (\code{TRUE} for whichever process(es) were still running
+when the pipeline's \code{timeout} expired, \code{FALSE} otherwise).
+\code{format()}/\code{print()} work directly on an individual \code{processes[[i]]},
+not just on the whole pipeline result.}
 \item{timeout}{Logical. Whether the pipeline timed out.}
 }
 \description{

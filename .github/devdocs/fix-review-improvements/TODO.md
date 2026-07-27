@@ -149,6 +149,53 @@ pinned version unconfirmed by the author.
       (`test-install_micromamba.R`). `test-install_micromamba.R`: 26/26
       (real network install, not skipped).
 
+- [x] 3: added a `timeout = Inf` argument to `run()`, `run_bin()`, and
+      `run_pipeline()`, threaded through to `processx` (default preserves
+      current no-limit behavior exactly). Both `processx` execution paths
+      covered: `processx::run()`'s native `timeout` support (verified
+      empirically: kills the process, `status = -9`, and — gated by
+      `error_on_status` — throws a distinct `system_command_timeout_error`
+      instead of the regular status-error class) and the hand-rolled
+      `run_process_with_input()`/`pump_process_io()` path used whenever
+      `stdin = "|"` (new `deadline` parameter on `pump_process_io()`,
+      checked each poll iteration; manually killing a `process$new()`
+      object confirmed to produce the identical `status = -9` convention).
+      Fixed a real pre-existing bug found along the way:
+      `rethrow_error_run()`'s continue-mode synthesized result hardcoded
+      `timeout = FALSE` unconditionally. New dedicated abort classes
+      (`condathis_run_timeout_error`, `condathis_pipeline_timeout_error`)
+      distinguish a timeout from a regular failure under
+      `error = "cancel"`. `run_pipeline()` uses one shared deadline across
+      the whole pipeline; found (by testing a real multi-stage pipeline,
+      not by reasoning) that `processx` invalidates a process's own
+      connection immediately on `kill()`, discarding any unread output —
+      fixed by having `pump_process_io()` always attempt one last
+      non-blocking drain in the same iteration the deadline is hit, and by
+      killing only the one stage that actually timed out (after draining
+      it), not every process up front. Verified live end-to-end for all
+      three functions, both `error` modes, plus the specific
+      output-preservation case for `run_pipeline()`. See `PLAN.md` for the
+      full empirical detail. Full regression clean (see below).
+- [x] 3: reused the `env_exists()` `env_name` validator across
+      `install_packages()`/`get_env_dir()` (not `clean_cache()` — it has no
+      `env_name` argument at all, so there's nothing to attach a validator
+      to; the original finding was imprecise on this point). Extracted the
+      exact type-check `env_exists()` already had into a new internal
+      `validate_env_name(env_name, class, call)` (`R/validate_env_name.R`),
+      parameterized by error `class` so each call site keeps its own
+      already-documented class. `install_packages(packages)` now aborts
+      with class `condathis_install_packages_missing_packages` for a
+      missing/`NULL` `packages` argument (previously a bare base-R error,
+      or no error at all until a confusing downstream failure), and with
+      `condathis_install_packages_invalid_env_name` for a bad `env_name`.
+      `get_env_dir()` now aborts with `condathis_get_env_dir_invalid_env_name`
+      instead of silently building a nonsensical vector-of-paths for a
+      multi-element `env_name`. Switched `install_packages()`'s existence
+      check from `any(list_envs(...) %in% env_name)` to
+      `env_exists(env_name, ...)` directly, matching every other call site.
+      New man page for `validate_env_name` skipped (`@keywords internal`
+      `@noRd`, matches every other internal helper in the package).
+
 ## Remaining — needs a decision or is lower priority
 
 - [ ] 4: remove or re-wire the dead connectivity pre-check in
@@ -159,13 +206,6 @@ pinned version unconfirmed by the author.
       in (fail fast before creating any directories if no mirror is
       reachable) or delete `check_connection()` and `check_urls` entirely.
       `lintr`'s `commented_code_linter` still flags 5 lines here.
-- [ ] 3: add a `timeout` argument to `run()`/`run_bin()`/`run_pipeline()`
-      (thread through to `processx`), default `Inf`/`NULL` preserving
-      current behavior.
-- [ ] 3: reuse the `env_exists()` `env_name` validator across
-      `install_packages()`/`clean_cache()`/`get_env_dir()`; give
-      `install_packages(packages)` a `condathis_*`-classed missing-arg
-      error. Switch `install_packages()`'s existence check to `env_exists()`.
 - [ ] 3/5: `method` argument — decide `lifecycle::deprecate_soft()` vs
       drop; likely a follow-up, low urgency.
 

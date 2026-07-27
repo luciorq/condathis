@@ -43,6 +43,19 @@ Development Changelog: [dev](https://github.com/luciorq/condathis/compare/v0.1.4
   `condathis_parse_output_binary_stream` if asked to parse one). Binary
   streams are never live-echoed to the console.
 
+* New `timeout` argument on `run()`, `run_bin()`, and `run_pipeline()`:
+  maximum number of seconds to let a command (or, for `run_pipeline()`, the
+  whole pipeline) run before it's killed. Defaults to `Inf` (no limit, the
+  previous behavior). On expiry, the process is killed (`status = -9`) and
+  `timeout` is `TRUE` in the returned result; `error = "cancel"` (the
+  default) aborts with a dedicated class (`condathis_run_timeout_error` /
+  `condathis_pipeline_timeout_error`) instead of the regular
+  status-error class, so you can tell a timeout apart from an ordinary
+  failed command; `error = "continue"` returns the result normally instead
+  of aborting. For `run_pipeline()`, `timeout` applies to the pipeline as a
+  whole (one shared deadline across every command, not per-command); any
+  output a killed stage had already produced is preserved.
+
 * `install_micromamba()` now verifies the downloaded `micromamba` binary
   against its official checksum. If it doesn't match — or the check can't
   be run at all, for any reason — you'll see a warning, but the install
@@ -88,10 +101,26 @@ Development Changelog: [dev](https://github.com/luciorq/condathis/compare/v0.1.4
   `res$processes` (e.g. `res$processes[[1]]`) is now that same kind of
   result object too, not a plain list. You can now `print()` or `format()`
   a single step on its own, not just the whole pipeline result. Each step
-  also gains a `timeout` field (currently always `FALSE`; per-step timeouts
-  aren't tracked yet). As above, `res$status`/`res$stdout`/`res$stderr`/
-  `res$cmd`/`res$env_name`/`res$pid` all still work the same way; only code
-  checking the exact class of an individual step is affected.
+  also gains a `timeout` field, `TRUE` for whichever step(s) were still
+  running when `run_pipeline()`'s own `timeout` expired. As above,
+  `res$status`/`res$stdout`/`res$stderr`/`res$cmd`/`res$env_name`/`res$pid`
+  all still work the same way; only code checking the exact class of an
+  individual step is affected.
+
+* `install_packages()` now validates its arguments upfront instead of
+  letting bad input reach `micromamba` (or a plain base-R error): calling
+  it without `packages` (or with `packages = NULL`) now gives a clear,
+  classed error (`condathis_install_packages_missing_packages`) instead of
+  a generic "argument is missing" error; an invalid `env_name` (not a
+  single, non-missing character string) now errors the same way
+  `env_exists()` and `get_env_dir()` do. Its check for whether the target
+  environment already exists now uses `env_exists()` internally (same
+  result, clearer code) instead of `list_envs()` plus a manual `%in%`
+  check.
+
+* `get_env_dir()` now validates `env_name` (a single, non-missing character
+  string) instead of silently building a nonsensical path — for example, a
+  multi-element `env_name` used to silently return a vector of paths.
 
 * `install_packages()` now warns when the target environment was previously
   installed using a channel that is not included in the current call (e.g.

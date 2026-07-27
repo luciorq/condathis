@@ -18,7 +18,8 @@ run(
   binary = FALSE,
   supervise = FALSE,
   cleanup_tree = FALSE,
-  linux_pdeathsig = FALSE
+  linux_pdeathsig = FALSE,
+  timeout = Inf
 )
 }
 \arguments{
@@ -65,9 +66,9 @@ Provide a file path to use file contents as stdin, or \code{"|"} to write
 
 \item{input}{Character or raw vector written to the process's standard
 input when \code{stdin = "|"}. Defaults to \code{NULL}. Ignored (and must not be
-set) when \code{stdin} is not \code{"|"}. Note: live stdout/stderr echoing,
-spinner, and timeout are not available when \code{input} triggers the
-writable-stdin code path.}
+set) when \code{stdin} is not \code{"|"}. Note: live (real-time) stdout/stderr
+streaming and the spinner are not available when \code{input} triggers the
+writable-stdin code path; \code{timeout} still works.}
 
 \item{binary}{Logical. Whether to capture stdout/stderr as raw vectors
 instead of decoding them as UTF-8 text. Defaults to \code{FALSE}. Since a
@@ -88,6 +89,13 @@ crashes. Defaults to \code{FALSE}.}
 \item{linux_pdeathsig}{Logical. On Linux, whether to send \code{SIGKILL} to the
 child process if the parent R process dies. Has no effect on other
 platforms. Defaults to \code{FALSE}.}
+
+\item{timeout}{Numeric. Maximum number of seconds to let the command run
+before it's killed. Defaults to \code{Inf} (no limit, the previous
+behavior). On expiry, the process is killed, \code{timeout} is \code{TRUE} in the
+returned result, and \code{error = "cancel"} aborts with class
+\code{condathis_run_timeout_error} (\code{error = "continue"} returns normally
+with \code{status = -9}).}
 }
 \value{
 A \code{condathis_result} S3 object (a classed list, still usable as
