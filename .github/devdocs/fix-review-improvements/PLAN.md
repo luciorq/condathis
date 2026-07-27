@@ -274,10 +274,31 @@ for the full implementation detail.
   only referenced in commented-out code at `install_micromamba.R:97`; has a
   live test hitting github.com), `get_micromamba_urls()$check_urls` (built,
   never consumed), plus the checksum trio if not re-enabled. Wire back in or
-  delete. **Status: not started** (contingent on the checksum decision).
+  delete. **Status: DONE** — author decision: delete. Reasoning that led to
+  the recommendation: `try_download_from_mirrors()`/`install_micromamba()`
+  already fail cleanly with a clear, classed error
+  (`condathis_install_error_missing_bzip2`, message mentions "network
+  issues") when no mirror is reachable — a connectivity pre-check would
+  only add redundant network round-trips before every real attempt and
+  avoid creating two (harmless, now-empty) directories a little earlier.
+  Same shape of finding as the `micro.mamba.pm` mirror-hardening item
+  above: the original review flagged a gap that, on closer inspection, the
+  existing error path already covers.
+
+  Deleted `R/check_connection.R` and its test
+  (`tests/testthat/test-check_connection.R`), the commented-out call site
+  in `install_micromamba.R`, and `get_micromamba_urls()`'s `check_urls`
+  element (`R/micromamba_download_urls.R`) plus its doc line. Updated
+  `test-install_micromamba.R`'s structure test (expected names, no more
+  `check_urls`) and removed its own commented-out
+  `"Connection not available"` test (mocked the now-deleted function).
+  `lintr::lint("R/install_micromamba.R", linters = commented_code_linter())`
+  confirmed clean afterward. Full regression:
+  `test-install_micromamba.R` 24/24 (real network installs, not skipped).
 - **Commented-out code blocks:** ~12 in `install_micromamba.R` (`lintr`
-  `commented_code_linter`). Remove or restore. **Status: not started**
-  (same contingency).
+  `commented_code_linter`). Remove or restore. **Status: DONE** — the
+  connectivity pre-check block above was the only one; removed as part of
+  the same change.
 - **Three different "is Windows?" idioms, no shared helper.** **Status:
   DONE** — added internal `is_windows()`/`is_macos()` (`R/get_sys_arch.R`)
   and replaced every genuinely-redundant call site; deliberately left

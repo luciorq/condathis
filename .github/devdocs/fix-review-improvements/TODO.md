@@ -196,16 +196,24 @@ pinned version unconfirmed by the author.
       New man page for `validate_env_name` skipped (`@keywords internal`
       `@noRd`, matches every other internal helper in the package).
 
+- [x] 4: removed the dead connectivity pre-check in `install_micromamba.R`
+      (`check_connection()` + `get_micromamba_urls()$check_urls`). Author
+      decision: delete rather than wire back in — the download path
+      (`try_download_from_mirrors()`/`install_micromamba()`) already fails
+      cleanly with a clear, classed error when no mirror is reachable, so
+      the pre-check would only add redundant network round-trips. Deleted
+      `R/check_connection.R`, its test
+      (`tests/testthat/test-check_connection.R`), the commented-out call
+      site, `check_urls` from `get_micromamba_urls()`
+      (`R/micromamba_download_urls.R`), and the matching pieces of
+      `test-install_micromamba.R` (structure-test expectation, the
+      commented-out `"Connection not available"` mock test).
+      `lintr`'s `commented_code_linter` confirmed clean on
+      `install_micromamba.R` afterward. `test-install_micromamba.R`: 24/24
+      (real network installs, not skipped).
+
 ## Remaining — needs a decision or is lower priority
 
-- [ ] 4: remove or re-wire the dead connectivity pre-check in
-      `install_micromamba.R` (`check_connection()` +
-      `get_micromamba_urls()$check_urls`, lines ~94–110) — a *separate*
-      commented-out block from the checksum path, unaffected by the
-      checksum decision above and still pending its own call: wire it back
-      in (fail fast before creating any directories if no mirror is
-      reachable) or delete `check_connection()` and `check_urls` entirely.
-      `lintr`'s `commented_code_linter` still flags 5 lines here.
 - [ ] 3/5: `method` argument — decide `lifecycle::deprecate_soft()` vs
       drop; likely a follow-up, low urgency.
 

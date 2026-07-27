@@ -12,7 +12,6 @@
 #'   - `compressed`: Character vector of `.tar.bz2` archive endpoints.
 #'   - `uncompressed`: Character vector of raw binary endpoints.
 #'   - `sha256`: Character vector of SHA256 checksum endpoints.
-#'   - `check_urls`: Character vector of base endpoints used for connectivity checks.
 #'
 #' @keywords internal
 #' @noRd
@@ -97,17 +96,9 @@ get_micromamba_urls <- function(sys_arch_str, micromamba_version) {
 
   sha256_urls <- sha256_url
 
-  # --- Connectivity check URLs ---
-  check_urls <- c(
-    github_base,
-    "https://api.anaconda.org",
-    "https://repo.prefix.dev"
-  )
-
   return(list(
     compressed = compressed_urls,
     uncompressed = uncompressed_urls,
-    sha256 = sha256_urls,
-    check_urls = check_urls
+    sha256 = sha256_urls
   ))
 }

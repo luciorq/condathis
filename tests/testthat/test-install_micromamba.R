@@ -18,18 +18,6 @@ testthat::test_that("Micromamba is already installed", {
   testthat::expect_true(fs::file_exists(umamba_bin_path))
 })
 
-# testthat::test_that("Connection not available", {
-#   testthat::local_mocked_bindings(check_connection = function(...) {
-#     return(FALSE)
-#   })
-#   testthat::expect_error(
-#     object = {
-#       umamba_bin_path <- install_micromamba(force = TRUE, verbose = FALSE)
-#     },
-#     class = "condathis_github_not_reachable"
-#   )
-# })
-
 testthat::test_that("Install micromamba from scratch", {
   testthat::skip_if_offline()
   testthat::skip_on_cran()
@@ -149,7 +137,7 @@ testthat::test_that("get_micromamba_urls returns correct structure", {
   testthat::expect_type(urls, "list")
   testthat::expect_named(
     urls,
-    c("compressed", "uncompressed", "sha256", "check_urls")
+    c("compressed", "uncompressed", "sha256")
   )
 
   # Compressed URLs should include GitHub, Anaconda, and prefix.dev.
@@ -170,10 +158,6 @@ testthat::test_that("get_micromamba_urls returns correct structure", {
 
   # SHA256 URL should be from GitHub
   testthat::expect_true(grepl("\\.sha256$", urls$sha256[1L]))
-
-  # Check URLs should include the three remaining mirrors
-  testthat::expect_length(urls$check_urls, 3L)
-  testthat::expect_false(any(grepl("micro.mamba.pm", urls$check_urls)))
 })
 
 testthat::test_that("has_system_tar and has_system_bzip2 return logical", {

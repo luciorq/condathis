@@ -91,24 +91,6 @@ install_micromamba <- function(
     micromamba_version = micromamba_version
   )
 
-  # Verify at least one mirror is reachable
-  # any_reachable <- FALSE
-  # for (check_url in mirror_urls$check_urls) {
-  #   if (isTRUE(check_connection(check_url))) {
-  #     any_reachable <- TRUE
-  #     break
-  #   }
-  # }
-  # if (isFALSE(any_reachable)) {
-  #   cli::cli_abort(
-  #     message = c(
-  #       `x` = "No download mirrors are reachable.",
-  #       `i` = "Tried: {.url {mirror_urls$check_urls}}"
-  #     ),
-  #     class = "condathis_github_not_reachable"
-  #   )
-  # }
-
   output_dir <- fs::path_abs(get_install_dir())
   if (isFALSE(fs::dir_exists(output_dir))) {
     fs::dir_create(output_dir)
