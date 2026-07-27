@@ -28,7 +28,9 @@ run(
 
 \item{env_name}{Character string with the target environment name.
 Defaults to \code{"condathis-env"}.
-If the default environment does not exist, it is created automatically.}
+If the default environment does not exist, it is created automatically.
+A missing \emph{custom} \code{env_name} is never created automatically — it
+fails instead, per \code{error} below.}
 
 \item{method}{Character string with the backend execution strategy.
 Supported values are \code{"native"} and \code{"auto"}.
@@ -43,7 +45,10 @@ Logical values are accepted for backward compatibility:
 
 \item{error}{Character string that controls error behavior.
 Supported values are \code{"cancel"} and \code{"continue"}.
-Defaults to \code{"cancel"}.}
+Defaults to \code{"cancel"}. Also controls what happens when \code{env_name} is
+a non-default environment that does not exist: \code{"cancel"} aborts with
+class \code{condathis_run_env_not_found}; \code{"continue"} returns a result
+with \code{status = 127} instead of running anything.}
 
 \item{stdout}{Standard output target.
 Defaults to \code{"|"} (capture stdout in the returned object).

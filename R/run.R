@@ -8,6 +8,8 @@
 #' @param env_name Character string with the target environment name.
 #'   Defaults to `"condathis-env"`.
 #'   If the default environment does not exist, it is created automatically.
+#'   A missing *custom* `env_name` is never created automatically — it
+#'   fails instead, per `error` below.
 #' @param method Character string with the backend execution strategy.
 #'   Supported values are `"native"` and `"auto"`.
 #'   Defaults to `"native"`.
@@ -19,7 +21,10 @@
 #'   `TRUE` maps to `"output"` and `FALSE` maps to `"silent"`.
 #' @param error Character string that controls error behavior.
 #'   Supported values are `"cancel"` and `"continue"`.
-#'   Defaults to `"cancel"`.
+#'   Defaults to `"cancel"`. Also controls what happens when `env_name` is
+#'   a non-default environment that does not exist: `"cancel"` aborts with
+#'   class `condathis_run_env_not_found`; `"continue"` returns a result
+#'   with `status = 127` instead of running anything.
 #' @param stdout Standard output target.
 #'   Defaults to `"|"` (capture stdout in the returned object).
 #'   Provide a file path to redirect stdout to a file.
@@ -150,33 +155,75 @@ run <- function(
   method_to_use <- method
 
   if (isTRUE(method_to_use %in% c("native", "auto"))) {
-    if (
-      isFALSE(env_exists(
-        env_name = "condathis-env",
-        verbose = verbose_list$internal_verbose
-      ))
-    ) {
+    # Only the default environment is auto-created when missing (a
+    # deliberate, documented convenience). A missing *custom* `env_name`
+    # used to be silently papered over here too: this check only ever
+    # tested for `"condathis-env"` specifically, regardless of the actual
+    # `env_name` argument, so calling `run(cmd, env_name = "my-env")` when
+    # `"my-env"` didn't exist would create an unrelated, empty
+    # `"condathis-env"` as a side effect and then still fail — the
+    # auto-create never actually helped the real target. (This
+    # side-effect-creation existed to work around an old `micromamba`
+    # requirement that the root prefix have *some* environment before
+    # `micromamba run` would work at all; confirmed empirically that a
+    # fresh install root with only a custom-named environment — never
+    # touching `"condathis-env"` — runs commands in it correctly with the
+    # current pinned `micromamba` version, so that workaround is no longer
+    # needed.) A missing custom `env_name` now fails clearly instead:
+    # aborts under `error = "cancel"`, matching `run_pipeline()`'s
+    # `condathis_pipeline_env_not_found` behavior for the same situation;
+    # reports a `status = 127` result under `error = "continue"`, without
+    # ever creating anything.
+    env_name_exists <- env_exists(
+      env_name = env_name,
+      verbose = verbose_list$internal_verbose
+    )
+
+    if (isFALSE(env_name_exists) && identical(env_name, "condathis-env")) {
       create_base_env(verbose = verbose_list$internal_verbose)
+      env_name_exists <- TRUE
     }
-    px_res <- rethrow_error_run(
-      expr = {
-        run_internal_native(
-          cmd = cmd,
-          ...,
-          env_name = env_name,
-          verbose = verbose_list,
-          error = error,
-          stdout = stdout,
-          stderr = stderr,
-          stdin = stdin,
-          input = input,
-          binary = binary,
-          supervise = supervise,
-          cleanup_tree = cleanup_tree,
-          linux_pdeathsig = linux_pdeathsig
+
+    if (isFALSE(env_name_exists)) {
+      if (isTRUE(error_var)) {
+        cli::cli_abort(
+          message = c(
+            `x` = "Environment {.field {env_name}} does not exist.",
+            `!` = "Create it with {.fn create_env} first."
+          ),
+          class = "condathis_run_env_not_found"
         )
       }
-    )
+      px_res <- list(
+        status = 127L,
+        stdout = "",
+        stderr = sprintf(
+          "Conda environment '%s' does not exist.\n",
+          env_name
+        ),
+        timeout = FALSE
+      )
+    } else {
+      px_res <- rethrow_error_run(
+        expr = {
+          run_internal_native(
+            cmd = cmd,
+            ...,
+            env_name = env_name,
+            verbose = verbose_list,
+            error = error,
+            stdout = stdout,
+            stderr = stderr,
+            stdin = stdin,
+            input = input,
+            binary = binary,
+            supervise = supervise,
+            cleanup_tree = cleanup_tree,
+            linux_pdeathsig = linux_pdeathsig
+          )
+        }
+      )
+    }
   }
 
   cmd_string <- paste(

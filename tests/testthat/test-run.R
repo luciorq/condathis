@@ -67,6 +67,58 @@ testthat::test_that("Run empty cmd", {
   )
 })
 
+test_that("Run with missing custom env and error = continue returns a result", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  res <- run(
+    "echo",
+    "hi",
+    env_name = "totally-custom-missing-env",
+    error = "continue"
+  )
+  testthat::expect_s3_class(res, "condathis_result")
+  testthat::expect_equal(res$status, 127L)
+  testthat::expect_match(
+    res$stderr,
+    "Conda environment 'totally-custom-missing-env' does not exist"
+  )
+  testthat::expect_false(
+    env_exists("totally-custom-missing-env", verbose = "silent")
+  )
+})
+
+test_that("Run with missing custom env and error = cancel still fails fast", {
+  testthat::expect_error(
+    object = run(
+      "echo",
+      "hi",
+      env_name = "totally-custom-missing-env",
+      error = "cancel"
+    ),
+    class = "condathis_run_env_not_found"
+  )
+  testthat::expect_false(
+    env_exists("totally-custom-missing-env", verbose = "silent")
+  )
+})
+
+test_that("Run with a missing custom env never creates condathis-env as a side effect", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  condathis::with_sandbox_dir({
+    testthat::expect_false(env_exists("condathis-env", verbose = "silent"))
+    run(
+      "echo",
+      "hi",
+      env_name = "another-totally-custom-missing-env",
+      error = "continue"
+    )
+    testthat::expect_false(env_exists("condathis-env", verbose = "silent"))
+  })
+})
+
 test_that("Run returns a condathis_result object", {
   testthat::skip_on_cran()
   testthat::skip_if_offline()
