@@ -435,6 +435,81 @@ test_that("Pipeline result has a logical timeout field", {
   testthat::expect_false(res$timeout)
 })
 
+test_that("Pipeline respects timeout under error = continue", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  create_env(
+    pipeline_cli_pkgs(),
+    env_name = "run-pipeline-cli-tools-env",
+    verbose = "silent"
+  )
+  res <- run_pipeline(
+    cmds = list(
+      c("sleep", "5"),
+      c("cat")
+    ),
+    env_name = "run-pipeline-cli-tools-env",
+    error = "continue",
+    timeout = 1
+  )
+  testthat::expect_true(res$timeout)
+  testthat::expect_equal(res$statuses[1], -9L)
+  testthat::expect_true(res$processes[[1]]$timeout)
+})
+
+test_that("Pipeline respects timeout under error = cancel", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  create_env(
+    pipeline_cli_pkgs(),
+    env_name = "run-pipeline-cli-tools-env",
+    verbose = "silent"
+  )
+  cnd_res <- rlang::catch_cnd(
+    expr = {
+      run_pipeline(
+        cmds = list(
+          c("sleep", "5"),
+          c("cat")
+        ),
+        env_name = "run-pipeline-cli-tools-env",
+        error = "cancel",
+        timeout = 1
+      )
+    }
+  )
+  testthat::expect_s3_class(cnd_res, "condathis_pipeline_timeout_error")
+})
+
+test_that("Pipeline preserves output a killed downstream stage already produced", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  # Regression test: an earlier draft killed every process in the pipeline
+  # as soon as the first stage timed out, discarding output later stages
+  # had already produced but not yet drained — `processx` invalidates a
+  # process's own connection immediately on `kill()`, so anything unread at
+  # that point is lost for good, confirmed empirically.
+  create_env(
+    pipeline_cli_pkgs(),
+    env_name = "run-pipeline-cli-tools-env",
+    verbose = "silent"
+  )
+  res <- run_pipeline(
+    cmds = list(
+      c("bash", "-c", "echo hello; sleep 5"),
+      c("cat")
+    ),
+    env_name = "run-pipeline-cli-tools-env",
+    error = "continue",
+    timeout = 1
+  )
+  testthat::expect_true(res$timeout)
+  testthat::expect_match(res$processes[[2]]$stdout, "hello")
+})
+
 test_that("Pipeline stdin = '|' writes input to the first process", {
   testthat::skip_on_cran()
   testthat::skip_if_offline()

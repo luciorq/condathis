@@ -369,6 +369,77 @@ test_that("Run with stdin = '|' does not truncate large input", {
   testthat::expect_equal(trimws(res$stdout), "200000")
 })
 
+test_that("Run respects timeout under error = continue", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  create_env(
+    test_os_pkg("coreutils"),
+    env_name = "run-cli-tools-env",
+    verbose = "silent"
+  )
+  res <- run(
+    "sleep",
+    "5",
+    env_name = "run-cli-tools-env",
+    error = "continue",
+    timeout = 1,
+    verbose = "silent"
+  )
+  testthat::expect_s3_class(res, "condathis_result")
+  testthat::expect_equal(res$status, -9L)
+  testthat::expect_true(res$timeout)
+})
+
+test_that("Run respects timeout under error = cancel", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  create_env(
+    test_os_pkg("coreutils"),
+    env_name = "run-cli-tools-env",
+    verbose = "silent"
+  )
+  cnd_res <- rlang::catch_cnd(
+    expr = {
+      run(
+        "sleep",
+        "5",
+        env_name = "run-cli-tools-env",
+        error = "cancel",
+        timeout = 1,
+        verbose = "silent"
+      )
+    }
+  )
+  testthat::expect_s3_class(cnd_res, "condathis_run_timeout_error")
+})
+
+test_that("Run with stdin = '|' also respects timeout", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  create_env(
+    c(test_os_pkg("coreutils"), test_os_pkg("bash")),
+    env_name = "run-cli-tools-env",
+    verbose = "silent"
+  )
+  res <- run(
+    "bash",
+    "-c",
+    "echo hello; sleep 5",
+    stdin = "|",
+    input = "unused\n",
+    env_name = "run-cli-tools-env",
+    error = "continue",
+    timeout = 1,
+    verbose = "silent"
+  )
+  testthat::expect_equal(res$status, -9L)
+  testthat::expect_true(res$timeout)
+  testthat::expect_match(res$stdout, "hello")
+})
+
 test_that("format.condathis_result previews raw stdout without erroring", {
   testthat::skip_on_cran()
   testthat::skip_if_offline()

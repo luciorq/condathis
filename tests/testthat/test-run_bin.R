@@ -199,6 +199,51 @@ test_that("run_bin() accepts crash-safety parameters", {
   testthat::expect_equal(res$status, 0L)
 })
 
+test_that("run_bin() respects timeout under error = continue", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  create_env(
+    test_os_pkg("coreutils"),
+    env_name = "run-bin-cli-tools-env",
+    verbose = "silent"
+  )
+  res <- run_bin(
+    "sleep",
+    "5",
+    env_name = "run-bin-cli-tools-env",
+    error = "continue",
+    timeout = 1,
+    verbose = "silent"
+  )
+  testthat::expect_equal(res$status, -9L)
+  testthat::expect_true(res$timeout)
+})
+
+test_that("run_bin() respects timeout under error = cancel", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  create_env(
+    test_os_pkg("coreutils"),
+    env_name = "run-bin-cli-tools-env",
+    verbose = "silent"
+  )
+  cnd_res <- rlang::catch_cnd(
+    expr = {
+      run_bin(
+        "sleep",
+        "5",
+        env_name = "run-bin-cli-tools-env",
+        error = "cancel",
+        timeout = 1,
+        verbose = "silent"
+      )
+    }
+  )
+  testthat::expect_s3_class(cnd_res, "condathis_run_timeout_error")
+})
+
 test_that("run_bin(activate = TRUE) resolves the same CONDA_PREFIX as run()", {
   testthat::skip_on_cran()
   testthat::skip_if_offline()

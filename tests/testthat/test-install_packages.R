@@ -1,3 +1,31 @@
+testthat::test_that("install_packages requires packages", {
+  cnd_res <- rlang::catch_cnd(
+    expr = {
+      install_packages(env_name = "some-env")
+    }
+  )
+  testthat::expect_s3_class(
+    cnd_res,
+    "condathis_install_packages_missing_packages"
+  )
+
+  testthat::expect_error(
+    object = install_packages(packages = NULL, env_name = "some-env"),
+    class = "condathis_install_packages_missing_packages"
+  )
+})
+
+testthat::test_that("install_packages validates env_name", {
+  testthat::expect_error(
+    object = install_packages(packages = "python", env_name = c("a", "b")),
+    class = "condathis_install_packages_invalid_env_name"
+  )
+  testthat::expect_error(
+    object = install_packages(packages = "python", env_name = NA),
+    class = "condathis_install_packages_invalid_env_name"
+  )
+})
+
 testthat::test_that("install_packages warns when previous channels are dropped", {
   testthat::skip_if_offline()
   testthat::skip_on_cran()
