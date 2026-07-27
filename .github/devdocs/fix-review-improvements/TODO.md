@@ -173,5 +173,23 @@ pinned version unconfirmed by the author.
 
 - [ ] 4: split `install_micromamba()` / `create_env()` to reduce cyclomatic
       complexity — only with full test cover; not urgent.
-- [ ] 5: consider `\donttest` for a couple of core examples so they get
-      some check-time exercise.
+- [ ] 5: `\dontrun{}` → `\donttest{}` policy decided (see `PLAN.md`,
+      "Every core-workflow example is `\dontrun{}`"), not yet implemented.
+      - [ ] Switch all 12 affected functions' `@examples` from `\dontrun{}`
+            to `\donttest{}`, each wrapped in
+            `tryCatch({...}, error = function(e) invisible(NULL))`:
+            `clean_cache`, `create_env`, `env_exists`, `install_micromamba`,
+            `install_packages`, `list_envs`, `list_packages`, `remove_env`,
+            `run_bin`, `run_pipeline`, `run`.
+      - [ ] `with_sandbox_dir()`: move to a plain, always-run example
+            instead (no network dependency, doesn't need `\donttest{}` at
+            all — the one exception among the 12).
+      - [ ] `run_bin()`: fix the example content first (it currently
+            references a `my-env` that's never created, so it would fail
+            even under `\donttest{}` as currently written) — add a real
+            `create_env()` setup step, matching the other examples.
+      - [ ] Regenerate `man/*.Rd` (`roxygen2::roxygenize()`) after editing.
+      - [ ] Spot-check at least one converted example actually runs clean
+            with `R CMD check --run-donttest` (or `tools::Rd2ex()` +
+            `source()`) before considering this done, not just that it
+            parses.

@@ -200,10 +200,80 @@ for the full implementation detail.
 
 ## Severity 5 — testing & docs
 
-- **Every core-workflow example is `\dontrun{}`** (`run`, `run_bin`,
-  `run_pipeline`, `create_env`, `install_packages`, ...). None are exercised
-  by `R CMD check`, so they can rot. Understandable (need network +
-  micromamba); some could move to `\donttest`.
+### Every core-workflow example is `\dontrun{}` — policy decided, not yet implemented
+
+**Status: policy decided (2026-07-27), implementation not started.**
+
+12 of the 17 exported functions wrap their entire `@examples` block in
+`\dontrun{}`: `clean_cache`, `create_env`, `env_exists`, `install_micromamba`,
+`install_packages`, `list_envs`, `list_packages`, `remove_env`, `run_bin`,
+`run_pipeline`, `run`, `with_sandbox_dir`. None of these are exercised by
+`R CMD check`, so they can silently rot. The remaining 5
+(`get_env_dir`, `get_install_dir`, `get_sys_arch`, `micromamba_bin_path`,
+`parse_output`) already have runnable examples and need no change — they
+don't touch the network or `micromamba` at all.
+
+**Verified CRAN semantics before deciding anything** (R's own bundled
+"Writing R Extensions" manual, `R RHOME`/doc/manual/R-exts.html, the
+`\examples{}` section):
+
+- `\dontrun{}`: verbatim text, never executed by `example()` or
+  `R CMD check`, ever. Reserved for things that are illustrative only.
+- `\donttest{}`: **must be correct, runnable R code** (unlike `\dontrun{}`).
+  Executed by `example()`. **Not** executed by a plain `R CMD check`
+  unless `--run-donttest` is passed, and confirmed (via the user, who has
+  directly observed CRAN's own process) that `R CMD check --as-cran` —
+  CRAN's own submission/incoming check — does **not** run `\donttest{}`
+  examples either. However, CRAN maintainers are known to periodically run
+  *all* examples (including `\donttest{}`) by hand on their own machines,
+  which may have no internet access — so `\donttest{}` code must survive
+  that gracefully, not error. This exactly matches the manual's own
+  guidance for `\donttest{}`: *"Use e.g. `capabilities()` or
+  `nzchar(Sys.which("someprogram"))` to test for features needed in the
+  examples wherever possible, and you can also use `try()` or
+  `tryCatch()`."*
+
+**Decision:** switch the 12 `\dontrun{}` examples to `\donttest{}`, each
+wrapped in a `tryCatch()` (or equivalent) so a missing network connection
+or a failed `micromamba` download/install is swallowed silently rather
+than erroring — satisfying both CRAN's occasional manual, potentially
+airgapped re-run *and* giving real end-users a working, live demonstration
+when they call `example("create_env")` themselves with network access,
+which `\dontrun{}` can never provide.
+
+**Recommendation on *how* to guard them, since this was asked for
+explicitly:** wrap the whole example body in a broad
+`tryCatch({...}, error = function(e) invisible(NULL))` rather than a
+narrower upfront connectivity check (e.g. `condathis:::check_connection()`
+before attempting anything). Reasoning: the broad `tryCatch` catches
+*every* failure mode a network-restricted or otherwise atypical machine
+could hit — DNS failure, a specific mirror being blocked while others
+aren't, disk-permission issues in the check sandbox, a slow timeout — not
+just "no internet at all." A narrow precondition check only guards against
+the one failure mode it explicitly tests for and could still let the
+example error on a different one. This is the same "many failure modes,
+one broad catch" reasoning already applied elsewhere in this codebase
+(e.g. `download_micromamba_file()`'s own `tryCatch`/`warning` handling).
+
+**Two functions need something extra, found while auditing all 12, not
+just a markup change:**
+
+- **`with_sandbox_dir()`'s example doesn't need network or `micromamba` at
+  all** — it just prints paths inside a sandboxed environment
+  (`print(fs::path_home())`, `print(tools::R_user_dir("condathis"))`).
+  It's miscategorized: this one should just become a plain, always-run
+  example, not `\donttest{}` at all — the *only* one of the 12 in that
+  situation.
+- **`run_bin()`'s current example is already broken as written**,
+  independent of the `\dontrun{}`/`\donttest{}` question: it says
+  `# Example assumes that 'my-env' exists and contains 'python'` but never
+  creates `my-env` — it would fail immediately if actually run, `\donttest{}`
+  or not. Needs an actual `create_env()` setup step added (matching every
+  other example's pattern) before it can be meaningfully switched, not just
+  a tag swap.
+
+**Not started** — this is documented policy, ready to implement, but no
+`.R`/`.Rd` files have been touched for this yet.
 
 ## What's already solid (for balance)
 
