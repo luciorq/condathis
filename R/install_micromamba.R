@@ -213,13 +213,18 @@ install_micromamba <- function(
   }
 
   # --- Verify SHA256 checksum ---
-  # verify_micromamba_checksum(
-  #   bin_path = umamba_bin_path,
-  #   sha256_urls = mirror_urls$sha256,
-  #   timeout_limit = timeout_limit,
-  #   method = download_method,
-  #   verbose = verbose_list
-  # )
+  # Warn-and-continue by design (see verify_micromamba_checksum()): a
+  # mismatch, or a failure to even compute/download a hash to compare,
+  # never blocks the install. The GitHub-published .sha256 is fetched
+  # dynamically for the exact version + platform, so this needs no
+  # hardcoded hashes and no per-release maintenance.
+  verify_micromamba_checksum(
+    bin_path = umamba_bin_path,
+    sha256_urls = mirror_urls$sha256,
+    timeout_limit = timeout_limit,
+    method = download_method,
+    verbose = verbose_list
+  )
 
   if (
     isTRUE(extraction_succeeded) &&
@@ -350,12 +355,124 @@ verify_micromamba_checksum <- function(
   return(invisible(TRUE))
 }
 
+#' Check whether `tools::sha256sum()` is available
+#'
+#' Added to base R in version 4.5.0 (confirmed against R's own `NEWS`:
+#' "Added function sha256sum() in package tools analogous to md5sum()",
+#' under "CHANGES IN R 4.5.0"). Checks both the R version and the
+#' function's actual presence in the `tools` namespace — belt and
+#' suspenders, since `condathis` only requires R >= 4.3 and must not
+#' assume a newer `tools` is present just because the running R claims a
+#' high enough version (e.g. a patched/vendored R build).
+#'
+#' @returns Logical.
+#'
+#' @keywords internal
+#' @noRd
+has_tools_sha256sum <- function() {
+  return(
+    isTRUE(getRversion() >= "4.5.0") &&
+      isTRUE(exists(
+        "sha256sum",
+        where = asNamespace("tools"),
+        inherits = FALSE
+      ))
+  )
+}
+
+#' Known-answer test for a system SHA256 command
+#'
+#' Shelling out to an external `sha256sum`/`shasum` binary means trusting
+#' whatever happens to be on `PATH` under that name — it could be a
+#' different tool entirely, a broken build, or something else shadowing
+#' the real one, and behavior has been observed to differ across mirrors,
+#' download strategies, and operating systems during development. Rather
+#' than trusting the exit status alone, this runs the command against the
+#' standard SHA-256 test vector for the ASCII string `"abc"`
+#' (`ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad`,
+#' cross-checked directly against `tools::sha256sum()`, `digest::digest()`,
+#' `openssl::sha256()`, and Python's `hashlib`, which all agree) and only
+#' trusts the command if it reproduces that exact hash.
+#'
+#' @param sha_cmd Character string. `"sha256sum"` or `"shasum"`.
+#'
+#' @returns Logical. `TRUE` only if the command exists, runs successfully,
+#'   and reproduces the known-answer hash.
+#'
+#' @keywords internal
+#' @noRd
+sha256_command_is_trustworthy <- function(sha_cmd) {
+  if (isFALSE(nzchar(Sys.which(sha_cmd)))) {
+    return(FALSE)
+  }
+  known_answer <- "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+  test_file <- base::tempfile()
+  on.exit(
+    if (file.exists(test_file)) {
+      try(base::file.remove(test_file), silent = TRUE)
+    },
+    add = TRUE
+  )
+  writeBin(charToRaw("abc"), test_file)
+  actual <- run_sha256_command(sha_cmd, test_file)
+  return(isTRUE(identical(actual, known_answer)))
+}
+
+#' Run a system SHA256 command and extract a validated hash from its output
+#'
+#' @param sha_cmd Character string. `"sha256sum"` or `"shasum"`.
+#' @param file_path Character string. Path to the file to hash.
+#'
+#' @returns Character string with the lowercase hex SHA256 hash, or
+#'   `NA_character_` on any failure — including output that doesn't look
+#'   like a real SHA-256 digest (exactly 64 hex characters), which is
+#'   rejected outright rather than passed along as a "hash".
+#'
+#' @keywords internal
+#' @noRd
+run_sha256_command <- function(sha_cmd, file_path) {
+  sha_args <- if (identical(sha_cmd, "shasum")) {
+    c("-a", "256", file_path)
+  } else {
+    file_path
+  }
+  sha_result <- base::tryCatch(
+    {
+      processx::run(sha_cmd, sha_args, error_on_status = FALSE)
+    },
+    error = function(e) {
+      list(status = 1L, stdout = "")
+    }
+  )
+  if (isFALSE(identical(sha_result$status, 0L))) {
+    return(NA_character_)
+  }
+  # Output format: "hash  filename\n"
+  hash_field <- base::trimws(strsplit(sha_result$stdout, "\\s+")[[1L]][1L])
+  if (isFALSE(grepl("^[0-9a-fA-F]{64}$", hash_field))) {
+    return(NA_character_)
+  }
+  return(tolower(hash_field))
+}
+
 #' Compute SHA256 Hash of a File
 #'
-#' Computes the SHA256 hash of a file using the best available method:
-#' 1. `digest` R package (if available)
-#' 2. System `sha256sum` command (Linux)
-#' 3. System `shasum -a 256` command (macOS)
+#' Computes the SHA256 hash of a file using the best available method, in
+#' order:
+#' 1. `tools::sha256sum()` — base R (since R 4.5.0, see
+#'    `has_tools_sha256sum()`), no subprocess, no system dependency.
+#' 2. `digest::digest()` — a `Suggests` dependency, also pure R, no
+#'    subprocess.
+#' 3. A system `sha256sum` (Linux) or `shasum -a 256` (macOS) command —
+#'    the least reliable option, since it shells out to whatever binary
+#'    happens to be on `PATH`, so it's tried last and only trusted after
+#'    passing `sha256_command_is_trustworthy()`'s known-answer test.
+#'
+#' Never errors: any failure at any step falls through to the next, and
+#' returns `NA_character_` if every method is unavailable or untrustworthy.
+#' Checksum verification is warn-and-continue by design (see
+#' `verify_micromamba_checksum()`) — a missing or broken hashing tool must
+#' never block an install.
 #'
 #' @param file_path Character string. Path to the file to hash.
 #'
@@ -365,47 +482,36 @@ verify_micromamba_checksum <- function(
 #' @keywords internal
 #' @noRd
 compute_sha256 <- function(file_path) {
-  base::tryCatch(
-    {
-      # if (requireNamespace("digest", quietly = TRUE)) {
-      #  return(digest::digest(file = file_path, algo = "sha256"))
-      # }
-
-      # Fall back to system command
-      sha_cmd <- if (nzchar(Sys.which("sha256sum"))) {
-        "sha256sum"
-      } else if (nzchar(Sys.which("shasum"))) {
-        "shasum"
-      } else {
-        return(NA_character_)
-      }
-
-      sha_args <- if (identical(sha_cmd, "shasum")) {
-        c("-a", "256", file_path)
-      } else {
-        file_path
-      }
-
-      sha_result <- base::tryCatch(
-        {
-          processx::run(sha_cmd, sha_args, error_on_status = FALSE)
-        },
-        error = function(e) {
-          list(status = 1L, stdout = "")
-        }
-      )
-
-      if (identical(sha_result$status, 0L)) {
-        # Output format: "hash  filename\n"
-        return(base::trimws(strsplit(sha_result$stdout, "\\s+")[[1L]][1L]))
-      }
-
-      NA_character_
-    },
-    error = function(e) {
-      NA_character_
+  if (isTRUE(has_tools_sha256sum())) {
+    result <- base::tryCatch(
+      unname(tools::sha256sum(file_path)),
+      error = function(e) NA_character_
+    )
+    if (isTRUE(!is.na(result) && nzchar(result))) {
+      return(tolower(result))
     }
-  )
+  }
+
+  if (isTRUE(base::requireNamespace("digest", quietly = TRUE))) {
+    result <- base::tryCatch(
+      digest::digest(file = file_path, algo = "sha256"),
+      error = function(e) NA_character_
+    )
+    if (isTRUE(!is.na(result) && nzchar(result))) {
+      return(tolower(result))
+    }
+  }
+
+  for (sha_cmd in c("sha256sum", "shasum")) {
+    if (isTRUE(sha256_command_is_trustworthy(sha_cmd))) {
+      result <- run_sha256_command(sha_cmd, file_path)
+      if (isFALSE(is.na(result))) {
+        return(result)
+      }
+    }
+  }
+
+  return(NA_character_)
 }
 
 #' Poll for a file's existence with a short backoff
