@@ -185,9 +185,7 @@ run_pipeline <- function(
   # crash-safety guarantee `run_pipeline()` intentionally adds on every
   # platform (its whole reason for defaulting to `TRUE`, unlike `run()`/
   # `run_bin()`), only Windows is forced to `FALSE` here.
-  effective_supervise <- if (
-    isTRUE(stringr::str_detect(get_sys_arch(), "^Windows"))
-  ) {
+  effective_supervise <- if (isTRUE(is_windows())) {
     FALSE
   } else {
     supervise

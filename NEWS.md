@@ -92,6 +92,15 @@ Development Changelog: [dev](https://github.com/luciorq/condathis/compare/v0.1.4
   dropping a previously-used channel can change how dependencies resolve.
   The install still proceeds — this is a warning, not an error.
 
+* **Breaking (minor):** `env_exists()` now raises a clear error if
+  `env_name` isn't a single, real environment name (for example `NULL`,
+  `NA`, a number, or a vector of more than one name). Previously, these
+  invalid inputs silently returned `FALSE`, which looked exactly the same
+  as "that environment doesn't exist" — an easy way to hide a mistake in
+  your own code. If you were deliberately relying on `env_exists(NULL)` or
+  `env_exists(NA)` returning `FALSE`, that call now errors instead;
+  everything else (checking a real environment name) is unaffected.
+
 ### Fixed
 
 * Fix `run_pipeline()` checking that Conda environments exist before
@@ -170,6 +179,20 @@ Development Changelog: [dev](https://github.com/luciorq/condathis/compare/v0.1.4
 * Fix `list_packages()` crashing with a confusing, low-level R error
   (`object 'pkgs_df' not found`) in that same kind of rare failure case.
   It now reports a clear, consistent error instead.
+
+* Fix `list_envs()` matching environment paths against the install
+  directory as a pattern instead of literal text, which could in rare
+  cases match a directory that only looked similar (for example, one
+  differing by a single character where the install path happens to
+  contain a `.`). It now compares the literal path.
+
+* Removed the `micro.mamba.pm` mirror from `install_micromamba()`'s
+  download attempts. It no longer serves specific, pinned versions (only
+  the latest release), and `condathis` always requests a pinned version,
+  so every attempt against it was guaranteed to fail before falling
+  through to a working mirror. Removing it makes installs slightly faster
+  when the first mirror is unavailable, with no change in which version
+  gets installed.
 
 ## condathis 0.1.4
 

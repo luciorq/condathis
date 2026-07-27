@@ -9,7 +9,7 @@
 #' @keywords internal
 #' @noRd
 env_bin_search_dirs <- function(env_dir) {
-  if (isFALSE(stringr::str_detect(get_sys_arch(), "^Windows"))) {
+  if (isFALSE(is_windows())) {
     return(fs::path(env_dir, "bin"))
   }
   return(fs::path(
@@ -44,9 +44,9 @@ env_bin_search_dirs <- function(env_dir) {
 #' @keywords internal
 #' @noRd
 resolve_env_bin_path <- function(env_dir, cmd) {
-  is_windows <- isTRUE(stringr::str_detect(get_sys_arch(), "^Windows"))
+  on_windows <- is_windows()
   candidate_names <- cmd
-  if (isTRUE(is_windows)) {
+  if (isTRUE(on_windows)) {
     pathext <- strsplit(
       Sys.getenv("PATHEXT", ".COM;.EXE;.BAT;.CMD"),
       ";",

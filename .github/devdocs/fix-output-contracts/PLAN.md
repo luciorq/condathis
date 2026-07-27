@@ -85,21 +85,24 @@ list_packages(env_name = "condathis-env")
 So the two "list" functions — same author, same purpose, same shape of
 underlying command — fail in two completely different, both-bad ways.
 
-## Secondary findings (lower priority, tracked but not yet scheduled)
+## Secondary findings — all since resolved (see "Fix 5" section below)
 
 - `install_micromamba()` returns a bare path, not a result list — breaks
   the "action function returns a process-result" pattern the other four do
   (now) share. Defensible (it wraps a download+extract, not a single
-  `native_cmd()` call), but still a real asymmetry. **Not scheduled** —
-  revisit only if it turns out to bite someone in practice.
+  `native_cmd()` call), but still a real asymmetry. **Resolved by decision,
+  not code change** — see Fix 5.
 - `get_install_dir()` side-effects (creates the directory, guarantees
   existence) while `get_env_dir()`/`micromamba_bin_path()` are pure/lazy.
   Not a type issue, a behavioral-predictability asymmetry within what
-  looks like one consistent "path getter" family. **Not scheduled.**
+  looks like one consistent "path getter" family. **Resolved by decision,
+  not code change** — see Fix 5.
 - `env_exists()` silently coerces `NULL`/`NA` input to `FALSE` rather than
-  validating, while the same argument *omitted* raises an error. Not
-  scheduled on its own, but interacts with the `list_envs()` fix below
-  (fixing `list_envs()` removes the most dangerous consequence of this).
+  validating, while the same argument *omitted* raises an error. Fixing
+  `list_envs()` (Fix 3) already removed the most dangerous consequence of
+  this (the silent cascade), but the coercion itself was still worth
+  fixing on its own merits. **Resolved with a real code change** — see
+  Fix 5.
 
 ## Fix 1 — DONE: unify `create_env()`/`install_packages()`/`remove_env()`/`clean_cache()` around `condathis_result`
 
@@ -138,7 +141,7 @@ Verified: `test-clean_cache.R` (11/11), `test-remove_env.R` (13/13),
 `test-create_env.R` (37/37, including a new dedicated test for the
 short-circuit path), `test-run.R` (34/34), `test-run_bin.R` (26/26) all
 clean. `test-install_packages.R` clean except one **pre-existing,
-unrelated** intermittent failure — see "Known unrelated flake" below.
+unrelated** intermittent failure — see "Fix 5" below (now fixed).
 
 ## Fix 2 — DONE: `run_pipeline()`'s per-process entries become real `condathis_result` objects
 
@@ -248,28 +251,72 @@ but the user committed everything (including that version bump)
 themselves, deliberately, before the revert could land — so it stands as
 the user's own call, not an artifact of the fix work itself.
 
-## Known unrelated flake, discovered while verifying fix 1 (not scheduled as one of the four fixes above)
+## Fix 5 — DONE: the three deferred secondary findings, plus the flaky channel-warning test
 
-`test-install_packages.R`'s `"install_packages warns when previous
-channels are dropped (cross-platform)"` test (added during the earlier
-Windows-CI-fix pass, unrelated to this contract-consistency work) failed
-intermittently (~2 of 3 runs) at its own `expect_warning()` step, before
-any of fix 1's new assertions ever ran — confirmed not caused by fix 1.
+**Status: done, not yet committed.**
 
-Working theory, not yet confirmed: the test creates an env with `channels
-= c("conda-forge", "conda-forge/label/main")`, then asserts a warning
-fires when a later `install_packages()` call drops
-`"conda-forge/label/main"`. If `"conda-forge/label/main"` is effectively
-an alias of plain `conda-forge`'s repodata, which channel string actually
-gets recorded in `conda-meta/history` for a trivially-available package
-like `zlib` may depend on solver tie-breaking — sometimes
-`"conda-forge/label/main"` (warning fires, test passes), sometimes plain
-`"conda-forge"` (nothing is "missing", no warning, test fails). Not
-confirmed against real history file contents yet.
+Requested together in one batch. Each got its own judgment call rather
+than a mechanical "make everything consistent" pass — see reasoning below
+and in the "Secondary findings" section above.
 
-**Not scheduled** — the user was asked whether to fix this alongside fix 1
-and declined to decide yet, deferring it. If pursued, the fix would be
-swapping `"conda-forge/label/main"` for a channel guaranteed to actually
-differ in content (needs a candidate that's real, reachable, and doesn't
-reintroduce a Windows/macOS-arm64 platform-support gap the way `bioconda`
-did for the original, Linux-only version of this same test).
+### `env_exists()`: real fix
+
+Added explicit validation raising `condathis_env_exists_invalid_env_name`
+when `env_name` is `NULL`, `NA`, non-character, or not length-1 — instead
+of silently returning `FALSE`, indistinguishable from "that environment
+genuinely doesn't exist." Confirmed via `grep` that every internal call
+site already passes a real character value, so this only changes behavior
+for genuinely invalid caller input. Updated `test-env_exists.R`'s existing
+test, which had locked in the old silent-`FALSE` behavior as if it were
+correct; added a new test covering `NULL`/`NA`/`NA_character_`/
+length-2 vector/non-character inputs. Documented as breaking (minor) in
+`NEWS.md`.
+
+### `install_micromamba()` and the path-getter asymmetry: decided, documented, not code-changed
+
+Both secondary findings were, on reflection, **not bugs** — re-examined
+each rather than mechanically forcing consistency:
+
+- Forcing `install_micromamba()` into `condathis_result` would require
+  fabricating a meaningless `status`/`stdout`/`stderr`/`pid` (no real
+  `micromamba` subprocess is ever spawned — it downloads and extracts a
+  binary directly) while displacing the one genuinely useful piece of
+  information it returns (the installed path) out of the top-level return
+  value. That's a strictly worse design for no real gain. Documented the
+  reasoning directly in `@returns` instead, positioning it with the
+  path-getter family it actually belongs to.
+- Making `get_env_dir()`/`micromamba_bin_path()` create-and-guarantee
+  existence (matching `get_install_dir()`), or making `get_install_dir()`
+  lazy (matching them), would each break a real, load-bearing use of the
+  other behavior (`get_install_dir()` must exist for everything else to be
+  built on; `get_env_dir()`/`micromamba_bin_path()` are used precisely
+  *because* they don't check existence, e.g. `install_micromamba()`'s own
+  `fs::file_exists(micromamba_bin_path())` check to decide whether to
+  install). `get_env_dir()` already documented "returned even if the
+  environment has not been created yet"; gave `micromamba_bin_path()` the
+  same explicit treatment (it didn't have it before).
+
+### The flaky `test-install_packages.R` cross-platform test: confirmed and fixed
+
+Confirmed the working theory from the Fix 1 write-up: `zlib` (used in the
+`create_env()` call) is trivially available on both `"conda-forge"` and
+`"conda-forge/label/main"`, so which one a real solve records in
+`conda-meta/history` is solver tie-breaking, not something the test
+controls — this is why it failed specifically at the `expect_warning()`
+step, roughly 1 run in 3.
+
+Fixed by not relying on a real install to populate history at all: create
+the env with `channels = "conda-forge"` only (deterministic, no ambiguity
+for `zlib`), then `cat()`-append a synthetic
+`conda-meta/history` line recording `"conda-forge/label/main"` as a second
+previously-used channel directly. `get_env_history_channels()`'s parsing
+of exactly this line format is already unit-tested in isolation
+(`test-get_env_history_channels.R`), so this doesn't lose any real
+coverage — it just removes the dependency on the live solver's channel
+choice for a package that exists on both candidate channels.
+`"conda-forge/label/main"` still gets used for real in the second,
+`expect_no_warning()` half of the test (as an actual `channels=` argument
+install_packages() must be able to resolve against, not just parse from
+history), so that channel still needs to be real and reachable — it does
+not need to actually be the origin of any installed package anymore.
+Verified with 2 consecutive clean runs (previously ~2 of 3 failing).

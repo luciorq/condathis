@@ -66,10 +66,32 @@ testthat::test_that("install_packages warns when previous channels are dropped (
     px_res <- create_env(
       packages = "zlib",
       env_name = "condathis-channel-warn-env-cf",
-      channels = c("conda-forge", "conda-forge/label/main"),
+      channels = "conda-forge",
       verbose = "silent"
     )
     testthat::expect_equal(px_res$status, 0L)
+
+    # Record a second "previously used" channel directly in the
+    # environment's history, rather than relying on a real install
+    # actually resolving from it. `conda-forge/label/main` hosts the same
+    # packages as plain `conda-forge`, so which one a real solve records
+    # for a trivially-available package like `zlib` is solver
+    # tie-breaking, not something this test controls — confirmed flaky
+    # (~1 in 3 runs) when this relied on that instead. Writing the history
+    # line directly makes the "previously used channel" set deterministic;
+    # `get_env_history_channels()`'s own parsing of exactly this line
+    # format is separately unit-tested in
+    # test-get_env_history_channels.R.
+    history_file <- fs::path(
+      get_env_dir("condathis-channel-warn-env-cf"),
+      "conda-meta",
+      "history"
+    )
+    cat(
+      "+https://conda.anaconda.org/conda-forge/label/main/noarch::condathis-flake-fix-fake-pkg-1.0-0\n",
+      file = history_file,
+      append = TRUE
+    )
 
     testthat::expect_warning(
       object = {

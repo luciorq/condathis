@@ -65,8 +65,34 @@ list_envs <- function(verbose = "silent") {
   envs_list <- jsonlite::fromJSON(px_res$stdout)
   envs_str <- base::normalizePath(envs_list$envs, mustWork = FALSE)
   envs_str <- fs::path_real(envs_str)
-  envs_str <- envs_str[stringr::str_detect(c(envs_str), env_root_dir)]
-  envs_to_return <- base::basename(envs_str)
-  envs_to_return <- envs_to_return[!envs_to_return %in% "condathis"]
-  return(envs_to_return)
+  return(condathis_env_names(envs_str, env_root_dir))
+}
+
+#' Keep the env paths that live under the condathis install root, return names
+#'
+#' Extracted from `list_envs()` so the filtering can be unit-tested without a
+#' live `micromamba` call or real directories.
+#'
+#' `env_root_dir` is matched as a **literal** substring (`stringr::fixed()`),
+#' not a regex. It is a filesystem path (e.g. `~/.local/share/R/condathis`)
+#' whose `.` characters would otherwise be treated as "any character" regex
+#' metacharacters — matching, for example, `~/Xlocal/share/R/condathis/...`
+#' as if it belonged to condathis. The root path itself is excluded by the
+#' trailing `basename() != "condathis"` filter, same as before.
+#'
+#' @param envs_str Character vector of realized environment paths.
+#' @param env_root_dir Character string with the condathis install root.
+#'
+#' @returns A character vector of environment names (basenames).
+#'
+#' @keywords internal
+#' @noRd
+condathis_env_names <- function(envs_str, env_root_dir) {
+  # `env_root_dir` is an `fs_path`; `stringr::fixed()` wants plain character.
+  under_root <- stringr::str_detect(
+    as.character(envs_str),
+    stringr::fixed(as.character(env_root_dir))
+  )
+  env_names <- base::basename(envs_str[under_root])
+  return(env_names[!env_names %in% "condathis"])
 }

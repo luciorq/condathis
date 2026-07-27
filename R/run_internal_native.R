@@ -51,7 +51,7 @@ run_internal_native <- function(
   cleanup_tree = FALSE,
   linux_pdeathsig = FALSE
 ) {
-  if (identical(base::Sys.info()["sysname"], c(sysname = "Windows"))) {
+  if (isTRUE(is_windows())) {
     micromamba_bat_path <- fs::path(
       get_install_dir(),
       "condabin",

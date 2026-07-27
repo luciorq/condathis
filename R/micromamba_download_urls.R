@@ -46,17 +46,7 @@ get_micromamba_urls <- function(sys_arch_str, micromamba_version) {
     ".tar.bz2"
   )
 
-  # 2. micro.mamba.pm (official convenience URL).
-  # Redirects (HTTP 307) to api.anaconda.org, serving the same conda-forge
-  # .tar.bz2 package. The archive contains bin/micromamba at the top level.
-  micromamba_pm_compressed <- paste0(
-    "https://micro.mamba.pm/api/micromamba/",
-    sys_arch_str,
-    "/",
-    micromamba_version
-  )
-
-  # 3. Anaconda.org conda-forge mirror (direct, no redirect).
+  # 2. Anaconda.org conda-forge mirror (direct, no redirect).
   anaconda_compressed <- paste0(
     "https://api.anaconda.org/download/conda-forge/micromamba/",
     version_num,
@@ -66,7 +56,7 @@ get_micromamba_urls <- function(sys_arch_str, micromamba_version) {
     conda_pkg_filename
   )
 
-  # 4. prefix.dev conda-forge mirror (alternative CDN).
+  # 3. prefix.dev conda-forge mirror (alternative CDN).
   prefix_dev_compressed <- paste0(
     "https://repo.prefix.dev/conda-forge/",
     sys_arch_str,
@@ -76,7 +66,6 @@ get_micromamba_urls <- function(sys_arch_str, micromamba_version) {
 
   compressed_urls <- c(
     github_compressed,
-    micromamba_pm_compressed,
     anaconda_compressed,
     prefix_dev_compressed
   )
@@ -111,7 +100,6 @@ get_micromamba_urls <- function(sys_arch_str, micromamba_version) {
   # --- Connectivity check URLs ---
   check_urls <- c(
     github_base,
-    "https://micro.mamba.pm",
     "https://api.anaconda.org",
     "https://repo.prefix.dev"
   )

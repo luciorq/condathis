@@ -26,3 +26,26 @@ testthat::test_that("`get_sys_arch()` returns correct OS and CPU architecture", 
   )
   testthat::expect_equal(get_sys_arch(), "Darwin-arm64")
 })
+
+testthat::test_that("is_windows()/is_macos() agree with get_sys_arch(), single source of truth", {
+  testthat::local_mocked_bindings(
+    Sys.info = function() mock_sys_info("Linux", "x86_64"),
+    .package = "base"
+  )
+  testthat::expect_false(is_windows())
+  testthat::expect_false(is_macos())
+
+  testthat::local_mocked_bindings(
+    Sys.info = function() mock_sys_info("Windows", "x86_64"),
+    .package = "base"
+  )
+  testthat::expect_true(is_windows())
+  testthat::expect_false(is_macos())
+
+  testthat::local_mocked_bindings(
+    Sys.info = function() mock_sys_info("Darwin", "arm64"),
+    .package = "base"
+  )
+  testthat::expect_false(is_windows())
+  testthat::expect_true(is_macos())
+})

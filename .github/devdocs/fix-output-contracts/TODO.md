@@ -66,16 +66,50 @@ behind each item below.
 
 All four planned fixes are now done and committed.
 
-## Deferred / not scheduled (see PLAN.md for full reasoning)
+## Previously deferred items — now resolved
 
-- [ ] `install_micromamba()` returning a bare path instead of a
-      process-result shape — asymmetric but defensible; revisit only if
-      it causes real friction.
-- [ ] `get_install_dir()` side-effecting (creates + guarantees existence)
+- [x] `install_micromamba()` returning a bare path instead of a
+      process-result shape — **decided to keep as-is**, documented why
+      rather than forced into `condathis_result`: it wraps a
+      download+extract, not a single `micromamba` subprocess call, so
+      there's no real `status`/`stdout`/`stderr`/`pid` to report, and
+      forcing the shape would break its one genuinely useful return value
+      (the installed path) for no real gain. `@returns` doc now states
+      this explicitly, positioning it with `get_env_dir()`/
+      `get_install_dir()`/`micromamba_bin_path()` (the path-getter family)
+      instead of the process-result family.
+- [x] `get_install_dir()` side-effecting (creates + guarantees existence)
       vs. `get_env_dir()`/`micromamba_bin_path()` being pure/lazy —
-      behavioral, not type-level; not scheduled.
-- [ ] `env_exists()` silently coercing `NULL`/`NA` to `FALSE` instead of
-      validating — interacts with fix 3, but not scheduled on its own.
-- [ ] The `test-install_packages.R` cross-platform channel-warning flake
-      discovered while verifying fix 1 (likely `"conda-forge/label/main"`
-      solver tie-breaking) — user was asked, declined to decide yet.
+      **decided this is correct, intentional design**, not a bug:
+      `get_install_dir()` is the root everything else is built on top of
+      and must exist; `get_env_dir()`/`micromamba_bin_path()` are
+      "predicted location" queries used for existence checks *before* the
+      thing exists (e.g. `install_micromamba()` checks
+      `fs::file_exists(micromamba_bin_path())` to decide whether to
+      install). Making them consistent with each other would break one
+      side or the other. Fixed the actual gap instead: `@returns` docs.
+      `get_env_dir()` already said "returned even if the environment has
+      not been created yet"; `micromamba_bin_path()` got the same
+      treatment (didn't have it before) and now says the same, plus that
+      `get_install_dir()` is the one that side-effects.
+- [x] `env_exists()` silently coercing `NULL`/`NA` to `FALSE` instead of
+      validating — **fixed**: now raises
+      `condathis_env_exists_invalid_env_name` for `NULL`, `NA`, non-scalar,
+      or non-character `env_name`, instead of silently returning `FALSE`
+      indistinguishably from "that environment doesn't exist". Verified no
+      internal call site ever passed an invalid `env_name` (all pass a
+      real character value already), so this only affects genuinely
+      invalid caller input. Updated `test-env_exists.R`'s existing test
+      that had locked in the old (silent-`FALSE`) behavior. Documented as
+      a breaking (minor) change in `NEWS.md`.
+- [x] The `test-install_packages.R` cross-platform channel-warning flake —
+      **fixed**: root cause confirmed to be `"conda-forge/label/main"`
+      hosting the same packages as plain `"conda-forge"`, so which channel
+      a real solve of a trivially-available package (`zlib`) records in
+      history is solver tie-breaking, not something the test controls.
+      Fixed by writing the second "previously used channel" directly into
+      `conda-meta/history` (same line format already unit-tested in
+      `test-get_env_history_channels.R`) instead of relying on a real
+      install to record it — makes the warning-trigger condition fully
+      deterministic. Verified with 2 consecutive clean runs (previously
+      failed on the affected `expect_warning()` in roughly 1 of 3 runs).

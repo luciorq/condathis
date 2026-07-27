@@ -80,7 +80,7 @@ create_env <- function(
   # + pkgs_dir in the home directory even when defining it elsewhere.
   pkgs_dir <- fs::path_home(".mamba", "pkgs")
   pkgs_dir_already_exists <- FALSE
-  if (isTRUE(stringr::str_detect(get_sys_arch(), "^Windows"))) {
+  if (isTRUE(is_windows())) {
     pkgs_dir <- base::Sys.getenv(
       x = "APPDATA",
       unset = fs::path_home("AppData", "Roaming"),

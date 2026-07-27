@@ -14,7 +14,18 @@
 #'   Supported values are `"output"`, `"silent"`, `"cmd"`, `"spinner"`,
 #'   and `"full"`. Defaults to `"output"`.
 #'
-#' @returns The installed micromamba binary path, invisibly.
+#' @returns The installed micromamba binary path (a `fs_path`/character
+#'   string), invisibly — not a `condathis_result` object like `run()`,
+#'   `run_bin()`, `create_env()`, `install_packages()`, `remove_env()`, and
+#'   `clean_cache()` return. This is intentional, not an oversight: those
+#'   functions each wrap a single `micromamba` subprocess call, so a real
+#'   status/stdout/stderr/pid is available to report. `install_micromamba()`
+#'   downloads and extracts a binary directly (no `micromamba` subprocess
+#'   involved at all), so there is no real process result to expose — the
+#'   installed path is the only meaningful thing to return, exactly like
+#'   `get_env_dir()`/`get_install_dir()`/`micromamba_bin_path()`. On
+#'   failure, this function always raises an error rather than returning a
+#'   partial or invalid path.
 #'
 #' @details
 #' Download mirrors are tried in order until one succeeds.
