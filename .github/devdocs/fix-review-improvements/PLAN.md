@@ -95,10 +95,15 @@ anaconda.org-compressed archives: both extract to the identical binary too.
 - R floor: keep `>= 4.3` with a fallback, or bump to `>= 4.5` for the clean
   base-R-only path (drops R 4.3/4.4; affects the CI oldrel job).
 
-**Status: investigated, design recommended, NOT implemented — awaiting the
-author's policy decision.** Until then the dead code should either be
-re-enabled per the above or removed and the non-verification documented as
-deliberate, not left as silent dead code.
+**Status: DONE.** Author decided: warn-and-continue on mismatch *or* on the
+hashing tool failing; R floor stays >= 4.3 with a fallback (not bumped to
+4.5); keep `digest` as `Suggests`; make the system-CLI fallback provably
+robust (not just exit-status checking). Implemented exactly that — see
+`TODO.md` for the full detail, including the known-answer self-test added
+for the system-CLI fallback and the 13 new tests. `verify_micromamba_checksum()`
+already warned rather than aborted on mismatch, so its re-enable needed no
+behavior change, only re-enabling the call site and fixing
+`compute_sha256()`.
 
 ## Severity 2 — correctness (latent bugs)
 
@@ -128,7 +133,15 @@ Options: auto-create `env_name` itself, or only run the base-env check when
 `env_name` is the default. Needs a small design decision (which behavior is
 intended) — see Open questions.
 
-**Status: not started.**
+**Status: DONE.** Author decided: neither option above — `run()` should
+never create the *target* environment when missing, only error (matching
+`run_pipeline()`'s existing behavior for the same situation). The
+hardcoded `"condathis-env"` check existed as a workaround for an old
+`micromamba` requirement (the root prefix needed *some* environment before
+`micromamba run` worked at all); confirmed empirically (fresh sandbox,
+only a custom env ever created, `"condathis-env"` never touched) that this
+no longer reproduces with the current pinned `micromamba`. See `TODO.md`
+for the full implementation detail.
 
 ## Severity 3 — API design & consistency
 
@@ -202,10 +215,12 @@ footprint (`curl` correctly optional). Error classes well-designed and, post
 NOTEs on structure; the only WARNINGs seen were artifacts of a
 `--no-build-vignettes` build).
 
-## Open questions (need author input)
+## Open questions — both answered and implemented
 
-1. **Checksum policy** (severity 1): warn-by-default vs fatal on mismatch;
-   R floor 4.3-with-fallback vs bump to 4.5. Blocks the checksum item only.
-2. **`run()` auto-create** (2b): auto-create `env_name` itself, or only
-   check the base env when `env_name` is the default? Determines the 2b fix
-   shape.
+1. **Checksum policy** (severity 1): warn-by-default (chosen), not fatal.
+   R floor stays 4.3-with-fallback (chosen), not bumped to 4.5. See
+   severity-1 section and `TODO.md` for the implementation.
+2. **`run()` auto-create** (2b): neither of the two options sketched above
+   — the target environment is never auto-created, only the default env
+   (existing convenience, kept), and a missing custom `env_name` now
+   errors. See the 2b section and `TODO.md` for the implementation.

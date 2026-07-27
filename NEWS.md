@@ -43,6 +43,15 @@ Development Changelog: [dev](https://github.com/luciorq/condathis/compare/v0.1.4
   `condathis_parse_output_binary_stream` if asked to parse one). Binary
   streams are never live-echoed to the console.
 
+* `install_micromamba()` now verifies the downloaded `micromamba` binary
+  against its official checksum. If it doesn't match — or the check can't
+  be run at all, for any reason — you'll see a warning, but the install
+  still completes; this never blocks you. On R 4.5 and newer this needs no
+  extra software at all; on older R it prefers the optional `digest`
+  package if you have it installed, and only as a last resort falls back
+  to a `sha256sum`/`shasum` program on your system, which is verified to
+  actually work correctly before being trusted.
+
 ### Changed
 
 * `run()` and `run_bin()` gain feature parity with `run_pipeline()`:
@@ -100,6 +109,19 @@ Development Changelog: [dev](https://github.com/luciorq/condathis/compare/v0.1.4
   your own code. If you were deliberately relying on `env_exists(NULL)` or
   `env_exists(NA)` returning `FALSE`, that call now errors instead;
   everything else (checking a real environment name) is unaffected.
+
+* **Breaking (minor):** `run()` no longer creates any environment when the
+  one you asked for (`env_name`) doesn't exist — it errors instead,
+  telling you to create it first. Previously, if you gave a custom
+  `env_name` that didn't exist, `run()` would silently create an unrelated,
+  empty `"condathis-env"` as a side effect (left over from a workaround for
+  an old `micromamba` limitation that no longer applies) and then still
+  fail anyway, just with a more confusing error. The one thing that keeps
+  working exactly as before: calling `run()` without specifying `env_name`
+  at all still auto-creates the default `"condathis-env"` for you, since
+  that's a deliberate convenience, not the bug being fixed here. With
+  `error = "continue"`, a missing custom environment now gives you back a
+  result with `status = 127` instead of erroring.
 
 ### Fixed
 

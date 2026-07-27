@@ -15,12 +15,92 @@ and design decisions.
       R >= 4.5) removes the system-dependency concern; `micro.mamba.pm`
       mirror found broken. Recommended design written up.
 
-## Blocked on author decision (see PLAN.md "Open questions")
+## Author decisions — both received and implemented
 
-- [ ] Checksum verification re-enable — design ready, needs policy call
-      (warn-vs-fatal on mismatch; R floor 4.3-fallback vs 4.5).
-- [ ] `run()` auto-create-wrong-env (2b) — needs a call on intended
-      behavior before fixing.
+**Decision 1 (checksum policy):** warn-and-continue on mismatch *or* on the
+hashing tool itself failing (never block an install either way). Implement
+`tools::sha256sum()` gated on R >= 4.5 *and* the function actually existing
+in the `tools` namespace; fall back through other implementations; keep
+`digest` as a `Suggests` dependency; make the system-CLI fallback provably
+robust, not just "exit status 0" — verify it actually produces the expected
+output across OSes.
+
+- [x] Rewrote `compute_sha256()` (`R/install_micromamba.R`) with the full
+      priority chain: `tools::sha256sum()` (new `has_tools_sha256sum()`
+      gate: R >= 4.5 *and* namespace presence) → `digest::digest()`
+      (`Suggests`, added to `DESCRIPTION`) → a system `sha256sum`/`shasum`,
+      **only trusted after passing a known-answer test** (new
+      `sha256_command_is_trustworthy()`): runs the candidate command
+      against the standard SHA-256 test vector for `"abc"`
+      (`ba7816bf8f01cfea...`, cross-checked live against
+      `tools::sha256sum()`, `digest::digest()`, `openssl::sha256()`, and
+      Python's `hashlib` — all agree — before hardcoding it). New
+      `run_sha256_command()` additionally rejects any output that isn't
+      exactly 64 hex characters, regardless of exit status. Every step
+      wrapped so a failure anywhere falls through to the next; returns
+      `NA_character_` (never errors) if nothing works.
+- [x] Re-enabled the `verify_micromamba_checksum()` call site (previously
+      commented out) — its mismatch handling already warned rather than
+      aborted, matching the chosen policy exactly, so no change was needed
+      there. Verified live end-to-end: a real install produces no warning
+      (hash matches); feeding an unrelated file as `bin_path` produces a
+      clear mismatch warning with expected/actual hashes, without erroring.
+- [x] R floor left at `>= 4.3` (not bumped to 4.5) — `has_tools_sha256sum()`
+      gates the base-R path and everything falls back correctly on older R.
+- [x] New `tests/testthat/test-compute_sha256.R` (13 tests): the R-version
+      gate, the system-tool self-test (accepts a real tool, rejects a
+      nonexistent one, rejects a mocked "liar" that reports the wrong
+      hash), malformed-output rejection, the full priority chain forced
+      through each fallback level via mocking, the "nothing available"
+      path never erroring, and a live network test confirming
+      `verify_micromamba_checksum()` warns-not-aborts on a real mismatch.
+      Caught and fixed a real scoping bug in my own first draft of the test
+      helper along the way (`withr::local_tempfile()`'s default
+      `.local_envir` deleted the file before `compute_sha256()` ever read
+      it — same class of gotcha as `with_sandbox_dir()`'s documented
+      behavior from the previous review pass).
+- [x] Full regression: `test-compute_sha256.R` (13/13),
+      `test-install_micromamba.R` (26/26, real network installs),
+      `test-check_connection.R`, `test-check_micromamba_version.R`,
+      `test-run.R` all clean.
+
+**Decision 2 (`run()` auto-create):** `run()` should never create the
+*target* environment when it's missing — only error. The existing
+auto-create-`"condathis-env"`-regardless-of-`env_name`, was a workaround
+for an old `micromamba` requirement (root prefix needed *some* environment
+to exist before `micromamba run` worked at all), status in the current
+pinned version unconfirmed by the author.
+
+- [x] Confirmed empirically before changing anything: a fresh sandboxed
+      install root, with only a custom-named environment ever created
+      (`"condathis-env"` never touched), runs commands in that custom
+      environment correctly with the current pinned `micromamba`
+      (`2.8.1-0`) — the old requirement does not reproduce. The
+      auto-create-as-workaround is confirmed unnecessary today.
+- [x] Rewrote `R/run.R`'s environment-existence handling: still
+      auto-creates `"condathis-env"` when it's missing *and* is the actual
+      target (the deliberate, documented default-env convenience — kept
+      unchanged) but no longer touches it as a side effect when targeting
+      a different, missing environment. A missing custom `env_name` now:
+      aborts with new class `condathis_run_env_not_found` under
+      `error = "cancel"` (default); returns a `status = 127` result under
+      `error = "continue"`, without creating anything — mirrors
+      `run_pipeline()`'s existing `condathis_pipeline_env_not_found`
+      behavior for the identical situation, for consistency.
+      `run_bin()` was already correct here (already falls back to running
+      outside any managed environment, already tested) and needed no
+      change.
+- [x] New tests in `test-run.R`: missing custom env × `error = "continue"`
+      (returns 127, doesn't create anything), × `error = "cancel"` (aborts
+      with the new class), and an explicit check that
+      `"condathis-env"` is never created as a side effect of targeting an
+      unrelated missing environment — the exact bug being fixed. Updated
+      `@param env_name`/`@param error` docs (and regenerated `man/run.Rd`).
+- [x] Full regression: `test-run.R` (44/44), plus every file that calls
+      `run()` (`test-create_nested_env.R`, `test-list_envs.R`,
+      `test-run_output_file.R`, `test-create_env.R`, `test-rethrow_error.R`,
+      `test-run_verbose_levels.R`) — all clean, confirming no existing test
+      relied on the old side-effect-creation behavior.
 
 ## Clear-cut — implemented, not yet committed
 
@@ -71,10 +151,14 @@ and design decisions.
 
 ## Remaining — needs a decision or is lower priority
 
-- [ ] 4: remove or re-wire dead `check_connection()` +
-      `get_micromamba_urls()$check_urls`; clean commented-out blocks in
-      `install_micromamba.R` (contingent on the checksum decision, since
-      some of that dead code is the checksum path).
+- [ ] 4: remove or re-wire the dead connectivity pre-check in
+      `install_micromamba.R` (`check_connection()` +
+      `get_micromamba_urls()$check_urls`, lines ~94–110) — a *separate*
+      commented-out block from the checksum path, unaffected by the
+      checksum decision above and still pending its own call: wire it back
+      in (fail fast before creating any directories if no mirror is
+      reachable) or delete `check_connection()` and `check_urls` entirely.
+      `lintr`'s `commented_code_linter` still flags 5 lines here.
 - [ ] 3: add a `timeout` argument to `run()`/`run_bin()`/`run_pipeline()`
       (thread through to `processx`), default `Inf`/`NULL` preserving
       current behavior.
