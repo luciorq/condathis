@@ -212,15 +212,52 @@ pinned version unconfirmed by the author.
       `install_micromamba.R` afterward. `test-install_micromamba.R`: 24/24
       (real network installs, not skipped).
 
+- [x] 3/5: `method` argument — resolved by author correction, not by a fix
+      in this file: it is **not** dead API surface to deprecate or drop.
+      It's reserved for a pluggable-backend feature, already scoped in
+      full in `.github/devdocs/feat-backend-abstraction/PLAN.md` + its
+      `TODO.md` — a separate, large milestone (11 confirmed design
+      decisions, own file layout, own test plan) to be implemented in a
+      future session, not part of this review. No code changed here;
+      removed from this checklist so it isn't tracked in two places.
+
 ## Remaining — needs a decision or is lower priority
 
-- [ ] 3/5: `method` argument — decide `lifecycle::deprecate_soft()` vs
-      drop; likely a follow-up, low urgency.
+Nothing left needing a decision. See "Lower priority / follow-up" below for
+what's left in this file; the next *milestone*-sized piece of work is
+`.github/devdocs/feat-backend-abstraction/` (separate session).
 
 ## Lower priority / follow-up
 
-- [ ] 4: split `install_micromamba()` / `create_env()` to reduce cyclomatic
-      complexity — only with full test cover; not urgent.
+- [x] 4: split `install_micromamba()` / `create_env()` to reduce cyclomatic
+      complexity. `install_micromamba()` 30 → under 15: extracted
+      `download_compressed_and_extract()` and
+      `download_uncompressed_binary()` (its two download strategies),
+      merged two duplicate "already installed" checks into one guard.
+      `create_env()` 29 → 0 lints: extracted
+      `ensure_libmamba_pkgs_dir_workaround()`,
+      `resolve_create_env_packages_arg()`,
+      `resolve_create_env_platform_args()`, and
+      `env_already_satisfies_request()`. Pure structural refactor, no
+      intended behavior change, one extraction verified at a time.
+      Caught and fixed the one real hazard *before* it shipped:
+      extracting the `~/.mamba/pkgs` workaround's `withr::defer()` cleanup
+      needed an explicit `envir = parent.frame()` parameter threaded into
+      `withr::defer(..., envir = envir)`, otherwise the cleanup would fire
+      when the new helper returns instead of when `create_env()` itself
+      exits — the same scoping trap as `withr::local_tempfile()`'s
+      `.local_envir` default, hit twice before elsewhere in this
+      codebase. Verified empirically against a fake `HOME` (fresh
+      `.mamba/pkgs` removed on caller exit; pre-existing one preserved) —
+      first verification attempt gave a false-positive "bug" caused by
+      `withr::local_tempdir()`'s own teardown deleting the whole fake
+      `HOME` tree, re-tested with a non-auto-cleaned fake `HOME` to get
+      the real answer. See `PLAN.md` for full detail. Full regression:
+      `test-install_micromamba.R` (24/24), `test-create_env.R` (36/36),
+      `test-create_nested_env.R` (5/5), `test-install_packages.R`
+      (14/14), `test-run.R` (49/49), `test-list_envs.R` (11/11) — all
+      clean. `lintr::cyclocomp_linter(complexity_limit = 15L)`: neither
+      function flagged anymore.
 - [ ] 5: `\dontrun{}` → `\donttest{}` policy decided (see `PLAN.md`,
       "Every core-workflow example is `\dontrun{}`"), not yet implemented.
       - [ ] Switch all 12 affected functions' `@examples` from `\dontrun{}`

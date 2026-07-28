@@ -152,6 +152,17 @@ for the full implementation detail.
   soft-deprecated, documented as no-op, still `arg_match(c("native",
   "auto"))`d, both branches identical. Either fully deprecate via
   `lifecycle` or drop it — it clutters the two most-used signatures.
+  **Status: not dead — redirected, not a review fix.** Author correction
+  (2026-07-27): `method` is **not** to be deprecated or dropped. It's the
+  reserved argument for a pluggable-backend feature (`"native"`/`"auto"`
+  today, eventually `"micromamba"`/`"rattler"`/`"docker"`/`"singularity"`),
+  already fully scoped in its own design doc:
+  `.github/devdocs/feat-backend-abstraction/PLAN.md` +
+  `TODO.md` (11 confirmed design decisions, ready for implementation, none
+  of it built yet). That milestone is large enough to need its own
+  session — out of scope for this review pass. Removed from this file's
+  scope entirely; tracked exclusively under `feat-backend-abstraction/`
+  from now on, not duplicated here.
 - **No `timeout` argument** on `run()`/`run_bin()`/`run_pipeline()` despite
   `processx` supporting it. A hung CLI tool hangs the R session with no
   built-in escape. Real feature gap. **Status: DONE.**
@@ -308,10 +319,86 @@ for the full implementation detail.
   the full list of call sites touched.
 - **High cyclomatic complexity:** `parse_match_spec()` 77, `pump_process_io()`
   49, `parse_match_spec` sub-fns 48/37, `install_micromamba()` 30,
-  `create_env()` 29 (`lintr` limit 25). Parsers are well-tested so risk is
-  contained; `install_micromamba()`/`create_env()` are the ones worth
+  `create_env()` 29 (against `lintr::cyclocomp_linter()`'s actual default
+  limit of 15 — no `.lintr` config exists in the repo, so "limit 25" in the
+  original finding was unverified; corrected here). Parsers left alone
+  (well-tested, `pump_match_spec()`/`pump_process_io()` out of scope —
+  same reasoning as before). **Status: DONE for `install_micromamba()`/
+  `create_env()`** — the two the finding itself called out as "worth
   splitting since they mix I/O with control flow and are less exhaustively
-  tested. Lower priority — refactor only with care and full test cover.
+  tested."
+
+  Both were already naturally segmented — `install_micromamba()` by its own
+  section comments (`# --- Strategy 1 ---` etc.), `create_env()` less so,
+  needed the boundaries chosen. Pure structural extraction, zero intended
+  behavior change, one helper extracted and test-verified at a time (not
+  batched):
+
+  - `install_micromamba()` (30 → under 15): extracted
+    `download_compressed_and_extract()` (the `.tar.bz2` download + extract
+    + cleanup strategy, ~50 lines, previously the single biggest
+    contributor — nested `if`s plus a two-handler `tryCatch()`) and
+    `download_uncompressed_binary()` (the raw-binary fallback strategy).
+    Both return a plain logical (`extraction_succeeded`); the parent
+    function's own two-strategy sequencing collapses to two function
+    calls. Also merged the two near-duplicate "already installed, not
+    forcing" `if` checks into one guard clause with a nested message-only
+    `if`, removing one duplicate condition (identical observable
+    behavior — message only under `!dl_quiet_flag`, same as before).
+  - `create_env()` (29 → 0 lints): extracted
+    `ensure_libmamba_pkgs_dir_workaround()` (the `~/.mamba/pkgs`
+    workaround + `withr::defer()` cleanup — see the scoping note below),
+    `resolve_create_env_packages_arg()` (the `packages`/`env_file`
+    resolution, including the `condathis_create_missing_env_file` abort),
+    `resolve_create_env_platform_args()` (the `--platform` resolution),
+    and `env_already_satisfies_request()` (the deepest block — the
+    already-exists-and-satisfies-deps early return, now a single
+    `if (!is.null(early_result)) return(early_result)` at the call site).
+    Incidentally dropped one stray commented-out line
+    (`# verbose = verbose_list$internal_verbose`) that was directly inside
+    the code being moved and already flagged by `commented_code_linter`;
+    left every other comment/`TODO` untouched.
+
+  **The one real hazard, caught before it shipped, not after:**
+  extracting the `withr::defer()` cleanup into
+  `ensure_libmamba_pkgs_dir_workaround()` is exactly the
+  `withr::local_tempfile()`-style scoping trap already hit twice elsewhere
+  in this codebase — `withr::defer()`'s own default `envir` is *its
+  immediate caller* (the new helper's frame), so a naive extraction would
+  make the cleanup fire the instant the helper returns, not when
+  `create_env()` itself exits. Fixed by giving the helper its own
+  `envir = parent.frame()` parameter (same mechanism already used this
+  session for `validate_env_name()`'s `call` and `rethrow_error_run()`'s
+  `env`) and threading it into `withr::defer(..., envir = envir)`, called
+  with no arguments from `create_env()`. Verified empirically, not just
+  reasoned about — confirmed the cleanup now fires on the *caller's* exit
+  via a minimal repro, then confirmed both real code paths against a fake
+  `HOME`: a freshly-created `~/.mamba/pkgs` is removed again once the
+  caller returns; a pre-existing one is left alone. (First verification
+  attempt gave a false positive — used `withr::local_tempdir()` for the
+  fake `HOME` itself, whose *own* teardown deletes the whole tree
+  including `.mamba` regardless of this function's logic, momentarily
+  looking like a bug in the extraction; re-tested with a plain
+  `tempfile()`/`Sys.setenv()` fake `HOME` with no competing auto-cleanup
+  to confirm the real behavior.)
+
+  New function names (`ensure_libmamba_pkgs_dir_workaround`,
+  `download_compressed_and_extract`, `resolve_create_env_packages_arg`,
+  `resolve_create_env_platform_args`) exceed `object_length_linter`'s
+  30-character default — checked against the rest of the package first:
+  7 existing internal helpers already do too (e.g.
+  `get_micromamba_activation_envvars`), and no `.lintr` config enforces
+  the limit, so this matches established style rather than violating it.
+
+  Full regression: `test-install_micromamba.R` (24/24),
+  `test-create_env.R` (36/36), `test-create_nested_env.R` (5/5),
+  `test-install_packages.R` (14/14), `test-run.R` (49/49),
+  `test-list_envs.R` (11/11) — all clean, real network installs not
+  skipped. `lintr::cyclocomp_linter(complexity_limit = 15L)`: both
+  functions no longer flagged (only the two pre-existing, out-of-scope
+  checksum helpers — `verify_micromamba_checksum()` 16,
+  `compute_sha256()` 18, added after the original review pass — remain
+  over the default limit; not part of this item's scope).
 
 ## Severity 5 — testing & docs
 

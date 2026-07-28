@@ -13,7 +13,9 @@
 #' @param method Character string with the backend execution strategy.
 #'   Supported values are `"native"` and `"auto"`.
 #'   Defaults to `"native"`.
-#'   This argument is soft-deprecated and currently does not change behavior.
+#'   Currently does not change behavior — reserved for upcoming pluggable
+#'   backend support (e.g. running through `rattler` or a container engine
+#'   instead of a managed `micromamba` install). Not deprecated.
 #' @param verbose Character string controlling console output.
 #'   Supported values are `"output"`, `"silent"`, `"cmd"`, `"spinner"`,
 #'   and `"full"`. Defaults to `"output"`.

@@ -35,7 +35,9 @@ resolution. Defaults to \code{c("conda-forge", "bioconda")}.}
 \item{method}{Character string with the backend execution strategy.
 Supported values are \code{"native"} and \code{"auto"}.
 Defaults to \code{"native"}.
-This argument is soft-deprecated and currently does not change behavior.}
+Currently does not change behavior — reserved for upcoming pluggable
+backend support (e.g. running through \code{rattler} or a container engine
+instead of a managed \code{micromamba} install). Not deprecated.}
 
 \item{channel_priority}{Character string with channel priority mode.
 Supported values are \code{"disabled"}, \code{"strict"}, and \code{"flexible"}.

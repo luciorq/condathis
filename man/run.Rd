@@ -36,7 +36,9 @@ fails instead, per \code{error} below.}
 \item{method}{Character string with the backend execution strategy.
 Supported values are \code{"native"} and \code{"auto"}.
 Defaults to \code{"native"}.
-This argument is soft-deprecated and currently does not change behavior.}
+Currently does not change behavior — reserved for upcoming pluggable
+backend support (e.g. running through \code{rattler} or a container engine
+instead of a managed \code{micromamba} install). Not deprecated.}
 
 \item{verbose}{Character string controlling console output.
 Supported values are \code{"output"}, \code{"silent"}, \code{"cmd"}, \code{"spinner"},

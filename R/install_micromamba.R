@@ -68,18 +68,12 @@ install_micromamba <- function(
   }
   umamba_bin_path <- micromamba_bin_path()
 
-  if (
-    isTRUE(fs::file_exists(umamba_bin_path)) &&
-      isFALSE(force) &&
-      isFALSE(dl_quiet_flag)
-  ) {
-    cli::cli_inform(c(
-      `i` = "{.pkg micromamba} is already installed at {.path {umamba_bin_path}}."
-    ))
-    return(invisible(umamba_bin_path))
-  }
-
   if (isTRUE(fs::file_exists(umamba_bin_path)) && isFALSE(force)) {
+    if (isFALSE(dl_quiet_flag)) {
+      cli::cli_inform(c(
+        `i` = "{.pkg micromamba} is already installed at {.path {umamba_bin_path}}."
+      ))
+    }
     return(invisible(umamba_bin_path))
   }
 
@@ -101,82 +95,27 @@ install_micromamba <- function(
     fs::dir_create(untar_dir)
   }
 
-  extraction_succeeded <- FALSE
-  compressed_ok <- FALSE
-
   # --- Strategy 1: Download compressed .tar.bz2 and extract ---
-  # Only attempt if tar and bzip2 are available on the system
-  if (isTRUE(can_extract_tar_bz2())) {
-    full_dl_path <- as.character(
-      fs::path(output_dir, "micromamba-dl.tar.bz2")
-    )
-    compressed_ok <- try_download_from_mirrors(
-      urls = mirror_urls$compressed,
-      destfile = full_dl_path,
-      timeout_limit = timeout_limit,
-      method = download_method,
-      quiet = dl_quiet_flag
-    )
-
-    if (isTRUE(compressed_ok)) {
-      # Extract the archive, suppressing warnings from tar/bzip2
-      extract_result <- tryCatch(
-        {
-          suppressWarnings(
-            utils::untar(
-              tarfile = full_dl_path,
-              exdir = fs::path_expand(untar_dir)
-            )
-          )
-          TRUE
-        },
-        error = function(e) {
-          FALSE
-        },
-        warning = function(w) {
-          FALSE
-        }
-      )
-
-      # Clean up the downloaded archive
-      if (fs::file_exists(full_dl_path)) {
-        try(fs::file_delete(full_dl_path), silent = TRUE)
-      }
-
-      if (
-        isTRUE(extract_result) && isTRUE(file_exists_retry(umamba_bin_path))
-      ) {
-        extraction_succeeded <- TRUE
-      }
-    } else {
-      # Clean up any partial download
-      if (fs::file_exists(full_dl_path)) {
-        try(fs::file_delete(full_dl_path), silent = TRUE)
-      }
-    }
-  }
-
-  # --- Strategy 2: Download uncompressed binary directly ---
-  # Used when tar/bzip2 are not available, or when extraction failed
+  # --- Strategy 2 (fallback): Download uncompressed binary directly ---
+  # Strategy 2 is used when tar/bzip2 are not available, or when Strategy 1
+  # failed to extract.
+  extraction_succeeded <- download_compressed_and_extract(
+    compressed_urls = mirror_urls$compressed,
+    output_dir = output_dir,
+    untar_dir = untar_dir,
+    umamba_bin_path = umamba_bin_path,
+    timeout_limit = timeout_limit,
+    download_method = download_method,
+    dl_quiet_flag = dl_quiet_flag
+  )
   if (isFALSE(extraction_succeeded)) {
-    # This is not the right path on Windows
-    base_dl_dir <- fs::path(base::dirname(umamba_bin_path))
-    if (isFALSE(fs::dir_exists(base_dl_dir))) {
-      fs::dir_create(base_dl_dir)
-    }
-
-    uncompressed_ok <- try_download_from_mirrors(
-      urls = mirror_urls$uncompressed,
-      destfile = umamba_bin_path,
+    extraction_succeeded <- download_uncompressed_binary(
+      uncompressed_urls = mirror_urls$uncompressed,
+      umamba_bin_path = umamba_bin_path,
       timeout_limit = timeout_limit,
-      method = download_method,
-      quiet = dl_quiet_flag
+      download_method = download_method,
+      dl_quiet_flag = dl_quiet_flag
     )
-
-    if (isTRUE(uncompressed_ok)) {
-      fs::file_chmod(umamba_bin_path, mode = "u+x")
-      extraction_succeeded <- TRUE
-    }
   }
 
   # --- Verify the binary exists ---
@@ -224,6 +163,133 @@ install_micromamba <- function(
   }
 
   invisible(umamba_bin_path)
+}
+
+#' Download and extract the compressed micromamba archive
+#'
+#' Strategy 1 of `install_micromamba()`'s two download strategies: fetch the
+#' `.tar.bz2` archive from the given mirrors and extract it with the system
+#' `tar`/`bzip2` tools. A no-op (returns `FALSE` immediately) when those
+#' tools aren't available — `install_micromamba()` falls back to
+#' `download_uncompressed_binary()` in that case.
+#'
+#' @param compressed_urls Character vector of `.tar.bz2` mirror endpoints.
+#' @param output_dir Directory the archive is downloaded into.
+#' @param untar_dir Directory the archive is extracted into.
+#' @param umamba_bin_path Expected path of the extracted binary, used to
+#'   confirm extraction actually produced it.
+#' @param timeout_limit,download_method,dl_quiet_flag Passed through to
+#'   `try_download_from_mirrors()`.
+#'
+#' @returns Logical. `TRUE` only if the archive was downloaded *and*
+#'   extracted *and* the binary is present afterward.
+#'
+#' @keywords internal
+#' @noRd
+download_compressed_and_extract <- function(
+  compressed_urls,
+  output_dir,
+  untar_dir,
+  umamba_bin_path,
+  timeout_limit,
+  download_method,
+  dl_quiet_flag
+) {
+  if (isFALSE(can_extract_tar_bz2())) {
+    return(FALSE)
+  }
+
+  full_dl_path <- as.character(
+    fs::path(output_dir, "micromamba-dl.tar.bz2")
+  )
+  compressed_ok <- try_download_from_mirrors(
+    urls = compressed_urls,
+    destfile = full_dl_path,
+    timeout_limit = timeout_limit,
+    method = download_method,
+    quiet = dl_quiet_flag
+  )
+
+  if (isFALSE(compressed_ok)) {
+    # Clean up any partial download
+    if (fs::file_exists(full_dl_path)) {
+      try(fs::file_delete(full_dl_path), silent = TRUE)
+    }
+    return(FALSE)
+  }
+
+  # Extract the archive, suppressing warnings from tar/bzip2
+  extract_result <- tryCatch(
+    {
+      suppressWarnings(
+        utils::untar(
+          tarfile = full_dl_path,
+          exdir = fs::path_expand(untar_dir)
+        )
+      )
+      TRUE
+    },
+    error = function(e) {
+      FALSE
+    },
+    warning = function(w) {
+      FALSE
+    }
+  )
+
+  # Clean up the downloaded archive
+  if (fs::file_exists(full_dl_path)) {
+    try(fs::file_delete(full_dl_path), silent = TRUE)
+  }
+
+  return(
+    isTRUE(extract_result) && isTRUE(file_exists_retry(umamba_bin_path))
+  )
+}
+
+#' Download the standalone micromamba binary directly
+#'
+#' Strategy 2 of `install_micromamba()`'s two download strategies: used when
+#' `tar`/`bzip2` are unavailable, or when `download_compressed_and_extract()`
+#' failed to extract.
+#'
+#' @param uncompressed_urls Character vector of raw binary mirror endpoints.
+#' @param umamba_bin_path Destination path for the downloaded binary.
+#' @param timeout_limit,download_method,dl_quiet_flag Passed through to
+#'   `try_download_from_mirrors()`.
+#'
+#' @returns Logical. `TRUE` if the binary was downloaded and made
+#'   executable.
+#'
+#' @keywords internal
+#' @noRd
+download_uncompressed_binary <- function(
+  uncompressed_urls,
+  umamba_bin_path,
+  timeout_limit,
+  download_method,
+  dl_quiet_flag
+) {
+  # This is not the right path on Windows
+  base_dl_dir <- fs::path(base::dirname(umamba_bin_path))
+  if (isFALSE(fs::dir_exists(base_dl_dir))) {
+    fs::dir_create(base_dl_dir)
+  }
+
+  uncompressed_ok <- try_download_from_mirrors(
+    urls = uncompressed_urls,
+    destfile = umamba_bin_path,
+    timeout_limit = timeout_limit,
+    method = download_method,
+    quiet = dl_quiet_flag
+  )
+
+  if (isFALSE(uncompressed_ok)) {
+    return(FALSE)
+  }
+
+  fs::file_chmod(umamba_bin_path, mode = "u+x")
+  return(TRUE)
 }
 
 #' Verify Micromamba Binary SHA256 Checksum
