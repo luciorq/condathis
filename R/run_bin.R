@@ -71,15 +71,24 @@
 #' @examples
 #' \dontrun{
 #' condathis::with_sandbox_dir({
-#'   # Example assumes that 'my-env' exists and contains 'python'
+#'   # Create an environment with 'python' and 'ripgrep'. `coreutils`
+#'   # (and other GNU tools like `grep`) aren't available for Windows on
+#'   # conda-forge, so `ripgrep` is used here instead of e.g. `ls`/`grep` —
+#'   # a single package name that installs and runs the same way on every
+#'   # platform `condathis` supports.
+#'   condathis::create_env(
+#'     c("conda-forge::python", "conda-forge::ripgrep"),
+#'     env_name = "my-env"
+#'   )
+#'
 #'   # Run 'python' with a script in 'my-env' environment
 #'   condathis::run_bin(
 #'     "python", "-c", "import sys; print(sys.version)",
 #'     env_name = "my-env"
 #'   )
 #'
-#'   # Run 'ls' command with additional arguments
-#'   condathis::run_bin("ls", "-la", env_name = "my-env")
+#'   # Run the 'rg' (ripgrep) binary with additional arguments
+#'   condathis::run_bin("rg", "--version", env_name = "my-env")
 #' })
 #' }
 #'

@@ -117,6 +117,10 @@ environments.
 \dontrun{
 condathis::with_sandbox_dir({
   ## Create env
+  ## `samtools` (bioconda) has no Windows build on any channel, so this
+  ## specific example only runs on Linux/macOS — unlike most `condathis`
+  ## examples, there's no portable substitute that still demonstrates a
+  ## real bioinformatics CLI operating on the packaged BAM file below.
   create_env("bioconda::samtools", env_name = "samtools-env")
 
   ## Run a command in a specific Conda environment

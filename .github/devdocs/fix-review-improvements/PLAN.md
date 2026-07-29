@@ -402,80 +402,193 @@ for the full implementation detail.
 
 ## Severity 5 — testing & docs
 
-### Every core-workflow example is `\dontrun{}` — policy decided, not yet implemented
+### Every core-workflow example is `\dontrun{}` — reconsidered and reversed
 
-**Status: policy decided (2026-07-27), implementation not started.**
+**Status: DONE.** Decided 2026-07-27, reversed 2026-07-28 after the author
+pushed back with a fact that changed the risk calculus, verified directly
+against R's own `tools::check.R` source rather than just the "Writing R
+Extensions" manual prose. **Net effect: keep `\dontrun{}` for all 12
+functions — no markup change.** The `run_bin()` example bug found during
+the original audit was still real and independent of the markup question;
+fixed separately (see below).
 
 12 of the 17 exported functions wrap their entire `@examples` block in
 `\dontrun{}`: `clean_cache`, `create_env`, `env_exists`, `install_micromamba`,
 `install_packages`, `list_envs`, `list_packages`, `remove_env`, `run_bin`,
-`run_pipeline`, `run`, `with_sandbox_dir`. None of these are exercised by
-`R CMD check`, so they can silently rot. The remaining 5
-(`get_env_dir`, `get_install_dir`, `get_sys_arch`, `micromamba_bin_path`,
-`parse_output`) already have runnable examples and need no change — they
-don't touch the network or `micromamba` at all.
+`run_pipeline`, `run`, `with_sandbox_dir`. The remaining 5 (`get_env_dir`,
+`get_install_dir`, `get_sys_arch`, `micromamba_bin_path`, `parse_output`)
+already have runnable examples and need no change — they don't touch the
+network or `micromamba` at all.
 
-**Verified CRAN semantics before deciding anything** (R's own bundled
-"Writing R Extensions" manual, `R RHOME`/doc/manual/R-exts.html, the
-`\examples{}` section):
+**Original reasoning (2026-07-27), from the R-exts manual alone:**
+`\dontrun{}` is verbatim text, never executed by `example()`/`R CMD check`
+by default; `\donttest{}` must be real runnable code, executed by
+`example()`, not executed by a plain `R CMD check` unless `--run-donttest`
+is passed. Believed (based on the manual's prose plus the author's own
+recollection of CRAN's process) that `R CMD check --as-cran` doesn't run
+`\donttest{}` either, and that CRAN maintainers only *occasionally* run
+everything by hand, sometimes airgapped. Concluded `\donttest{}` was
+strictly better: real checkable code, a working `example()` demo for
+users, `\dontrun{}` "silently rots" since nothing ever exercises it.
+Decision at the time: switch all 12 to `\donttest{}`, each wrapped in a
+broad `tryCatch({...}, error = function(e) invisible(NULL))`.
 
-- `\dontrun{}`: verbatim text, never executed by `example()` or
-  `R CMD check`, ever. Reserved for things that are illustrative only.
-- `\donttest{}`: **must be correct, runnable R code** (unlike `\dontrun{}`).
-  Executed by `example()`. **Not** executed by a plain `R CMD check`
-  unless `--run-donttest` is passed, and confirmed (via the user, who has
-  directly observed CRAN's own process) that `R CMD check --as-cran` —
-  CRAN's own submission/incoming check — does **not** run `\donttest{}`
-  examples either. However, CRAN maintainers are known to periodically run
-  *all* examples (including `\donttest{}`) by hand on their own machines,
-  which may have no internet access — so `\donttest{}` code must survive
-  that gracefully, not error. This exactly matches the manual's own
-  guidance for `\donttest{}`: *"Use e.g. `capabilities()` or
-  `nzchar(Sys.which("someprogram"))` to test for features needed in the
-  examples wherever possible, and you can also use `try()` or
-  `tryCatch()`."*
+**What actually reversed it (2026-07-28):** the author's own local check
+task is `R -q -s -e 'devtools::load_all(quiet=TRUE);
+devtools::document(quiet=TRUE); devtools::run_examples(run_dontrun = TRUE,
+run_donttest = TRUE);'` — which *already* exercises `\dontrun{}` examples
+locally every time it's run (`devtools::run_examples()` calls
+`tools::Rd2ex()` with `commentDontrun = !run_dontrun`, so `run_dontrun =
+TRUE` un-comments and sources them). So the "silently rots" argument,
+while true of CRAN's own view of the package and of any contributor not
+running this exact command, does **not** apply to the author's actual
+workflow — `\dontrun{}` rot gets caught locally regardless of markup.
 
-**Decision:** switch the 12 `\dontrun{}` examples to `\donttest{}`, each
-wrapped in a `tryCatch()` (or equivalent) so a missing network connection
-or a failed `micromamba` download/install is swallowed silently rather
-than erroring — satisfying both CRAN's occasional manual, potentially
-airgapped re-run *and* giving real end-users a working, live demonstration
-when they call `example("create_env")` themselves with network access,
-which `\dontrun{}` can never provide.
+That alone would only make the two options a wash, not reverse the
+decision — the real reversal came from re-checking the *other* premise
+directly against R's source instead of the manual's prose. Read
+`tools::check.R` (R 4.6.1) around its example-checking logic:
 
-**Recommendation on *how* to guard them, since this was asked for
-explicitly:** wrap the whole example body in a broad
-`tryCatch({...}, error = function(e) invisible(NULL))` rather than a
-narrower upfront connectivity check (e.g. `condathis:::check_connection()`
-before attempting anything). Reasoning: the broad `tryCatch` catches
-*every* failure mode a network-restricted or otherwise atypical machine
-could hit — DNS failure, a specific mirror being blocked while others
-aren't, disk-permission issues in the check sandbox, a slow timeout — not
-just "no internet at all." A narrow precondition check only guards against
-the one failure mode it explicitly tests for and could still let the
-example error on a different one. This is the same "many failure modes,
-one broad catch" reasoning already applied elsewhere in this codebase
-(e.g. `download_micromamba_file()`'s own `tryCatch`/`warning` handling).
+```r
+# ~line 4734
+test_donttest <- !run_donttest &&
+    (if (x == "NA") as_cran else config_val_to_logical(x))
+if (test_donttest) {
+    checkingLog(Log, "examples with --run-donttest")
+    ... # re-runs Rd2ex() with commentDonttest = FALSE and executes it
+```
 
-**Two functions need something extra, found while auditing all 12, not
-just a markup change:**
+`--as-cran` sets `as_cran <- TRUE`; when `_R_CHECK_DONTTEST_EXAMPLES_`
+isn't explicitly overridden (the default, `"NA"`), `test_donttest` becomes
+`TRUE` automatically. So `R CMD check --as-cran` runs the example suite
+**twice**: once with both `\dontrun{}` and `\donttest{}` commented out,
+then a **second, fully automatic pass** — labeled "examples with
+--run-donttest" in the check log, and visible as its own section on every
+package's public CRAN check-results page — that executes every
+`\donttest{}` block for real. This is standard, routine CRAN submission
+behavior, not an occasional manual maintainer action as originally
+believed — that earlier belief was the actual error, not just an
+optimistic framing of the same fact.
 
-- **`with_sandbox_dir()`'s example doesn't need network or `micromamba` at
-  all** — it just prints paths inside a sandboxed environment
-  (`print(fs::path_home())`, `print(tools::R_user_dir("condathis"))`).
-  It's miscategorized: this one should just become a plain, always-run
-  example, not `\donttest{}` at all — the *only* one of the 12 in that
-  situation.
-- **`run_bin()`'s current example is already broken as written**,
-  independent of the `\dontrun{}`/`\donttest{}` question: it says
-  `# Example assumes that 'my-env' exists and contains 'python'` but never
-  creates `my-env` — it would fail immediately if actually run, `\donttest{}`
-  or not. Needs an actual `create_env()` setup step added (matching every
-  other example's pattern) before it can be meaningfully switched, not just
-  a tag swap.
+`\dontrun{}` has no equivalent secondary pass anywhere in that logic. It
+only ever runs via an explicit `--run-dontrun` (or `run.dontrun = TRUE` to
+`example()`/`devtools::run_examples()`) — a deliberate, developer-only
+action CRAN's own infrastructure never takes on its own.
 
-**Not started** — this is documented policy, ready to implement, but no
-`.R`/`.Rd` files have been touched for this yet.
+**Corrected risk comparison, specifically for examples needing internet
+*and* downloading/executing an external `micromamba` binary:**
+
+- `\donttest{}`: genuinely, routinely executed by CRAN's own submission
+  check. A CRAN build machine with restricted/no internet for that step,
+  or a slow/failed `micromamba` download, becomes a real, automatic CRAN
+  check failure attributed to the package — not hypothetical.
+- `\dontrun{}`: never executed by any part of CRAN's automated pipeline,
+  under any flag combination. Zero risk of ever failing there.
+
+**Decision (reversed): keep `\dontrun{}` for all 12 functions.** The
+`tryCatch()`-wrapping recommendation is no longer a CRAN-compliance
+necessity (there's nothing CRAN-side for it to protect against once
+`\dontrun{}` is confirmed to never execute under CRAN's own tooling) —
+left as an optional, author's-discretion nicety for their own local
+`run_dontrun = TRUE` runs, not implemented.
+
+**Still real and fixed, independent of the markup question:**
+`run_bin()`'s example said `# Example assumes that 'my-env' exists and
+contains 'python'` but never created it — would fail if actually run,
+regardless of `\dontrun{}`/`\donttest{}`. Fixed by adding a real
+`create_env()` setup step, matching every other example's pattern (see
+`R/run_bin.R`).
+
+`with_sandbox_dir()`'s example was correctly identified during the
+original audit as not needing `\dontrun{}` at all — it only prints paths
+inside a sandboxed environment, no network/`micromamba` involved, so
+`\dontrun{}` there isn't buying any CRAN-safety (nothing to protect
+against) and just needlessly hides a fast, safe example from ever
+running. **Status: DONE** (2026-07-28) — moved out of `\dontrun{}` into a
+plain, always-run example (`R/with_sandbox_dir.R`); no other change
+needed since it never touched the network.
+
+### Example portability audit — some examples couldn't run on Windows at all
+
+**Status: DONE (2026-07-28, corrected 2026-07-28).** Separate from the
+`\dontrun{}`/`\donttest{}` question: audited every `@examples` block across
+all 18 exported functions for whether the demonstrated packages actually
+have Windows builds, after the `run_bin()` fix above accidentally
+introduced exactly this class of bug (`conda-forge::coreutils`, which has
+no `win-64` build). Author's guidance: prefer genuinely portable
+single-package solutions over OS-conditional branching wherever the
+illustrative point allows it.
+
+**A methodology mistake in the first pass, caught and corrected by the
+author:** the first pass checked each package's availability by reading
+`channeldata.json`'s `subdirs` field directly and concluded `bioconda::
+fastqc` had no Windows support (`subdirs: linux-64, noarch, osx-64` —
+no `win-64` listed) — leading to an unnecessary swap of `bioconda::fastqc`
+→ `conda-forge::ripgrep` across six examples. **That inference doesn't
+hold for `noarch` packages.** `fastqc` is `noarch` (a Java wrapper script,
+not a compiled binary), and `noarch` packages install from any platform's
+package pool as long as their dependencies resolve for that platform — the
+`subdirs` list only reflects which platform-specific artifacts a channel
+has *actually built and uploaded*, not which platforms can *use* a
+`noarch` package. Verified directly rather than re-assumed: a real
+`micromamba create --dry-run --platform win-64 -c conda-forge -c bioconda
+fastqc` solve succeeds, pulling in `openjdk` (Java) and the Windows
+runtime libraries (`ucrt`, `vc`, `vc14_runtime`, `vcomp14`) automatically
+from conda-forge — exactly the two channels `create_env()` already
+defaults to. **Net effect: the `fastqc`→`ripgrep` swap in the six generic
+examples was reverted; those examples are back to `bioconda::fastqc`,
+which was already Windows-compatible all along** (with default
+`channels = c("conda-forge", "bioconda")`).
+
+**What genuinely doesn't work on Windows, confirmed two ways — checked
+each channel's `channeldata.json` *and* distinguished `noarch` from
+platform-specific packages, not `subdirs` alone:**
+
+| package | channel | noarch? | Windows? |
+|---|---|---|---|
+| `ripgrep` | conda-forge | no (native builds per platform) | yes — has a real `win-64`/`win-arm64` build |
+| `fastqc` | bioconda | **yes** | yes — solves via `noarch` + conda-forge's `openjdk`, confirmed with a live `--platform win-64` dry-run solve |
+| `coreutils` | conda-forge | no | no — only the separate, Windows-only `m2-coreutils` (MSYS2) package provides this on Windows |
+| `grep` | conda-forge | no | no — same MSYS2 (`m2-grep`) situation as `coreutils` |
+| `samtools` | bioconda | no (compiled htslib-based binary) | no — no Windows build under any name, on any channel |
+
+The generalizable distinction: a `noarch` bioconda/conda-forge package
+(interpreted/wrapper-script, e.g. Java- or Python-based tools) is
+platform-agnostic and works everywhere its dependencies do; a compiled,
+platform-specific package (`coreutils`, `grep`, `samtools`) only works on
+the platforms it's actually been built for, and bioconda has never built
+for Windows at all. "Is this from bioconda" is not itself the deciding
+factor — "is this `noarch`" is.
+
+**What actually changed, after the correction:**
+
+- **Reverted (no longer needed):** `list_envs()`, `remove_env()`,
+  `create_env()` (version-pin demo back to `fastqc==0.12.1`),
+  `list_packages()`, `env_exists()`, `install_packages()` — all back to
+  `bioconda::fastqc`, `env_name = "fastqc-env"`. `list_packages()`'s
+  `dim(dat)` comment corrected to a value verified from a real install,
+  `[1] 66 11` — the pre-existing `[1] 34 8` in the docs before any of this
+  was already stale/wrong regardless of package choice (a real `ripgrep`
+  install returned `[1] 4 11`, an 11-column schema either way; the `34`
+  row count didn't match a real `fastqc` install either, which returns 66).
+- **Still fixed (genuinely necessary, unaffected by the correction —
+  `coreutils`/`grep` are compiled, not `noarch`):** `run_bin()`'s
+  `conda-forge::coreutils`/`"ls"` → `conda-forge::ripgrep`/`"rg"`;
+  `run_pipeline()`'s `get_sys_arch()`-based `grep`/`m2-grep` conditional
+  simplified to `ripgrep`/`rg`.
+- **Still left as Linux/macOS-only, with an explicit comment (unaffected —
+  `samtools` is compiled, not `noarch`, and has no Windows build under any
+  name):** `run()`'s and `run_pipeline()`'s use of `bioconda::samtools` to
+  demonstrate operating on the packaged `inst/extdata/example.bam` file.
+
+**Verified live, not just parsed, both before and after the correction** —
+every rewritten/reverted example run end-to-end via `tools::Rd2ex()` +
+`source()` (the same mechanism `devtools::run_examples()` uses) against
+real network installs: `with_sandbox_dir`, `list_envs`, `remove_env`,
+`create_env`, `list_packages`, `env_exists`, `install_packages`, `run_bin`,
+`run`, `run_pipeline` — all complete with no errors.
+`roxygen2::roxygenize()` regenerated all affected `.Rd` files;
+`DESCRIPTION` version unchanged.
 
 ## What's already solid (for balance)
 

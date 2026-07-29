@@ -258,23 +258,68 @@ what's left in this file; the next *milestone*-sized piece of work is
       (14/14), `test-run.R` (49/49), `test-list_envs.R` (11/11) — all
       clean. `lintr::cyclocomp_linter(complexity_limit = 15L)`: neither
       function flagged anymore.
-- [ ] 5: `\dontrun{}` → `\donttest{}` policy decided (see `PLAN.md`,
-      "Every core-workflow example is `\dontrun{}`"), not yet implemented.
-      - [ ] Switch all 12 affected functions' `@examples` from `\dontrun{}`
-            to `\donttest{}`, each wrapped in
-            `tryCatch({...}, error = function(e) invisible(NULL))`:
-            `clean_cache`, `create_env`, `env_exists`, `install_micromamba`,
-            `install_packages`, `list_envs`, `list_packages`, `remove_env`,
-            `run_bin`, `run_pipeline`, `run`.
-      - [ ] `with_sandbox_dir()`: move to a plain, always-run example
-            instead (no network dependency, doesn't need `\donttest{}` at
-            all — the one exception among the 12).
-      - [ ] `run_bin()`: fix the example content first (it currently
-            references a `my-env` that's never created, so it would fail
-            even under `\donttest{}` as currently written) — add a real
-            `create_env()` setup step, matching the other examples.
-      - [ ] Regenerate `man/*.Rd` (`roxygen2::roxygenize()`) after editing.
-      - [ ] Spot-check at least one converted example actually runs clean
-            with `R CMD check --run-donttest` (or `tools::Rd2ex()` +
-            `source()`) before considering this done, not just that it
-            parses.
+- [x] 5: `\dontrun{}` → `\donttest{}` — reconsidered and reversed. Author
+      pushed back citing CRAN best-practice guidance that `\dontrun{}` is
+      the right choice for internet/external-CLI-touching examples;
+      verified directly against `tools::check.R` (R 4.6.1) rather than
+      just the R-exts manual prose, and found the original premise wrong:
+      `R CMD check --as-cran` automatically runs a second "examples with
+      --run-donttest" pass executing every `\donttest{}` block for real
+      (routine CRAN submission behavior, not an occasional manual
+      re-check as originally believed), while `\dontrun{}` never executes
+      under any part of CRAN's automated pipeline. For examples needing
+      both internet and downloading/running `micromamba`, that makes
+      `\donttest{}` the actually-risky choice, not `\dontrun{}`. Separately,
+      the author's own local check task
+      (`devtools::run_examples(run_dontrun = TRUE, run_donttest = TRUE)`)
+      already exercises `\dontrun{}` examples every run, so the original
+      "silently rots" argument for switching away from it doesn't apply to
+      their workflow either. **Net result: all 12 functions keep
+      `\dontrun{}`, no markup change.** See `PLAN.md` for the full
+      corrected writeup.
+      - [x] `run_bin()`: fixed the example content — it referenced a
+            `my-env` never created by the example itself (independent bug,
+            found during the original audit, still valid regardless of the
+            markup reversal). Added a real `create_env()` setup step,
+            matching every other example's pattern. Regenerated
+            `man/run_bin.Rd`.
+      - [x] `with_sandbox_dir()`'s example doesn't need `\dontrun{}` at all
+            (no network/`micromamba` involved) — moved to a plain,
+            always-run example.
+- [x] Example portability audit (2026-07-28, corrected 2026-07-28): the
+      `run_bin()` fix above introduced `conda-forge::coreutils`, which has
+      no `win-64` build — caught by the author, prompted auditing every
+      `@examples` block for the same class of problem.
+      - [x] **Correction the author caught in the first pass:** initially
+            swapped `bioconda::fastqc` → `conda-forge::ripgrep` in 6
+            examples based on `fastqc`'s `channeldata.json` `subdirs` not
+            listing `win-64` — wrong inference for a `noarch` package
+            (a Java wrapper script, not a compiled binary): `noarch`
+            packages install on any platform as long as dependencies
+            resolve there. Verified directly: a real
+            `micromamba create --dry-run --platform win-64 -c conda-forge
+            -c bioconda fastqc` solve succeeds (pulls `openjdk` + Windows
+            runtime libs from conda-forge automatically). **Reverted**
+            `list_envs()`, `remove_env()`, `create_env()` (version-pin demo
+            back to `fastqc==0.12.1`), `list_packages()`, `env_exists()`,
+            `install_packages()` back to `bioconda::fastqc`,
+            `env_name = "fastqc-env"`. `list_packages()`'s `dim(dat)`
+            comment corrected to a value verified from a real install,
+            `[1] 66 11` (the pre-existing `[1] 34 8` was already stale
+            regardless of package choice).
+      - [x] Genuinely fixed, **not** affected by the correction — `grep`/
+            `coreutils` are compiled, not `noarch`, so this inference does
+            hold for them: `conda-forge::coreutils`/`"ls"` →
+            `conda-forge::ripgrep`/`"rg"` in `run_bin()`; simplified
+            `run_pipeline()`'s example by dropping the `get_sys_arch()`
+            `grep`/`m2-grep` conditional entirely in favor of `ripgrep`/`rg`.
+      - [x] `run()`/`run_pipeline()`'s `bioconda::samtools` use (operating
+            on the packaged `example.bam`) left as Linux/macOS-only, with
+            an explicit code comment — also unaffected by the correction:
+            `samtools` is a compiled `htslib`-based binary, not `noarch`,
+            and genuinely has no Windows build under any name, on any
+            channel.
+      - [x] Verified every rewritten/reverted example live end-to-end
+            (`tools::Rd2ex()` + `source()`, real network installs, not just
+            parsed), both before and after the correction. Regenerated all
+            affected `.Rd` files; `DESCRIPTION` version unchanged.

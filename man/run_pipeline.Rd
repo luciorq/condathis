@@ -121,16 +121,17 @@ Commands that do not specify an environment use the default \code{env_name}.
 \examples{
 \dontrun{
 condathis::with_sandbox_dir({
-  # On Windows, "grep" and other GNU tools are packaged under the
-  # "m2-" prefix (MSYS2), e.g. "conda-forge::m2-grep".
-  grep_pkg <- if (startsWith(get_sys_arch(), "Windows")) {
-    "conda-forge::m2-grep"
-  } else {
-    "conda-forge::grep"
-  }
-
+  # `ripgrep` (the `rg` binary) is used here instead of GNU `grep`: a
+  # single package name that installs and runs the same way on every
+  # platform `condathis` supports, unlike `grep`, which on Windows only
+  # exists under the "m2-" (MSYS2) prefix on conda-forge.
+  #
+  # `samtools` (bioconda) has no Windows build on any channel, so this
+  # specific example only runs on Linux/macOS regardless — there's no
+  # portable substitute that still demonstrates a real bioinformatics
+  # CLI operating on the packaged BAM file below.
   create_env("bioconda::samtools", env_name = "samtools-env")
-  create_env(grep_pkg, env_name = "grep-env")
+  create_env("conda-forge::ripgrep", env_name = "ripgrep-env")
 
   # Pipeline with per-command environments
   res <- run_pipeline(
@@ -143,8 +144,8 @@ condathis::with_sandbox_dir({
         env_name = "samtools-env"
       ),
       list(
-        cmd = c("grep", "@SQ"),
-        env_name = "grep-env"
+        cmd = c("rg", "@SQ"),
+        env_name = "ripgrep-env"
       )
     )
   )
