@@ -145,7 +145,7 @@ test_that("run_bin() with binary = TRUE round-trips raw bytes from a file", {
     binary = TRUE,
     verbose = "silent"
   )
-  testthat::expect_true(is.raw(res$stdout))
+  testthat::expect_type(res$stdout, "raw")
   testthat::expect_identical(res$stdout, raw_bytes)
 })
 

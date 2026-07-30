@@ -26,23 +26,20 @@ rethrow_error_run <- function(expr, env = parent.frame()) {
 
   if (
     isFALSE(rlang::is_null(env[["stdin"]])) &&
-      isFALSE(identical(env[["stdin"]], "|"))
-  ) {
-    if (
+      isFALSE(identical(env[["stdin"]], "|")) &&
       isFALSE(
         fs::is_file(env[["stdin"]]) &&
           fs::file_exists(env[["stdin"]])
       )
-    ) {
-      cli::cli_abort(
-        message = c(
-          `x` = "Argument {.code stdin} is not a file",
-          `!` = "stdin: {.path {stdin}}"
-        ),
-        class = "condathis_run_stdin_error",
-        .envir = env
-      )
-    }
+  ) {
+    cli::cli_abort(
+      message = c(
+        `x` = "Argument {.code stdin} is not a file",
+        `!` = "stdin: {.path {stdin}}"
+      ),
+      class = "condathis_run_stdin_error",
+      .envir = env
+    )
   }
 
   if (isFALSE(rlang::is_null(err_cnd)) && !isFALSE(env[["error_var"]])) {

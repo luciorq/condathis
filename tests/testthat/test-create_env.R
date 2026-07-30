@@ -257,7 +257,7 @@ testthat::test_that("Create conda env from file", {
 
   px_res <- create_env(
     env_file = fs::path_package("condathis", "extdata", "stat-env.yml"),
-    method = "native",
+    method = "micromamba",
     env_name = "condathis-create-file-test-env",
     verbose = "silent"
   )

@@ -163,17 +163,17 @@ testthat::test_that("get_micromamba_urls returns correct structure", {
   # single install — not a transient outage, permanently dead for this
   # package's use case.
   testthat::expect_length(urls$compressed, 3L)
-  testthat::expect_true(grepl("github.com", urls$compressed[1L]))
-  testthat::expect_true(grepl("anaconda.org", urls$compressed[2L]))
-  testthat::expect_true(grepl("prefix.dev", urls$compressed[3L]))
+  testthat::expect_match(urls$compressed[1L], "github.com")
+  testthat::expect_match(urls$compressed[2L], "anaconda.org")
+  testthat::expect_match(urls$compressed[3L], "prefix.dev")
   testthat::expect_false(any(grepl("micro.mamba.pm", urls$compressed)))
 
   # Uncompressed URL should be from GitHub only
   testthat::expect_length(urls$uncompressed, 1L)
-  testthat::expect_true(grepl("github.com", urls$uncompressed[1L]))
+  testthat::expect_match(urls$uncompressed[1L], "github.com")
 
   # SHA256 URL should be from GitHub
-  testthat::expect_true(grepl("\\.sha256$", urls$sha256[1L]))
+  testthat::expect_match(urls$sha256[1L], "\\.sha256$")
 })
 
 testthat::test_that("has_system_tar and has_system_bzip2 return logical", {

@@ -7,8 +7,8 @@ test_that("get_micromamba_activation_envvars() resolves real activation vars", {
 
   envvars <- get_micromamba_activation_envvars("condathis-env")
 
-  testthat::expect_true(is.character(envvars))
-  testthat::expect_true(!is.null(names(envvars)))
+  testthat::expect_type(envvars, "character")
+  testthat::expect_false(is.null(names(envvars)))
   testthat::expect_true("CONDA_PREFIX" %in% names(envvars))
   testthat::expect_true("PATH" %in% names(envvars))
   testthat::expect_match(
