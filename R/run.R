@@ -10,12 +10,12 @@
 #'   If the default environment does not exist, it is created automatically.
 #'   A missing *custom* `env_name` is never created automatically — it
 #'   fails instead, per `error` below.
-#' @param method Character string with the backend execution strategy.
-#'   Supported values are `"native"` and `"auto"`.
-#'   Defaults to `"native"`.
-#'   Currently does not change behavior — reserved for upcoming pluggable
-#'   backend support (e.g. running through `rattler` or a container engine
-#'   instead of a managed `micromamba` install). Not deprecated.
+#' @param method Character string naming the backend to use. Defaults to
+#'   `"auto"` (resolve automatically: the environment's own owning backend
+#'   if it already exists). `"micromamba"` is the only backend registered
+#'   today — and the only one `run()` can actually execute through so far.
+#'   `"native"` is a deprecated alias for `"micromamba"` (warns once per
+#'   session).
 #' @param verbose Character string controlling console output.
 #'   Supported values are `"output"`, `"silent"`, `"cmd"`, `"spinner"`,
 #'   and `"full"`. Defaults to `"output"`.
@@ -104,10 +104,7 @@ run <- function(
   cmd,
   ...,
   env_name = "condathis-env",
-  method = c(
-    "native",
-    "auto"
-  ),
+  method = "auto",
   verbose = c(
     "output",
     "silent",
@@ -152,7 +149,7 @@ run <- function(
       class = "condathis_run_invalid_binary_arg"
     )
   }
-  method <- rlang::arg_match(method)
+  validate_env_name(env_name, class = "condathis_run_invalid_env_name")
   error <- rlang::arg_match(error)
 
   verbose_list <- parse_strategy_verbose(verbose = verbose)
@@ -165,79 +162,95 @@ run <- function(
     error_var <- FALSE
   }
 
-  method_to_use <- method
+  resolved <- resolve_backend(
+    env_name = env_name,
+    method = method,
+    mutating = FALSE
+  )
 
-  if (isTRUE(method_to_use %in% c("native", "auto"))) {
-    # Only the default environment is auto-created when missing (a
-    # deliberate, documented convenience). A missing *custom* `env_name`
-    # used to be silently papered over here too: this check only ever
-    # tested for `"condathis-env"` specifically, regardless of the actual
-    # `env_name` argument, so calling `run(cmd, env_name = "my-env")` when
-    # `"my-env"` didn't exist would create an unrelated, empty
-    # `"condathis-env"` as a side effect and then still fail — the
-    # auto-create never actually helped the real target. (This
-    # side-effect-creation existed to work around an old `micromamba`
-    # requirement that the root prefix have *some* environment before
-    # `micromamba run` would work at all; confirmed empirically that a
-    # fresh install root with only a custom-named environment — never
-    # touching `"condathis-env"` — runs commands in it correctly with the
-    # current pinned `micromamba` version, so that workaround is no longer
-    # needed.) A missing custom `env_name` now fails clearly instead:
-    # aborts under `error = "cancel"`, matching `run_pipeline()`'s
-    # `condathis_pipeline_env_not_found` behavior for the same situation;
-    # reports a `status = 127` result under `error = "continue"`, without
-    # ever creating anything.
-    env_name_exists <- env_exists(
-      env_name = env_name,
-      verbose = verbose_list$internal_verbose
-    )
+  # Only the default environment is auto-created when missing (a
+  # deliberate, documented convenience). A missing *custom* `env_name`
+  # used to be silently papered over here too: this check only ever
+  # tested for `"condathis-env"` specifically, regardless of the actual
+  # `env_name` argument, so calling `run(cmd, env_name = "my-env")` when
+  # `"my-env"` didn't exist would create an unrelated, empty
+  # `"condathis-env"` as a side effect and then still fail — the
+  # auto-create never actually helped the real target. (This
+  # side-effect-creation existed to work around an old `micromamba`
+  # requirement that the root prefix have *some* environment before
+  # `micromamba run` would work at all; confirmed empirically that a
+  # fresh install root with only a custom-named environment — never
+  # touching `"condathis-env"` — runs commands in it correctly with the
+  # current pinned `micromamba` version, so that workaround is no longer
+  # needed.) A missing custom `env_name` now fails clearly instead:
+  # aborts under `error = "cancel"`, matching `run_pipeline()`'s
+  # `condathis_pipeline_env_not_found` behavior for the same situation;
+  # reports a `status = 127` result under `error = "continue"`, without
+  # ever creating anything.
+  env_name_exists <- backend_has_env(
+    resolved$backend,
+    env_name,
+    verbose = verbose_list$internal_verbose
+  )
 
-    if (isFALSE(env_name_exists) && identical(env_name, "condathis-env")) {
-      create_base_env(verbose = verbose_list$internal_verbose)
-      env_name_exists <- TRUE
+  if (isFALSE(env_name_exists) && identical(env_name, "condathis-env")) {
+    create_base_env(verbose = verbose_list$internal_verbose)
+    env_name_exists <- TRUE
+  }
+
+  if (isFALSE(env_name_exists)) {
+    if (isTRUE(error_var)) {
+      cli::cli_abort(
+        message = c(
+          `x` = "Environment {.field {env_name}} does not exist.",
+          `!` = "Create it with {.fn create_env} first."
+        ),
+        class = "condathis_run_env_not_found"
+      )
     }
-
-    if (isFALSE(env_name_exists)) {
-      if (isTRUE(error_var)) {
-        cli::cli_abort(
-          message = c(
-            `x` = "Environment {.field {env_name}} does not exist.",
-            `!` = "Create it with {.fn create_env} first."
-          ),
-          class = "condathis_run_env_not_found"
+    px_res <- list(
+      status = 127L,
+      stdout = "",
+      stderr = sprintf(
+        "Conda environment '%s' does not exist.\n",
+        env_name
+      ),
+      timeout = FALSE
+    )
+  } else if (isFALSE(identical(resolved$name, "micromamba"))) {
+    # `run()`'s own execution path (streaming, spinner, timeout, interrupt
+    # handling, supervise/cleanup_tree/linux_pdeathsig) stays centralized
+    # on `run_internal_native()` for now — a `backend_resolve_run()`-based
+    # execution branch for non-`"micromamba"` backends is planned but not
+    # implemented yet.
+    cli::cli_abort(
+      message = c(
+        `x` = "{.fn run} does not yet support executing through the {.field {resolved$name}} backend.",
+        `!` = "Only the {.field micromamba} backend is wired up for {.fn run} today."
+      ),
+      class = "condathis_run_backend_unsupported"
+    )
+  } else {
+    px_res <- rethrow_error_run(
+      expr = {
+        run_internal_native(
+          cmd = cmd,
+          ...,
+          env_name = env_name,
+          verbose = verbose_list,
+          error = error,
+          stdout = stdout,
+          stderr = stderr,
+          stdin = stdin,
+          input = input,
+          binary = binary,
+          supervise = supervise,
+          cleanup_tree = cleanup_tree,
+          linux_pdeathsig = linux_pdeathsig,
+          timeout = timeout
         )
       }
-      px_res <- list(
-        status = 127L,
-        stdout = "",
-        stderr = sprintf(
-          "Conda environment '%s' does not exist.\n",
-          env_name
-        ),
-        timeout = FALSE
-      )
-    } else {
-      px_res <- rethrow_error_run(
-        expr = {
-          run_internal_native(
-            cmd = cmd,
-            ...,
-            env_name = env_name,
-            verbose = verbose_list,
-            error = error,
-            stdout = stdout,
-            stderr = stderr,
-            stdin = stdin,
-            input = input,
-            binary = binary,
-            supervise = supervise,
-            cleanup_tree = cleanup_tree,
-            linux_pdeathsig = linux_pdeathsig,
-            timeout = timeout
-          )
-        }
-      )
-    }
+    )
   }
 
   cmd_string <- paste(

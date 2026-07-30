@@ -13,6 +13,7 @@ run_pipeline(
   binary = FALSE,
   error = c("cancel", "continue"),
   env_name = "condathis-env",
+  method = "auto",
   supervise = TRUE,
   cleanup_tree = TRUE,
   linux_pdeathsig = FALSE,
@@ -27,10 +28,14 @@ run_pipeline(
 default \code{env_name}.
 \item A named list with \code{cmd} (character vector) and, optionally,
 \code{env_name} (character string) to specify a per-command environment,
-\code{stderr} to override the top-level \code{stderr} target for this command,
-and \code{stdout} to override the top-level \code{stdout} target, only
-allowed on the \strong{last} command, since every other command's
-standard output is always piped to the next command.
+\code{method} (character string) to specify a per-command backend
+(see \code{method} below — only the \code{"micromamba"} backend can
+actually execute a command today, regardless of which backend
+owns its environment), \code{stderr} to override the top-level
+\code{stderr} target for this command, and \code{stdout} to override the
+top-level \code{stdout} target, only allowed on the \strong{last} command,
+since every other command's standard output is always piped to
+the next command.
 }}
 
 \item{stdout}{Standard output target for the \strong{last} process.
@@ -63,6 +68,14 @@ Defaults to \code{"cancel"}.}
 \item{env_name}{Character string with the default Conda environment name
 for commands that do not specify their own.
 Defaults to \code{"condathis-env"}.}
+
+\item{method}{Character string naming the default backend for commands
+that do not specify their own \code{method} (see \code{cmds}). Defaults to
+\code{"auto"} (resolve automatically: each command's environment's own
+owning backend). \code{"micromamba"} is the only backend registered
+today — and the only one that can actually execute a command so far.
+\code{"native"} is a deprecated alias for \code{"micromamba"} (warns once per
+session).}
 
 \item{supervise}{Logical. Whether each process should be supervised by
 the \code{processx} supervisor for crash-safe cleanup. Defaults to \code{TRUE}

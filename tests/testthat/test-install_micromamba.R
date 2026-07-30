@@ -22,8 +22,16 @@ testthat::test_that("Install micromamba from scratch", {
   testthat::skip_if_offline()
   testthat::skip_on_cran()
 
-  if (isTRUE(fs::dir_exists(fs::path(get_install_dir(), "micromamba")))) {
-    fs::dir_delete(fs::path(get_install_dir(), "micromamba"))
+  if (
+    isTRUE(fs::dir_exists(fs::path(
+      get_install_dir(method = "micromamba")$path,
+      "micromamba"
+    )))
+  ) {
+    fs::dir_delete(fs::path(
+      get_install_dir(method = "micromamba")$path,
+      "micromamba"
+    ))
   }
 
   captured_output <- testthat::capture_output(code = {
@@ -79,8 +87,16 @@ testthat::test_that("Fallback to uncompressed when tar/bzip2 unavailable", {
   # Mock can_extract_tar_bz2 to return FALSE, simulating missing tar/bzip2
   testthat::local_mocked_bindings(can_extract_tar_bz2 = function() FALSE)
 
-  if (isTRUE(fs::dir_exists(fs::path(get_install_dir(), "micromamba")))) {
-    fs::dir_delete(fs::path(get_install_dir(), "micromamba"))
+  if (
+    isTRUE(fs::dir_exists(fs::path(
+      get_install_dir(method = "micromamba")$path,
+      "micromamba"
+    )))
+  ) {
+    fs::dir_delete(fs::path(
+      get_install_dir(method = "micromamba")$path,
+      "micromamba"
+    ))
   }
 
   captured_output <- suppressMessages(
@@ -173,8 +189,16 @@ testthat::test_that("No warnings when tar is unavailable", {
   # Mock can_extract_tar_bz2 to return FALSE
   testthat::local_mocked_bindings(can_extract_tar_bz2 = function() FALSE)
 
-  if (isTRUE(fs::dir_exists(fs::path(get_install_dir(), "micromamba")))) {
-    fs::dir_delete(fs::path(get_install_dir(), "micromamba"))
+  if (
+    isTRUE(fs::dir_exists(fs::path(
+      get_install_dir(method = "micromamba")$path,
+      "micromamba"
+    )))
+  ) {
+    fs::dir_delete(fs::path(
+      get_install_dir(method = "micromamba")$path,
+      "micromamba"
+    ))
   }
 
   # This should NOT produce any warnings about tar or bzip2

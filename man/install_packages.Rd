@@ -7,6 +7,7 @@
 install_packages(
   packages,
   env_name = "condathis-env",
+  method = "auto",
   channels = c("conda-forge", "bioconda"),
   channel_priority = c("disabled", "strict", "flexible"),
   additional_channels = NULL,
@@ -20,6 +21,12 @@ environment instead).}
 
 \item{env_name}{Character string with the target environment name.
 Defaults to \code{"condathis-env"}.}
+
+\item{method}{Character string naming the backend to use. Defaults to
+\code{"auto"} (resolve automatically: the environment's own owning backend
+if it already exists). \code{"micromamba"} is the only backend registered
+today. \code{"native"} is a deprecated alias for \code{"micromamba"} (warns once
+per session).}
 
 \item{channels}{Character vector with channel names used for dependency
 resolution. Defaults to \code{c("conda-forge", "bioconda")}.}

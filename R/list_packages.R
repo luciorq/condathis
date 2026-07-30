@@ -4,20 +4,21 @@
 #'
 #' @param env_name Character string with the target environment name.
 #'   Defaults to `"condathis-env"`.
+#' @param method Character string naming the backend to use. Defaults to
+#'   `"auto"` (resolve automatically: the environment's own owning
+#'   backend). `"micromamba"` is the only backend registered today.
+#'   `"native"` is a deprecated alias for `"micromamba"` (warns once per
+#'   session).
 #' @param verbose Character string controlling console output.
 #'   Supported values are `"output"`, `"silent"`, `"cmd"`, `"spinner"`,
 #'   and `"full"`. Defaults to `"output"`.
 #'
-#' @returns A data frame (`tibble`) with installed packages and the columns:
-#'
-#'   - **base_url**: The base URL of the package source.
-#'   - **build_number**: The build number of the package.
-#'   - **build_string**: The build string describing the package build details.
-#'   - **channel**: The channel from which the package was installed.
-#'   - **dist_name**: The distribution name of the package.
-#'   - **name**: The name of the package.
-#'   - **platform**: The platform for which the package is built.
-#'   - **version**: The version of the package.
+#' @returns A data frame (`tibble`) with installed packages. Only four
+#'   columns are guaranteed present regardless of backend: **name**,
+#'   **version**, **build_number**, and **channel**. Additional columns
+#'   vary by backend and shouldn't be relied on in cross-backend code — the
+#'   `"micromamba"` backend today also includes `base_url`,
+#'   `build_string`, `dist_name`, `platform`, `md5`, `sha256`, and `url`.
 #'
 #' @examples
 #' \dontrun{
@@ -37,6 +38,7 @@
 #' @export
 list_packages <- function(
   env_name = "condathis-env",
+  method = "auto",
   verbose = c(
     "output",
     "silent",
@@ -45,13 +47,29 @@ list_packages <- function(
     "full"
   )
 ) {
+  validate_env_name(
+    env_name,
+    class = "condathis_list_packages_invalid_env_name"
+  )
   verbose_list <- parse_strategy_verbose(verbose = verbose)
 
   if (identical(env_name, "condathis-env")) {
     create_base_env(verbose = verbose_list$internal_verbose)
   }
 
-  if (isFALSE(env_exists(env_name, verbose = verbose_list$internal_verbose))) {
+  resolved <- resolve_backend(
+    env_name = env_name,
+    method = method,
+    mutating = FALSE
+  )
+
+  if (
+    isFALSE(backend_has_env(
+      resolved$backend,
+      env_name,
+      verbose = verbose_list$internal_verbose
+    ))
+  ) {
     cli::cli_abort(
       message = c(
         `x` = "Environment {.field {env_name}} does not exist.",
@@ -61,55 +79,11 @@ list_packages <- function(
     )
   }
 
-  px_res <- rethrow_error_cmd(
-    expr = {
-      native_cmd(
-        conda_cmd = "list",
-        conda_args = c(
-          "-n",
-          env_name,
-          verbose_list$quiet_flag,
-          "--json"
-        ),
-        verbose = verbose_list$internal_verbose,
-        error = "cancel"
-      )
-    }
+  pkgs_df <- backend_list_packages(
+    resolved$backend,
+    env_name = env_name,
+    verbose = verbose
   )
-  if (isFALSE(identical(px_res$status, 0L))) {
-    # As with `list_envs()`: `rethrow_error_cmd()` already aborts with
-    # `condathis_cmd_status_error` whenever `native_cmd()` itself throws
-    # (its default `error = "cancel"` makes the underlying
-    # `processx::run()` throw on a non-zero exit, not return one) — this
-    # only triggers if `px_res` is ever returned with a non-zero status
-    # without throwing. Raising the same class here, rather than falling
-    # through with `pkgs_df` never assigned (which used to surface as a
-    # raw, uninformative `Error: object 'pkgs_df' not found`), keeps this
-    # function's failure mode consistent with the rest of the package.
-    cli::cli_abort(
-      message = c(
-        `x` = "Failed to list packages in environment {.field {env_name}}.",
-        `!` = "{.code micromamba list} exited with status {.val {px_res$status}}."
-      ),
-      class = "condathis_cmd_status_error"
-    )
-  }
-
-  pkgs_df <- jsonlite::fromJSON(px_res$stdout)
-  if (identical(length(pkgs_df), 0L)) {
-    pkgs_df <- base::data.frame(
-      "base_url" = character(0L),
-      "build_number" = integer(0L),
-      "build_string" = character(0L),
-      "channel" = character(0L),
-      "dist_name" = character(0L),
-      "name" = character(0L),
-      "platform" = character(0L),
-      "version" = character(0L)
-    )
-  }
-  pkgs_df <- base::unclass(pkgs_df)
-  base::attr(pkgs_df, "class") <- c("tbl_df", "tbl", "data.frame")
 
   if (isTRUE(verbose_list$strategy %in% c("full", "output"))) {
     cli::cli_inform(
@@ -118,7 +92,6 @@ list_packages <- function(
       )
     )
     return(pkgs_df)
-  } else {
-    return(invisible(pkgs_df))
   }
+  return(invisible(pkgs_df))
 }

@@ -85,7 +85,7 @@ install_micromamba <- function(
     micromamba_version = micromamba_version
   )
 
-  output_dir <- fs::path_abs(get_install_dir())
+  output_dir <- fs::path_abs(install_dir_for_backend(micromamba_backend()))
   if (isFALSE(fs::dir_exists(output_dir))) {
     fs::dir_create(output_dir)
   }

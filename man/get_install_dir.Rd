@@ -4,16 +4,28 @@
 \alias{get_install_dir}
 \title{Get the \code{condathis} data directory}
 \usage{
-get_install_dir()
+get_install_dir(method = "auto")
+}
+\arguments{
+\item{method}{Character string naming which backend(s) to report.
+Defaults to \code{"auto"}: every currently \emph{registered and available}
+backend. \code{"micromamba"} is the only backend registered today.
+\code{"native"} is a deprecated alias for \code{"micromamba"} (warns once per
+session).}
 }
 \value{
-A character string with the normalized, real path to the
-\code{condathis} data directory.
+A tibble-classed data frame with one row per backend covered by
+\code{method}, columns \code{backend} (chr) and \code{path} (chr) — the normalized,
+real path to that backend's own data directory. With a single
+registered backend (today's default), this is always the same shape,
+just one row.
 }
 \description{
-Returns the data directory used by \code{condathis}, creating it when needed.
-The base path follows the platform-specific user data directory rules used
-by \code{tools::R_user_dir()}.
+Returns the data directory used by each backend, creating it when
+needed. The base path follows the platform-specific user data directory
+rules used by \code{tools::R_user_dir()} (each backend resolves its own root
+independently — e.g. the \code{"micromamba"} backend uses \code{condathis}'s own
+\code{tools::R_user_dir("condathis", "data")}).
 }
 \details{
 On macOS, \code{condathis} uses a path without spaces when possible because
@@ -22,7 +34,10 @@ On macOS, \code{condathis} uses a path without spaces when possible because
 \examples{
 condathis::with_sandbox_dir({
   print(condathis::get_install_dir())
-  #> /home/username/.local/share/condathis
+  #> # A tibble: 1 x 2
+  #>   backend    path
+  #>   <chr>      <chr>
+  #> 1 micromamba /home/username/.local/share/condathis
 })
 
 }

@@ -8,7 +8,7 @@ run(
   cmd,
   ...,
   env_name = "condathis-env",
-  method = c("native", "auto"),
+  method = "auto",
   verbose = c("output", "silent", "cmd", "spinner", "full"),
   error = c("cancel", "continue"),
   stdout = "|",
@@ -33,12 +33,12 @@ If the default environment does not exist, it is created automatically.
 A missing \emph{custom} \code{env_name} is never created automatically — it
 fails instead, per \code{error} below.}
 
-\item{method}{Character string with the backend execution strategy.
-Supported values are \code{"native"} and \code{"auto"}.
-Defaults to \code{"native"}.
-Currently does not change behavior — reserved for upcoming pluggable
-backend support (e.g. running through \code{rattler} or a container engine
-instead of a managed \code{micromamba} install). Not deprecated.}
+\item{method}{Character string naming the backend to use. Defaults to
+\code{"auto"} (resolve automatically: the environment's own owning backend
+if it already exists). \code{"micromamba"} is the only backend registered
+today — and the only one \code{run()} can actually execute through so far.
+\code{"native"} is a deprecated alias for \code{"micromamba"} (warns once per
+session).}
 
 \item{verbose}{Character string controlling console output.
 Supported values are \code{"output"}, \code{"silent"}, \code{"cmd"}, \code{"spinner"},

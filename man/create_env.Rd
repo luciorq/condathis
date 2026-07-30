@@ -9,7 +9,7 @@ create_env(
   env_file = NULL,
   env_name = "condathis-env",
   channels = c("conda-forge", "bioconda"),
-  method = c("native", "auto"),
+  method = "auto",
   channel_priority = c("disabled", "strict", "flexible"),
   additional_channels = NULL,
   platform = NULL,
@@ -32,12 +32,12 @@ Defaults to \code{"condathis-env"}.}
 \item{channels}{Character vector with channel names used for dependency
 resolution. Defaults to \code{c("conda-forge", "bioconda")}.}
 
-\item{method}{Character string with the backend execution strategy.
-Supported values are \code{"native"} and \code{"auto"}.
-Defaults to \code{"native"}.
-Currently does not change behavior — reserved for upcoming pluggable
-backend support (e.g. running through \code{rattler} or a container engine
-instead of a managed \code{micromamba} install). Not deprecated.}
+\item{method}{Character string naming the backend to use. Defaults to
+\code{"auto"} (resolve automatically: the environment's own owning backend
+if it already exists, otherwise \code{getOption("condathis.backend_priority")}
+order). \code{"micromamba"} is the only backend registered today.
+\code{"native"} is a deprecated alias for \code{"micromamba"} (warns once per
+session).}
 
 \item{channel_priority}{Character string with channel priority mode.
 Supported values are \code{"disabled"}, \code{"strict"}, and \code{"flexible"}.

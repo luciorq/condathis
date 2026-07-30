@@ -4,18 +4,24 @@
 \alias{get_env_dir}
 \title{Get an environment directory path}
 \usage{
-get_env_dir(env_name = "condathis-env")
+get_env_dir(env_name = "condathis-env", method = "auto")
 }
 \arguments{
 \item{env_name}{Character string with the environment name.
 Defaults to \code{"condathis-env"}.}
+
+\item{method}{Character string naming the backend to use. Defaults to
+\code{"auto"} (resolve automatically: the environment's own owning
+backend if it already exists). \code{"micromamba"} is the only backend
+registered today. \code{"native"} is a deprecated alias for \code{"micromamba"}
+(warns once per session).}
 }
 \value{
 A character string with the expected environment directory path.
 }
 \description{
-Returns the absolute path where an environment is expected under the
-\code{condathis} installation root. The path is returned even if the
+Returns the absolute path where an environment is expected under its
+owning backend's installation root. The path is returned even if the
 environment has not been created yet.
 }
 \examples{

@@ -1,12 +1,21 @@
 #' List Conda environments managed by condathis
 #'
-#' Returns environment names located under the `condathis` installation root.
-#' Environments not managed by `condathis` are excluded.
+#' Returns environment names located under each registered backend's own
+#' installation root. Environments not managed by `condathis` are excluded.
 #'
+#' @param method Character string naming which backend(s) to list.
+#'   Defaults to `"auto"`: every currently *registered and available*
+#'   backend. `"micromamba"` is the only backend registered today.
+#'   `"native"` is a deprecated alias for `"micromamba"` (warns once per
+#'   session).
 #' @param verbose Character string controlling console output.
 #'   Defaults to `"silent"`.
 #'
-#' @returns A character vector of environment names.
+#' @returns A tibble-classed data frame with one row per environment,
+#'   columns `backend` (chr), `env_name` (chr), and `path` (chr) — one row
+#'   per environment across every backend covered by `method`. With a
+#'   single registered backend (today's default), this is always the same
+#'   shape, just one `backend` value throughout.
 #'
 #' @examples
 #' \dontrun{
@@ -22,77 +31,58 @@
 #'   )
 #'
 #'   # List environments
-#'   condathis::list_envs()
+#'   condathis::list_envs()$env_name
 #'   #> [1] "fastqc-env" "python-env"
 #' })
 #' }
 #'
 #' @export
-list_envs <- function(verbose = "silent") {
-  env_root_dir <- get_install_dir()
-  px_res <- rethrow_error_cmd(
-    expr = {
-      native_cmd(
-        conda_cmd = "env",
-        conda_args = c(
-          "list",
-          "-q",
-          "--json"
-        ),
-        verbose = verbose
+list_envs <- function(method = "auto", verbose = "silent") {
+  method <- resolve_method_alias(validate_method_arg(method))
+
+  registered <- list_registered_backend_names()
+  backend_names <- if (identical(method, "auto")) {
+    registered[
+      vapply(
+        registered,
+        function(nm) isTRUE(backend_available(get_backend(nm))),
+        logical(1L)
       )
-    }
-  )
-  if (isFALSE(identical(px_res$status, 0L))) {
-    # `rethrow_error_cmd()` already aborts with `condathis_cmd_status_error`
-    # whenever `native_cmd()` itself throws (the normal failure path, since
-    # its default `error = "cancel"` makes the underlying `processx::run()`
-    # throw on a non-zero exit rather than return one) — this only
-    # triggers if `px_res` is ever returned with a non-zero status without
-    # throwing. Raising the same class here, rather than silently
-    # returning `px_res$status` (a bare number, not a character vector),
-    # keeps this function's return type invariant regardless of how the
-    # underlying command failed.
-    cli::cli_abort(
-      message = c(
-        `x` = "Failed to list environments.",
-        `!` = "{.code micromamba env list} exited with status {.val {px_res$status}}."
-      ),
-      class = "condathis_cmd_status_error"
-    )
+    ]
+  } else {
+    method
   }
 
-  envs_list <- jsonlite::fromJSON(px_res$stdout)
-  envs_str <- base::normalizePath(envs_list$envs, mustWork = FALSE)
-  envs_str <- fs::path_real(envs_str)
-  return(condathis_env_names(envs_str, env_root_dir))
-}
-
-#' Keep the env paths that live under the condathis install root, return names
-#'
-#' Extracted from `list_envs()` so the filtering can be unit-tested without a
-#' live `micromamba` call or real directories.
-#'
-#' `env_root_dir` is matched as a **literal** substring (`stringr::fixed()`),
-#' not a regex. It is a filesystem path (e.g. `~/.local/share/R/condathis`)
-#' whose `.` characters would otherwise be treated as "any character" regex
-#' metacharacters — matching, for example, `~/Xlocal/share/R/condathis/...`
-#' as if it belonged to condathis. The root path itself is excluded by the
-#' trailing `basename() != "condathis"` filter, same as before.
-#'
-#' @param envs_str Character vector of realized environment paths.
-#' @param env_root_dir Character string with the condathis install root.
-#'
-#' @returns A character vector of environment names (basenames).
-#'
-#' @keywords internal
-#' @noRd
-condathis_env_names <- function(envs_str, env_root_dir) {
-  # `env_root_dir` is an `fs_path`; `stringr::fixed()` wants plain character.
-  under_root <- stringr::str_detect(
-    as.character(envs_str),
-    stringr::fixed(as.character(env_root_dir))
+  empty_row <- base::data.frame(
+    backend = character(0L),
+    env_name = character(0L),
+    path = character(0L),
+    stringsAsFactors = FALSE
   )
-  env_names <- base::basename(envs_str[under_root])
-  return(env_names[!env_names %in% "condathis"])
+  rows <- lapply(backend_names, function(nm) {
+    backend <- get_backend(nm)
+    envs <- backend_list_envs(backend, verbose = verbose)
+    if (identical(length(envs), 0L)) {
+      return(empty_row)
+    }
+    base::data.frame(
+      backend = nm,
+      env_name = envs,
+      path = vapply(
+        envs,
+        function(e) as.character(env_dir_for_backend(backend, e)),
+        character(1L)
+      ),
+      stringsAsFactors = FALSE
+    )
+  })
+
+  envs_df <- if (isTRUE(length(rows) == 0L)) {
+    empty_row
+  } else {
+    do.call(rbind, rows)
+  }
+  envs_df <- base::unclass(envs_df)
+  base::attr(envs_df, "class") <- c("tbl_df", "tbl", "data.frame")
+  return(envs_df)
 }
