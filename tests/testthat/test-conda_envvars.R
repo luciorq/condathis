@@ -47,7 +47,7 @@ testthat::test_that("get_clean_conda_envvars includes all 20 env vars", {
     "MAMBA_PKGS_DIRS",
     "R_HOME"
   )
-  testthat::expect_equal(names(result), expected_names)
+  testthat::expect_named(result, expected_names)
 })
 
 testthat::test_that("CONDA_ENVS_DIRS is set to NULL (unset behavior)", {

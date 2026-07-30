@@ -22,10 +22,7 @@ testthat::test_that("Output redirection to file", {
   testthat::expect_true(
     fs::file_exists(temp_output_file)
   )
-  testthat::expect_equal(
-    px_res$stdout,
-    NULL
-  )
+  testthat::expect_null(px_res$stdout)
   fs::file_delete(temp_output_file)
   # })
 
@@ -66,10 +63,7 @@ testthat::test_that("Output redirection to file", {
   testthat::expect_true(
     fs::file_exists(temp_output_file)
   )
-  testthat::expect_equal(
-    px_res$stderr,
-    NULL
-  )
+  testthat::expect_null(px_res$stderr)
   fs::file_delete(temp_output_file)
   remove_env(env_name = "condathis-output-test-env", verbose = FALSE)
 })

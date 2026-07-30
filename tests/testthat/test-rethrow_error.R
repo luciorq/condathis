@@ -71,7 +71,7 @@ testthat::test_that("stdin is a file", {
     },
     env = parent.frame()
   )
-  testthat::expect_true(is.null(stdin))
+  testthat::expect_null(stdin)
   # testthat::expect_equal(px_res$status, 0L)
 
   rm(px_res)

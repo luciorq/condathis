@@ -254,7 +254,7 @@ test_that("Run with binary = TRUE round-trips raw bytes from a file", {
     binary = TRUE,
     verbose = "silent"
   )
-  testthat::expect_true(is.raw(res$stdout))
+  testthat::expect_type(res$stdout, "raw")
   testthat::expect_identical(res$stdout, raw_bytes)
 })
 
@@ -295,7 +295,7 @@ test_that("Run with binary = FALSE (default) still captures text", {
     env_name = "run-cli-tools-env",
     verbose = "silent"
   )
-  testthat::expect_true(is.character(res$stdout))
+  testthat::expect_type(res$stdout, "character")
 
   formatted <- format(res)
   testthat::expect_type(formatted, "character")

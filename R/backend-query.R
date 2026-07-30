@@ -47,7 +47,40 @@ find_owning_backends <- function(env_name, verbose = FALSE) {
       logical(1L)
     )
   ]
+  if (identical(length(owners), 1L)) {
+    warn_on_backend_marker_mismatch(owners[[1L]], env_name = env_name)
+  }
   return(owners)
+}
+
+#' Warn if an environment's on-disk backend marker disagrees with its
+#' structurally-determined owner
+#'
+#' Defense-in-depth only (see `read_backend_marker()`) — never changes
+#' which backend is actually used, only surfaces the inconsistency. Only
+#' meaningful when there's a single, unambiguous, structurally-determined
+#' owner to compare the marker against; collisions and brand-new
+#' environments have nothing to check.
+#'
+#' @param owner Character string, the backend name `find_owning_backends()`
+#'   already determined structurally.
+#' @param env_name Character string with the environment name.
+#'
+#' @keywords internal
+#' @noRd
+warn_on_backend_marker_mismatch <- function(owner, env_name) {
+  env_dir <- env_dir_for_backend(get_backend(owner), env_name = env_name)
+  marker <- read_backend_marker(env_dir)
+  if (isFALSE(is.null(marker)) && isFALSE(identical(marker$backend, owner))) {
+    cli::cli_warn(
+      message = c(
+        `!` = "Environment {.field {env_name}}'s backend marker says {.field {marker$backend}}, but it was found under backend {.field {owner}}.",
+        `i` = "Using {.field {owner}}, the structurally-determined owner."
+      ),
+      class = "condathis_backend_marker_mismatch"
+    )
+  }
+  return(invisible(NULL))
 }
 
 #' Bare install-root path for a single, already-resolved backend

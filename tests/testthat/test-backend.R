@@ -141,7 +141,9 @@ testthat::test_that("method = 'native' resolves to 'micromamba'", {
 
 testthat::test_that("method = 'native' warns exactly once per session", {
   old_warned <- condathis_native_warned$warned
-  withr::defer(condathis_native_warned$warned <- old_warned)
+  withr::defer({
+    condathis_native_warned$warned <- old_warned
+  })
   condathis_native_warned$warned <- FALSE
 
   warn_count <- 0

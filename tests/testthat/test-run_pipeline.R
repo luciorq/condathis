@@ -78,7 +78,7 @@ test_that("Pipeline runs two commands in same environment", {
   )
   testthat::expect_s3_class(res, "condathis_pipeline")
   testthat::expect_length(res$statuses, 2L)
-  testthat::expect_true(is.integer(res$statuses))
+  testthat::expect_type(res$statuses, "integer")
   testthat::expect_length(res$processes, 2L)
 
   last_stdout <- res$processes[[2]]$stdout
@@ -579,7 +579,7 @@ test_that("Pipeline with binary = TRUE round-trips raw bytes", {
     binary = TRUE
   )
   last_stdout <- res$processes[[2]]$stdout
-  testthat::expect_true(is.raw(last_stdout))
+  testthat::expect_type(last_stdout, "raw")
   testthat::expect_identical(last_stdout, raw_bytes)
 
   formatted <- format(res)
@@ -603,7 +603,7 @@ test_that("Pipeline with binary = FALSE (default) still captures text", {
     ),
     env_name = "run-pipeline-cli-tools-env"
   )
-  testthat::expect_true(is.character(res$processes[[2]]$stdout))
+  testthat::expect_type(res$processes[[2]]$stdout, "character")
 })
 
 test_that("Pipeline rejects non-logical binary argument", {
