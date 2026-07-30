@@ -6,12 +6,18 @@
 \usage{
 remove_env(
   env_name = "condathis-env",
+  method = "auto",
   verbose = c("silent", "cmd", "output", "spinner", "full")
 )
 }
 \arguments{
 \item{env_name}{Character string with the environment name to remove.
 Defaults to \code{"condathis-env"}.}
+
+\item{method}{Character string naming the backend to use. Defaults to
+\code{"auto"} (resolve automatically: the environment's own owning backend).
+\code{"micromamba"} is the only backend registered today. \code{"native"} is a
+deprecated alias for \code{"micromamba"} (warns once per session).}
 
 \item{verbose}{Character string controlling console output.
 Supported values are \code{"silent"}, \code{"cmd"}, \code{"output"}, \code{"spinner"},

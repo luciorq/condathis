@@ -6,6 +6,7 @@
 \usage{
 list_packages(
   env_name = "condathis-env",
+  method = "auto",
   verbose = c("output", "silent", "cmd", "spinner", "full")
 )
 }
@@ -13,22 +14,23 @@ list_packages(
 \item{env_name}{Character string with the target environment name.
 Defaults to \code{"condathis-env"}.}
 
+\item{method}{Character string naming the backend to use. Defaults to
+\code{"auto"} (resolve automatically: the environment's own owning
+backend). \code{"micromamba"} is the only backend registered today.
+\code{"native"} is a deprecated alias for \code{"micromamba"} (warns once per
+session).}
+
 \item{verbose}{Character string controlling console output.
 Supported values are \code{"output"}, \code{"silent"}, \code{"cmd"}, \code{"spinner"},
 and \code{"full"}. Defaults to \code{"output"}.}
 }
 \value{
-A data frame (\code{tibble}) with installed packages and the columns:
-\itemize{
-\item \strong{base_url}: The base URL of the package source.
-\item \strong{build_number}: The build number of the package.
-\item \strong{build_string}: The build string describing the package build details.
-\item \strong{channel}: The channel from which the package was installed.
-\item \strong{dist_name}: The distribution name of the package.
-\item \strong{name}: The name of the package.
-\item \strong{platform}: The platform for which the package is built.
-\item \strong{version}: The version of the package.
-}
+A data frame (\code{tibble}) with installed packages. Only four
+columns are guaranteed present regardless of backend: \strong{name},
+\strong{version}, \strong{build_number}, and \strong{channel}. Additional columns
+vary by backend and shouldn't be relied on in cross-backend code — the
+\code{"micromamba"} backend today also includes \code{base_url},
+\code{build_string}, \code{dist_name}, \code{platform}, \code{md5}, \code{sha256}, and \code{url}.
 }
 \description{
 Returns package metadata for a Conda environment as a tibble.

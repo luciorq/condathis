@@ -8,6 +8,7 @@ run_bin(
   cmd,
   ...,
   env_name = "condathis-env",
+  method = "auto",
   verbose = c("output", "silent", "cmd", "spinner", "full"),
   error = c("cancel", "continue"),
   stdout = "|",
@@ -29,6 +30,13 @@ run_bin(
 
 \item{env_name}{Character string with the target environment name.
 Defaults to \code{"condathis-env"}.}
+
+\item{method}{Character string naming the backend to use. Defaults to
+\code{"auto"} (resolve automatically: the environment's own owning
+backend). \code{"micromamba"} is the only backend registered today — and
+the only one \code{run_bin()} can actually execute through so far.
+\code{"native"} is a deprecated alias for \code{"micromamba"} (warns once per
+session).}
 
 \item{verbose}{Character string controlling console output.
 Supported values are \code{"output"}, \code{"silent"}, \code{"cmd"}, \code{"spinner"},

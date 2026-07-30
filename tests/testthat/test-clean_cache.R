@@ -4,7 +4,7 @@ testthat::test_that("clean_cache outputs are captured", {
 
   # This is needed for a full cache clean otherwhise, micromamba keeps
   # + the packages that are used in envs.
-  for (env_name in list_envs(verbose = "silent")) {
+  for (env_name in list_envs(verbose = "silent")$env_name) {
     remove_env(env_name = env_name, verbose = "silent")
   }
   r_user_cache <- fs::path(

@@ -8,6 +8,11 @@
 #'   environment instead).
 #' @param env_name Character string with the target environment name.
 #'   Defaults to `"condathis-env"`.
+#' @param method Character string naming the backend to use. Defaults to
+#'   `"auto"` (resolve automatically: the environment's own owning backend
+#'   if it already exists). `"micromamba"` is the only backend registered
+#'   today. `"native"` is a deprecated alias for `"micromamba"` (warns once
+#'   per session).
 #' @param channels Character vector with channel names used for dependency
 #'   resolution. Defaults to `c("conda-forge", "bioconda")`.
 #' @param channel_priority Character string with channel priority mode.
@@ -42,6 +47,7 @@
 install_packages <- function(
   packages,
   env_name = "condathis-env",
+  method = "auto",
   channels = c(
     "conda-forge",
     "bioconda"
@@ -74,55 +80,51 @@ install_packages <- function(
   )
 
   verbose_list <- parse_strategy_verbose(verbose = verbose)
-  channel_priority_args <- parse_strategy_channel_priority(
-    channel_priority = channel_priority
+
+  resolved <- resolve_backend(
+    env_name = env_name,
+    method = method,
+    mutating = TRUE
   )
 
-  if (isFALSE(env_exists(env_name, verbose = verbose_list$internal_verbose))) {
+  if (isFALSE(backend_has_env(resolved$backend, env_name))) {
     create_env(
       packages = NULL,
       env_name = env_name,
+      method = resolved$name,
       verbose = verbose_list$internal_verbose
     )
   }
 
-  channels_arg <- format_channels_args(
-    channels,
-    additional_channels
-  )
-
-  previous_channels <- get_env_history_channels(env_name = env_name)
-  missing_channels <- setdiff(
-    previous_channels,
-    c(channels, additional_channels)
-  )
-  if (isTRUE(length(missing_channels) > 0L)) {
-    cli::cli_warn(
-      message = c(
-        "!" = "Environment {.field {env_name}} was previously installed using channel{?s} {.field {missing_channels}}, not included in this call.",
-        "i" = "Dependency resolution may differ from previous installs. Consider adding {.field {missing_channels}} to {.arg channels} or {.arg additional_channels}."
-      ),
-      class = "condathis_install_missing_previous_channels"
+  # Channel-history-mismatch warning is a micromamba-specific convenience
+  # (reads `conda-meta/history`, a micromamba/conda prefix-layout detail) —
+  # not part of the generic backend contract; other backends simply don't
+  # get this warning yet.
+  if (identical(resolved$name, "micromamba")) {
+    previous_channels <- get_env_history_channels(env_name = env_name)
+    missing_channels <- setdiff(
+      previous_channels,
+      c(channels, additional_channels)
     )
-  }
-
-  px_res <- rethrow_error_cmd(
-    expr = {
-      native_cmd(
-        conda_cmd = "install",
-        conda_args = c(
-          "-n",
-          env_name,
-          "--yes",
-          verbose_list$quiet_flag,
-          "--override-channels",
-          channel_priority_args,
-          channels_arg
+    if (isTRUE(length(missing_channels) > 0L)) {
+      cli::cli_warn(
+        message = c(
+          "!" = "Environment {.field {env_name}} was previously installed using channel{?s} {.field {missing_channels}}, not included in this call.",
+          "i" = "Dependency resolution may differ from previous installs. Consider adding {.field {missing_channels}} to {.arg channels} or {.arg additional_channels}."
         ),
-        packages,
-        verbose = verbose_list
+        class = "condathis_install_missing_previous_channels"
       )
     }
+  }
+
+  px_res <- backend_install(
+    resolved$backend,
+    packages = packages,
+    env_name = env_name,
+    channels = channels,
+    channel_priority = channel_priority,
+    additional_channels = additional_channels,
+    verbose = verbose
   )
 
   if (
@@ -137,13 +139,13 @@ install_packages <- function(
   }
 
   result <- new_condathis_result(
-    status = px_res$status,
-    stdout = px_res$stdout,
-    stderr = px_res$stderr,
+    status = if (is.null(px_res$status)) 0L else px_res$status,
+    stdout = if (is.null(px_res$stdout)) "" else px_res$stdout,
+    stderr = if (is.null(px_res$stderr)) "" else px_res$stderr,
     timeout = if (is.null(px_res$timeout)) FALSE else px_res$timeout,
     pid = if (is.null(px_res$pid)) NA_integer_ else px_res$pid,
     cmd = paste(
-      c("micromamba", "install", "-n", env_name, packages),
+      c(resolved$name, "install", "-n", env_name, packages),
       collapse = " "
     ),
     env_name = env_name

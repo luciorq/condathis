@@ -4,21 +4,27 @@
 \alias{env_exists}
 \title{Check whether a Conda environment exists}
 \usage{
-env_exists(env_name, verbose = "silent")
+env_exists(env_name, method = "auto", verbose = "silent")
 }
 \arguments{
 \item{env_name}{Character string with the environment name to check.
 Must be a single, non-missing character string.}
 
+\item{method}{Character string naming which backend(s) to check.
+Defaults to \code{"auto"}: does the environment exist under \emph{any}
+registered backend. An explicit backend name checks only that one.
+\code{"micromamba"} is the only backend registered today. \code{"native"} is a
+deprecated alias for \code{"micromamba"} (warns once per session).}
+
 \item{verbose}{Character string controlling console output passed to
-\code{list_envs()}. Defaults to \code{"silent"}.}
+the backend. Defaults to \code{"silent"}.}
 }
 \value{
 \code{TRUE} when the environment exists and \code{FALSE} otherwise.
 }
 \description{
-Checks whether an environment name is present in the environments managed by
-\code{condathis}.
+Checks whether an environment name is present in the environments managed
+by \code{condathis}.
 }
 \examples{
 \dontrun{

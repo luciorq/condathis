@@ -8,6 +8,12 @@
 #' @param ... Additional unnamed command arguments passed to `cmd`.
 #' @param env_name Character string with the target environment name.
 #'   Defaults to `"condathis-env"`.
+#' @param method Character string naming the backend to use. Defaults to
+#'   `"auto"` (resolve automatically: the environment's own owning
+#'   backend). `"micromamba"` is the only backend registered today — and
+#'   the only one `run_bin()` can actually execute through so far.
+#'   `"native"` is a deprecated alias for `"micromamba"` (warns once per
+#'   session).
 #' @param verbose Character string controlling console output.
 #'   Supported values are `"output"`, `"silent"`, `"cmd"`, `"spinner"`,
 #'   and `"full"`. Defaults to `"output"`.
@@ -97,6 +103,7 @@ run_bin <- function(
   cmd,
   ...,
   env_name = "condathis-env",
+  method = "auto",
   verbose = c(
     "output",
     "silent",
@@ -124,6 +131,7 @@ run_bin <- function(
   }
 
   rlang::check_dots_unnamed()
+  validate_env_name(env_name, class = "condathis_run_bin_invalid_env_name")
 
   if (!is.null(input) && !identical(stdin, "|")) {
     cli::cli_abort(
@@ -154,7 +162,21 @@ run_bin <- function(
     verbose_output <- FALSE
   }
 
-  env_dir <- get_env_dir(env_name = env_name)
+  resolved <- resolve_backend(
+    env_name = env_name,
+    method = method,
+    mutating = FALSE
+  )
+  if (isFALSE(identical(resolved$name, "micromamba"))) {
+    cli::cli_abort(
+      message = c(
+        `x` = "{.fn run_bin} does not yet support executing through the {.field {resolved$name}} backend.",
+        `!` = "Only the {.field micromamba} backend is wired up for {.fn run_bin} today."
+      ),
+      class = "condathis_run_bin_backend_unsupported"
+    )
+  }
+  env_dir <- backend_get_env_dir(resolved$backend, env_name = env_name)
   # `<env_dir>/bin` only exists on Linux/macOS; Windows environments spread
   # binaries across `Library/mingw-w64/bin`, `Library/usr/bin`,
   # `Library/bin`, `Scripts`, and the prefix root itself (see

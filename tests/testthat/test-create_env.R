@@ -248,7 +248,7 @@ testthat::test_that("conda env is created", {
 
   testthat::expect_equal(px_res$status, 0L)
   testthat::expect_false(env_exists(env_name = "condathis-create-test-env"))
-  testthat::expect_false("condathis-create-test-env" %in% list_envs())
+  testthat::expect_false("condathis-create-test-env" %in% list_envs()$env_name)
 })
 
 testthat::test_that("Create conda env from file", {
@@ -265,7 +265,7 @@ testthat::test_that("Create conda env from file", {
 
   current_envs <- list_envs()
 
-  expect_true("condathis-create-file-test-env" %in% current_envs)
+  expect_true("condathis-create-file-test-env" %in% current_envs$env_name)
 
   expect_true(env_exists(env_name = "condathis-create-file-test-env"))
 
@@ -278,7 +278,9 @@ testthat::test_that("Create conda env from file", {
 
   current_envs <- list_envs()
 
-  testthat::expect_false("condathis-create-file-test-env" %in% current_envs)
+  testthat::expect_false(
+    "condathis-create-file-test-env" %in% current_envs$env_name
+  )
 
   testthat::expect_false(env_exists(
     env_name = "condathis-create-file-test-env"

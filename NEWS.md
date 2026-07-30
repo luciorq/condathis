@@ -1,6 +1,53 @@
-## condathis 0.1.5 (Development Version)
+## condathis 0.2.0 (Development Version)
 
 Development Changelog: [dev](https://github.com/luciorq/condathis/compare/v0.1.4...HEAD)
+
+This release is being tracked as a minor version bump instead of a patch
+(`0.1.5`) because its centerpiece — the pluggable backend system — is a
+structural, package-wide refactor: every environment-management function
+now dispatches through a backend registry instead of hardcoding the managed
+`micromamba` installation, laying the foundation for future backends (e.g.
+an in-process `rattler` engine) to plug in without further changes to the
+public API. It also carries several other breaking (though narrow) changes
+alongside it — see below.
+
+### Backend System
+
+* `condathis` now has a pluggable backend system. Internally, every
+  environment-management operation (`create_env()`, `install_packages()`,
+  `remove_env()`, `list_envs()`, `env_exists()`, `list_packages()`,
+  `get_env_dir()`, `get_install_dir()`, and, for the environments it can
+  already execute through, `run()`, `run_bin()`, `run_pipeline()`) now
+  dispatches to a registered *backend* instead of hardcoding the managed
+  `micromamba` installation. `"micromamba"` is the built-in default and,
+  today, the only registered backend — this is the foundation for future
+  backends (e.g. an in-process `rattler` engine, or container-based
+  engines) to plug in later without changing any of the functions above.
+  All of these functions gain a new `method` argument: `"auto"` (the
+  default) resolves automatically — an existing environment's own owning
+  backend, or `getOption("condathis.backend_priority")` order for a new
+  one; `"micromamba"` selects it explicitly. `"native"` (the old default)
+  is now a deprecated alias for `"micromamba"` and warns once per session,
+  but keeps working exactly the same. If you never pass `method`, nothing
+  about your existing code changes.
+
+* **Breaking (minor):** `get_install_dir()` and `list_envs()` now return a
+  tibble-classed data frame instead of a bare character vector/string, so
+  they can report results across more than one backend. `get_install_dir()`
+  gains `backend`/`path` columns; `list_envs()` gains `backend`/`env_name`/
+  `path` columns. With a single registered backend (today's default),
+  this is always one row per environment (or one row total for
+  `get_install_dir()`), just no longer a bare vector — code checking
+  `is.character(get_install_dir())` or iterating `for (e in list_envs())`
+  needs to switch to `get_install_dir()$path` / `list_envs()$env_name`.
+  `env_exists()` is unaffected — it still returns a plain `TRUE`/`FALSE`.
+
+* `list_packages()`'s columns are now documented as backend-dependent:
+  only `name`, `version`, `build_number`, and `channel` are guaranteed
+  present across every backend. The `"micromamba"` backend's other
+  columns (`base_url`, `build_string`, `dist_name`, `platform`, `md5`,
+  `sha256`, `url`) are unchanged, just no longer part of the documented
+  cross-backend guarantee.
 
 ### Added
 

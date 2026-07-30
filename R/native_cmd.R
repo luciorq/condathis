@@ -90,7 +90,7 @@ native_cmd <- function(
     umamba_bin_path <- micromamba_bin_path()
   }
 
-  env_root_dir <- get_install_dir()
+  env_root_dir <- install_dir_for_backend(micromamba_backend())
   env_envs_dir <- fs::path(env_root_dir, "envs")
   umamba_bin_path <- base::normalizePath(umamba_bin_path, mustWork = FALSE)
   tmp_dir_path <- withr::local_tempdir(pattern = "mamba-tmp")
