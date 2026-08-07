@@ -108,6 +108,32 @@ test_that("Run with a missing custom env never creates condathis-env as a side e
   testthat::skip_if_offline()
 
   condathis::with_sandbox_dir({
+    # --- TEMPORARY DIAGNOSTICS: remove once the CI-only failure here is root-caused ---
+    cat("\n=== DIAG: sandbox env vars ===\n")
+    print(Sys.getenv(c(
+      "HOME",
+      "XDG_DATA_HOME",
+      "R_USER_DATA_DIR",
+      "XDG_CACHE_HOME",
+      "R_USER_CACHE_DIR",
+      "CONDA_PREFIX",
+      "MAMBA_ROOT_PREFIX",
+      "CONDA_ENVS_DIRS",
+      "CONDA_ENVS_PATH"
+    )))
+    install_dir <- get_install_dir()
+    cat("=== DIAG: get_install_dir() ===\n")
+    print(install_dir)
+    cat("=== DIAG: dir_exists / dir_ls (recursive) ===\n")
+    print(fs::dir_exists(install_dir))
+    print(tryCatch(
+      fs::dir_ls(install_dir, recurse = TRUE, all = TRUE),
+      error = function(e) e
+    ))
+    cat("=== DIAG: list_envs(verbose = 'full') ===\n")
+    print(tryCatch(list_envs(verbose = "full"), error = function(e) e))
+    cat("=== END DIAG ===\n\n")
+
     testthat::expect_false(env_exists("condathis-env", verbose = "silent"))
     run(
       "echo",
