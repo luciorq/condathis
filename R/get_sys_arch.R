@@ -17,3 +17,29 @@ get_sys_arch <- function() {
   cpu_arch <- base::Sys.info()["machine"]
   return(base::paste0(os, "-", cpu_arch))
 }
+
+#' Check whether the current platform is Windows
+#'
+#' Single source of truth for the "is this Windows?" check, previously
+#' duplicated across the package via three different idioms
+#' (`stringr::str_detect(get_sys_arch(), "^Windows")`,
+#' `identical(Sys.info()["sysname"], c(sysname = "Windows"))`, and
+#' `identical(.Platform$OS.type, "windows")`).
+#'
+#' @returns Logical.
+#'
+#' @keywords internal
+#' @noRd
+is_windows <- function() {
+  return(isTRUE(stringr::str_detect(get_sys_arch(), "^Windows")))
+}
+
+#' Check whether the current platform is macOS
+#'
+#' @returns Logical.
+#'
+#' @keywords internal
+#' @noRd
+is_macos <- function() {
+  return(isTRUE(stringr::str_detect(get_sys_arch(), "^Darwin")))
+}

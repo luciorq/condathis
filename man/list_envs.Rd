@@ -12,7 +12,6 @@ Defaults to \code{"silent"}.}
 }
 \value{
 A character vector of environment names.
-If the command fails, returns the process exit status as a numeric value.
 }
 \description{
 Returns environment names located under the \code{condathis} installation root.

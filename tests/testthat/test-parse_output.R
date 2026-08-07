@@ -72,3 +72,35 @@ testthat::test_that("parse_output works", {
     c("invalid", "input")
   )
 })
+
+testthat::test_that("parse_output rejects raw binary streams", {
+  res_binary <- list(
+    stdout = as.raw(c(0x00, 0x01, 0xFF)),
+    stderr = "error1\n"
+  )
+
+  testthat::expect_error(
+    parse_output(res_binary, stream = "stdout"),
+    class = "condathis_parse_output_binary_stream"
+  )
+
+  testthat::expect_error(
+    parse_output(res_binary, stream = "both"),
+    class = "condathis_parse_output_binary_stream"
+  )
+
+  # stderr alone is still text, unaffected by a raw stdout
+  testthat::expect_equal(
+    parse_output(res_binary, stream = "stderr"),
+    c("error1")
+  )
+
+  res_binary_both <- list(
+    stdout = as.raw(1:3),
+    stderr = as.raw(4:6)
+  )
+  testthat::expect_error(
+    parse_output(res_binary_both, stream = "stderr"),
+    class = "condathis_parse_output_binary_stream"
+  )
+})

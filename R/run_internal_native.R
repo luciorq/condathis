@@ -15,6 +15,18 @@
 #' @param stdout Standard output target. Defaults to `"|"`.
 #' @param stderr Standard error target. Defaults to `"|"`.
 #' @param stdin Standard input source. Defaults to `NULL`.
+#' @param input Character or raw vector written to stdin when
+#'   `stdin = "|"`. Defaults to `NULL`.
+#' @param binary Logical. Whether to capture stdout/stderr as raw vectors
+#'   instead of UTF-8 text. Defaults to `FALSE`.
+#' @param supervise Logical. Whether to supervise the process for crash-safe
+#'   cleanup. Defaults to `FALSE`.
+#' @param cleanup_tree Logical. Whether to clean up the child process tree
+#'   after the process has finished. Defaults to `FALSE`.
+#' @param linux_pdeathsig Logical. On Linux, whether to send `SIGKILL` to the
+#'   child process if the parent R process dies. Defaults to `FALSE`.
+#' @param timeout Numeric. Maximum number of seconds to let the command run
+#'   before it's killed. Defaults to `Inf` (no limit).
 #'
 #' @returns A process result list from `processx::run()`.
 #'
@@ -34,9 +46,15 @@ run_internal_native <- function(
   error = c("cancel", "continue"),
   stdout = "|",
   stderr = "|",
-  stdin = NULL
+  stdin = NULL,
+  input = NULL,
+  binary = FALSE,
+  supervise = FALSE,
+  cleanup_tree = FALSE,
+  linux_pdeathsig = FALSE,
+  timeout = Inf
 ) {
-  if (identical(base::Sys.info()["sysname"], c(sysname = "Windows"))) {
+  if (isTRUE(is_windows())) {
     micromamba_bat_path <- fs::path(
       get_install_dir(),
       "condabin",
@@ -86,7 +104,13 @@ run_internal_native <- function(
     error = error,
     stdout = stdout,
     stderr = stderr,
-    stdin = stdin
+    stdin = stdin,
+    input = input,
+    encoding = if (isTRUE(binary)) "binary" else "utf-8",
+    supervise = supervise,
+    cleanup_tree = cleanup_tree,
+    linux_pdeathsig = linux_pdeathsig,
+    timeout = timeout
   )
   return(invisible(px_res))
 }

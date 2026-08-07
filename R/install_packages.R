@@ -4,6 +4,8 @@
 #' If the target environment does not exist, it is created first.
 #'
 #' @param packages Character vector of package MatchSpec strings to install.
+#'   Required; must not be `NULL` (use `create_env()` to create an empty
+#'   environment instead).
 #' @param env_name Character string with the target environment name.
 #'   Defaults to `"condathis-env"`.
 #' @param channels Character vector with channel names used for dependency
@@ -17,8 +19,9 @@
 #'   Supported values are `"output"`, `"silent"`, `"cmd"`, `"spinner"`,
 #'   and `"full"`. Defaults to `"output"`.
 #'
-#' @returns A process result list (from `processx::run()`) with command output,
-#'   error output, exit status, and timeout information.
+#' @returns A `condathis_result` S3 object (a classed list, still usable as
+#'   a plain list) with `status`, `stdout`, `stderr`, `timeout`, `pid`,
+#'   `cmd`, and `env_name`.
 #'
 #' @examples
 #' \dontrun{
@@ -57,16 +60,25 @@ install_packages <- function(
     "full"
   )
 ) {
+  if (missing(packages) || rlang::is_null(packages)) {
+    cli::cli_abort(
+      message = c(
+        `x` = "{.arg packages} must be a character vector of package names."
+      ),
+      class = "condathis_install_packages_missing_packages"
+    )
+  }
+  validate_env_name(
+    env_name,
+    class = "condathis_install_packages_invalid_env_name"
+  )
+
   verbose_list <- parse_strategy_verbose(verbose = verbose)
   channel_priority_args <- parse_strategy_channel_priority(
     channel_priority = channel_priority
   )
 
-  if (
-    isFALSE(any(
-      list_envs(verbose = verbose_list$internal_verbose) %in% env_name
-    ))
-  ) {
+  if (isFALSE(env_exists(env_name, verbose = verbose_list$internal_verbose))) {
     create_env(
       packages = NULL,
       env_name = env_name,
@@ -78,6 +90,21 @@ install_packages <- function(
     channels,
     additional_channels
   )
+
+  previous_channels <- get_env_history_channels(env_name = env_name)
+  missing_channels <- setdiff(
+    previous_channels,
+    c(channels, additional_channels)
+  )
+  if (isTRUE(length(missing_channels) > 0L)) {
+    cli::cli_warn(
+      message = c(
+        "!" = "Environment {.field {env_name}} was previously installed using channel{?s} {.field {missing_channels}}, not included in this call.",
+        "i" = "Dependency resolution may differ from previous installs. Consider adding {.field {missing_channels}} to {.arg channels} or {.arg additional_channels}."
+      ),
+      class = "condathis_install_missing_previous_channels"
+    )
+  }
 
   px_res <- rethrow_error_cmd(
     expr = {
@@ -108,5 +135,18 @@ install_packages <- function(
       )
     )
   }
-  return(invisible(px_res))
+
+  result <- new_condathis_result(
+    status = px_res$status,
+    stdout = px_res$stdout,
+    stderr = px_res$stderr,
+    timeout = if (is.null(px_res$timeout)) FALSE else px_res$timeout,
+    pid = if (is.null(px_res$pid)) NA_integer_ else px_res$pid,
+    cmd = paste(
+      c("micromamba", "install", "-n", env_name, packages),
+      collapse = " "
+    ),
+    env_name = env_name
+  )
+  return(invisible(result))
 }

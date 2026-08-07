@@ -18,8 +18,9 @@ Supported values are \code{"silent"}, \code{"cmd"}, \code{"output"}, \code{"spin
 and \code{"full"}. Defaults to \code{"silent"}.}
 }
 \value{
-A process result list (from \code{processx::run()}) with command output,
-error output, exit status, and timeout information.
+A \code{condathis_result} S3 object (a classed list, still usable as
+a plain list) with \code{status}, \code{stdout}, \code{stderr}, \code{timeout}, \code{pid},
+\code{cmd}, and \code{env_name}.
 }
 \description{
 Removes an environment managed by \code{condathis}.

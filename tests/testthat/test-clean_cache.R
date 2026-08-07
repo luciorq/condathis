@@ -60,3 +60,13 @@ testthat::test_that("clean_cache outputs are captured", {
   )
   testthat::expect_true(fs::dir_exists(r_user_cache))
 })
+
+testthat::test_that("clean_cache returns a condathis_result object", {
+  testthat::skip_if_offline()
+  testthat::skip_on_cran()
+
+  cache_res <- clean_cache(verbose = "silent")
+  testthat::expect_s3_class(cache_res, "condathis_result")
+  testthat::expect_equal(cache_res$status, 0L)
+  testthat::expect_true(is.na(cache_res$env_name))
+})

@@ -44,7 +44,7 @@ condathis::with_sandbox_dir({
   # Lists the packages in env `fastqc-env`
   dat <- condathis::list_packages("fastqc-env")
   dim(dat)
-  #> [1] 34  8
+  #> [1] 66 11
 })
 }
 

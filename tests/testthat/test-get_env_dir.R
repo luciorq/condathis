@@ -5,3 +5,18 @@ test_that("get_env_dir() works", {
     get_env_dir(env_name)
   )
 })
+
+test_that("get_env_dir() validates env_name", {
+  testthat::expect_error(
+    object = get_env_dir(env_name = c("a", "b")),
+    class = "condathis_get_env_dir_invalid_env_name"
+  )
+  testthat::expect_error(
+    object = get_env_dir(env_name = NA),
+    class = "condathis_get_env_dir_invalid_env_name"
+  )
+  testthat::expect_error(
+    object = get_env_dir(env_name = 123),
+    class = "condathis_get_env_dir_invalid_env_name"
+  )
+})

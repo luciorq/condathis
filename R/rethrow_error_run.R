@@ -15,8 +15,14 @@ rethrow_error_run <- function(expr, env = parent.frame()) {
     expr = {
       px_res <- rlang::eval_bare(expr = code, env = env)
     },
-    classes = c("system_command_status_error", "rlib_error_3_0", "c_error")
+    classes = c(
+      "system_command_status_error",
+      "system_command_timeout_error",
+      "rlib_error_3_0",
+      "c_error"
+    )
   )
+  is_timeout <- isTRUE(inherits(err_cnd, "system_command_timeout_error"))
 
   if (
     isFALSE(rlang::is_null(env[["stdin"]])) &&
@@ -42,20 +48,7 @@ rethrow_error_run <- function(expr, env = parent.frame()) {
   if (isFALSE(rlang::is_null(err_cnd)) && !isFALSE(env[["error_var"]])) {
     additional_lines <- NULL
     if (isTRUE("stderr" %in% names(err_cnd))) {
-      err_vector <- stringr::str_replace_all(
-        stringr::str_replace_all(
-          string = err_cnd[["stderr"]],
-          pattern = stringr::fixed("{"),
-          replacement = stringr::fixed("{{")
-        ),
-        pattern = stringr::fixed("}"),
-        replacement = stringr::fixed("}}")
-      )
-      additional_lines <- stringr::str_split(
-        string = stringr::str_trim(err_vector),
-        pattern = stringr::regex("\\R"),
-        simplify = FALSE
-      )[[1]]
+      additional_lines <- stream_display_lines(err_cnd[["stderr"]])
     }
 
     status_code <- NULL
@@ -66,6 +59,18 @@ rethrow_error_run <- function(expr, env = parent.frame()) {
       status_code <- err_cnd[["status"]]
     }
     env[["status_code"]] <- status_code
+
+    if (isTRUE(is_timeout)) {
+      cli::cli_abort(
+        message = c(
+          `x` = "System command {.field {cmd}} timed out",
+          `!` = "Timeout: {timeout} seconds",
+          additional_lines
+        ),
+        class = "condathis_run_timeout_error",
+        .envir = env
+      )
+    }
 
     cli::cli_abort(
       message = c(
@@ -85,7 +90,12 @@ rethrow_error_run <- function(expr, env = parent.frame()) {
       status_code <- err_cnd[["status"]]
     }
 
-    if (
+    if (isTRUE(is_timeout)) {
+      stderr_msg <- sprintf(
+        "Command timed out after %s seconds",
+        env[["timeout"]]
+      )
+    } else if (
       isFALSE(rlang::is_null(err_cnd[["message"]])) &&
         isTRUE(stringr::str_detect(err_cnd[["message"]], "Native call to"))
     ) {
@@ -101,8 +111,20 @@ rethrow_error_run <- function(expr, env = parent.frame()) {
       status = status_code,
       stdout = "",
       stderr = stderr_msg,
-      timeout = FALSE
+      timeout = is_timeout
     )
+  }
+
+  # Normalized to a fixed sentinel here, in one place, regardless of how
+  # `px_res` was produced above: `processx::run()` itself never throws on
+  # timeout when `error_on_status = FALSE` (`error = "continue"`'s case) —
+  # it returns normally with `status` set to whatever the OS reports for
+  # the killed process, confirmed to differ across platforms (`-9` on
+  # Linux/macOS, `2` on Windows for the identical `kill()`). `px_res$timeout`
+  # is always reliably set by `processx::run()`/`run_process_with_input()`
+  # either way, so it — not the raw status — is what `condathis` trusts.
+  if (isTRUE(rlang::is_list(px_res)) && isTRUE(px_res$timeout)) {
+    px_res$status <- -9L
   }
 
   return(px_res)

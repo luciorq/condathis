@@ -6,6 +6,11 @@
 #' @returns A character string with the full executable path.
 #'   On Windows this points to `micromamba.exe` under `Library/bin`.
 #'   On other platforms this points to `micromamba` under `bin`.
+#'   This is purely a computed, expected path — it does not check whether a
+#'   file actually exists there yet (unlike `get_install_dir()`, which
+#'   creates its directory before returning). Use `fs::file_exists()` on
+#'   the result, or `install_micromamba()`, if you need the binary to
+#'   actually be present.
 #'
 #' @examples
 #' condathis::with_sandbox_dir({
@@ -16,9 +21,8 @@
 #'
 #' @export
 micromamba_bin_path <- function() {
-  sys_arch <- get_sys_arch()
   output_dir <- get_install_dir()
-  if (isTRUE(stringr::str_detect(sys_arch, "^Windows"))) {
+  if (isTRUE(is_windows())) {
     umamba_bin_path <- fs::path(
       output_dir,
       "micromamba",

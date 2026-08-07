@@ -7,7 +7,8 @@
 env_exists(env_name, verbose = "silent")
 }
 \arguments{
-\item{env_name}{Character string with the environment name to check.}
+\item{env_name}{Character string with the environment name to check.
+Must be a single, non-missing character string.}
 
 \item{verbose}{Character string controlling console output passed to
 \code{list_envs()}. Defaults to \code{"silent"}.}

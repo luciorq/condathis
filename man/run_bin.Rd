@@ -12,7 +12,14 @@ run_bin(
   error = c("cancel", "continue"),
   stdout = "|",
   stderr = "|",
-  stdin = NULL
+  stdin = NULL,
+  input = NULL,
+  binary = FALSE,
+  supervise = FALSE,
+  cleanup_tree = FALSE,
+  linux_pdeathsig = FALSE,
+  activate = TRUE,
+  timeout = Inf
 )
 }
 \arguments{
@@ -41,11 +48,59 @@ Provide a file path to redirect stderr to a file.}
 
 \item{stdin}{Standard input source.
 Defaults to \code{NULL} (no stdin stream).
-Provide a file path to use file contents as stdin.}
+Provide a file path to use file contents as stdin, or \code{"|"} to write
+\code{input} to the process.}
+
+\item{input}{Character or raw vector written to the process's standard
+input when \code{stdin = "|"}. Defaults to \code{NULL}. Ignored (and must not be
+set) when \code{stdin} is not \code{"|"}. Note: live (real-time) stdout/stderr
+streaming and the spinner are not available when \code{input} triggers the
+writable-stdin code path; \code{timeout} still works.}
+
+\item{binary}{Logical. Whether to capture stdout/stderr as raw vectors
+instead of decoding them as UTF-8 text. Defaults to \code{FALSE}. Since a
+process's stdout and stderr share a single encoding, both streams are
+returned raw when \code{TRUE}, even if only one of them actually carries
+binary data — check with \code{is.raw()} before treating either as text.
+Binary streams are never live-echoed to the console, regardless of
+\code{verbose}.}
+
+\item{supervise}{Logical. Whether the process should be supervised by the
+\code{processx} supervisor for crash-safe cleanup. Defaults to \code{FALSE}.}
+
+\item{cleanup_tree}{Logical. Whether to clean up the child process tree
+on crash/interrupt. Defaults to \code{FALSE}.}
+
+\item{linux_pdeathsig}{Logical. On Linux, whether to send \code{SIGKILL} to the
+child process if the parent R process dies. Has no effect on other
+platforms. Defaults to \code{FALSE}.}
+
+\item{activate}{Logical. Whether to resolve and apply \code{env_name}'s real
+\verb{micromamba run} activation (via \code{get_micromamba_activation_envvars()},
+including any package \code{activate.d} hook scripts) as an environment
+overlay before running \code{cmd}. Defaults to \code{TRUE}. Silently skipped
+(\code{cmd} still runs, unactivated) when \code{env_name} does not exist, so
+\code{error = "continue"}-style fallback to a binary outside any managed
+environment keeps working. Set to \code{FALSE} to restore the original,
+activation-free \code{run_bin()} behavior — \code{cmd} still resolves against
+\code{env_name}'s \verb{bin/} directory (falling back to \code{PATH}), but the child
+process otherwise inherits the caller's environment unmodified. This
+is the mechanism that makes \code{run_bin(activate = TRUE)} behave like
+\code{run()}, minus the different binary-resolution strategy: \code{run()}
+resolves \code{cmd} via the activated \code{PATH} inside a \verb{micromamba run}
+wrapper, while \code{run_bin()} always resolves \code{cmd} itself beforehand.}
+
+\item{timeout}{Numeric. Maximum number of seconds to let the command run
+before it's killed. Defaults to \code{Inf} (no limit, the previous
+behavior). On expiry, the process is killed, \code{timeout} is \code{TRUE} in the
+returned result, and \code{error = "cancel"} aborts with class
+\code{condathis_run_timeout_error} (\code{error = "continue"} returns normally
+with \code{status = -9}).}
 }
 \value{
-A process result list (from \code{processx::run()}) with command output,
-error output, exit status, and timeout information.
+A \code{condathis_result} S3 object (a classed list, still usable as
+a plain list) with \code{status}, \code{stdout}, \code{stderr}, \code{timeout}, \code{pid},
+\code{cmd}, and \code{env_name}.
 }
 \description{
 Executes a binary using files from a target Conda environment, but without
@@ -55,15 +110,24 @@ This is a lower-level execution mode than \code{run()}.
 \examples{
 \dontrun{
 condathis::with_sandbox_dir({
-  # Example assumes that 'my-env' exists and contains 'python'
+  # Create an environment with 'python' and 'ripgrep'. `coreutils`
+  # (and other GNU tools like `grep`) aren't available for Windows on
+  # conda-forge, so `ripgrep` is used here instead of e.g. `ls`/`grep` —
+  # a single package name that installs and runs the same way on every
+  # platform `condathis` supports.
+  condathis::create_env(
+    c("conda-forge::python", "conda-forge::ripgrep"),
+    env_name = "my-env"
+  )
+
   # Run 'python' with a script in 'my-env' environment
   condathis::run_bin(
     "python", "-c", "import sys; print(sys.version)",
     env_name = "my-env"
   )
 
-  # Run 'ls' command with additional arguments
-  condathis::run_bin("ls", "-la", env_name = "my-env")
+  # Run the 'rg' (ripgrep) binary with additional arguments
+  condathis::run_bin("rg", "--version", env_name = "my-env")
 })
 }
 

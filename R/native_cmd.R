@@ -17,9 +17,23 @@
 #' @param stderr Standard error target.
 #'   Defaults to `"|"`.
 #' @param stdin Standard input source.
-#'   Defaults to `NULL`.
+#'   Defaults to `NULL`. Use `"|"` together with `input` for writable stdin.
+#' @param input Character or raw vector written to the process's standard
+#'   input when `stdin = "|"`. Defaults to `NULL`.
+#' @param cleanup_tree Logical. Whether to clean up the child process tree
+#'   after the process has finished. Defaults to `FALSE`.
+#' @param encoding Character string. Assumed encoding for stdout/stderr.
+#'   Defaults to `"utf-8"`. Use `"binary"` for raw byte output.
+#' @param linux_pdeathsig Logical. On Linux, whether to send `SIGKILL` to the
+#'   child process if the parent R process dies. Has no effect on other
+#'   platforms. Defaults to `FALSE`.
+#' @param supervise Logical. Whether the process should be supervised by the
+#'   `processx` supervisor for crash-safe cleanup. Defaults to `FALSE`.
+#' @param timeout Numeric. Maximum number of seconds to let the command run
+#'   before it's killed. Defaults to `Inf` (no limit).
 #'
-#' @returns A process result list from `processx::run()`.
+#' @returns A process result list from `processx::run()` (or an equivalent
+#'   list from `run_process_with_input()` when `stdin = "|"`).
 #'
 #' @keywords internal
 #' @noRd
@@ -37,7 +51,13 @@ native_cmd <- function(
   error = c("cancel", "continue"),
   stdout = "|",
   stderr = "|",
-  stdin = NULL
+  stdin = NULL,
+  input = NULL,
+  cleanup_tree = FALSE,
+  encoding = "utf-8",
+  linux_pdeathsig = FALSE,
+  supervise = FALSE,
+  timeout = Inf
 ) {
   rlang::check_required(conda_cmd)
 
@@ -54,6 +74,10 @@ native_cmd <- function(
 
   verbose_output <- verbose_list$output
   if (isFALSE(stderr %in% c("|", ""))) {
+    verbose_output <- FALSE
+  }
+  # Binary streams have no sensible terminal representation, never echo them.
+  if (identical(encoding, "binary")) {
     verbose_output <- FALSE
   }
 
@@ -77,30 +101,52 @@ native_cmd <- function(
     )
   )
 
-  callback_fun_out <- NULL
-  callback_fun_err <- NULL
-
-  px_res <- processx::run(
-    command = fs::path_real(umamba_bin_path),
-    args = c(
-      "--no-rc",
-      "--no-env",
-      "-r",
-      env_root_dir,
-      conda_cmd,
-      conda_args,
-      ...
-    ),
-    spinner = verbose_list$spinner_flag,
-    echo_cmd = verbose_list$cmd,
-    echo = verbose_output,
-    stdout = stdout,
-    stdout_line_callback = callback_fun_out,
-    stderr = stderr,
-    stderr_line_callback = callback_fun_err,
-    stdin = stdin,
-    error_on_status = error_var
+  cmd_args <- c(
+    "--no-rc",
+    "--no-env",
+    "-r",
+    env_root_dir,
+    conda_cmd,
+    conda_args,
+    ...
   )
+
+  if (identical(stdin, "|")) {
+    px_res <- run_process_with_input(
+      command = fs::path_real(umamba_bin_path),
+      args = cmd_args,
+      input = input,
+      stdout = stdout,
+      stderr = stderr,
+      echo_cmd = verbose_list$cmd,
+      echo = verbose_output,
+      error_on_status = error_var,
+      cleanup_tree = cleanup_tree,
+      supervise = supervise,
+      linux_pdeathsig = linux_pdeathsig,
+      encoding = encoding,
+      timeout = timeout
+    )
+  } else {
+    px_res <- processx::run(
+      command = fs::path_real(umamba_bin_path),
+      args = cmd_args,
+      spinner = verbose_list$spinner_flag,
+      echo_cmd = verbose_list$cmd,
+      echo = verbose_output,
+      stdout = stdout,
+      stdout_line_callback = NULL,
+      stderr = stderr,
+      stderr_line_callback = NULL,
+      stdin = stdin,
+      error_on_status = error_var,
+      cleanup_tree = cleanup_tree,
+      encoding = encoding,
+      linux_pdeathsig = linux_pdeathsig,
+      supervise = supervise,
+      timeout = timeout
+    )
+  }
 
   return(invisible(px_res))
 }

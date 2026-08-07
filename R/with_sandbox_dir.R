@@ -10,10 +10,8 @@
 #' @returns `NULL`, invisibly.
 #'
 #' @examples
-#' \dontrun{
 #' condathis::with_sandbox_dir(print(fs::path_home()))
 #' condathis::with_sandbox_dir(print(tools::R_user_dir("condathis")))
-#' }
 #' @export
 with_sandbox_dir <- function(code, .local_envir = base::parent.frame()) {
   tmp_home_path <- withr::local_tempdir(

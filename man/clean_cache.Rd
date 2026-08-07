@@ -12,8 +12,10 @@ Supported values are \code{"output"}, \code{"silent"}, \code{"cmd"}, \code{"spin
 and \code{"full"}. Defaults to \code{"output"}.}
 }
 \value{
-A process result list (from \code{processx::run()}) with command output,
-error output, exit status, and timeout information.
+A \code{condathis_result} S3 object (a classed list, still usable as
+a plain list) with \code{status}, \code{stdout}, \code{stderr}, \code{timeout}, \code{pid},
+\code{cmd}, and \code{env_name}. \code{env_name} is always \code{NA} since cache cleanup is
+not tied to a specific environment.
 }
 \description{
 Removes cached packages and archives from the \code{condathis} Conda root.
