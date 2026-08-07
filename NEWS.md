@@ -154,6 +154,19 @@ Development Changelog: [dev](https://github.com/luciorq/condathis/compare/v0.1.4
 
 ### Fixed
 
+* Fix `install_micromamba()` always creating the default `"condathis-env"`
+  as an undocumented side effect of installing the binary, even when
+  triggered incidentally by an unrelated, read-only call (for example
+  `env_exists()`) that happened to need a first-time install because no
+  `micromamba` binary was available anywhere yet. `install_micromamba()`
+  is documented to install the binary only; this leftover, no-longer-needed
+  workaround (the same kind `run()`'s own auto-create logic already dropped)
+  made a fresh install root end up with an unwanted default environment
+  the caller never asked for. `run()`, `run_pipeline()`, and
+  `list_packages()` each already auto-create `"condathis-env"` themselves,
+  correctly scoped to only when it's actually the target — that behavior
+  is unaffected.
+
 * Fix `run_pipeline()` checking that Conda environments exist before
   attempting to auto-create the missing default environment, which made the
   auto-create path unreachable.

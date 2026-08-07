@@ -158,10 +158,6 @@ install_micromamba <- function(
     )
   }
 
-  if (isTRUE(fs::file_exists(umamba_bin_path))) {
-    create_base_env(verbose = verbose_list$internal_verbose)
-  }
-
   invisible(umamba_bin_path)
 }
 
