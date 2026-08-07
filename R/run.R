@@ -195,6 +195,19 @@ run <- function(
 
   if (isFALSE(env_name_exists) && identical(env_name, "condathis-env")) {
     create_base_env(verbose = verbose_list$internal_verbose)
+    # Re-resolve rather than reusing the pre-creation `resolved`:
+    # `create_base_env()` -> `create_env()` independently resolves its own
+    # backend via `method = "auto"`, which can differ from what was
+    # resolved above (e.g. a higher-priority backend than the one
+    # originally checked). `resolved$name` is used below to decide the
+    # execution path, so a stale value here could pick the wrong one.
+    # Mirrors `run_pipeline()`'s `precreate_envs()`, which re-resolves for
+    # the same reason after its own `create_base_env()` call.
+    resolved <- resolve_backend(
+      env_name = env_name,
+      method = method,
+      mutating = FALSE
+    )
     env_name_exists <- TRUE
   }
 

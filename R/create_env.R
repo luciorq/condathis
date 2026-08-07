@@ -86,6 +86,20 @@ create_env <- function(
     )
   }
 
+  # Checked upfront, unconditionally, rather than only inside
+  # `resolve_create_env_packages_arg()` (called from `backend_create_env()`)
+  # — that call site is skipped entirely on the `env_already_satisfies_request()`
+  # early-return path below, which would otherwise let a nonexistent/mistyped
+  # `env_file` silently pass as a no-op success instead of aborting.
+  if (isFALSE(rlang::is_null(env_file)) && isFALSE(fs::file_exists(env_file))) {
+    cli::cli_abort(
+      message = c(
+        `x` = "The file {.code \"env_file\"} does not exist."
+      ),
+      class = "condathis_create_missing_env_file"
+    )
+  }
+
   resolved <- resolve_backend(
     env_name = env_name,
     method = method,
@@ -97,14 +111,19 @@ create_env <- function(
   # TODO: @luciorq As of v0.1.3-dev mixing file and packages is allowed,
   # + As this is allowed in conda.
   # + Need to include tests and update docs.
+  # `env_file`, when set, takes priority over `packages` (matches
+  # `resolve_create_env_packages_arg()`'s actual behavior in
+  # `R/backend-micromamba.R`: it returns `c("-f", env_file)` and ignores
+  # `packages` entirely whenever `env_file` is supplied), so this must
+  # mirror that instead of listing both, which produced a `cmd_string` that
+  # never matched the real invocation.
   cmd_string <- paste(
     c(
       resolved$name,
       "create",
       "-n",
       env_name,
-      packages,
-      if (isFALSE(rlang::is_null(env_file))) env_file
+      if (isFALSE(rlang::is_null(env_file))) c("-f", env_file) else packages
     ),
     collapse = " "
   )

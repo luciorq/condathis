@@ -212,8 +212,12 @@ micromamba_backend_create_env <- function(
   # Workaround for when directory already exists by other reasons.
   # + When micromamba fail to create an environment with a different platform
   # + than the native one, it leaves the directory there and do not overwrite.
+  # Uses the raw `backend_env_exists()` generic here, not `backend_has_env()`
+  # — this decision is about to delete a directory, so a failed existence
+  # check (e.g. a transient `micromamba env list` failure) must abort loudly
+  # instead of being coerced to "definitely absent, safe to delete".
   if (
-    isFALSE(backend_has_env(backend, env_name = env_name)) &&
+    isFALSE(backend_env_exists(backend, env_name = env_name)) &&
       isTRUE(fs::dir_exists(env_dir_for_backend(backend, env_name)))
   ) {
     fs::dir_delete(env_dir_for_backend(backend, env_name))
@@ -289,23 +293,24 @@ micromamba_backend_remove_env <- function(
 ) {
   verbose_list <- parse_strategy_verbose(verbose = verbose)
 
+  # As in `micromamba_backend_create_env()`, use the raw `backend_env_exists()`
+  # generic (not `backend_has_env()`) for both checks below: a failed
+  # existence check must abort loudly here, not be coerced to "definitely
+  # absent" — the first check gates a directory deletion, and treating a
+  # transient check failure as "absent" would delete a real environment and
+  # then still report it as never having existed.
+  env_name_exists <- backend_env_exists(
+    backend,
+    env_name = env_name,
+    verbose = verbose_list$internal_verbose
+  )
   if (
-    isFALSE(backend_has_env(
-      backend,
-      env_name = env_name,
-      verbose = verbose_list$internal_verbose
-    )) &&
+    isFALSE(env_name_exists) &&
       isTRUE(fs::dir_exists(env_dir_for_backend(backend, env_name)))
   ) {
     fs::dir_delete(env_dir_for_backend(backend, env_name))
   }
-  if (
-    isFALSE(backend_has_env(
-      backend,
-      env_name = env_name,
-      verbose = verbose_list$internal_verbose
-    ))
-  ) {
+  if (isFALSE(env_name_exists)) {
     cli::cli_abort(
       message = c(
         `x` = "Environment {.field {env_name}} does not exist.",
