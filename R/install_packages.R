@@ -87,7 +87,13 @@ install_packages <- function(
     mutating = TRUE
   )
 
-  if (isFALSE(backend_has_env(resolved$backend, env_name))) {
+  if (
+    isFALSE(backend_has_env(
+      resolved$backend,
+      env_name,
+      verbose = verbose_list$internal_verbose
+    ))
+  ) {
     create_env(
       packages = NULL,
       env_name = env_name,

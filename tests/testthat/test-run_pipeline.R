@@ -59,6 +59,29 @@ test_that("Pipeline rejects non-existent environment", {
   )
 })
 
+test_that("Pipeline rejects conflicting per-command methods for a shared env_name", {
+  # Every command sharing an env_name must resolve to the same backend, so
+  # two different explicit `method`s for the same env_name is a
+  # self-contradictory spec that must fail fast, regardless of `error`.
+  testthat::expect_error(
+    object = run_pipeline(
+      list(
+        list(
+          cmd = c("echo", "hello"),
+          env_name = "shared-conflicting-env",
+          method = "micromamba"
+        ),
+        list(
+          cmd = c("cat"),
+          env_name = "shared-conflicting-env",
+          method = "some-other-backend"
+        )
+      )
+    ),
+    class = "condathis_pipeline_conflicting_method"
+  )
+})
+
 test_that("Pipeline runs two commands in same environment", {
   testthat::skip_on_cran()
   testthat::skip_if_offline()

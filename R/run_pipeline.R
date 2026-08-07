@@ -388,13 +388,10 @@ run_pipeline_spawn_all <- function(
     stdin_i <- stdio$stdin_i
     stdout_i <- stdio$stdout_i
 
-    if (env_name_i %in% missing_envs) {
+    if (env_name_i %in% names(missing_envs)) {
       spawn_failures[[i]] <- list(
         status = 127L,
-        stderr = sprintf(
-          "Conda environment '%s' does not exist.\n",
-          env_name_i
-        )
+        stderr = missing_envs[[env_name_i]]
       )
     } else {
       spawned <- spawn_pipeline_process(
@@ -890,6 +887,48 @@ check_stdout_overrides <- function(parsed, n_cmds) {
   return(invisible(NULL))
 }
 
+#' Resolve the single `method` to use for every command sharing one
+#' `env_name`
+#'
+#' All commands targeting the same `env_name` must resolve to the same
+#' backend — it's one environment, not a coincidence of name — so every
+#' command's `method` is considered, not just the first one found for that
+#' `env_name`. `"auto"` (the no-preference default, whether inherited from
+#' `run_pipeline()`'s own top-level `method` or a command's own unset
+#' override) never conflicts with an explicit choice; two different
+#' explicit choices for the same `env_name` do.
+#'
+#' @param env_name Character string.
+#' @param parsed The full parsed command list from `parse_cmds_spec()`.
+#'
+#' @returns Character string: `"auto"`, or the single explicit method every
+#'   command referencing `env_name` agrees on.
+#'
+#' @keywords internal
+#' @noRd
+resolve_pipeline_env_method <- function(env_name, parsed) {
+  methods_i <- vapply(
+    Filter(function(p) identical(p$env_name, env_name), parsed),
+    `[[`,
+    character(1L),
+    "method"
+  )
+  explicit_methods <- unique(methods_i[methods_i != "auto"])
+  if (identical(length(explicit_methods), 0L)) {
+    return("auto")
+  }
+  if (identical(length(explicit_methods), 1L)) {
+    return(explicit_methods)
+  }
+  cli::cli_abort(
+    message = c(
+      `x` = "Commands targeting environment {.field {env_name}} request conflicting backends: {.field {explicit_methods}}.",
+      `!` = "Use the same {.arg method} for every command sharing an {.arg env_name}."
+    ),
+    class = "condathis_pipeline_conflicting_method"
+  )
+}
+
 #' Resolve each unique environment's backend; auto-create the default
 #' environment, and report missing/unsupported-backend custom envs
 #'
@@ -903,13 +942,23 @@ check_stdout_overrides <- function(parsed, n_cmds) {
 #' can't actually execute anything through a non-`"micromamba"` backend yet
 #' (see `R/run_pipeline.R`'s main spawn loop), so it's reported the same
 #' as "missing" under `error = "continue"`, and aborts under
-#' `error = "cancel"`.
+#' `error = "cancel"`. An environment that exists under more than one
+#' registered backend simultaneously — `resolve_backend()`'s own
+#' `condathis_backend_ambiguous_env` abort, which (unlike a single-owner
+#' mismatch) always fires regardless of the `mutating` argument — gets the
+#' same `error_var`-gated treatment here rather than escaping uncaught:
+#' re-thrown as-is under `error = "cancel"`, degraded to "missing" under
+#' `error = "continue"`.
 #'
-#' @returns A list with `missing_envs` (character vector, for
-#'   `error = "continue"`'s failed-to-spawn path) and `resolved_backends`
-#'   (a named list, one already-resolved backend per unique `env_name`, so
-#'   the main spawn loop never triggers a second, independent
-#'   `resolve_backend()` call).
+#' @returns A list with `missing_envs` (a named character vector under
+#'   `error = "continue"`: names are the affected `env_name`s, values are
+#'   the specific stderr message to report for each — genuinely absent,
+#'   ambiguous ownership, and existing-under-an-unsupported-backend are
+#'   three different situations and get three different messages, not a
+#'   single generic "does not exist") and `resolved_backends` (a named
+#'   list, one already-resolved backend per unique `env_name`, so the main
+#'   spawn loop never triggers a second, independent `resolve_backend()`
+#'   call).
 #'
 #' @keywords internal
 #' @noRd
@@ -917,14 +966,7 @@ precreate_envs <- function(parsed, tmp_dir_path, error_var) {
   env_names <- unique(vapply(parsed, `[[`, character(1L), "env_name"))
   methods_by_env <- vapply(
     env_names,
-    function(nm) {
-      idx <- which(vapply(
-        parsed,
-        function(p) identical(p$env_name, nm),
-        logical(1L)
-      ))[[1L]]
-      parsed[[idx]]$method
-    },
+    function(nm) resolve_pipeline_env_method(nm, parsed),
     character(1L)
   )
   names(methods_by_env) <- env_names
@@ -932,11 +974,26 @@ precreate_envs <- function(parsed, tmp_dir_path, error_var) {
   missing_envs <- character()
   resolved_backends <- list()
   for (env_name_i in env_names) {
-    resolved <- resolve_backend(
-      env_name = env_name_i,
-      method = methods_by_env[[env_name_i]],
-      mutating = FALSE
+    resolved <- tryCatch(
+      resolve_backend(
+        env_name = env_name_i,
+        method = methods_by_env[[env_name_i]],
+        mutating = FALSE
+      ),
+      condathis_backend_ambiguous_env = function(cnd) {
+        if (isTRUE(error_var)) {
+          stop(cnd)
+        }
+        return(NULL)
+      }
     )
+    if (is.null(resolved)) {
+      missing_envs[[env_name_i]] <- sprintf(
+        "Environment '%s' exists under more than one backend; specify an explicit method to disambiguate.\n",
+        env_name_i
+      )
+      next
+    }
 
     if (
       isFALSE(backend_has_env(resolved$backend, env_name_i, verbose = FALSE))
@@ -957,7 +1014,10 @@ precreate_envs <- function(parsed, tmp_dir_path, error_var) {
           class = "condathis_pipeline_env_not_found"
         )
       } else {
-        missing_envs <- c(missing_envs, env_name_i)
+        missing_envs[[env_name_i]] <- sprintf(
+          "Conda environment '%s' does not exist.\n",
+          env_name_i
+        )
       }
     } else if (isFALSE(identical(resolved$name, "micromamba"))) {
       if (isTRUE(error_var)) {
@@ -969,7 +1029,11 @@ precreate_envs <- function(parsed, tmp_dir_path, error_var) {
           class = "condathis_pipeline_backend_unsupported"
         )
       } else {
-        missing_envs <- c(missing_envs, env_name_i)
+        missing_envs[[env_name_i]] <- sprintf(
+          "Environment '%s' exists under backend '%s', which run_pipeline() cannot execute through yet.\n",
+          env_name_i,
+          resolved$name
+        )
       }
     }
 

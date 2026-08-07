@@ -28,7 +28,7 @@ condathis_rscript_path_cache <- new.env(parent = emptyenv())
 #' @noRd
 .onLoad <- function(libname, pkgname) {
   condathis_rscript_path_cache$path <- resolve_condathis_rscript_path()
-  register_backend("micromamba", new_backend_micromamba())
+  register_backend("micromamba", micromamba_backend())
   invisible(NULL)
 }
 
