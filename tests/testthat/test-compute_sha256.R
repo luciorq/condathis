@@ -28,23 +28,6 @@ testthat::test_that("sha256_command_is_trustworthy accepts a real, correct tool"
     nzchar(Sys.which("sha256sum")) || nzchar(Sys.which("shasum"))
   )
   sha_cmd <- if (nzchar(Sys.which("sha256sum"))) "sha256sum" else "shasum"
-  # --- TEMPORARY DIAGNOSTICS: remove once the CI-only Windows failure here is root-caused ---
-  cat("\n=== DIAG: sha_cmd ===\n")
-  print(sha_cmd)
-  cat("=== DIAG: Sys.which ===\n")
-  print(Sys.which(c("sha256sum", "shasum")))
-  diag_test_file <- abc_test_file()
-  cat("=== DIAG: raw processx::run() result ===\n")
-  diag_args <- if (identical(sha_cmd, "shasum")) {
-    c("-a", "256", diag_test_file)
-  } else {
-    diag_test_file
-  }
-  print(tryCatch(
-    processx::run(sha_cmd, diag_args, error_on_status = FALSE),
-    error = function(e) e
-  ))
-  cat("=== END DIAG ===\n\n")
   testthat::expect_true(sha256_command_is_trustworthy(sha_cmd))
 })
 
@@ -67,6 +50,33 @@ testthat::test_that("sha256_command_is_trustworthy rejects a tool that reports t
     .package = "processx"
   )
   testthat::expect_false(sha256_command_is_trustworthy("sha256sum"))
+})
+
+testthat::test_that("run_sha256_command strips the GNU coreutils backslash-escape prefix", {
+  # GNU coreutils' sha256sum prepends a literal "\" directly before the
+  # hash (no space) whenever the filename contains a backslash or newline
+  # — its documented escaping convention. Essentially guaranteed on
+  # Windows, where every absolute path contains backslashes; confirmed on
+  # real Windows CI as the root cause of a perfectly valid hash being
+  # rejected by the 64-hex-char check below.
+  abc_sha256 <- "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+  testthat::local_mocked_bindings(
+    run = function(...) {
+      list(
+        status = 0L,
+        stdout = paste0(
+          "\\",
+          abc_sha256,
+          " *C:\\Users\\runner\\AppData\\Local\\Temp\\file123\n"
+        )
+      )
+    },
+    .package = "processx"
+  )
+  testthat::expect_equal(
+    run_sha256_command("sha256sum", "irrelevant"),
+    abc_sha256
+  )
 })
 
 testthat::test_that("run_sha256_command rejects output that isn't a real 64-char hex digest", {

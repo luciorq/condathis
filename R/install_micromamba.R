@@ -491,8 +491,17 @@ run_sha256_command <- function(sha_cmd, file_path) {
   if (isFALSE(identical(sha_result$status, 0L))) {
     return(NA_character_)
   }
-  # Output format: "hash  filename\n"
+  # Output format: "hash  filename\n", or "\hash  filename\n" (a leading
+  # backslash directly prefixing the hash, no space) when the filename
+  # contains a backslash or newline — GNU coreutils' sha256sum/md5sum
+  # escaping convention, flagging that the filename part has embedded
+  # "\\"/"\n" escapes. Essentially guaranteed on Windows, where every
+  # absolute path contains backslashes (confirmed on real Windows CI: the
+  # unstripped leading "\" failed the 64-hex-char check below and made a
+  # perfectly valid hash look untrustworthy), vs. almost never on Linux/
+  # macOS, where backslash isn't a path separator.
   hash_field <- base::trimws(strsplit(sha_result$stdout, "\\s+")[[1L]][1L])
+  hash_field <- base::sub("^\\\\", "", hash_field)
   if (isFALSE(grepl("^[0-9a-fA-F]{64}$", hash_field))) {
     return(NA_character_)
   }
