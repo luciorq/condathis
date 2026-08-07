@@ -84,7 +84,15 @@ rethrow_error_run <- function(expr, env = parent.frame()) {
   }
 
   if (isFALSE(exists("px_res"))) {
-    if (isTRUE(rlang::is_null(err_cnd[["status"]]))) {
+    # `-9` is `condathis`'s own normalized sentinel for a timed-out
+    # command, not `err_cnd[["status"]]`'s raw value — `processx::run()`'s
+    # own timeout condition reports whatever the OS says about the killed
+    # process's exit status, confirmed to differ across platforms (`-9` on
+    # Linux/macOS, `2` on Windows for the identical kill), so it can't be
+    # trusted as a cross-platform contract on its own.
+    if (isTRUE(is_timeout)) {
+      status_code <- -9L
+    } else if (isTRUE(rlang::is_null(err_cnd[["status"]]))) {
       status_code <- 127L
     } else {
       status_code <- err_cnd[["status"]]

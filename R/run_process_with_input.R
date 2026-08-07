@@ -17,12 +17,14 @@
 #'
 #' Unlike `processx::run()`, there is no live streaming of stdout/stderr or
 #' spinner. `timeout` mirrors `processx::run()`'s own contract as closely as
-#' possible: on expiry the process is killed (`proc$kill()`), `status` reads
-#' `-9` (matching `processx::run()`'s own convention for a killed process,
-#' confirmed empirically), `timeout = TRUE` is set, and — gated by
-#' `error_on_status` exactly like a regular non-zero exit — a condition of
-#' class `"system_command_timeout_error"` is signaled instead of
-#' `"system_command_status_error"`, so callers can tell the two apart.
+#' possible: on expiry the process is killed (`proc$kill()`), `status` is
+#' forced to `-9` (a `condathis`-normalized sentinel, not read from the
+#' killed process's own exit status — that value is an OS/`processx`
+#' implementation detail confirmed to differ across platforms, e.g. `2` on
+#' Windows for the identical `kill()` call), `timeout = TRUE` is set, and —
+#' gated by `error_on_status` exactly like a regular non-zero exit — a
+#' condition of class `"system_command_timeout_error"` is signaled instead
+#' of `"system_command_status_error"`, so callers can tell the two apart.
 #'
 #' Writing `input` and draining stdout/stderr are fully interleaved via
 #' `pump_process_io()`, not a write-then-wait-then-read sequence — see that
@@ -92,9 +94,21 @@ run_process_with_input <- function(
   p_stdout <- if (is.null(streams$stdout)) empty_stream else streams$stdout
   p_stderr <- if (is.null(streams$stderr)) empty_stream else streams$stderr
 
-  p_status <- proc$get_exit_status()
-  if (is.null(p_status)) {
-    p_status <- NA_integer_
+  # Normalized to a fixed sentinel on timeout rather than trusting
+  # `get_exit_status()`'s raw value: how a killed process's own exit status
+  # is reported is an OS/`processx` implementation detail, not something
+  # `condathis` controls — confirmed empirically to differ across
+  # platforms (`-9` on Linux/macOS, `2` on Windows, for the identical
+  # `proc$kill()` call). `-9` was already the documented cross-platform
+  # contract for a timed-out `condathis_result`; this makes it actually
+  # true everywhere instead of true only where the OS happens to agree.
+  if (isTRUE(p_timeout)) {
+    p_status <- -9L
+  } else {
+    p_status <- proc$get_exit_status()
+    if (is.null(p_status)) {
+      p_status <- NA_integer_
+    }
   }
   p_pid <- proc$get_pid()
 

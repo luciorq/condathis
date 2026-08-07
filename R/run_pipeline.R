@@ -421,9 +421,18 @@ run_pipeline <- function(
       p_stdout <- streams$stdout %||% NA_character_
       p_stderr <- streams$stderr %||% empty_stream
 
-      p_status <- proc_i$get_exit_status()
-      if (is.null(p_status)) {
-        p_status <- NA_integer_
+      # Normalized to a fixed sentinel on timeout, same as run()/run_bin()
+      # (see run_process_with_input.R) — a killed process's own reported
+      # exit status is an OS/`processx` detail that differs across
+      # platforms (`-9` on Linux/macOS, `2` on Windows for the identical
+      # `kill()` call), not something to trust as-is.
+      if (isTRUE(p_timeout)) {
+        p_status <- -9L
+      } else {
+        p_status <- proc_i$get_exit_status()
+        if (is.null(p_status)) {
+          p_status <- NA_integer_
+        }
       }
       p_pid <- proc_i$get_pid()
     }

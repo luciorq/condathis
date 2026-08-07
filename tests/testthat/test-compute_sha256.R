@@ -28,6 +28,23 @@ testthat::test_that("sha256_command_is_trustworthy accepts a real, correct tool"
     nzchar(Sys.which("sha256sum")) || nzchar(Sys.which("shasum"))
   )
   sha_cmd <- if (nzchar(Sys.which("sha256sum"))) "sha256sum" else "shasum"
+  # --- TEMPORARY DIAGNOSTICS: remove once the CI-only Windows failure here is root-caused ---
+  cat("\n=== DIAG: sha_cmd ===\n")
+  print(sha_cmd)
+  cat("=== DIAG: Sys.which ===\n")
+  print(Sys.which(c("sha256sum", "shasum")))
+  diag_test_file <- abc_test_file()
+  cat("=== DIAG: raw processx::run() result ===\n")
+  diag_args <- if (identical(sha_cmd, "shasum")) {
+    c("-a", "256", diag_test_file)
+  } else {
+    diag_test_file
+  }
+  print(tryCatch(
+    processx::run(sha_cmd, diag_args, error_on_status = FALSE),
+    error = function(e) e
+  ))
+  cat("=== END DIAG ===\n\n")
   testthat::expect_true(sha256_command_is_trustworthy(sha_cmd))
 })
 
