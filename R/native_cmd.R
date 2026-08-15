@@ -111,42 +111,26 @@ native_cmd <- function(
     ...
   )
 
-  if (identical(stdin, "|")) {
-    px_res <- run_process_with_input(
-      command = fs::path_real(umamba_bin_path),
-      args = cmd_args,
-      input = input,
-      stdout = stdout,
-      stderr = stderr,
-      echo_cmd = verbose_list$cmd,
-      echo = verbose_output,
-      error_on_status = error_var,
-      cleanup_tree = cleanup_tree,
-      supervise = supervise,
-      linux_pdeathsig = linux_pdeathsig,
-      encoding = encoding,
-      timeout = timeout
-    )
-  } else {
-    px_res <- processx::run(
-      command = fs::path_real(umamba_bin_path),
-      args = cmd_args,
-      spinner = verbose_list$spinner_flag,
-      echo_cmd = verbose_list$cmd,
-      echo = verbose_output,
-      stdout = stdout,
-      stdout_line_callback = NULL,
-      stderr = stderr,
-      stderr_line_callback = NULL,
-      stdin = stdin,
-      error_on_status = error_var,
-      cleanup_tree = cleanup_tree,
-      encoding = encoding,
-      linux_pdeathsig = linux_pdeathsig,
-      supervise = supervise,
-      timeout = timeout
-    )
-  }
+  # Environment variables are applied via the `withr::local_envvar()` above
+  # rather than passed as `env =`, so the child inherits this (already
+  # cleaned) environment -- hence no `env`/`wd` here.
+  px_res <- execute_command(
+    command = fs::path_real(umamba_bin_path),
+    args = cmd_args,
+    spinner = verbose_list$spinner_flag,
+    echo_cmd = verbose_list$cmd,
+    echo = verbose_output,
+    stdout = stdout,
+    stderr = stderr,
+    stdin = stdin,
+    input = input,
+    error_on_status = error_var,
+    cleanup_tree = cleanup_tree,
+    supervise = supervise,
+    linux_pdeathsig = linux_pdeathsig,
+    encoding = encoding,
+    timeout = timeout
+  )
 
   return(invisible(px_res))
 }
