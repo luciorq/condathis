@@ -167,32 +167,48 @@ run_bin <- function(
     method = method,
     mutating = FALSE
   )
-  if (isFALSE(identical(resolved$name, "micromamba"))) {
-    cli::cli_abort(
-      message = c(
-        `x` = "{.fn run_bin} does not yet support executing through the {.field {resolved$name}} backend.",
-        `!` = "Only the {.field micromamba} backend is wired up for {.fn run_bin} today."
-      ),
-      class = "condathis_run_bin_backend_unsupported"
-    )
-  }
+  is_micromamba <- identical(resolved$name, "micromamba")
   env_dir <- backend_get_env_dir(resolved$backend, env_name = env_name)
-  # `<env_dir>/bin` only exists on Linux/macOS; Windows environments spread
-  # binaries across `Library/mingw-w64/bin`, `Library/usr/bin`,
-  # `Library/bin`, `Scripts`, and the prefix root itself (see
-  # `resolve_env_bin_path()`). Falling straight back to `Sys.which(cmd)`
-  # without searching those first would silently run whatever same-named
-  # program happens to already be on the caller's ambient PATH instead of
-  # this environment's own binary — defeating environment isolation (e.g.
-  # resolving `sort` to Windows' own `System32/sort.exe` instead of the
-  # environment's coreutils build).
-  cmd_path <- resolve_env_bin_path(env_dir, cmd)
 
-  if (is.null(cmd_path)) {
-    cmd_path <- if (isTRUE(fs::file_exists(Sys.which(cmd)))) {
-      normalizePath(Sys.which(cmd), mustWork = FALSE)
-    } else {
-      fs::path(env_dir, "bin", cmd)
+  args_vector <- c(...)
+  if (isTRUE(rlang::is_null(args_vector))) {
+    args_vector <- character(length = 0L)
+  }
+
+  # Non-micromamba backends describe the invocation themselves via
+  # `backend_resolve_run()`, which already answers both questions this
+  # function otherwise works out by hand: which executable to spawn, and
+  # which environment variables activation implies.
+  backend_run <- NULL
+  if (isFALSE(is_micromamba)) {
+    backend_run <- backend_resolve_run(
+      resolved$backend,
+      cmd = cmd,
+      args = args_vector,
+      env_name = env_name,
+      verbose = verbose_list$internal_verbose
+    )
+    validate_resolve_run(backend_run, env_name = env_name)
+    cmd_path <- backend_run$command
+    args_vector <- as.character(backend_run$args)
+  } else {
+    # `<env_dir>/bin` only exists on Linux/macOS; Windows environments spread
+    # binaries across `Library/mingw-w64/bin`, `Library/usr/bin`,
+    # `Library/bin`, `Scripts`, and the prefix root itself (see
+    # `resolve_env_bin_path()`). Falling straight back to `Sys.which(cmd)`
+    # without searching those first would silently run whatever same-named
+    # program happens to already be on the caller's ambient PATH instead of
+    # this environment's own binary — defeating environment isolation (e.g.
+    # resolving `sort` to Windows' own `System32/sort.exe` instead of the
+    # environment's coreutils build).
+    cmd_path <- resolve_env_bin_path(env_dir, cmd)
+
+    if (is.null(cmd_path)) {
+      cmd_path <- if (isTRUE(fs::file_exists(Sys.which(cmd)))) {
+        normalizePath(Sys.which(cmd), mustWork = FALSE)
+      } else {
+        fs::path(env_dir, "bin", cmd)
+      }
     }
   }
   tmp_dir_path <- withr::local_tempdir(pattern = "condathis-tmp")
@@ -204,17 +220,20 @@ run_bin <- function(
     action = "prefix"
   )
 
+  # `activate = FALSE` stays honoured for every backend: it is the
+  # documented way to run an environment's binary *without* its activation
+  # variables, so a backend's `env` is applied only when activation was
+  # actually asked for.
   activation_env <- NULL
   if (isTRUE(activate) && fs::dir_exists(env_dir)) {
-    activation_env <- c(
-      "current",
-      get_micromamba_activation_envvars(env_name = env_name)
-    )
-  }
-
-  args_vector <- c(...)
-  if (isTRUE(rlang::is_null(args_vector))) {
-    args_vector <- character(length = 0L)
+    if (isTRUE(is_micromamba)) {
+      activation_env <- c(
+        "current",
+        get_micromamba_activation_envvars(env_name = env_name)
+      )
+    } else if (isTRUE(length(backend_run$env) > 0L)) {
+      activation_env <- c("current", backend_run$env)
+    }
   }
   px_res <- rethrow_error_run(
     expr = {

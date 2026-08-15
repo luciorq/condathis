@@ -231,17 +231,31 @@ run <- function(
       timeout = FALSE
     )
   } else if (isFALSE(identical(resolved$name, "micromamba"))) {
-    # `run()`'s own execution path (streaming, spinner, timeout, interrupt
-    # handling, supervise/cleanup_tree/linux_pdeathsig) stays centralized
-    # on `run_internal_native()` for now — a `backend_resolve_run()`-based
-    # execution branch for non-`"micromamba"` backends is planned but not
-    # implemented yet.
-    cli::cli_abort(
-      message = c(
-        `x` = "{.fn run} does not yet support executing through the {.field {resolved$name}} backend.",
-        `!` = "Only the {.field micromamba} backend is wired up for {.fn run} today."
-      ),
-      class = "condathis_run_backend_unsupported"
+    # Non-micromamba backends describe the invocation via
+    # `backend_resolve_run()` and it is spawned directly, rather than
+    # delegating activation to a `micromamba run` subprocess. Both paths
+    # converge on `execute_command()`, so streaming, spinner, timeout and
+    # supervise/cleanup_tree/linux_pdeathsig behave identically either way.
+    px_res <- rethrow_error_run(
+      expr = {
+        run_internal_backend(
+          resolved$backend,
+          cmd = cmd,
+          ...,
+          env_name = env_name,
+          verbose = verbose_list,
+          error = error,
+          stdout = stdout,
+          stderr = stderr,
+          stdin = stdin,
+          input = input,
+          binary = binary,
+          supervise = supervise,
+          cleanup_tree = cleanup_tree,
+          linux_pdeathsig = linux_pdeathsig,
+          timeout = timeout
+        )
+      }
     )
   } else {
     px_res <- rethrow_error_run(

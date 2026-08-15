@@ -31,29 +31,106 @@ backend_contract_names <- c(
 condathis_native_warned <- new.env(parent = emptyenv())
 condathis_native_warned$warned <- FALSE
 
-#' Register a backend implementation
+#' Register a condathis backend implementation
 #'
-#' `backend` is a plain named list (a "vtable"), not an S3 object with
-#' methods already attached — its element names must be exactly
-#' `backend_contract_names`, each a function implementing that part of the
-#' contract. `register_backend()` validates the vtable is complete, then
-#' calls `base::registerS3method()` for each of the 10 entries from inside
-#' `condathis`'s own namespace, so ordinary `UseMethod()` dispatch on
-#' `backend_create_env(backend, ...)` etc. finds them — without requiring
-#' the backend package itself to depend on `condathis` or register
-#' anything in its own `NAMESPACE`.
+#' The extension point for packages that provide an alternative execution
+#' engine for `condathis` (e.g. an in-process `rattler`-based solver, or a
+#' container-based engine). Once registered, the backend becomes selectable
+#' through the `method` argument of every environment-management function
+#' (`create_env()`, `run()`, `list_envs()`, ...), and participates in
+#' `method = "auto"` resolution.
+#'
+#' `backend` is a classed, named list (a "vtable"), not an S3 object with
+#' methods already attached: its element names must be exactly the 10
+#' contract function names listed below, each a function implementing that
+#' part of the contract. `register_backend()` validates the vtable is
+#' complete, then registers each entry for S3 dispatch from inside
+#' `condathis`'s own namespace — the backend package does not need to
+#' `Imports`/`Depends` on `condathis` or register anything in its own
+#' `NAMESPACE`.
+#'
+#' @section The backend contract:
+#' `backend` must be built as
+#' `structure(list(<the 10 functions>), class = c("condathis_backend_<name>", "condathis_backend"))`
+#' — the first class is what S3 dispatch keys on, so it must be unique to
+#' this backend. The 10 required element names are:
+#'
+#' * `backend_create_env(backend, packages, env_file, env_name, channels,
+#'   channel_priority, additional_channels, platform, overwrite, verbose)`
+#' * `backend_install(backend, packages, env_name, channels,
+#'   channel_priority, additional_channels, verbose)`
+#' * `backend_remove_env(backend, env_name, verbose)`
+#' * `backend_list_envs(backend, verbose)` — returns a bare character
+#'   vector of environment names.
+#' * `backend_env_exists(backend, env_name, verbose)` — returns a single
+#'   logical.
+#' * `backend_list_packages(backend, env_name, verbose)` — returns a data
+#'   frame with at least `name`, `version`, `build_number`, and `channel`
+#'   columns; extra backend-specific columns are allowed.
+#' * `backend_get_env_dir(backend, env_name)` — returns the environment's
+#'   directory path.
+#' * `backend_get_install_dir(backend)` — returns the backend's own
+#'   install root. Each backend must use its own separate root: directory
+#'   placement under that root is how `condathis` determines which backend
+#'   owns an existing environment.
+#' * `backend_resolve_run(backend, cmd, args, env_name, verbose)` —
+#'   returns `list(command, args, env, dir)` describing how to execute
+#'   `cmd` inside `env_name`.
+#' * `backend_available(backend)` — returns a single logical; gates
+#'   `method = "auto"` selection for *new* environments.
+#'
+#' Creation/installation/removal functions signal an error condition on
+#' failure; their return values are not otherwise inspected. `condathis`
+#' builds its own user-facing result objects.
+#'
+#' @section Registering from a backend package:
+#' Register from your package's `.onLoad()`, and *also* hook `condathis`'s
+#' own load event: the registry lives inside `condathis`'s namespace, so if
+#' `condathis` is ever unloaded and reloaded after your package registered,
+#' the registration would silently be lost without the hook. The combined
+#' pattern covers both load orders:
+#'
+#' ```r
+#' .onLoad <- function(libname, pkgname) {
+#'   register_self <- function(...) {
+#'     condathis::register_backend("mybackend", new_backend_mybackend())
+#'   }
+#'   if (requireNamespace("condathis", quietly = TRUE)) {
+#'     register_self()
+#'   }
+#'   setHook(packageEvent("condathis", "onLoad"), register_self)
+#'   invisible(NULL)
+#' }
+#'
+#' .onUnload <- function(libpath) {
+#'   if (isNamespaceLoaded("condathis")) {
+#'     condathis::unregister_backend("mybackend")
+#'   }
+#' }
+#' ```
 #'
 #' @param name Character string identifying this backend (e.g.
-#'   `"micromamba"`, `"rattler"`). Re-registering an existing name
-#'   overwrites it (needed for `pkgload::load_all()`/test re-registration).
-#' @param backend A named list of the 10 contract functions, classed
-#'   (`class(backend)[1]` is what `registerS3method()` dispatches on).
-#' @param call Calling environment, passed to `cli::cli_abort()`.
+#'   `"micromamba"`, `"rattler"`). This is the value users pass as
+#'   `method =`. Re-registering an existing name overwrites it.
+#' @param backend A classed, named list of the 10 contract functions — see
+#'   *The backend contract* below.
+#' @param call Calling environment reported in error conditions. Defaults
+#'   to the caller's environment.
 #'
-#' @returns `name`, invisibly.
+#' @returns `name`, invisibly. Signals a condition of class
+#'   `condathis_backend_contract_violation` (naming exactly which contract
+#'   functions are missing) if the vtable is incomplete.
 #'
-#' @keywords internal
-#' @noRd
+#' @seealso [unregister_backend()], [list_registered_backend_names()]
+#'
+#' @examples
+#' \dontrun{
+#' # Inside a backend package's .onLoad() (see the registration section
+#' # for the full, load-order-safe pattern):
+#' condathis::register_backend("mybackend", new_backend_mybackend())
+#' }
+#'
+#' @export
 register_backend <- function(name, backend, call = rlang::caller_env()) {
   if (
     isFALSE(rlang::is_character(name)) ||
@@ -101,6 +178,74 @@ register_backend <- function(name, backend, call = rlang::caller_env()) {
   return(invisible(name))
 }
 
+#' Unregister a condathis backend
+#'
+#' Removes a backend previously added with [register_backend()]: the
+#' registry entry and the S3 methods that were registered for its class.
+#' Intended for a backend package's `.onUnload()` (see the registration
+#' section of [register_backend()]), so an unloaded package never leaves
+#' behind a registered backend whose functions belong to a namespace that
+#' no longer exists.
+#'
+#' Unregistering a name that isn't currently registered is a silent no-op
+#' (returning `FALSE`), never an error — unload hooks shouldn't fail on
+#' cleanup that has nothing left to clean.
+#'
+#' @param name Character string with the backend name to unregister.
+#' @param call Calling environment reported in error conditions. Defaults
+#'   to the caller's environment.
+#'
+#' @returns Logical, invisibly: `TRUE` if a backend was unregistered,
+#'   `FALSE` if no backend by that name was registered.
+#'
+#' @seealso [register_backend()], [list_registered_backend_names()]
+#'
+#' @examples
+#' \dontrun{
+#' # Inside a backend package's .onUnload():
+#' condathis::unregister_backend("mybackend")
+#' }
+#'
+#' @export
+unregister_backend <- function(name, call = rlang::caller_env()) {
+  if (
+    isFALSE(rlang::is_character(name)) ||
+      isFALSE(identical(length(name), 1L)) ||
+      is.na(name)
+  ) {
+    cli::cli_abort(
+      message = c(
+        `x` = "{.arg name} must be a single, non-missing character string."
+      ),
+      class = "condathis_backend_invalid_name",
+      call = call
+    )
+  }
+  if (isFALSE(exists(name, envir = backend_registry, inherits = FALSE))) {
+    return(invisible(FALSE))
+  }
+
+  backend <- get(name, envir = backend_registry, inherits = FALSE)
+  backend_class <- class(backend)[[1L]]
+
+  # Also drop the S3 methods `register_backend()` registered for this
+  # class — a stale method would hold the last reference to the backend
+  # package's (possibly unloaded) namespace. The runtime S3 methods table
+  # is not locked (it must accept `registerS3method()` calls after
+  # namespace sealing), so entries can be removed the same way they were
+  # added.
+  s3_table <- asNamespace("condathis")[[".__S3MethodsTable__."]]
+  for (generic_name in backend_contract_names) {
+    method_name <- paste0(generic_name, ".", backend_class)
+    if (isTRUE(exists(method_name, envir = s3_table, inherits = FALSE))) {
+      rm(list = method_name, envir = s3_table)
+    }
+  }
+
+  rm(list = name, envir = backend_registry)
+  return(invisible(TRUE))
+}
+
 #' Retrieve a registered backend by name
 #'
 #' @keywords internal
@@ -121,8 +266,20 @@ get_backend <- function(name, call = rlang::caller_env()) {
 
 #' List every currently registered backend name
 #'
-#' @keywords internal
-#' @noRd
+#' Returns the names of every backend currently registered with
+#' [register_backend()], whether or not each is currently available
+#' (`backend_available()`). These are the valid values for the `method`
+#' argument of `condathis`'s environment-management functions, alongside
+#' `"auto"`. `"micromamba"`, the built-in backend, is always present.
+#'
+#' @returns A sorted character vector of registered backend names.
+#'
+#' @seealso [register_backend()], [unregister_backend()]
+#'
+#' @examples
+#' condathis::list_registered_backend_names()
+#'
+#' @export
 list_registered_backend_names <- function() {
   return(sort(ls(envir = backend_registry)))
 }

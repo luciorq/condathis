@@ -540,8 +540,41 @@ spawn_pipeline_process <- function(
 ) {
   env_dir <- backend_get_env_dir(resolved_backend, env_name = env_name_i)
 
+  # Both the executable path and the activation variables come from the
+  # backend's own `backend_resolve_run()`, so every registered backend works
+  # here rather than only `"micromamba"`. Not a behaviour change for
+  # `"micromamba"`: `micromamba_backend_resolve_run()` computes exactly what
+  # this function used to inline — `resolve_env_bin_path()` falling back to
+  # the bare name, plus `get_micromamba_activation_envvars()`.
+  #
+  # Resolving the executable (rather than passing a bare name) matters
+  # because the OS resolves a bare command against the *calling* R process's
+  # own ambient PATH, not against `env` below (Windows' `CreateProcess`,
+  # like POSIX `execvp()`, locates the executable image before the child's
+  # own environment block takes effect) — so without it a command only
+  # "works" by coincidence, if something of the same name happens to be
+  # reachable outside `env_name_i` entirely (confirmed on Windows: a
+  # 3-command pipeline using `rev` failed outright, since no `rev` exists
+  # anywhere on the ambient PATH, even though the target environment has its
+  # own). The backend falls back to the bare name when the command isn't
+  # found inside the prefix, preserving the "command not found" behavior
+  # below.
+  backend_run <- backend_resolve_run(
+    resolved_backend,
+    cmd = cmd_vec[1L],
+    args = cmd_vec[-1L],
+    env_name = env_name_i,
+    verbose = "silent"
+  )
+  validate_resolve_run(backend_run, env_name = env_name_i)
+  resolved_cmd <- backend_run$command
+
+  # `activate = FALSE` keeps the hand-rolled, activation-script-free
+  # variables: that path is deliberately backend-independent (built from
+  # `env_dir` alone), so it stays as-is rather than going through the
+  # backend.
   activation_envvars <- if (isTRUE(activate)) {
-    get_micromamba_activation_envvars(env_name = env_name_i)
+    backend_run$env
   } else {
     get_activation_envvars(
       env_name = env_name_i,
@@ -550,27 +583,11 @@ spawn_pipeline_process <- function(
     )
   }
 
-  # A bare command name is resolved by the OS against the *calling* R
-  # process's own ambient PATH, not against `env` above (Windows'
-  # `CreateProcess`, like POSIX `execvp()`, locates the executable
-  # image before the child's own environment block takes effect) — so
-  # without this, a command only "works" here by coincidence, if
-  # something of the same name happens to already be reachable outside
-  # `env_name_i` entirely (confirmed on Windows: a 3-command pipeline
-  # using `rev` failed outright, since no `rev` exists anywhere on the
-  # ambient PATH, even though the target environment has its own).
-  # Falls back to the bare name, preserving the existing
-  # "command not found" behavior below, when `cmd_vec[1L]` isn't found
-  # inside `env_dir` itself (e.g. it's expected to resolve via `PATH`
-  # some other way, or genuinely doesn't exist).
-  resolved_cmd <- resolve_env_bin_path(env_dir, cmd_vec[1L]) %||%
-    cmd_vec[1L]
-
   spawn_result <- tryCatch(
     expr = {
       processx::process$new(
         command = resolved_cmd,
-        args = cmd_vec[-1L],
+        args = backend_run$args,
         stdin = stdin_i,
         stdout = stdout_i,
         stderr = stderr_i,
@@ -1017,22 +1034,6 @@ precreate_envs <- function(parsed, tmp_dir_path, error_var) {
         missing_envs[[env_name_i]] <- sprintf(
           "Conda environment '%s' does not exist.\n",
           env_name_i
-        )
-      }
-    } else if (isFALSE(identical(resolved$name, "micromamba"))) {
-      if (isTRUE(error_var)) {
-        cli::cli_abort(
-          message = c(
-            `x` = "{.fn run_pipeline} does not yet support executing through the {.field {resolved$name}} backend.",
-            `!` = "Only the {.field micromamba} backend is wired up for {.fn run_pipeline} today."
-          ),
-          class = "condathis_pipeline_backend_unsupported"
-        )
-      } else {
-        missing_envs[[env_name_i]] <- sprintf(
-          "Environment '%s' exists under backend '%s', which run_pipeline() cannot execute through yet.\n",
-          env_name_i,
-          resolved$name
         )
       }
     }

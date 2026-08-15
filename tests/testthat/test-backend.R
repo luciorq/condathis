@@ -92,9 +92,7 @@ register_fake_backend <- function(name, envir = parent.frame()) {
   register_backend(name, fake)
   withr::defer(
     {
-      if (exists(name, envir = backend_registry, inherits = FALSE)) {
-        rm(list = name, envir = backend_registry)
-      }
+      unregister_backend(name)
     },
     envir = envir
   )
@@ -127,6 +125,51 @@ testthat::test_that("register_backend accepts a complete vtable, and re-registra
 testthat::test_that("get_backend errors clearly for an unregistered name", {
   cnd <- rlang::catch_cnd(get_backend("totally-unregistered-backend"))
   testthat::expect_s3_class(cnd, "condathis_backend_not_registered")
+})
+
+testthat::test_that("unregister_backend removes the registry entry and its S3 methods", {
+  root <- withr::local_tempdir()
+  fs::dir_create(fs::path(root, "envs"))
+  fake <- structure(
+    new_fake_backend_vtable(root),
+    class = c("condathis_backend_unreg_test", "condathis_backend")
+  )
+  register_backend("unreg-test", fake)
+  testthat::expect_true("unreg-test" %in% list_registered_backend_names())
+
+  s3_table <- asNamespace("condathis")[[".__S3MethodsTable__."]]
+  testthat::expect_true(exists(
+    "backend_env_exists.condathis_backend_unreg_test",
+    envir = s3_table,
+    inherits = FALSE
+  ))
+
+  testthat::expect_true(unregister_backend("unreg-test"))
+  testthat::expect_false("unreg-test" %in% list_registered_backend_names())
+  testthat::expect_false(exists(
+    "backend_env_exists.condathis_backend_unreg_test",
+    envir = s3_table,
+    inherits = FALSE
+  ))
+})
+
+testthat::test_that("unregister_backend is a silent no-op for an unregistered name", {
+  result <- NULL
+  testthat::expect_no_error({
+    result <- unregister_backend("never-was-registered-xyz")
+  })
+  testthat::expect_false(result)
+})
+
+testthat::test_that("unregister_backend validates its name argument", {
+  testthat::expect_error(
+    unregister_backend(NA),
+    class = "condathis_backend_invalid_name"
+  )
+  testthat::expect_error(
+    unregister_backend(c("a", "b")),
+    class = "condathis_backend_invalid_name"
+  )
 })
 
 # --- method = "native" deprecation alias (no network) ---------------------
@@ -351,38 +394,52 @@ test_that("run_pipeline degrades an ambiguous-backend collision under error = 'c
   )
 })
 
-test_that("run_pipeline reports an unsupported-backend env distinctly from a genuinely missing one", {
-  testthat::skip_if_offline()
+test_that("run_pipeline executes through a non-micromamba backend", {
+  # `run_pipeline()` previously rejected every backend except
+  # `"micromamba"` (`condathis_pipeline_backend_unsupported`). It now
+  # resolves each stage through the backend's own `backend_resolve_run()`,
+  # so any registered backend executes. The fake backend resolves commands
+  # to bare names with no activation variables, which is enough to show the
+  # dispatch path actually runs instead of aborting.
   testthat::skip_on_cran()
 
-  fake <- register_fake_backend("fake-rp-unsupported")
-  backend_create_env(fake, env_name = "rp-unsupported-env")
+  fake <- register_fake_backend("fake-rp-supported")
+  backend_create_env(fake, env_name = "rp-supported-env")
 
   res <- run_pipeline(
     cmds = list(
       c("echo", "hi"),
       c("cat")
     ),
-    env_name = "rp-unsupported-env",
+    env_name = "rp-supported-env",
+    error = "continue"
+  )
+  testthat::expect_equal(res$statuses, c(0L, 0L))
+  testthat::expect_match(res$processes[[2L]]$stdout, "hi")
+})
+
+test_that("run_pipeline still reports a genuinely missing env as missing", {
+  # The half of the old unsupported-backend test that still matters: a
+  # nonexistent environment is reported as missing, not silently executed.
+  testthat::skip_on_cran()
+
+  register_fake_backend("fake-rp-missing")
+
+  res <- run_pipeline(
+    cmds = list(c("echo", "hi"), c("cat")),
+    env_name = "rp-never-created-env",
     error = "continue"
   )
   testthat::expect_equal(res$statuses, c(127L, 127L))
-  testthat::expect_match(
-    res$processes[[1]]$stderr,
-    "cannot execute through yet"
-  )
-  testthat::expect_no_match(
-    res$processes[[1]]$stderr,
-    "does not exist"
-  )
+  testthat::expect_match(res$processes[[1]]$stderr, "does not exist")
 
   testthat::expect_error(
     object = run_pipeline(
       cmds = list(c("echo", "hi"), c("cat")),
-      env_name = "rp-unsupported-env",
+      env_name = "rp-never-created-env",
       error = "cancel"
     ),
-    class = "condathis_pipeline_backend_unsupported"
+    class = "condathis_pipeline_env_not_found"
   )
 })
 
@@ -390,10 +447,14 @@ test_that("run_pipeline lets any command's explicit method disambiguate a shared
   # Only the FIRST command referencing a given env_name used to be
   # consulted for its `method` — a second command's explicit override was
   # silently dropped. Here the *second* command supplies the explicit
-  # method; if it were ignored, resolution would stay ambiguous (`"more
-  # than one backend"`) instead of landing on the specific backend
-  # (`"cannot execute through yet"`, since it isn't `"micromamba"`).
-  testthat::skip_if_offline()
+  # method; if it were ignored, resolution would stay ambiguous and abort
+  # with `condathis_backend_ambiguous_env` instead of landing on the
+  # specific backend and running.
+  #
+  # The observable changed when `run_pipeline()` learned to execute through
+  # any backend: successful disambiguation used to show up as the
+  # "cannot execute through yet" rejection message, and now shows up as the
+  # pipeline actually running.
   testthat::skip_on_cran()
 
   fake_1 <- register_fake_backend("fake-rp-disambig-1")
@@ -413,10 +474,8 @@ test_that("run_pipeline lets any command's explicit method disambiguate a shared
     env_name = "rp-disambig-env",
     error = "continue"
   )
-  testthat::expect_match(
-    res$processes[[1]]$stderr,
-    "cannot execute through yet"
-  )
+  testthat::expect_equal(res$statuses, c(0L, 0L))
+  testthat::expect_match(res$processes[[2L]]$stdout, "hi")
 })
 
 # --- Tibble shape (decision 10) ----------------------------------------------
