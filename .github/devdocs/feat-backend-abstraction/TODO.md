@@ -241,19 +241,11 @@ tracked in the next milestone below, not done here.)
 **Deliberately not done in this milestone** (matches PLAN.md's "Non-goals"
 and this doc's own scoping):
 
-- `run()`/`run_bin()`/`run_pipeline()`'s actual **execution path** is
-  unchanged for the `"micromamba"` backend (`run_internal_native()`/
-  `processx::process$new()` called directly, exactly as before) and
-  explicitly **rejects** any other backend with a clear
+- ~~`run()`/`run_bin()`/`run_pipeline()`'s actual **execution path**~~ —
+  **done 2026-08-13**, see "Backend execution path" below. All three now
+  execute through any registered backend, and the
   `condathis_run_backend_unsupported`/`condathis_run_bin_backend_unsupported`/
-  `condathis_pipeline_backend_unsupported` abort — a
-  `backend_resolve_run()`-based second execution branch (reusing the
-  *same* `timeout`/`supervise`/`cleanup_tree`/`pump_process_io()` plumbing
-  already wired, per PLAN.md decision 4) is real, necessary work for the
-  next milestone, not implemented here. `micromamba_backend_resolve_run()`
-  itself *is* implemented and contract-complete (so `register_backend()`'s
-  validation passes and the contract is testable), it's just not called by
-  anything yet.
+  `condathis_pipeline_backend_unsupported` conditions no longer exist.
 - `clean_cache()` and internal `packages_search_native()`/`define_platform()`
   stay micromamba-only, no generic added — `clean_cache()`'s `env_name` is
   always `NA` (a whole-root operation, not tied to any specific
@@ -266,6 +258,66 @@ and this doc's own scoping):
   (`get_env_history_channels()`, reads `conda-meta/history`) stays gated
   on `resolved$name == "micromamba"` — a micromamba/conda prefix-layout
   detail, not part of the generic contract.
+
+## Milestone: backend execution path (done, 2026-08-13)
+
+Goal: `run()`, `run_bin()` and `run_pipeline()` execute through any
+registered backend, not just `"micromamba"`, reusing the same
+`timeout`/`supervise`/`cleanup_tree`/`pump_process_io()` plumbing rather
+than growing a parallel one (PLAN.md decision 4).
+
+- [x] `R/execute_command.R`: the single place a child process is spawned.
+      Picks `run_process_with_input()` (writable stdin) or
+      `processx::run()`, and is now the only caller of either. Both
+      `native_cmd()` and the new backend path go through it, so streaming,
+      spinner, timeout, encoding and the crash-safety flags cannot drift
+      apart between backends.
+- [x] `R/run_internal_backend.R`: the `backend_resolve_run()`-based
+      counterpart to `run_internal_native()`. Applies the backend's `env`
+      as `c("current", env)` — `processx`'s "inherit, then override" idiom,
+      the same shape `run_bin()` already used for micromamba — so a backend
+      returning `NULL` means "inherit unchanged", not "run with an empty
+      environment".
+- [x] `validate_resolve_run()`: validates a backend's `backend_resolve_run()`
+      return *before* spawning. Backends are third-party code, and a
+      malformed return would otherwise surface as an opaque `processx`
+      assertion naming no backend at all. Caught a real bug immediately:
+      `rattlerthis` returned `env` as a named **list** (its own `run()` uses
+      `withr::local_envvar()`, which accepts one), which `processx` rejects
+      with `is_env_vector(env) is not TRUE`. Fixed on `rattlerthis`'s side;
+      the validator now names that specific mistake.
+- [x] `native_cmd()` refactored onto `execute_command()` — a pure
+      extraction, no behaviour change (full suite green, including the
+      network/micromamba tests).
+- [x] `run()`: rejection branch replaced with `run_internal_backend()`.
+- [x] `run_bin()`: resolves `cmd_path`/activation via the backend when it
+      isn't `"micromamba"`. `activate = FALSE` stays honoured for every
+      backend — it is the documented way to run a binary *without*
+      activation variables.
+- [x] `run_pipeline()`: `spawn_pipeline_process()` now takes both the
+      executable path and the activation variables from
+      `backend_resolve_run()` for *every* backend, including
+      `"micromamba"` — `micromamba_backend_resolve_run()` computes exactly
+      what that function used to inline (`resolve_env_bin_path()` with a
+      bare-name fallback, plus `get_micromamba_activation_envvars()`), so
+      this unified the two paths instead of adding a second one.
+      `activate = FALSE` keeps the hand-rolled, backend-independent
+      `get_activation_envvars()`.
+- [x] `run_process_with_input()` gained `wd`, so the contract's `dir` field
+      is honoured on both spawn paths.
+- [x] Tests updated for the new behaviour: the two that asserted
+      `run_pipeline()` *rejects* non-micromamba backends now assert it
+      executes through them, plus a new test that a genuinely missing
+      environment is still reported as missing (the half of the old test
+      that still matters).
+
+Verified end-to-end against a real `rattlerthis`-backed environment:
+`run()` and `run_bin()` execute with the backend's activation variables
+reaching the child (`CONDA_PREFIX` set), `run_bin(activate = FALSE)`
+correctly omits them, `timeout` kills and reports `status = -9` with
+`timeout = TRUE`, non-zero exits raise `condathis_run_status_error` under
+`error = "cancel"` and report `status` under `"continue"`, and the
+writable-stdin path round-trips input.
 
 ## Milestone: `rattlerthis` as a conforming backend (not started, depends on above)
 
