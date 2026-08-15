@@ -31,6 +31,16 @@ alongside it — see below.
   but keeps working exactly the same. If you never pass `method`, nothing
   about your existing code changes.
 
+* New exported extension API for backend authors: `register_backend()`
+  (the extension point itself — its documentation specifies the full
+  10-function backend contract, the class convention, and the
+  load-order-safe `.onLoad()`/`setHook()` registration pattern),
+  `unregister_backend()` (for a backend package's `.onUnload()`), and
+  `list_registered_backend_names()` (introspection: what's currently
+  plugged in). These are aimed at packages providing alternative
+  execution engines, not at end users — regular `condathis` usage never
+  needs them.
+
 * **Breaking (minor):** `get_install_dir()` and `list_envs()` now return a
   tibble-classed data frame instead of a bare character vector/string, so
   they can report results across more than one backend. `get_install_dir()`
