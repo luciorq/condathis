@@ -56,9 +56,8 @@
 #'   `condathis_run_timeout_error` (`error = "continue"` returns normally
 #'   with `status = -9`).
 #' @param activate Logical. Whether to resolve and apply `env_name`'s real
-#'   `micromamba run` activation (via `get_micromamba_activation_envvars()`,
-#'   including any package `activate.d` hook scripts) as an environment
-#'   overlay before running `cmd`. Defaults to `TRUE`. Silently skipped
+#'   `micromamba run` activation (including any package `activate.d` hook
+#'   scripts) as an environment overlay before running `cmd`. Defaults to `TRUE`. Silently skipped
 #'   (`cmd` still runs, unactivated) when `env_name` does not exist, so
 #'   `error = "continue"`-style fallback to a binary outside any managed
 #'   environment keeps working. Set to `FALSE` to restore the original,

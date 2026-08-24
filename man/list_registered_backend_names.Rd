@@ -12,7 +12,7 @@ A sorted character vector of registered backend names.
 \description{
 Returns the names of every backend currently registered with
 \code{\link[=register_backend]{register_backend()}}, whether or not each is currently available
-(\code{backend_available()}). These are the valid values for the \code{method}
+on this system. These are the valid values for the \code{method}
 argument of \code{condathis}'s environment-management functions, alongside
 \code{"auto"}. \code{"micromamba"}, the built-in backend, is always present.
 }

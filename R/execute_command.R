@@ -11,7 +11,7 @@
 #' The split is `processx`'s, not `condathis`'s: `processx::run()` accepts
 #' `stdin = "|"` but never exposes the resulting connection, so writing to a
 #' child's stdin needs `processx::process$new()` driven by hand — see
-#' [run_process_with_input()] for that half and the hazards it avoids.
+#' `run_process_with_input()` for that half and the hazards it avoids.
 #'
 #' @param command Character string with the executable to spawn.
 #' @param args Character vector of arguments.

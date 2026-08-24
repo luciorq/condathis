@@ -75,11 +75,11 @@
 #'   normally with `result$timeout` (and each killed process's own
 #'   `timeout`) set to `TRUE`.
 #' @param activate Logical. Whether to resolve each command's environment
-#'   via `get_micromamba_activation_envvars()`, a real `micromamba run`
-#'   activation (including package `activate.d` hook scripts), cached per
+#'   through a real `micromamba run` activation (including package
+#'   `activate.d` hook scripts), cached per
 #'   `env_name`. Defaults to `TRUE`. Set to `FALSE` to use the original,
-#'   faster hand-rolled activation (`get_activation_envvars()`: a fixed set
-#'   of `CONDA_*`/`MAMBA_*` variables, no `activate.d` execution). The
+#'   faster hand-rolled activation (a fixed set of `CONDA_*`/`MAMBA_*`
+#'   variables, no `activate.d` execution). The
 #'   first pipeline call touching a given `env_name` with `activate = TRUE`
 #'   pays for two extra subprocess spawns to resolve it; repeat calls for
 #'   the same, unchanged environment hit the cache.
