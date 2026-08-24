@@ -84,9 +84,8 @@ child process if the parent R process dies. Has no effect on other
 platforms. Defaults to \code{FALSE}.}
 
 \item{activate}{Logical. Whether to resolve and apply \code{env_name}'s real
-\verb{micromamba run} activation (via \code{get_micromamba_activation_envvars()},
-including any package \code{activate.d} hook scripts) as an environment
-overlay before running \code{cmd}. Defaults to \code{TRUE}. Silently skipped
+\verb{micromamba run} activation (including any package \code{activate.d} hook
+scripts) as an environment overlay before running \code{cmd}. Defaults to \code{TRUE}. Silently skipped
 (\code{cmd} still runs, unactivated) when \code{env_name} does not exist, so
 \code{error = "continue"}-style fallback to a binary outside any managed
 environment keeps working. Set to \code{FALSE} to restore the original,

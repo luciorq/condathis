@@ -3,12 +3,12 @@
 #' The non-`"micromamba"` counterpart to `run_internal_native()`. Where the
 #' micromamba path spawns `micromamba run -n <env> <cmd> ...` and lets that
 #' binary do the activation, this path asks the backend to *describe* the
-#' invocation — `list(command, args, env, dir)` — and then spawns it
+#' invocation - `list(command, args, env, dir)` - and then spawns it
 #' directly. Nothing about streaming, timeouts or process cleanup differs
-#' between the two: both hand off to [execute_command()].
+#' between the two: both hand off to `execute_command()`.
 #'
 #' The `env` element is applied as `c("current", env)`, `processx`'s idiom
-#' for "inherit this session's environment, then override these" — the same
+#' for "inherit this session's environment, then override these" - the same
 #' shape `run_bin()` already uses for micromamba's activation variables. A
 #' backend returning `NULL` (or an empty vector) therefore means "inherit
 #' unchanged", not "run with an empty environment".
@@ -118,8 +118,8 @@ run_internal_backend <- function(
 #' wrong thing). Validating at the boundary names the offending backend
 #' instead.
 #'
-#' `env` and `dir` are allowed to be `NULL` — "inherit the environment" and
-#' "inherit the working directory" are both legitimate — but `command` must
+#' `env` and `dir` are allowed to be `NULL` - "inherit the environment" and
+#' "inherit the working directory" are both legitimate - but `command` must
 #' be a single string and `args` a character vector.
 #'
 #' @param resolved The value returned by `backend_resolve_run()`.
@@ -192,7 +192,7 @@ validate_resolve_run <- function(
         message = c(
           `x` = "{.fn backend_resolve_run}'s {.field env} must be a named character vector or {.code NULL}.",
           `!` = "Got {.cls {class(resolved$env)[[1L]]}} for environment {.field {env_name}}.",
-          `i` = "A named {.cls list} is the common mistake — {.fn processx} requires a character vector."
+          `i` = "A named {.cls list} is the common mistake - {.fn processx} requires a character vector."
         ),
         class = "condathis_backend_resolve_run_invalid",
         call = call
@@ -201,7 +201,7 @@ validate_resolve_run <- function(
     env_names <- names(resolved$env)
     if (
       isTRUE(length(resolved$env) > 0L) &&
-        (rlang::is_null(env_names) || isTRUE(any(!nzchar(env_names))))
+        (rlang::is_null(env_names) || isFALSE(all(nzchar(env_names))))
     ) {
       cli::cli_abort(
         message = c(

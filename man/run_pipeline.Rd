@@ -90,11 +90,11 @@ each child process if the parent R process dies. Has no effect on
 other platforms. Defaults to \code{FALSE}.}
 
 \item{activate}{Logical. Whether to resolve each command's environment
-via \code{get_micromamba_activation_envvars()}, a real \verb{micromamba run}
-activation (including package \code{activate.d} hook scripts), cached per
+through a real \verb{micromamba run} activation (including package
+\code{activate.d} hook scripts), cached per
 \code{env_name}. Defaults to \code{TRUE}. Set to \code{FALSE} to use the original,
-faster hand-rolled activation (\code{get_activation_envvars()}: a fixed set
-of \verb{CONDA_*}/\verb{MAMBA_*} variables, no \code{activate.d} execution). The
+faster hand-rolled activation (a fixed set of \verb{CONDA_*}/\verb{MAMBA_*}
+variables, no \code{activate.d} execution). The
 first pipeline call touching a given \code{env_name} with \code{activate = TRUE}
 pays for two extra subprocess spawns to resolve it; repeat calls for
 the same, unchanged environment hit the cache.}

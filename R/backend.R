@@ -268,7 +268,7 @@ get_backend <- function(name, call = rlang::caller_env()) {
 #'
 #' Returns the names of every backend currently registered with
 #' [register_backend()], whether or not each is currently available
-#' (`backend_available()`). These are the valid values for the `method`
+#' on this system. These are the valid values for the `method`
 #' argument of `condathis`'s environment-management functions, alongside
 #' `"auto"`. `"micromamba"`, the built-in backend, is always present.
 #'
