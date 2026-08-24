@@ -2,8 +2,14 @@ testthat::test_that("Do not execute code in curly braces", {
   testthat::skip_if_offline()
   testthat::skip_on_cran()
 
+  # TODO: @luciorq - 2026-08-24 - r-base 4.6.1 is breaking CI on windows.
+  # Pinned to the 4.4.x series for the same reason as test-create_env.R:
+  # conda-forge's `r-base 4.6.1 h91b09f7_1` win-64 build crashes at
+  # startup. This test only passed with the broken build by accident, a
+  # crashing R also "errors", but it needs a *working* R to actually
+  # exercise the curly-brace escaping in real R error messages it's about.
   px_res <- create_env(
-    packages = c("r-base>=4.1,<5.0"),
+    packages = c("r-base>=4.4,<4.5"),
     env_name = "condathis-rethrow-test-env",
     verbose = "silent"
   )
