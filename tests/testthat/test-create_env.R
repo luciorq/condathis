@@ -179,8 +179,19 @@ testthat::test_that("conda env is created", {
   testthat::skip_if_offline()
   testthat::skip_on_cran()
 
+  # TODO: @luciorq - 2026-08-24 - There is something wrong with
+  # + Conda-forge's R 4.6.1 on Windows.
+  # + Forcing R 4.4.X in this test.
+  # Pinned to the 4.4.x series, not `>=4.1,<5.0`: conda-forge's
+  # `r-base 4.6.1 h91b09f7_1` win-64 build crashes at startup
+  # ("*** stack smashing detected ***", exit status
+  # -1073740791/0xC0000409), confirmed via in-CI bisection to be the
+  # binary itself, not `micromamba run` PATH/DLL handling (a direct
+  # full-path `run_bin()` invocation crashes identically, and `where R`
+  # resolves the env's own R.exe first). This test needs *a* working R,
+  # not a current one, so it pins to the long-stable 4.4.x series.
   px_res <- create_env(
-    packages = c("r-base>=4.1,<5.0"),
+    packages = c("r-base>=4.4,<4.5"),
     env_name = "condathis-create-test-env",
     verbose = "silent"
   )
