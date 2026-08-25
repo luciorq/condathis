@@ -28,7 +28,7 @@ and \code{"full"}. Defaults to \code{"output"}.}
 A data frame (\code{tibble}) with installed packages. Only four
 columns are guaranteed present regardless of backend: \strong{name},
 \strong{version}, \strong{build_number}, and \strong{channel}. Additional columns
-vary by backend and shouldn't be relied on in cross-backend code — the
+vary by backend and shouldn't be relied on in cross-backend code - the
 \code{"micromamba"} backend today also includes \code{base_url},
 \code{build_string}, \code{dist_name}, \code{platform}, \code{md5}, \code{sha256}, and \code{url}.
 }

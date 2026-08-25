@@ -18,7 +18,7 @@ Defaults to \code{"silent"}.}
 }
 \value{
 A tibble-classed data frame with one row per environment,
-columns \code{backend} (chr), \code{env_name} (chr), and \code{path} (chr) — one row
+columns \code{backend} (chr), \code{env_name} (chr), and \code{path} (chr) - one row
 per environment across every backend covered by \code{method}. With a
 single registered backend (today's default), this is always the same
 shape, just one \code{backend} value throughout.

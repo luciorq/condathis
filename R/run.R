@@ -8,12 +8,12 @@
 #' @param env_name Character string with the target environment name.
 #'   Defaults to `"condathis-env"`.
 #'   If the default environment does not exist, it is created automatically.
-#'   A missing *custom* `env_name` is never created automatically — it
+#'   A missing *custom* `env_name` is never created automatically - it
 #'   fails instead, per `error` below.
 #' @param method Character string naming the backend to use. Defaults to
 #'   `"auto"` (resolve automatically: the environment's own owning backend
 #'   if it already exists). `"micromamba"` is the only backend registered
-#'   today — and the only one `run()` can actually execute through so far.
+#'   today - and the only one `run()` can actually execute through so far.
 #'   `"native"` is a deprecated alias for `"micromamba"` (warns once per
 #'   session).
 #' @param verbose Character string controlling console output.
@@ -46,11 +46,11 @@
 #'   instead of decoding them as UTF-8 text. Defaults to `FALSE`. Since a
 #'   process's stdout and stderr share a single encoding, both streams are
 #'   returned raw when `TRUE`, even if only one of them actually carries
-#'   binary data — check with `is.raw()` before treating either as text.
+#'   binary data - check with `is.raw()` before treating either as text.
 #'   Binary streams are never live-echoed to the console, regardless of
 #'   `verbose`.
 #' @param supervise Logical. Whether the process should be supervised by the
-#'   `processx` supervisor for crash-safe cleanup — the process (and its
+#'   `processx` supervisor for crash-safe cleanup - the process (and its
 #'   descendants, with `cleanup_tree = TRUE`) is killed if the R session
 #'   crashes. Defaults to `FALSE`.
 #' @param cleanup_tree Logical. Whether to clean up the child process tree
@@ -79,7 +79,7 @@
 #' condathis::with_sandbox_dir({
 #'   ## Create env
 #'   ## `samtools` (bioconda) has no Windows build on any channel, so this
-#'   ## specific example only runs on Linux/macOS — unlike most `condathis`
+#'   ## specific example only runs on Linux/macOS - unlike most `condathis`
 #'   ## examples, there's no portable substitute that still demonstrates a
 #'   ## real bioinformatics CLI operating on the packaged BAM file below.
 #'   create_env("bioconda::samtools", env_name = "samtools-env")
@@ -174,13 +174,13 @@ run <- function(
   # tested for `"condathis-env"` specifically, regardless of the actual
   # `env_name` argument, so calling `run(cmd, env_name = "my-env")` when
   # `"my-env"` didn't exist would create an unrelated, empty
-  # `"condathis-env"` as a side effect and then still fail — the
+  # `"condathis-env"` as a side effect and then still fail - the
   # auto-create never actually helped the real target. (This
   # side-effect-creation existed to work around an old `micromamba`
   # requirement that the root prefix have *some* environment before
   # `micromamba run` would work at all; confirmed empirically that a
-  # fresh install root with only a custom-named environment — never
-  # touching `"condathis-env"` — runs commands in it correctly with the
+  # fresh install root with only a custom-named environment - never
+  # touching `"condathis-env"` - runs commands in it correctly with the
   # current pinned `micromamba` version, so that workaround is no longer
   # needed.) A missing custom `env_name` now fails clearly instead:
   # aborts under `error = "cancel"`, matching `run_pipeline()`'s

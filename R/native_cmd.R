@@ -85,7 +85,7 @@ native_cmd <- function(
   umamba_bin_path <- get_best_micromamba_path()
 
   if (is.null(umamba_bin_path)) {
-    # No valid micromamba found anywhere — install to internal path
+    # No valid micromamba found anywhere - install to internal path
     install_micromamba(force = TRUE, verbose = verbose_list$internal_verbose)
     umamba_bin_path <- micromamba_bin_path()
   }

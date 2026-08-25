@@ -160,7 +160,7 @@ testthat::test_that("get_micromamba_urls returns correct structure", {
   # micro.mamba.pm is deliberately not included: confirmed (2026-07-24) that
   # its API no longer serves pinned versions at all (only "latest"), and
   # condathis always requests a pinned version, so it would fail on every
-  # single install — not a transient outage, permanently dead for this
+  # single install - not a transient outage, permanently dead for this
   # package's use case.
   testthat::expect_length(urls$compressed, 3L)
   testthat::expect_match(urls$compressed[1L], "github.com")

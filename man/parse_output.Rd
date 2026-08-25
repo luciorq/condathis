@@ -10,7 +10,7 @@ parse_output(res, stream = c("stdout", "stderr", "both", "plain"))
 \item{res}{Either a process result list (with \code{stdout} and/or \code{stderr}) or a
 character vector when \code{stream = "plain"}. Errors if the requested
 stream(s) hold raw binary data (from \code{run()}/\code{run_bin()}/
-\code{run_pipeline()} called with \code{binary = TRUE}) — read those directly
+\code{run_pipeline()} called with \code{binary = TRUE}) - read those directly
 instead, e.g. with \code{writeBin()}.}
 
 \item{stream}{Character string selecting the output source.

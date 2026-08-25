@@ -10,7 +10,7 @@
 #'   Defaults to `"condathis-env"`.
 #' @param method Character string naming the backend to use. Defaults to
 #'   `"auto"` (resolve automatically: the environment's own owning
-#'   backend). `"micromamba"` is the only backend registered today — and
+#'   backend). `"micromamba"` is the only backend registered today - and
 #'   the only one `run_bin()` can actually execute through so far.
 #'   `"native"` is a deprecated alias for `"micromamba"` (warns once per
 #'   session).
@@ -39,7 +39,7 @@
 #'   instead of decoding them as UTF-8 text. Defaults to `FALSE`. Since a
 #'   process's stdout and stderr share a single encoding, both streams are
 #'   returned raw when `TRUE`, even if only one of them actually carries
-#'   binary data — check with `is.raw()` before treating either as text.
+#'   binary data - check with `is.raw()` before treating either as text.
 #'   Binary streams are never live-echoed to the console, regardless of
 #'   `verbose`.
 #' @param supervise Logical. Whether the process should be supervised by the
@@ -61,7 +61,7 @@
 #'   (`cmd` still runs, unactivated) when `env_name` does not exist, so
 #'   `error = "continue"`-style fallback to a binary outside any managed
 #'   environment keeps working. Set to `FALSE` to restore the original,
-#'   activation-free `run_bin()` behavior — `cmd` still resolves against
+#'   activation-free `run_bin()` behavior - `cmd` still resolves against
 #'   `env_name`'s `bin/` directory (falling back to `PATH`), but the child
 #'   process otherwise inherits the caller's environment unmodified. This
 #'   is the mechanism that makes `run_bin(activate = TRUE)` behave like
@@ -78,7 +78,7 @@
 #' condathis::with_sandbox_dir({
 #'   # Create an environment with 'python' and 'ripgrep'. `coreutils`
 #'   # (and other GNU tools like `grep`) aren't available for Windows on
-#'   # conda-forge, so `ripgrep` is used here instead of e.g. `ls`/`grep` —
+#'   # conda-forge, so `ripgrep` is used here instead of e.g. `ls`/`grep` -
 #'   # a single package name that installs and runs the same way on every
 #'   # platform `condathis` supports.
 #'   condathis::create_env(
@@ -197,7 +197,7 @@ run_bin <- function(
     # `resolve_env_bin_path()`). Falling straight back to `Sys.which(cmd)`
     # without searching those first would silently run whatever same-named
     # program happens to already be on the caller's ambient PATH instead of
-    # this environment's own binary — defeating environment isolation (e.g.
+    # this environment's own binary - defeating environment isolation (e.g.
     # resolving `sort` to Windows' own `System32/sort.exe` instead of the
     # environment's coreutils build).
     cmd_path <- resolve_env_bin_path(env_dir, cmd)

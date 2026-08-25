@@ -103,7 +103,7 @@ install_packages <- function(
   }
 
   # Channel-history-mismatch warning is a micromamba-specific convenience
-  # (reads `conda-meta/history`, a micromamba/conda prefix-layout detail) —
+  # (reads `conda-meta/history`, a micromamba/conda prefix-layout detail) -
   # not part of the generic backend contract; other backends simply don't
   # get this warning yet.
   if (identical(resolved$name, "micromamba")) {

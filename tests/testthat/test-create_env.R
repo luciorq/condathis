@@ -43,7 +43,7 @@ testthat::test_that("create_env rejects a missing env_file", {
 testthat::test_that("create_env's cmd_string reflects -f, not packages, when env_file is supplied", {
   # `resolve_create_env_packages_arg()` (R/backend-micromamba.R) ignores
   # `packages` entirely and sends `c("-f", env_file)` whenever `env_file`
-  # is set — `cmd_string` must match that actual invocation, not list both.
+  # is set - `cmd_string` must match that actual invocation, not list both.
   testthat::local_mocked_bindings(
     backend_has_env = function(...) FALSE,
     backend_create_env = function(...) {
@@ -131,7 +131,7 @@ testthat::test_that("create_env returns a condathis_result when dependencies are
   )
 
   # A missing `env_file` must still abort even when `packages` alone would
-  # have taken the "already satisfied" early-return path — that path used
+  # have taken the "already satisfied" early-return path - that path used
   # to skip the `env_file` existence check entirely (only reached via
   # `resolve_create_env_packages_arg()`, called from `backend_create_env()`,
   # which the early return never gets to).
@@ -180,7 +180,7 @@ testthat::test_that("conda env is created", {
   testthat::skip_on_cran()
 
   # `test_r_base_pkgs()` (helper-cli-tools.R) pins the broken conda-forge
-  # MinGW runtime on Windows — see the helper for the full root-cause
+  # MinGW runtime on Windows - see the helper for the full root-cause
   # analysis. r-base itself is unpinned.
   px_res <- create_env(
     packages = test_r_base_pkgs(),

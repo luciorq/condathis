@@ -39,7 +39,7 @@ env_exists <- function(env_name, method = "auto", verbose = "silent") {
 
   # Deliberately does NOT call resolve_backend(): resolving a backend for
   # an *existing* environment is itself implemented in terms of this exact
-  # per-backend probe (see find_owning_backends()/backend_has_env()) —
+  # per-backend probe (see find_owning_backends()/backend_has_env()) -
   # calling resolve_backend() here would be circular. `method = "auto"`
   # means "does it exist under any registered backend" (reduced with
   # any()); an explicit method checks only that one backend.

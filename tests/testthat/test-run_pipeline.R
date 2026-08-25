@@ -512,7 +512,7 @@ test_that("Pipeline preserves output a killed downstream stage already produced"
 
   # Regression test: an earlier draft killed every process in the pipeline
   # as soon as the first stage timed out, discarding output later stages
-  # had already produced but not yet drained — `processx` invalidates a
+  # had already produced but not yet drained - `processx` invalidates a
   # process's own connection immediately on `kill()`, so anything unread at
   # that point is lost for good, confirmed empirically.
   create_env(
@@ -645,14 +645,14 @@ test_that("Pipeline does not deadlock when the last command's stdout and stderr 
 
   # Regression test: draining stdout and stderr sequentially (or calling
   # wait() before draining either) deadlocks once combined output exceeds
-  # the OS pipe buffer (64KB on Linux, smaller on macOS/Windows) — the
+  # the OS pipe buffer (64KB on Linux, smaller on macOS/Windows) - the
   # child blocks on write() to whichever stream isn't being read yet, so it
   # never reaches EOF on the stream that IS being read either. 200KB on
   # each stream comfortably exceeds every platform's default pipe buffer.
   # `printf '%*s' N '' | tr ' ' 'X'` (not `yes X | head -c N`) generates
   # exactly N bytes: `yes | head -c` doesn't reliably stop `yes` under
   # MSYS2/Windows bash (SIGPIPE from `head` closing its read end isn't
-  # delivered the same way), so `yes` keeps writing well past N bytes —
+  # delivered the same way), so `yes` keeps writing well past N bytes -
   # confirmed directly on Windows (600KB+ and still growing).
   create_env(
     pipeline_cli_pkgs(),

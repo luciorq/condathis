@@ -61,7 +61,7 @@ testthat::test_that("list_envs reflects environment creation and removal", {
 testthat::test_that("list_envs raises condathis_cmd_status_error on failure instead of returning a number", {
   # `rethrow_error_cmd()` normally already aborts before list_envs() ever
   # sees a non-zero status (native_cmd()'s default error = "cancel" makes
-  # the underlying processx::run() throw, not return, on failure) — mock
+  # the underlying processx::run() throw, not return, on failure) - mock
   # native_cmd() directly so it *returns* a non-zero status instead, to
   # exercise list_envs()'s own defensive handling of that case.
   testthat::local_mocked_bindings(

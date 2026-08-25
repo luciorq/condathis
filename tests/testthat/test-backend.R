@@ -1,4 +1,4 @@
-# A deliberately dumb, directory-existence-as-database fake backend — not a
+# A deliberately dumb, directory-existence-as-database fake backend - not a
 # `rattlerthis` reimplementation. Its only job is exercising the
 # registry/dispatch/resolve_backend() code paths against a genuinely
 # independent second backend class, without a compiled Rust toolchain or any
@@ -207,7 +207,7 @@ testthat::test_that("method = 'native' warns exactly once per session", {
 
 # --- resolve_backend() precedence -----------------------------------------
 # These touch a real `env_name`, so `find_owning_backends()` also probes the
-# real "micromamba" backend as part of iterating every registered backend —
+# real "micromamba" backend as part of iterating every registered backend -
 # needs micromamba installed/network for that first probe.
 
 testthat::test_that("resolve_backend resolves a brand-new environment via an explicit method", {
@@ -445,7 +445,7 @@ test_that("run_pipeline still reports a genuinely missing env as missing", {
 
 test_that("run_pipeline lets any command's explicit method disambiguate a shared env_name", {
   # Only the FIRST command referencing a given env_name used to be
-  # consulted for its `method` — a second command's explicit override was
+  # consulted for its `method` - a second command's explicit override was
   # silently dropped. Here the *second* command supplies the explicit
   # method; if it were ignored, resolution would stay ambiguous and abort
   # with `condathis_backend_ambiguous_env` instead of landing on the

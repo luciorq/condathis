@@ -11,7 +11,7 @@ register_backend(name, backend, call = rlang::caller_env())
 \code{"micromamba"}, \code{"rattler"}). This is the value users pass as
 \verb{method =}. Re-registering an existing name overwrites it.}
 
-\item{backend}{A classed, named list of the 10 contract functions — see
+\item{backend}{A classed, named list of the 10 contract functions - see
 \emph{The backend contract} below.}
 
 \item{call}{Calling environment reported in error conditions. Defaults
@@ -36,37 +36,51 @@ methods already attached: its element names must be exactly the 10
 contract function names listed below, each a function implementing that
 part of the contract. \code{register_backend()} validates the vtable is
 complete, then registers each entry for S3 dispatch from inside
-\code{condathis}'s own namespace — the backend package does not need to
+\code{condathis}'s own namespace - the backend package does not need to
 \code{Imports}/\code{Depends} on \code{condathis} or register anything in its own
 \code{NAMESPACE}.
 }
+\section{Lifecycle}{
+
+This extension API is \strong{experimental}. The backend contract (the
+required functions, their signatures, and their return-value
+expectations) has not yet been validated by a second, real backend
+package shipping against it, and may change in breaking ways between
+\verb{0.x} releases as the first external backends are wired in. Backend
+authors should declare the specific \code{condathis} version they were
+developed against and expect to track contract changes until this
+notice is removed.
+}
+
 \section{The backend contract}{
 
 \code{backend} must be built as
 \verb{structure(list(<the 10 functions>), class = c("condathis_backend_<name>", "condathis_backend"))}
-— the first class is what S3 dispatch keys on, so it must be unique to
+\itemize{
+\item the first class is what S3 dispatch keys on, so it must be unique to
 this backend. The 10 required element names are:
+}
 \itemize{
 \item \code{backend_create_env(backend, packages, env_file, env_name, channels, channel_priority, additional_channels, platform, overwrite, verbose)}
 \item \code{backend_install(backend, packages, env_name, channels, channel_priority, additional_channels, verbose)}
 \item \code{backend_remove_env(backend, env_name, verbose)}
-\item \code{backend_list_envs(backend, verbose)} — returns a bare character
+\item \code{backend_list_envs(backend, verbose)} - returns a bare character
 vector of environment names.
-\item \code{backend_env_exists(backend, env_name, verbose)} — returns a single
+\item \code{backend_env_exists(backend, env_name, verbose)} - returns a single
 logical.
-\item \code{backend_list_packages(backend, env_name, verbose)} — returns a data
+\item \code{backend_list_packages(backend, env_name, verbose)} - returns a data
 frame with at least \code{name}, \code{version}, \code{build_number}, and \code{channel}
 columns; extra backend-specific columns are allowed.
-\item \code{backend_get_env_dir(backend, env_name)} — returns the environment's
+\item \code{backend_get_env_dir(backend, env_name)} - returns the environment's
 directory path.
-\item \code{backend_get_install_dir(backend)} — returns the backend's own
+\item \code{backend_get_install_dir(backend)} - returns the backend's own
 install root. Each backend must use its own separate root: directory
 placement under that root is how \code{condathis} determines which backend
 owns an existing environment.
-\item \code{backend_resolve_run(backend, cmd, args, env_name, verbose)} —
+\item \code{backend_resolve_run(backend, cmd, args, env_name, verbose)} -
 returns \code{list(command, args, env, dir)} describing how to execute
 \code{cmd} inside \code{env_name}.
-\item \code{backend_available(backend)} — returns a single logical; gates
+\item \code{backend_available(backend)} - returns a single logical; gates
 \code{method = "auto"} selection for \emph{new} environments.
 }
 

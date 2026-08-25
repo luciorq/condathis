@@ -15,7 +15,7 @@ session).}
 }
 \value{
 A tibble-classed data frame with one row per backend covered by
-\code{method}, columns \code{backend} (chr) and \code{path} (chr) — the normalized,
+\code{method}, columns \code{backend} (chr) and \code{path} (chr) - the normalized,
 real path to that backend's own data directory. With a single
 registered backend (today's default), this is always the same shape,
 just one row.
@@ -24,7 +24,7 @@ just one row.
 Returns the data directory used by each backend, creating it when
 needed. The base path follows the platform-specific user data directory
 rules used by \code{tools::R_user_dir()} (each backend resolves its own root
-independently — e.g. the \code{"micromamba"} backend uses \code{condathis}'s own
+independently - e.g. the \code{"micromamba"} backend uses \code{condathis}'s own
 \code{tools::R_user_dir("condathis", "data")}).
 }
 \details{

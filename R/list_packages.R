@@ -16,7 +16,7 @@
 #' @returns A data frame (`tibble`) with installed packages. Only four
 #'   columns are guaranteed present regardless of backend: **name**,
 #'   **version**, **build_number**, and **channel**. Additional columns
-#'   vary by backend and shouldn't be relied on in cross-backend code — the
+#'   vary by backend and shouldn't be relied on in cross-backend code - the
 #'   `"micromamba"` backend today also includes `base_url`,
 #'   `build_string`, `dist_name`, `platform`, `md5`, `sha256`, and `url`.
 #'

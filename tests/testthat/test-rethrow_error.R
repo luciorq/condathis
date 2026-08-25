@@ -3,7 +3,7 @@ testthat::test_that("Do not execute code in curly braces", {
   testthat::skip_on_cran()
 
   # `test_r_base_pkgs()` (helper-cli-tools.R) pins the broken conda-forge
-  # MinGW runtime on Windows — see the helper for the full root-cause
+  # MinGW runtime on Windows - see the helper for the full root-cause
   # analysis. Note this test only passed with the broken runtime by
   # accident (a crashing R also "errors"), but it needs a *working* R to
   # actually exercise the curly-brace escaping in real R error messages
