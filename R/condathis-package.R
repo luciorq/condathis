@@ -14,8 +14,8 @@ NULL
 #' of `Sys.getenv("R_HOME")`, any code that calls `R.home()` while such a
 #' scope is active anywhere up the call stack gets a corrupted result
 #' (empirically: `/bin/Rscript` instead of the real path). Resolving once
-#' at package load — before any condathis function has had a chance to
-#' touch `R_HOME` — sidesteps the ordering problem entirely, rather than
+#' at package load - before any condathis function has had a chance to
+#' touch `R_HOME` - sidesteps the ordering problem entirely, rather than
 #' requiring every caller to resolve `R.home()` before its own
 #' `get_clean_conda_envvars()` call (which does not compose: a caller
 #' further up the stack may have already applied its own).
@@ -28,6 +28,7 @@ condathis_rscript_path_cache <- new.env(parent = emptyenv())
 #' @noRd
 .onLoad <- function(libname, pkgname) {
   condathis_rscript_path_cache$path <- resolve_condathis_rscript_path()
+  register_backend("micromamba", micromamba_backend())
   invisible(NULL)
 }
 
@@ -45,7 +46,7 @@ resolve_condathis_rscript_path <- function() {
 #'
 #' @returns Character string. Falls back to resolving `R.home()` on the
 #'   spot (with the same `R_HOME`-corruption caveat) if called before
-#'   `.onLoad()` has run — e.g. via `:::` without a normal package load.
+#'   `.onLoad()` has run - e.g. via `:::` without a normal package load.
 #'
 #' @keywords internal
 #' @noRd

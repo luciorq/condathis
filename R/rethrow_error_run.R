@@ -26,23 +26,20 @@ rethrow_error_run <- function(expr, env = parent.frame()) {
 
   if (
     isFALSE(rlang::is_null(env[["stdin"]])) &&
-      isFALSE(identical(env[["stdin"]], "|"))
-  ) {
-    if (
+      isFALSE(identical(env[["stdin"]], "|")) &&
       isFALSE(
         fs::is_file(env[["stdin"]]) &&
           fs::file_exists(env[["stdin"]])
       )
-    ) {
-      cli::cli_abort(
-        message = c(
-          `x` = "Argument {.code stdin} is not a file",
-          `!` = "stdin: {.path {stdin}}"
-        ),
-        class = "condathis_run_stdin_error",
-        .envir = env
-      )
-    }
+  ) {
+    cli::cli_abort(
+      message = c(
+        `x` = "Argument {.code stdin} is not a file",
+        `!` = "stdin: {.path {stdin}}"
+      ),
+      class = "condathis_run_stdin_error",
+      .envir = env
+    )
   }
 
   if (isFALSE(rlang::is_null(err_cnd)) && !isFALSE(env[["error_var"]])) {
@@ -117,12 +114,12 @@ rethrow_error_run <- function(expr, env = parent.frame()) {
 
   # Normalized to a fixed sentinel here, in one place, regardless of how
   # `px_res` was produced above: `processx::run()` itself never throws on
-  # timeout when `error_on_status = FALSE` (`error = "continue"`'s case) —
+  # timeout when `error_on_status = FALSE` (`error = "continue"`'s case) -
   # it returns normally with `status` set to whatever the OS reports for
   # the killed process, confirmed to differ across platforms (`-9` on
   # Linux/macOS, `2` on Windows for the identical `kill()`). `px_res$timeout`
   # is always reliably set by `processx::run()`/`run_process_with_input()`
-  # either way, so it — not the raw status — is what `condathis` trusts.
+  # either way, so it - not the raw status - is what `condathis` trusts.
   if (isTRUE(rlang::is_list(px_res)) && isTRUE(px_res$timeout)) {
     px_res$status <- -9L
   }

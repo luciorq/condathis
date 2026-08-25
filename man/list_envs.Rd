@@ -4,18 +4,28 @@
 \alias{list_envs}
 \title{List Conda environments managed by condathis}
 \usage{
-list_envs(verbose = "silent")
+list_envs(method = "auto", verbose = "silent")
 }
 \arguments{
+\item{method}{Character string naming which backend(s) to list.
+Defaults to \code{"auto"}: every currently \emph{registered and available}
+backend. \code{"micromamba"} is the only backend registered today.
+\code{"native"} is a deprecated alias for \code{"micromamba"} (warns once per
+session).}
+
 \item{verbose}{Character string controlling console output.
 Defaults to \code{"silent"}.}
 }
 \value{
-A character vector of environment names.
+A tibble-classed data frame with one row per environment,
+columns \code{backend} (chr), \code{env_name} (chr), and \code{path} (chr) - one row
+per environment across every backend covered by \code{method}. With a
+single registered backend (today's default), this is always the same
+shape, just one \code{backend} value throughout.
 }
 \description{
-Returns environment names located under the \code{condathis} installation root.
-Environments not managed by \code{condathis} are excluded.
+Returns environment names located under each registered backend's own
+installation root. Environments not managed by \code{condathis} are excluded.
 }
 \examples{
 \dontrun{
@@ -31,7 +41,7 @@ condathis::with_sandbox_dir({
   )
 
   # List environments
-  condathis::list_envs()
+  condathis::list_envs()$env_name
   #> [1] "fastqc-env" "python-env"
 })
 }

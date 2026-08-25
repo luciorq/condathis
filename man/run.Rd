@@ -8,7 +8,7 @@ run(
   cmd,
   ...,
   env_name = "condathis-env",
-  method = c("native", "auto"),
+  method = "auto",
   verbose = c("output", "silent", "cmd", "spinner", "full"),
   error = c("cancel", "continue"),
   stdout = "|",
@@ -30,15 +30,15 @@ run(
 \item{env_name}{Character string with the target environment name.
 Defaults to \code{"condathis-env"}.
 If the default environment does not exist, it is created automatically.
-A missing \emph{custom} \code{env_name} is never created automatically — it
+A missing \emph{custom} \code{env_name} is never created automatically - it
 fails instead, per \code{error} below.}
 
-\item{method}{Character string with the backend execution strategy.
-Supported values are \code{"native"} and \code{"auto"}.
-Defaults to \code{"native"}.
-Currently does not change behavior — reserved for upcoming pluggable
-backend support (e.g. running through \code{rattler} or a container engine
-instead of a managed \code{micromamba} install). Not deprecated.}
+\item{method}{Character string naming the backend to use. Defaults to
+\code{"auto"} (resolve automatically: the environment's own owning backend
+if it already exists). \code{"micromamba"} is the only backend registered
+today - and the only one \code{run()} can actually execute through so far.
+\code{"native"} is a deprecated alias for \code{"micromamba"} (warns once per
+session).}
 
 \item{verbose}{Character string controlling console output.
 Supported values are \code{"output"}, \code{"silent"}, \code{"cmd"}, \code{"spinner"},
@@ -76,12 +76,12 @@ writable-stdin code path; \code{timeout} still works.}
 instead of decoding them as UTF-8 text. Defaults to \code{FALSE}. Since a
 process's stdout and stderr share a single encoding, both streams are
 returned raw when \code{TRUE}, even if only one of them actually carries
-binary data — check with \code{is.raw()} before treating either as text.
+binary data - check with \code{is.raw()} before treating either as text.
 Binary streams are never live-echoed to the console, regardless of
 \code{verbose}.}
 
 \item{supervise}{Logical. Whether the process should be supervised by the
-\code{processx} supervisor for crash-safe cleanup — the process (and its
+\code{processx} supervisor for crash-safe cleanup - the process (and its
 descendants, with \code{cleanup_tree = TRUE}) is killed if the R session
 crashes. Defaults to \code{FALSE}.}
 
@@ -118,7 +118,7 @@ environments.
 condathis::with_sandbox_dir({
   ## Create env
   ## `samtools` (bioconda) has no Windows build on any channel, so this
-  ## specific example only runs on Linux/macOS — unlike most `condathis`
+  ## specific example only runs on Linux/macOS - unlike most `condathis`
   ## examples, there's no portable substitute that still demonstrates a
   ## real bioinformatics CLI operating on the packaged BAM file below.
   create_env("bioconda::samtools", env_name = "samtools-env")

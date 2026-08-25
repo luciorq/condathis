@@ -5,7 +5,7 @@
 #' `env_name`, so the same input is rejected the same way everywhere,
 #' instead of `fs::path()`/`list_envs()` call sites each surfacing a
 #' different (or no) error for the same bad input. Does **not** check
-#' whether the environment actually exists — see `env_exists()` for that.
+#' whether the environment actually exists - see `env_exists()` for that.
 #'
 #' @param env_name The value to validate.
 #' @param class Character string. Condition class for the abort, so each

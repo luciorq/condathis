@@ -3,7 +3,7 @@
 #' @description
 #' `get_activation_envvars()` hand-sets a fixed handful of `CONDA_*`/
 #' `MAMBA_*` variables to approximate an activated Conda environment,
-#' without ever invoking `micromamba` — this is what `run_pipeline()` uses,
+#' without ever invoking `micromamba` - this is what `run_pipeline()` uses,
 #' since it needs the process spawned directly (no `micromamba run` wrapper)
 #' to keep kernel-pipe stdout/stdin chaining working.
 #'
@@ -14,7 +14,7 @@
 #' *through* `micromamba run`, having it dump its own environment as JSON,
 #' and diffing that against a clean baseline (the same
 #' `get_clean_conda_envvars()` state `native_cmd()`/`run_pipeline()`
-#' establish before spawning anything) — so the result is only the
+#' establish before spawning anything) - so the result is only the
 #' variables activation actually added or changed, ready to be used as an
 #' `env = c("current", ...)` overlay, exactly like `get_activation_envvars()`.
 #'
@@ -26,7 +26,7 @@
 #' (i.e., packages are installed/removed), so repeated calls for the same,
 #' unchanged environment are free.
 #'
-#' Not currently wired into `run_pipeline()`, `run()`, or `run_bin()` — see
+#' Not currently wired into `run_pipeline()`, `run()`, or `run_bin()` - see
 #' PLAN.md's "Environment activation mechanism differs" section. It is a
 #' standalone building block, factored so it can eventually be used to
 #' consolidate `run()` (which currently activates by wrapping the command
@@ -165,7 +165,7 @@ activation_ignore_exact_vars <- function() {
 activation_ignore_pattern_vars <- function() {
   # `processx` embeds a fresh hex hash into these on every subprocess it
   # spawns (observed e.g. `PROCESSX_PSc84243e8843f4_...` on Linux and
-  # `PROCESSX_PSf046e9e523d_...` on Windows) — the hash is arbitrary hex,
+  # `PROCESSX_PSf046e9e523d_...` on Windows) - the hash is arbitrary hex,
   # not a decimal counter, so it does not reliably start with a digit.
   # Matching `^PROCESSX_PS[0-9]` only caught it when the hash happened to
   # start with 0-9, leaking the variable through otherwise (non-
@@ -185,7 +185,7 @@ resolve_micromamba_activation_envvars <- function(env_name, env_dir) {
   # Resolved from the package-load-time cache, not R.home() here: a caller
   # further up the stack (e.g. run_bin(), run_pipeline()) may have already
   # applied its own get_clean_conda_envvars() scope, which sets R_HOME = ""
-  # for the whole R session for the duration of that scope — corrupting any
+  # for the whole R session for the duration of that scope - corrupting any
   # R.home() call made after that point, regardless of ordering local to
   # this function. See condathis-package.R.
   rscript_path <- get_condathis_rscript_path()

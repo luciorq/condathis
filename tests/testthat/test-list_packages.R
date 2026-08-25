@@ -24,10 +24,13 @@ test_that("list packages on absent environment", {
 test_that("list_packages raises condathis_cmd_status_error on failure instead of a raw error", {
   # As with list_envs(): rethrow_error_cmd() normally already aborts before
   # list_packages() ever sees a non-zero status. Mock native_cmd() (and
-  # env_exists() so the missing-env check doesn't fire first) to exercise
+  # backend_has_env() so the missing-env check doesn't fire first - it
+  # would otherwise also see the mocked native_cmd() failure via
+  # backend_list_envs() and swallow it as "doesn't exist", per
+  # backend_has_env()'s own never-errors contract) to exercise
   # list_packages()'s own defensive handling of that case directly.
   testthat::local_mocked_bindings(
-    env_exists = function(...) TRUE,
+    backend_has_env = function(...) TRUE,
     native_cmd = function(...) {
       list(status = 1L, stdout = "", stderr = "boom", timeout = FALSE)
     }

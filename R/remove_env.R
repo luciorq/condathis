@@ -4,6 +4,10 @@
 #'
 #' @param env_name Character string with the environment name to remove.
 #'   Defaults to `"condathis-env"`.
+#' @param method Character string naming the backend to use. Defaults to
+#'   `"auto"` (resolve automatically: the environment's own owning backend).
+#'   `"micromamba"` is the only backend registered today. `"native"` is a
+#'   deprecated alias for `"micromamba"` (warns once per session).
 #' @param verbose Character string controlling console output.
 #'   Supported values are `"silent"`, `"cmd"`, `"output"`, `"spinner"`,
 #'   and `"full"`. Defaults to `"silent"`.
@@ -26,6 +30,7 @@
 #' @export
 remove_env <- function(
   env_name = "condathis-env",
+  method = "auto",
   verbose = c(
     "silent",
     "cmd",
@@ -34,39 +39,21 @@ remove_env <- function(
     "full"
   )
 ) {
+  validate_env_name(env_name, class = "condathis_remove_env_invalid_env_name")
   verbose_list <- parse_strategy_verbose(verbose = verbose)
 
-  if (
-    isFALSE(env_exists(env_name, verbose = verbose_list$internal_verbose)) &&
-      isTRUE(fs::dir_exists(get_env_dir(env_name = env_name)))
-  ) {
-    fs::dir_delete(get_env_dir(env_name = env_name))
-  }
-  if (isFALSE(env_exists(env_name, verbose = verbose_list$internal_verbose))) {
-    cli::cli_abort(
-      message = c(
-        `x` = "Environment {.field {env_name}} does not exist.",
-        `!` = "Check {.code list_envs()} for available environments."
-      ),
-      class = "condathis_error_env_remove"
-    )
-  }
-
-  px_res <- rethrow_error_cmd(
-    expr = {
-      native_cmd(
-        conda_cmd = "env",
-        conda_args = c(
-          "remove",
-          "-n",
-          env_name,
-          "--yes",
-          verbose_list$quiet_flag
-        ),
-        verbose = verbose_list
-      )
-    }
+  resolved <- resolve_backend(
+    env_name = env_name,
+    method = method,
+    mutating = TRUE
   )
+
+  px_res <- backend_remove_env(
+    resolved$backend,
+    env_name = env_name,
+    verbose = verbose
+  )
+
   if (isTRUE(verbose_list$strategy %in% c("full", "output"))) {
     cli::cli_inform(
       message = c(
@@ -76,13 +63,13 @@ remove_env <- function(
   }
 
   result <- new_condathis_result(
-    status = px_res$status,
-    stdout = px_res$stdout,
-    stderr = px_res$stderr,
+    status = if (is.null(px_res$status)) 0L else px_res$status,
+    stdout = if (is.null(px_res$stdout)) "" else px_res$stdout,
+    stderr = if (is.null(px_res$stderr)) "" else px_res$stderr,
     timeout = if (is.null(px_res$timeout)) FALSE else px_res$timeout,
     pid = if (is.null(px_res$pid)) NA_integer_ else px_res$pid,
     cmd = paste(
-      c("micromamba", "env", "remove", "-n", env_name),
+      c(resolved$name, "env", "remove", "-n", env_name),
       collapse = " "
     ),
     env_name = env_name

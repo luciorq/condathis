@@ -56,7 +56,7 @@ run_internal_native <- function(
 ) {
   if (isTRUE(is_windows())) {
     micromamba_bat_path <- fs::path(
-      get_install_dir(),
+      install_dir_for_backend(micromamba_backend()),
       "condabin",
       "micromamba",
       ext = "bat"
@@ -75,7 +75,7 @@ run_internal_native <- function(
       )
       base::rm(catch_res)
       mamba_bat_path <- fs::path(
-        get_install_dir(),
+        install_dir_for_backend(micromamba_backend()),
         "condabin",
         "mamba",
         ext = "bat"

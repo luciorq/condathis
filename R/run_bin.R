@@ -8,6 +8,12 @@
 #' @param ... Additional unnamed command arguments passed to `cmd`.
 #' @param env_name Character string with the target environment name.
 #'   Defaults to `"condathis-env"`.
+#' @param method Character string naming the backend to use. Defaults to
+#'   `"auto"` (resolve automatically: the environment's own owning
+#'   backend). `"micromamba"` is the only backend registered today - and
+#'   the only one `run_bin()` can actually execute through so far.
+#'   `"native"` is a deprecated alias for `"micromamba"` (warns once per
+#'   session).
 #' @param verbose Character string controlling console output.
 #'   Supported values are `"output"`, `"silent"`, `"cmd"`, `"spinner"`,
 #'   and `"full"`. Defaults to `"output"`.
@@ -33,7 +39,7 @@
 #'   instead of decoding them as UTF-8 text. Defaults to `FALSE`. Since a
 #'   process's stdout and stderr share a single encoding, both streams are
 #'   returned raw when `TRUE`, even if only one of them actually carries
-#'   binary data — check with `is.raw()` before treating either as text.
+#'   binary data - check with `is.raw()` before treating either as text.
 #'   Binary streams are never live-echoed to the console, regardless of
 #'   `verbose`.
 #' @param supervise Logical. Whether the process should be supervised by the
@@ -50,13 +56,12 @@
 #'   `condathis_run_timeout_error` (`error = "continue"` returns normally
 #'   with `status = -9`).
 #' @param activate Logical. Whether to resolve and apply `env_name`'s real
-#'   `micromamba run` activation (via `get_micromamba_activation_envvars()`,
-#'   including any package `activate.d` hook scripts) as an environment
-#'   overlay before running `cmd`. Defaults to `TRUE`. Silently skipped
+#'   `micromamba run` activation (including any package `activate.d` hook
+#'   scripts) as an environment overlay before running `cmd`. Defaults to `TRUE`. Silently skipped
 #'   (`cmd` still runs, unactivated) when `env_name` does not exist, so
 #'   `error = "continue"`-style fallback to a binary outside any managed
 #'   environment keeps working. Set to `FALSE` to restore the original,
-#'   activation-free `run_bin()` behavior — `cmd` still resolves against
+#'   activation-free `run_bin()` behavior - `cmd` still resolves against
 #'   `env_name`'s `bin/` directory (falling back to `PATH`), but the child
 #'   process otherwise inherits the caller's environment unmodified. This
 #'   is the mechanism that makes `run_bin(activate = TRUE)` behave like
@@ -73,7 +78,7 @@
 #' condathis::with_sandbox_dir({
 #'   # Create an environment with 'python' and 'ripgrep'. `coreutils`
 #'   # (and other GNU tools like `grep`) aren't available for Windows on
-#'   # conda-forge, so `ripgrep` is used here instead of e.g. `ls`/`grep` —
+#'   # conda-forge, so `ripgrep` is used here instead of e.g. `ls`/`grep` -
 #'   # a single package name that installs and runs the same way on every
 #'   # platform `condathis` supports.
 #'   condathis::create_env(
@@ -97,6 +102,7 @@ run_bin <- function(
   cmd,
   ...,
   env_name = "condathis-env",
+  method = "auto",
   verbose = c(
     "output",
     "silent",
@@ -124,6 +130,7 @@ run_bin <- function(
   }
 
   rlang::check_dots_unnamed()
+  validate_env_name(env_name, class = "condathis_run_bin_invalid_env_name")
 
   if (!is.null(input) && !identical(stdin, "|")) {
     cli::cli_abort(
@@ -154,23 +161,53 @@ run_bin <- function(
     verbose_output <- FALSE
   }
 
-  env_dir <- get_env_dir(env_name = env_name)
-  # `<env_dir>/bin` only exists on Linux/macOS; Windows environments spread
-  # binaries across `Library/mingw-w64/bin`, `Library/usr/bin`,
-  # `Library/bin`, `Scripts`, and the prefix root itself (see
-  # `resolve_env_bin_path()`). Falling straight back to `Sys.which(cmd)`
-  # without searching those first would silently run whatever same-named
-  # program happens to already be on the caller's ambient PATH instead of
-  # this environment's own binary — defeating environment isolation (e.g.
-  # resolving `sort` to Windows' own `System32/sort.exe` instead of the
-  # environment's coreutils build).
-  cmd_path <- resolve_env_bin_path(env_dir, cmd)
+  resolved <- resolve_backend(
+    env_name = env_name,
+    method = method,
+    mutating = FALSE
+  )
+  is_micromamba <- identical(resolved$name, "micromamba")
+  env_dir <- backend_get_env_dir(resolved$backend, env_name = env_name)
 
-  if (is.null(cmd_path)) {
-    cmd_path <- if (isTRUE(fs::file_exists(Sys.which(cmd)))) {
-      normalizePath(Sys.which(cmd), mustWork = FALSE)
-    } else {
-      fs::path(env_dir, "bin", cmd)
+  args_vector <- c(...)
+  if (isTRUE(rlang::is_null(args_vector))) {
+    args_vector <- character(length = 0L)
+  }
+
+  # Non-micromamba backends describe the invocation themselves via
+  # `backend_resolve_run()`, which already answers both questions this
+  # function otherwise works out by hand: which executable to spawn, and
+  # which environment variables activation implies.
+  backend_run <- NULL
+  if (isFALSE(is_micromamba)) {
+    backend_run <- backend_resolve_run(
+      resolved$backend,
+      cmd = cmd,
+      args = args_vector,
+      env_name = env_name,
+      verbose = verbose_list$internal_verbose
+    )
+    validate_resolve_run(backend_run, env_name = env_name)
+    cmd_path <- backend_run$command
+    args_vector <- as.character(backend_run$args)
+  } else {
+    # `<env_dir>/bin` only exists on Linux/macOS; Windows environments spread
+    # binaries across `Library/mingw-w64/bin`, `Library/usr/bin`,
+    # `Library/bin`, `Scripts`, and the prefix root itself (see
+    # `resolve_env_bin_path()`). Falling straight back to `Sys.which(cmd)`
+    # without searching those first would silently run whatever same-named
+    # program happens to already be on the caller's ambient PATH instead of
+    # this environment's own binary - defeating environment isolation (e.g.
+    # resolving `sort` to Windows' own `System32/sort.exe` instead of the
+    # environment's coreutils build).
+    cmd_path <- resolve_env_bin_path(env_dir, cmd)
+
+    if (is.null(cmd_path)) {
+      cmd_path <- if (isTRUE(fs::file_exists(Sys.which(cmd)))) {
+        normalizePath(Sys.which(cmd), mustWork = FALSE)
+      } else {
+        fs::path(env_dir, "bin", cmd)
+      }
     }
   }
   tmp_dir_path <- withr::local_tempdir(pattern = "condathis-tmp")
@@ -182,17 +219,20 @@ run_bin <- function(
     action = "prefix"
   )
 
+  # `activate = FALSE` stays honoured for every backend: it is the
+  # documented way to run an environment's binary *without* its activation
+  # variables, so a backend's `env` is applied only when activation was
+  # actually asked for.
   activation_env <- NULL
   if (isTRUE(activate) && fs::dir_exists(env_dir)) {
-    activation_env <- c(
-      "current",
-      get_micromamba_activation_envvars(env_name = env_name)
-    )
-  }
-
-  args_vector <- c(...)
-  if (isTRUE(rlang::is_null(args_vector))) {
-    args_vector <- character(length = 0L)
+    if (isTRUE(is_micromamba)) {
+      activation_env <- c(
+        "current",
+        get_micromamba_activation_envvars(env_name = env_name)
+      )
+    } else if (isTRUE(length(backend_run$env) > 0L)) {
+      activation_env <- c("current", backend_run$env)
+    }
   }
   px_res <- rethrow_error_run(
     expr = {

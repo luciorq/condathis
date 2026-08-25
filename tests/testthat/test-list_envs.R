@@ -1,10 +1,13 @@
-testthat::test_that("list_envs returns a character vector", {
+testthat::test_that("list_envs returns a tibble with backend/env_name/path", {
   testthat::skip_if_offline()
   testthat::skip_on_cran()
 
   create_base_env(verbose = "silent")
   envs <- list_envs(verbose = "silent")
-  testthat::expect_type(envs, "character")
+  testthat::expect_s3_class(envs, "data.frame")
+  testthat::expect_named(envs, c("backend", "env_name", "path"))
+  testthat::expect_type(envs$env_name, "character")
+  testthat::expect_true(all(envs$backend == "micromamba"))
 })
 
 testthat::test_that("condathis_env_names matches the install root literally, not as a regex", {
@@ -30,8 +33,8 @@ testthat::test_that("list_envs excludes the condathis root pseudo-environment", 
 
   create_base_env(verbose = "silent")
   envs <- list_envs(verbose = "silent")
-  testthat::expect_false("condathis" %in% envs)
-  testthat::expect_true("condathis-env" %in% envs)
+  testthat::expect_false("condathis" %in% envs$env_name)
+  testthat::expect_true("condathis-env" %in% envs$env_name)
 })
 
 testthat::test_that("list_envs reflects environment creation and removal", {
@@ -40,17 +43,17 @@ testthat::test_that("list_envs reflects environment creation and removal", {
 
   condathis::with_sandbox_dir({
     testthat::expect_false(
-      "list-envs-test-env" %in% list_envs(verbose = "silent")
+      "list-envs-test-env" %in% list_envs(verbose = "silent")$env_name
     )
 
     create_env(NULL, env_name = "list-envs-test-env", verbose = "silent")
     testthat::expect_true(
-      "list-envs-test-env" %in% list_envs(verbose = "silent")
+      "list-envs-test-env" %in% list_envs(verbose = "silent")$env_name
     )
 
     remove_env("list-envs-test-env", verbose = "silent")
     testthat::expect_false(
-      "list-envs-test-env" %in% list_envs(verbose = "silent")
+      "list-envs-test-env" %in% list_envs(verbose = "silent")$env_name
     )
   })
 })
@@ -58,7 +61,7 @@ testthat::test_that("list_envs reflects environment creation and removal", {
 testthat::test_that("list_envs raises condathis_cmd_status_error on failure instead of returning a number", {
   # `rethrow_error_cmd()` normally already aborts before list_envs() ever
   # sees a non-zero status (native_cmd()'s default error = "cancel" makes
-  # the underlying processx::run() throw, not return, on failure) — mock
+  # the underlying processx::run() throw, not return, on failure) - mock
   # native_cmd() directly so it *returns* a non-zero status instead, to
   # exercise list_envs()'s own defensive handling of that case.
   testthat::local_mocked_bindings(

@@ -13,6 +13,7 @@ run_pipeline(
   binary = FALSE,
   error = c("cancel", "continue"),
   env_name = "condathis-env",
+  method = "auto",
   supervise = TRUE,
   cleanup_tree = TRUE,
   linux_pdeathsig = FALSE,
@@ -27,10 +28,14 @@ run_pipeline(
 default \code{env_name}.
 \item A named list with \code{cmd} (character vector) and, optionally,
 \code{env_name} (character string) to specify a per-command environment,
-\code{stderr} to override the top-level \code{stderr} target for this command,
-and \code{stdout} to override the top-level \code{stdout} target, only
-allowed on the \strong{last} command, since every other command's
-standard output is always piped to the next command.
+\code{method} (character string) to specify a per-command backend
+(see \code{method} below - only the \code{"micromamba"} backend can
+actually execute a command today, regardless of which backend
+owns its environment), \code{stderr} to override the top-level
+\code{stderr} target for this command, and \code{stdout} to override the
+top-level \code{stdout} target, only allowed on the \strong{last} command,
+since every other command's standard output is always piped to
+the next command.
 }}
 
 \item{stdout}{Standard output target for the \strong{last} process.
@@ -64,6 +69,14 @@ Defaults to \code{"cancel"}.}
 for commands that do not specify their own.
 Defaults to \code{"condathis-env"}.}
 
+\item{method}{Character string naming the default backend for commands
+that do not specify their own \code{method} (see \code{cmds}). Defaults to
+\code{"auto"} (resolve automatically: each command's environment's own
+owning backend). \code{"micromamba"} is the only backend registered
+today - and the only one that can actually execute a command so far.
+\code{"native"} is a deprecated alias for \code{"micromamba"} (warns once per
+session).}
+
 \item{supervise}{Logical. Whether each process should be supervised by
 the \code{processx} supervisor for crash-safe cleanup. Defaults to \code{TRUE}
 (unlike \code{run()}/\code{run_bin()}, which default to \code{FALSE}) since a pipeline
@@ -77,11 +90,11 @@ each child process if the parent R process dies. Has no effect on
 other platforms. Defaults to \code{FALSE}.}
 
 \item{activate}{Logical. Whether to resolve each command's environment
-via \code{get_micromamba_activation_envvars()}, a real \verb{micromamba run}
-activation (including package \code{activate.d} hook scripts), cached per
+through a real \verb{micromamba run} activation (including package
+\code{activate.d} hook scripts), cached per
 \code{env_name}. Defaults to \code{TRUE}. Set to \code{FALSE} to use the original,
-faster hand-rolled activation (\code{get_activation_envvars()}: a fixed set
-of \verb{CONDA_*}/\verb{MAMBA_*} variables, no \code{activate.d} execution). The
+faster hand-rolled activation (a fixed set of \verb{CONDA_*}/\verb{MAMBA_*}
+variables, no \code{activate.d} execution). The
 first pipeline call touching a given \code{env_name} with \code{activate = TRUE}
 pays for two extra subprocess spawns to resolve it; repeat calls for
 the same, unchanged environment hit the cache.}
@@ -127,7 +140,7 @@ condathis::with_sandbox_dir({
   # exists under the "m2-" (MSYS2) prefix on conda-forge.
   #
   # `samtools` (bioconda) has no Windows build on any channel, so this
-  # specific example only runs on Linux/macOS regardless — there's no
+  # specific example only runs on Linux/macOS regardless - there's no
   # portable substitute that still demonstrates a real bioinformatics
   # CLI operating on the packaged BAM file below.
   create_env("bioconda::samtools", env_name = "samtools-env")

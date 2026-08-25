@@ -1,7 +1,7 @@
 #' Run a process while writing data to its standard input
 #'
 #' `processx::run()` accepts `stdin = "|"` but never exposes the resulting
-#' input connection, so nothing can ever be written to it — the child
+#' input connection, so nothing can ever be written to it - the child
 #' process blocks forever waiting for input that will never come. This
 #' helper drives `processx::process$new()` directly, writing `input` (if
 #' any) to the process's stdin pipe and returning a `processx::run()`-shaped
@@ -9,7 +9,7 @@
 #'
 #' On non-zero exit with `error_on_status = TRUE`, signals a condition with
 #' class `"system_command_status_error"` and `status`/`stderr` fields, the
-#' same contract `processx::run()` uses — so `rethrow_error_run()` handles
+#' same contract `processx::run()` uses - so `rethrow_error_run()` handles
 #' it identically regardless of which of the two ran the process. A missing
 #' executable throws directly from `processx::process$new()` (classes
 #' `rlib_error_3_0`/`c_error`), also already handled by
@@ -19,15 +19,15 @@
 #' spinner. `timeout` mirrors `processx::run()`'s own contract as closely as
 #' possible: on expiry the process is killed (`proc$kill()`), `status` is
 #' forced to `-9` (a `condathis`-normalized sentinel, not read from the
-#' killed process's own exit status — that value is an OS/`processx`
+#' killed process's own exit status - that value is an OS/`processx`
 #' implementation detail confirmed to differ across platforms, e.g. `2` on
-#' Windows for the identical `kill()` call), `timeout = TRUE` is set, and —
-#' gated by `error_on_status` exactly like a regular non-zero exit — a
+#' Windows for the identical `kill()` call), `timeout = TRUE` is set, and -
+#' gated by `error_on_status` exactly like a regular non-zero exit - a
 #' condition of class `"system_command_timeout_error"` is signaled instead
 #' of `"system_command_status_error"`, so callers can tell the two apart.
 #'
 #' Writing `input` and draining stdout/stderr are fully interleaved via
-#' `pump_process_io()`, not a write-then-wait-then-read sequence — see that
+#' `pump_process_io()`, not a write-then-wait-then-read sequence - see that
 #' function for the two hazards this avoids (confirmed empirically, not just
 #' reasoned about): writing once and closing immediately silently truncates
 #' `input` larger than the OS pipe buffer, and draining streams
@@ -48,6 +48,7 @@ run_process_with_input <- function(
   echo_cmd = FALSE,
   echo = FALSE,
   env = NULL,
+  wd = NULL,
   error_on_status = TRUE,
   cleanup_tree = FALSE,
   supervise = FALSE,
@@ -68,6 +69,7 @@ run_process_with_input <- function(
     stdout = stdout,
     stderr = stderr,
     env = env,
+    wd = wd,
     echo_cmd = echo_cmd,
     supervise = supervise,
     cleanup_tree = cleanup_tree,
@@ -97,7 +99,7 @@ run_process_with_input <- function(
   # Normalized to a fixed sentinel on timeout rather than trusting
   # `get_exit_status()`'s raw value: how a killed process's own exit status
   # is reported is an OS/`processx` implementation detail, not something
-  # `condathis` controls — confirmed empirically to differ across
+  # `condathis` controls - confirmed empirically to differ across
   # platforms (`-9` on Linux/macOS, `2` on Windows, for the identical
   # `proc$kill()` call). `-9` was already the documented cross-platform
   # contract for a timed-out `condathis_result`; this makes it actually

@@ -30,7 +30,7 @@ env_bin_search_dirs <- function(env_dir) {
 #' Searches `env_bin_search_dirs()` for `cmd`, trying every extension in
 #' `PATHEXT` on Windows (a bare `fs::file_exists()` check does not do the
 #' implicit extension search a shell/`CreateProcess` would). Never falls
-#' back to the ambient system `PATH` itself — that is the caller's
+#' back to the ambient system `PATH` itself - that is the caller's
 #' responsibility, and doing it here would blur the distinction between
 #' "found in this environment" and "found somewhere else by coincidence".
 #'

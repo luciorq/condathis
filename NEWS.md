@@ -1,6 +1,66 @@
-## condathis 0.1.5 (Development Version)
+## condathis 0.2.0 (Development Version)
 
 Development Changelog: [dev](https://github.com/luciorq/condathis/compare/v0.1.4...HEAD)
+
+This release is being tracked as a minor version bump instead of a patch
+(`0.1.5`) because its centerpiece - the pluggable backend system - is a
+structural, package-wide refactor: every environment-management function
+now dispatches through a backend registry instead of hardcoding the managed
+`micromamba` installation, laying the foundation for future backends (e.g.
+an in-process `rattler` engine) to plug in without further changes to the
+public API. It also carries several other breaking (though narrow) changes
+alongside it - see below.
+
+### Backend System
+
+* `condathis` now has a pluggable backend system. Internally, every
+  environment-management operation (`create_env()`, `install_packages()`,
+  `remove_env()`, `list_envs()`, `env_exists()`, `list_packages()`,
+  `get_env_dir()`, `get_install_dir()`, and, for the environments it can
+  already execute through, `run()`, `run_bin()`, `run_pipeline()`) now
+  dispatches to a registered *backend* instead of hardcoding the managed
+  `micromamba` installation. `"micromamba"` is the built-in default and,
+  today, the only registered backend - this is the foundation for future
+  backends (e.g. an in-process `rattler` engine, or container-based
+  engines) to plug in later without changing any of the functions above.
+  All of these functions gain a new `method` argument: `"auto"` (the
+  default) resolves automatically - an existing environment's own owning
+  backend, or `getOption("condathis.backend_priority")` order for a new
+  one; `"micromamba"` selects it explicitly. `"native"` (the old default)
+  is now a deprecated alias for `"micromamba"` and warns once per session,
+  but keeps working exactly the same. If you never pass `method`, nothing
+  about your existing code changes.
+
+* New exported extension API for backend authors: `register_backend()`
+  (the extension point itself - its documentation specifies the full
+  10-function backend contract, the class convention, and the
+  load-order-safe `.onLoad()`/`setHook()` registration pattern),
+  `unregister_backend()` (for a backend package's `.onUnload()`), and
+  `list_registered_backend_names()` (introspection: what's currently
+  plugged in). These are aimed at packages providing alternative
+  execution engines, not at end users - regular `condathis` usage never
+  needs them. This extension API is **experimental**: the backend
+  contract may change in breaking ways between `0.x` releases as the
+  first external backends are wired in (see `register_backend()`'s
+  *Lifecycle* section).
+
+* **Breaking (minor):** `get_install_dir()` and `list_envs()` now return a
+  tibble-classed data frame instead of a bare character vector/string, so
+  they can report results across more than one backend. `get_install_dir()`
+  gains `backend`/`path` columns; `list_envs()` gains `backend`/`env_name`/
+  `path` columns. With a single registered backend (today's default),
+  this is always one row per environment (or one row total for
+  `get_install_dir()`), just no longer a bare vector - code checking
+  `is.character(get_install_dir())` or iterating `for (e in list_envs())`
+  needs to switch to `get_install_dir()$path` / `list_envs()$env_name`.
+  `env_exists()` is unaffected - it still returns a plain `TRUE`/`FALSE`.
+
+* `list_packages()`'s columns are now documented as backend-dependent:
+  only `name`, `version`, `build_number`, and `channel` are guaranteed
+  present across every backend. The `"micromamba"` backend's other
+  columns (`base_url`, `build_string`, `dist_name`, `platform`, `md5`,
+  `sha256`, `url`) are unchanged, just no longer part of the documented
+  cross-backend guarantee.
 
 ### Added
 
@@ -20,7 +80,7 @@ Development Changelog: [dev](https://github.com/luciorq/condathis/compare/v0.1.4
     crash-safe process cleanup
     . Default to `FALSE`, preserving existing behavior.
   * New `input` argument: writable `stdin = "|"` support, writing
-    character/raw data directly to the process's standard input — matching
+    character/raw data directly to the process's standard input - matching
     `run_pipeline()`'s `input` argument. Previously `stdin` only accepted
     `NULL` or a file path.
   * Both now return a `condathis_result` S3 object instead of a plain
@@ -36,7 +96,7 @@ Development Changelog: [dev](https://github.com/luciorq/condathis/compare/v0.1.4
   `run_pipeline()`: captures stdout/stderr as raw vectors instead of
   decoding them as UTF-8 text, so binary output (images, compressed data,
   etc.) round-trips correctly. Since a process's stdout and stderr share one
-  encoding, both streams come back raw when `TRUE` — check with `is.raw()`
+  encoding, both streams come back raw when `TRUE` - check with `is.raw()`
   before treating either as text. `format()`/`print()` on the resulting
   `condathis_result`/`condathis_pipeline` objects, and `parse_output()`, all
   handle raw streams safely (`parse_output()` errors with class
@@ -57,8 +117,8 @@ Development Changelog: [dev](https://github.com/luciorq/condathis/compare/v0.1.4
   output a killed stage had already produced is preserved.
 
 * `install_micromamba()` now verifies the downloaded `micromamba` binary
-  against its official checksum. If it doesn't match — or the check can't
-  be run at all, for any reason — you'll see a warning, but the install
+  against its official checksum. If it doesn't match - or the check can't
+  be run at all, for any reason - you'll see a warning, but the install
   still completes; this never blocks you. On R 4.5 and newer this needs no
   extra software at all; on older R it prefers the optional `digest`
   package if you have it installed, and only as a last resort falls back
@@ -72,7 +132,7 @@ Development Changelog: [dev](https://github.com/luciorq/condathis/compare/v0.1.4
     crash-safe process cleanup (previously only available, and always on,
     in `run_pipeline()`). Default to `FALSE`, preserving existing behavior.
   * New `input` argument: writable `stdin = "|"` support, writing
-    character/raw data directly to the process's standard input — matching
+    character/raw data directly to the process's standard input - matching
     `run_pipeline()`'s `input` argument. Previously `stdin` only accepted
     `NULL` or a file path.
   * Both now return a `condathis_result` S3 object instead of a plain
@@ -88,7 +148,7 @@ Development Changelog: [dev](https://github.com/luciorq/condathis/compare/v0.1.4
   and `clean_cache()` now return the same kind of result object as `run()`/
   `run_bin()` (a `condathis_result`), instead of a plain, unlabeled list.
   If your code only reads `res$status`, `res$stdout`, or `res$stderr`,
-  nothing changes — that keeps working exactly as before. What's new: every
+  nothing changes - that keeps working exactly as before. What's new: every
   result now also includes `res$pid`, `res$cmd`, and `res$env_name`, and
   simply printing a result (e.g. typing it at the console, or letting it
   auto-print) now shows a short, readable summary instead of a raw list
@@ -119,7 +179,7 @@ Development Changelog: [dev](https://github.com/luciorq/condathis/compare/v0.1.4
   check.
 
 * `get_env_dir()` now validates `env_name` (a single, non-missing character
-  string) instead of silently building a nonsensical path — for example, a
+  string) instead of silently building a nonsensical path - for example, a
   multi-element `env_name` used to silently return a vector of paths.
 
 * `install_packages()` now warns when the target environment was previously
@@ -128,19 +188,19 @@ Development Changelog: [dev](https://github.com/luciorq/condathis/compare/v0.1.4
   `install_packages()` with `channels = "bioconda"` only). The channel used
   is recorded per package in the environment's `conda-meta/history` file;
   dropping a previously-used channel can change how dependencies resolve.
-  The install still proceeds — this is a warning, not an error.
+  The install still proceeds - this is a warning, not an error.
 
 * **Breaking (minor):** `env_exists()` now raises a clear error if
   `env_name` isn't a single, real environment name (for example `NULL`,
   `NA`, a number, or a vector of more than one name). Previously, these
   invalid inputs silently returned `FALSE`, which looked exactly the same
-  as "that environment doesn't exist" — an easy way to hide a mistake in
+  as "that environment doesn't exist" - an easy way to hide a mistake in
   your own code. If you were deliberately relying on `env_exists(NULL)` or
   `env_exists(NA)` returning `FALSE`, that call now errors instead;
   everything else (checking a real environment name) is unaffected.
 
 * **Breaking (minor):** `run()` no longer creates any environment when the
-  one you asked for (`env_name`) doesn't exist — it errors instead,
+  one you asked for (`env_name`) doesn't exist - it errors instead,
   telling you to create it first. Previously, if you gave a custom
   `env_name` that didn't exist, `run()` would silently create an unrelated,
   empty `"condathis-env"` as a side effect (left over from a workaround for
@@ -164,7 +224,7 @@ Development Changelog: [dev](https://github.com/luciorq/condathis/compare/v0.1.4
   made a fresh install root end up with an unwanted default environment
   the caller never asked for. `run()`, `run_pipeline()`, and
   `list_packages()` each already auto-create `"condathis-env"` themselves,
-  correctly scoped to only when it's actually the target — that behavior
+  correctly scoped to only when it's actually the target - that behavior
   is unaffected.
 
 * Fix `run_pipeline()` checking that Conda environments exist before
@@ -208,7 +268,7 @@ Development Changelog: [dev](https://github.com/luciorq/condathis/compare/v0.1.4
 
 * Fix `run()`/`run_bin()`'s `stdin = "|"` silently truncating `input`
   larger than the OS pipe buffer (confirmed: only 8192 of 200000 bytes
-  delivered on macOS, no error) — a single non-blocking `write_input()`
+  delivered on macOS, no error) - a single non-blocking `write_input()`
   call can short-write and discard the undelivered remainder. Also fixes a
   related deadlock in `run()`, `run_bin()`, and `run_pipeline()`: reading
   `stdout` and `stderr` sequentially (or calling `wait()` before draining
@@ -221,7 +281,7 @@ Development Changelog: [dev](https://github.com/luciorq/condathis/compare/v0.1.4
   downloaded/extracted `micromamba` binary as missing on Windows.
   Antivirus real-time scanning can briefly hold its own handle on a
   just-written executable, making a `file.exists()` check performed
-  immediately afterward return `FALSE` even though the file is present —
+  immediately afterward return `FALSE` even though the file is present -
   confirmed directly (a `force = TRUE` reinstall failed once, then
   succeeded on an immediate retry with no code change). The existence
   check now polls briefly before giving up.
@@ -238,7 +298,7 @@ Development Changelog: [dev](https://github.com/luciorq/condathis/compare/v0.1.4
   underlying command failed in an unusual way. It now always reports that
   kind of failure as a proper error, so code calling `list_envs()` can
   rely on always getting back either a vector of names or an informative
-  error — never a bare number.
+  error - never a bare number.
 
 * Fix `list_packages()` crashing with a confusing, low-level R error
   (`object 'pkgs_df' not found`) in that same kind of rare failure case.
