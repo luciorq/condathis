@@ -12,7 +12,7 @@
 #'   Defaults to `"silent"`.
 #'
 #' @returns A tibble-classed data frame with one row per environment,
-#'   columns `backend` (chr), `env_name` (chr), and `path` (chr) — one row
+#'   columns `backend` (chr), `env_name` (chr), and `path` (chr) - one row
 #'   per environment across every backend covered by `method`. With a
 #'   single registered backend (today's default), this is always the same
 #'   shape, just one `backend` value throughout.

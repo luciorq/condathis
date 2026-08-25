@@ -6,7 +6,7 @@
 #' @returns A character string with the full executable path.
 #'   On Windows this points to `micromamba.exe` under `Library/bin`.
 #'   On other platforms this points to `micromamba` under `bin`.
-#'   This is purely a computed, expected path — it does not check whether a
+#'   This is purely a computed, expected path - it does not check whether a
 #'   file actually exists there yet (unlike `get_install_dir()`, which
 #'   creates its directory before returning). Use `fs::file_exists()` on
 #'   the result, or `install_micromamba()`, if you need the binary to

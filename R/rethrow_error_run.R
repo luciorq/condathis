@@ -114,12 +114,12 @@ rethrow_error_run <- function(expr, env = parent.frame()) {
 
   # Normalized to a fixed sentinel here, in one place, regardless of how
   # `px_res` was produced above: `processx::run()` itself never throws on
-  # timeout when `error_on_status = FALSE` (`error = "continue"`'s case) —
+  # timeout when `error_on_status = FALSE` (`error = "continue"`'s case) -
   # it returns normally with `status` set to whatever the OS reports for
   # the killed process, confirmed to differ across platforms (`-9` on
   # Linux/macOS, `2` on Windows for the identical `kill()`). `px_res$timeout`
   # is always reliably set by `processx::run()`/`run_process_with_input()`
-  # either way, so it — not the raw status — is what `condathis` trusts.
+  # either way, so it - not the raw status - is what `condathis` trusts.
   if (isTRUE(rlang::is_list(px_res)) && isTRUE(px_res$timeout)) {
     px_res$status <- -9L
   }

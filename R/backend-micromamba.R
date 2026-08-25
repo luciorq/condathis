@@ -68,12 +68,12 @@ micromamba_backend_get_env_dir <- function(
 #' Some versions of libmamba check for a `pkgs_dir` in the home directory
 #' even when the package cache is configured elsewhere. Creates it if
 #' missing, and registers a `withr::defer()` cleanup that removes it again
-#' once the caller (normally `create_env()`) returns — so a fresh
+#' once the caller (normally `create_env()`) returns - so a fresh
 #' `~/.mamba` isn't left behind on a machine that never had one. No cleanup
 #' fires if the directory already existed.
 #'
 #' @param envir Environment whose exit the deferred cleanup is tied to.
-#'   Defaults to the caller's own frame (`parent.frame()`) — `withr::defer()`'s
+#'   Defaults to the caller's own frame (`parent.frame()`) - `withr::defer()`'s
 #'   own default `envir` is *its* immediate caller (this function's frame),
 #'   so without explicitly threading `envir` through here, the cleanup
 #'   would fire the instant this helper returns rather than when
@@ -213,7 +213,7 @@ micromamba_backend_create_env <- function(
   # + When micromamba fail to create an environment with a different platform
   # + than the native one, it leaves the directory there and do not overwrite.
   # Uses the raw `backend_env_exists()` generic here, not `backend_has_env()`
-  # — this decision is about to delete a directory, so a failed existence
+  # - this decision is about to delete a directory, so a failed existence
   # check (e.g. a transient `micromamba env list` failure) must abort loudly
   # instead of being coerced to "definitely absent, safe to delete".
   if (
@@ -296,7 +296,7 @@ micromamba_backend_remove_env <- function(
   # As in `micromamba_backend_create_env()`, use the raw `backend_env_exists()`
   # generic (not `backend_has_env()`) for both checks below: a failed
   # existence check must abort loudly here, not be coerced to "definitely
-  # absent" — the first check gates a directory deletion, and treating a
+  # absent" - the first check gates a directory deletion, and treating a
   # transient check failure as "absent" would delete a real environment and
   # then still report it as never having existed.
   env_name_exists <- backend_env_exists(
@@ -346,7 +346,7 @@ micromamba_backend_remove_env <- function(
 #' `env_root_dir` is matched as a **literal** substring (`stringr::fixed()`),
 #' not a regex. It is a filesystem path (e.g. `~/.local/share/R/condathis`)
 #' whose `.` characters would otherwise be treated as "any character" regex
-#' metacharacters — matching, for example, `~/Xlocal/share/R/condathis/...`
+#' metacharacters - matching, for example, `~/Xlocal/share/R/condathis/...`
 #' as if it belonged to condathis. The root path itself is excluded by the
 #' trailing `basename() != "condathis"` filter, same as before.
 #'

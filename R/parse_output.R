@@ -5,7 +5,7 @@
 #' @param res Either a process result list (with `stdout` and/or `stderr`) or a
 #'   character vector when `stream = "plain"`. Errors if the requested
 #'   stream(s) hold raw binary data (from `run()`/`run_bin()`/
-#'   `run_pipeline()` called with `binary = TRUE`) — read those directly
+#'   `run_pipeline()` called with `binary = TRUE`) - read those directly
 #'   instead, e.g. with `writeBin()`.
 #' @param stream Character string selecting the output source.
 #'   Supported values are `"stdout"`, `"stderr"`, `"both"`, and `"plain"`.

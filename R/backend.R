@@ -45,14 +45,24 @@ condathis_native_warned$warned <- FALSE
 #' contract function names listed below, each a function implementing that
 #' part of the contract. `register_backend()` validates the vtable is
 #' complete, then registers each entry for S3 dispatch from inside
-#' `condathis`'s own namespace — the backend package does not need to
+#' `condathis`'s own namespace - the backend package does not need to
 #' `Imports`/`Depends` on `condathis` or register anything in its own
 #' `NAMESPACE`.
+#'
+#' @section Lifecycle:
+#' This extension API is **experimental**. The backend contract (the
+#' required functions, their signatures, and their return-value
+#' expectations) has not yet been validated by a second, real backend
+#' package shipping against it, and may change in breaking ways between
+#' `0.x` releases as the first external backends are wired in. Backend
+#' authors should declare the specific `condathis` version they were
+#' developed against and expect to track contract changes until this
+#' notice is removed.
 #'
 #' @section The backend contract:
 #' `backend` must be built as
 #' `structure(list(<the 10 functions>), class = c("condathis_backend_<name>", "condathis_backend"))`
-#' — the first class is what S3 dispatch keys on, so it must be unique to
+#' - the first class is what S3 dispatch keys on, so it must be unique to
 #' this backend. The 10 required element names are:
 #'
 #' * `backend_create_env(backend, packages, env_file, env_name, channels,
@@ -60,23 +70,23 @@ condathis_native_warned$warned <- FALSE
 #' * `backend_install(backend, packages, env_name, channels,
 #'   channel_priority, additional_channels, verbose)`
 #' * `backend_remove_env(backend, env_name, verbose)`
-#' * `backend_list_envs(backend, verbose)` — returns a bare character
+#' * `backend_list_envs(backend, verbose)` - returns a bare character
 #'   vector of environment names.
-#' * `backend_env_exists(backend, env_name, verbose)` — returns a single
+#' * `backend_env_exists(backend, env_name, verbose)` - returns a single
 #'   logical.
-#' * `backend_list_packages(backend, env_name, verbose)` — returns a data
+#' * `backend_list_packages(backend, env_name, verbose)` - returns a data
 #'   frame with at least `name`, `version`, `build_number`, and `channel`
 #'   columns; extra backend-specific columns are allowed.
-#' * `backend_get_env_dir(backend, env_name)` — returns the environment's
+#' * `backend_get_env_dir(backend, env_name)` - returns the environment's
 #'   directory path.
-#' * `backend_get_install_dir(backend)` — returns the backend's own
+#' * `backend_get_install_dir(backend)` - returns the backend's own
 #'   install root. Each backend must use its own separate root: directory
 #'   placement under that root is how `condathis` determines which backend
 #'   owns an existing environment.
-#' * `backend_resolve_run(backend, cmd, args, env_name, verbose)` —
+#' * `backend_resolve_run(backend, cmd, args, env_name, verbose)` -
 #'   returns `list(command, args, env, dir)` describing how to execute
 #'   `cmd` inside `env_name`.
-#' * `backend_available(backend)` — returns a single logical; gates
+#' * `backend_available(backend)` - returns a single logical; gates
 #'   `method = "auto"` selection for *new* environments.
 #'
 #' Creation/installation/removal functions signal an error condition on
@@ -112,7 +122,7 @@ condathis_native_warned$warned <- FALSE
 #' @param name Character string identifying this backend (e.g.
 #'   `"micromamba"`, `"rattler"`). This is the value users pass as
 #'   `method =`. Re-registering an existing name overwrites it.
-#' @param backend A classed, named list of the 10 contract functions — see
+#' @param backend A classed, named list of the 10 contract functions - see
 #'   *The backend contract* below.
 #' @param call Calling environment reported in error conditions. Defaults
 #'   to the caller's environment.
@@ -188,8 +198,11 @@ register_backend <- function(name, backend, call = rlang::caller_env()) {
 #' no longer exists.
 #'
 #' Unregistering a name that isn't currently registered is a silent no-op
-#' (returning `FALSE`), never an error — unload hooks shouldn't fail on
+#' (returning `FALSE`), never an error - unload hooks shouldn't fail on
 #' cleanup that has nothing left to clean.
+#'
+#' Part of the **experimental** backend extension API - see the
+#' *Lifecycle* section of [register_backend()].
 #'
 #' @param name Character string with the backend name to unregister.
 #' @param call Calling environment reported in error conditions. Defaults
@@ -229,7 +242,7 @@ unregister_backend <- function(name, call = rlang::caller_env()) {
   backend_class <- class(backend)[[1L]]
 
   # Also drop the S3 methods `register_backend()` registered for this
-  # class — a stale method would hold the last reference to the backend
+  # class - a stale method would hold the last reference to the backend
   # package's (possibly unloaded) namespace. The runtime S3 methods table
   # is not locked (it must accept `registerS3method()` calls after
   # namespace sealing), so entries can be removed the same way they were

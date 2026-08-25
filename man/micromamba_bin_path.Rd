@@ -10,7 +10,7 @@ micromamba_bin_path()
 A character string with the full executable path.
 On Windows this points to \code{micromamba.exe} under \code{Library/bin}.
 On other platforms this points to \code{micromamba} under \code{bin}.
-This is purely a computed, expected path — it does not check whether a
+This is purely a computed, expected path - it does not check whether a
 file actually exists there yet (unlike \code{get_install_dir()}, which
 creates its directory before returning). Use \code{fs::file_exists()} on
 the result, or \code{install_micromamba()}, if you need the binary to

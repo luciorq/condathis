@@ -5,7 +5,7 @@
 #' about), both fixed by the same interleaved poll loop:
 #'
 #' 1. **Truncated writes.** `proc$write_input()`'s underlying write is a
-#'    single, non-blocking syscall that can — and does — write less than
+#'    single, non-blocking syscall that can - and does - write less than
 #'    asked and silently return the undelivered remainder, which the R
 #'    wrapper discards. Calling it once and closing immediately after
 #'    truncates any `input` bigger than the OS pipe buffer with no error:
@@ -13,13 +13,13 @@
 #'    8,192 to the child, verified independently with `wc -c` on the
 #'    receiving end. This retries the write with the returned leftover
 #'    instead of discarding it.
-#' 2. **Deadlock.** Draining stdout and stderr sequentially — or waiting for
-#'    the process to exit before reading either — deadlocks once combined
+#' 2. **Deadlock.** Draining stdout and stderr sequentially - or waiting for
+#'    the process to exit before reading either - deadlocks once combined
 #'    output exceeds the OS pipe buffer (64KB on Linux, much smaller on
 #'    macOS/Windows): the child blocks on `write()` to whichever stream
 #'    isn't being read yet, so it never finishes. Retrying a stdin write
 #'    without concurrently draining stdout has the same failure mode one
-#'    level up — a child that echoes input to output (e.g. `cat`) blocks
+#'    level up - a child that echoes input to output (e.g. `cat`) blocks
 #'    writing its own output once *that* pipe fills, which stalls it from
 #'    reading more stdin, which stalls the write retry forever. This polls
 #'    all three directions together, once per loop iteration, matching how
@@ -32,7 +32,7 @@
 #' (they concatenate chunks with `paste0()`, which coerces `raw` to per-byte
 #' hex text).
 #'
-#' Callers must call `proc$wait()` themselves *after* this returns — never
+#' Callers must call `proc$wait()` themselves *after* this returns - never
 #' before, and never in between.
 #'
 #' @param proc A `processx::process` object.
@@ -47,7 +47,7 @@
 #' @param binary Logical. Read raw bytes (`TRUE`) or UTF-8 text (`FALSE`).
 #' @param deadline Numeric. An absolute point in time, comparable to
 #'   `proc.time()[["elapsed"]]`, after which draining stops even if the
-#'   process hasn't finished — e.g. `proc.time()[["elapsed"]] + timeout`.
+#'   process hasn't finished - e.g. `proc.time()[["elapsed"]] + timeout`.
 #'   Defaults to `Inf` (never times out, the original behavior). Does
 #'   **not** kill the process itself; the caller is responsible for that
 #'   (see the `timeout` element of the return value) and for calling
@@ -92,14 +92,14 @@ pump_process_io <- function(
 
     # Short timeout while still writing, so a full pipe doesn't stall the
     # retry indefinitely; once input is fully sent, block until more
-    # output/error data (or EOF) is actually ready — unless a finite
+    # output/error data (or EOF) is actually ready - unless a finite
     # `deadline` is active, in which case that indefinite wait is replaced
     # with the same short poll used while writing, so the loop keeps
     # coming back around to check the deadline instead of blocking past it.
     # Once the deadline itself has been reached, poll non-blockingly (`0`)
     # instead of skipping straight to `break`: killing a process discards
     # any output still sitting unread in its connection (confirmed
-    # empirically — `processx` invalidates the connection on `kill()`), so
+    # empirically - `processx` invalidates the connection on `kill()`), so
     # this last, instant drain is the only chance to recover data the
     # child already produced before the caller kills it.
     proc$poll_io(

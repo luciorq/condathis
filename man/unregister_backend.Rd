@@ -26,8 +26,11 @@ no longer exists.
 }
 \details{
 Unregistering a name that isn't currently registered is a silent no-op
-(returning \code{FALSE}), never an error — unload hooks shouldn't fail on
+(returning \code{FALSE}), never an error - unload hooks shouldn't fail on
 cleanup that has nothing left to clean.
+
+Part of the \strong{experimental} backend extension API - see the
+\emph{Lifecycle} section of \code{\link[=register_backend]{register_backend()}}.
 }
 \examples{
 \dontrun{

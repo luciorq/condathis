@@ -33,7 +33,7 @@ Defaults to \code{"condathis-env"}.}
 
 \item{method}{Character string naming the backend to use. Defaults to
 \code{"auto"} (resolve automatically: the environment's own owning
-backend). \code{"micromamba"} is the only backend registered today — and
+backend). \code{"micromamba"} is the only backend registered today - and
 the only one \code{run_bin()} can actually execute through so far.
 \code{"native"} is a deprecated alias for \code{"micromamba"} (warns once per
 session).}
@@ -69,7 +69,7 @@ writable-stdin code path; \code{timeout} still works.}
 instead of decoding them as UTF-8 text. Defaults to \code{FALSE}. Since a
 process's stdout and stderr share a single encoding, both streams are
 returned raw when \code{TRUE}, even if only one of them actually carries
-binary data — check with \code{is.raw()} before treating either as text.
+binary data - check with \code{is.raw()} before treating either as text.
 Binary streams are never live-echoed to the console, regardless of
 \code{verbose}.}
 
@@ -89,7 +89,7 @@ scripts) as an environment overlay before running \code{cmd}. Defaults to \code{
 (\code{cmd} still runs, unactivated) when \code{env_name} does not exist, so
 \code{error = "continue"}-style fallback to a binary outside any managed
 environment keeps working. Set to \code{FALSE} to restore the original,
-activation-free \code{run_bin()} behavior — \code{cmd} still resolves against
+activation-free \code{run_bin()} behavior - \code{cmd} still resolves against
 \code{env_name}'s \verb{bin/} directory (falling back to \code{PATH}), but the child
 process otherwise inherits the caller's environment unmodified. This
 is the mechanism that makes \code{run_bin(activate = TRUE)} behave like
@@ -119,7 +119,7 @@ This is a lower-level execution mode than \code{run()}.
 condathis::with_sandbox_dir({
   # Create an environment with 'python' and 'ripgrep'. `coreutils`
   # (and other GNU tools like `grep`) aren't available for Windows on
-  # conda-forge, so `ripgrep` is used here instead of e.g. `ls`/`grep` —
+  # conda-forge, so `ripgrep` is used here instead of e.g. `ls`/`grep` -
   # a single package name that installs and runs the same way on every
   # platform `condathis` supports.
   condathis::create_env(

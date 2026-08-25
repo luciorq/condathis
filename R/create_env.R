@@ -88,7 +88,7 @@ create_env <- function(
 
   # Checked upfront, unconditionally, rather than only inside
   # `resolve_create_env_packages_arg()` (called from `backend_create_env()`)
-  # — that call site is skipped entirely on the `env_already_satisfies_request()`
+  # - that call site is skipped entirely on the `env_already_satisfies_request()`
   # early-return path below, which would otherwise let a nonexistent/mistyped
   # `env_file` silently pass as a no-op success instead of aborting.
   if (isFALSE(rlang::is_null(env_file)) && isFALSE(fs::file_exists(env_file))) {

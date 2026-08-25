@@ -81,7 +81,7 @@ test_that("get_micromamba_activation_envvars() result works as a process env ove
   )
   # Drain stdout before wait()ing: `env`'s full dump of the process
   # environment can exceed the OS pipe buffer (64KB on Linux, much smaller
-  # on macOS/Windows). wait()-then-read blocks forever in that case — `env`
+  # on macOS/Windows). wait()-then-read blocks forever in that case - `env`
   # blocks on write() because nobody is reading yet, and wait() blocks
   # because the child never exits. read_all_output() polls the pipe as data
   # arrives instead of waiting for exit first.

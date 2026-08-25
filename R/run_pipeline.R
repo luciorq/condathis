@@ -16,7 +16,7 @@
 #'     \item A named list with `cmd` (character vector) and, optionally,
 #'       `env_name` (character string) to specify a per-command environment,
 #'       `method` (character string) to specify a per-command backend
-#'       (see `method` below — only the `"micromamba"` backend can
+#'       (see `method` below - only the `"micromamba"` backend can
 #'       actually execute a command today, regardless of which backend
 #'       owns its environment), `stderr` to override the top-level
 #'       `stderr` target for this command, and `stdout` to override the
@@ -52,7 +52,7 @@
 #'   that do not specify their own `method` (see `cmds`). Defaults to
 #'   `"auto"` (resolve automatically: each command's environment's own
 #'   owning backend). `"micromamba"` is the only backend registered
-#'   today — and the only one that can actually execute a command so far.
+#'   today - and the only one that can actually execute a command so far.
 #'   `"native"` is a deprecated alias for `"micromamba"` (warns once per
 #'   session).
 #' @param supervise Logical. Whether each process should be supervised by
@@ -104,7 +104,7 @@
 #'   # exists under the "m2-" (MSYS2) prefix on conda-forge.
 #'   #
 #'   # `samtools` (bioconda) has no Windows build on any channel, so this
-#'   # specific example only runs on Linux/macOS regardless — there's no
+#'   # specific example only runs on Linux/macOS regardless - there's no
 #'   # portable substitute that still demonstrates a real bioinformatics
 #'   # CLI operating on the packaged BAM file below.
 #'   create_env("bioconda::samtools", env_name = "samtools-env")
@@ -194,7 +194,7 @@ run_pipeline <- function(
   resolved_backends <- precreate_result$resolved_backends
 
   # `supervise = TRUE` (the default) hangs `run_pipeline()` indefinitely on
-  # native Windows for any 2+ command pipeline — confirmed via a clean A/B
+  # native Windows for any 2+ command pipeline - confirmed via a clean A/B
   # test on a real Windows machine: overriding to `FALSE` fixes it
   # instantly (well under 1s), switching back to `TRUE` reproduces the hang,
   # in the same R session. `processx::pipeline`'s own reference
@@ -232,11 +232,11 @@ run_pipeline <- function(
   spawn_failures <- spawned_all$spawn_failures
 
   # Write `input` to the first process's stdin while draining *its* stderr
-  # (never its stdout — that's piped straight into the second command, not
+  # (never its stdout - that's piped straight into the second command, not
   # captured by R) concurrently, via pump_process_io(). Writing once and
   # closing immediately, as this used to do, silently truncates `input`
-  # larger than the OS pipe buffer — confirmed empirically, not just
-  # reasoned about (see pump_process_io()) — and not draining stderr while
+  # larger than the OS pipe buffer - confirmed empirically, not just
+  # reasoned about (see pump_process_io()) - and not draining stderr while
   # writing risks the same deadlock class pump_process_io() is built to
   # avoid, one level up. This fully drains the first process's stderr to
   # EOF as a side effect, so the main loop below reuses this result for
@@ -316,7 +316,7 @@ validate_pipeline_args <- function(input, stdin, binary) {
 #' blocking, which is "required for child-process stdin/stdout on
 #' Windows". `conn_create_pipepair()`'s ends are non-blocking, meant for
 #' R-side reading/writing (e.g. this package's own `pump_process_io()`,
-#' used for `run()`/`run_bin()`'s `stdin = "|"` handling) — using it here
+#' used for `run()`/`run_bin()`'s `stdin = "|"` handling) - using it here
 #' instead is what caused `run_pipeline()` to hang indefinitely on
 #' Windows for any 2+ command pipeline. Confirmed by comparing against
 #' `processx::pipeline`'s own `initialize()` method, which uses
@@ -418,7 +418,7 @@ run_pipeline_spawn_all <- function(
 
     # Close the parent's copies of this stage's pipe ends as soon as
     # they've been handed to a process (or would have been, had spawning
-    # not failed) — never defer closing until every process in the
+    # not failed) - never defer closing until every process in the
     # pipeline has spawned. A write end left open in the parent (even
     # though the child holds its own copy) keeps the read end from ever
     # seeing EOF once the child exits, which is the same deadlock class
@@ -508,12 +508,12 @@ run_pipeline_drain_all <- function(
 #' Resolves the stage's activation environment and executable path, then
 #' spawns it via `processx::process$new()`, translating a spawn-time error
 #' (missing binary, etc.) into the same `list(status = 127L, stderr = ...)`
-#' shape `run_pipeline()`'s missing-environment branch already uses —
+#' shape `run_pipeline()`'s missing-environment branch already uses -
 #' `run_pipeline()` doesn't need to know *why* a stage never produced a
 #' running process, only that it didn't.
 #'
 #' @param is_last Logical. Whether this is the last command in the
-#'   pipeline — controls `poll_connection` (`NULL` for the last stage,
+#'   pipeline - controls `poll_connection` (`NULL` for the last stage,
 #'   `FALSE` for every other stage, matching `processx::pipeline`'s own
 #'   `initialize()`).
 #'
@@ -544,14 +544,14 @@ spawn_pipeline_process <- function(
   # backend's own `backend_resolve_run()`, so every registered backend works
   # here rather than only `"micromamba"`. Not a behaviour change for
   # `"micromamba"`: `micromamba_backend_resolve_run()` computes exactly what
-  # this function used to inline — `resolve_env_bin_path()` falling back to
+  # this function used to inline - `resolve_env_bin_path()` falling back to
   # the bare name, plus `get_micromamba_activation_envvars()`.
   #
   # Resolving the executable (rather than passing a bare name) matters
   # because the OS resolves a bare command against the *calling* R process's
   # own ambient PATH, not against `env` below (Windows' `CreateProcess`,
   # like POSIX `execvp()`, locates the executable image before the child's
-  # own environment block takes effect) — so without it a command only
+  # own environment block takes effect) - so without it a command only
   # "works" by coincidence, if something of the same name happens to be
   # reachable outside `env_name_i` entirely (confirmed on Windows: a
   # 3-command pipeline using `rev` failed outright, since no `rev` exists
@@ -635,10 +635,10 @@ spawn_pipeline_process <- function(
 #'   never spawned.
 #' @param spawn_failure `NULL`, or `list(status, stderr)` from a missing
 #'   environment / `spawn_pipeline_process()` failure.
-#' @param is_last Logical. Whether this is the pipeline's last command —
+#' @param is_last Logical. Whether this is the pipeline's last command -
 #'   only the last command's stdout is captured by R (every other
 #'   command's stdout is piped straight into the next command).
-#' @param is_first Logical. Whether this is the pipeline's first command —
+#' @param is_first Logical. Whether this is the pipeline's first command -
 #'   its stderr may already have been drained by the caller (interleaved
 #'   with writing `input` to its stdin) and handed back as
 #'   `first_proc_streams`, in which case it must not be drained again.
@@ -672,7 +672,7 @@ drain_pipeline_stage <- function(
 
   empty_stream <- if (isTRUE(binary)) raw(0L) else ""
 
-  # Drain this process's own stream(s) *before* wait()ing on it — see
+  # Drain this process's own stream(s) *before* wait()ing on it - see
   # pump_process_io() for why: wait()-then-read (or draining stdout and
   # stderr sequentially, for the last command which has both piped)
   # deadlocks once output exceeds the OS pipe buffer. Each process's
@@ -684,7 +684,7 @@ drain_pipeline_stage <- function(
   # with writing it `input`), reuse that instead of draining it again.
   # Every stage shares the same absolute `pipeline_deadline`: once one
   # stage times out, later stages' own check reads as already elapsed
-  # too — but `pump_process_io()` still does one last non-blocking
+  # too - but `pump_process_io()` still does one last non-blocking
   # drain before reporting it, so already-buffered output (e.g. this
   # stage received before an upstream stage was killed) isn't lost.
   streams <- if (isTRUE(is_first) && isFALSE(is.null(first_proc_streams))) {
@@ -700,7 +700,7 @@ drain_pipeline_stage <- function(
   }
 
   p_timeout <- isTRUE(streams$timeout)
-  # Kill only *this* stage, and only after having drained it above —
+  # Kill only *this* stage, and only after having drained it above -
   # `kill()` invalidates a process's own connection immediately
   # (confirmed empirically), discarding anything still unread, so
   # draining downstream stages before reaching this point (rather
@@ -714,7 +714,7 @@ drain_pipeline_stage <- function(
   proc_i$wait()
 
   # Normalized to a fixed sentinel on timeout, same as run()/run_bin()
-  # (see run_process_with_input.R) — a killed process's own reported
+  # (see run_process_with_input.R) - a killed process's own reported
   # exit status is an OS/`processx` detail that differs across
   # platforms (`-9` on Linux/macOS, `2` on Windows for the identical
   # `kill()` call), not something to trust as-is.
@@ -908,7 +908,7 @@ check_stdout_overrides <- function(parsed, n_cmds) {
 #' `env_name`
 #'
 #' All commands targeting the same `env_name` must resolve to the same
-#' backend — it's one environment, not a coincidence of name — so every
+#' backend - it's one environment, not a coincidence of name - so every
 #' command's `method` is considered, not just the first one found for that
 #' `env_name`. `"auto"` (the no-preference default, whether inherited from
 #' `run_pipeline()`'s own top-level `method` or a command's own unset
@@ -960,16 +960,16 @@ resolve_pipeline_env_method <- function(env_name, parsed) {
 #' (see `R/run_pipeline.R`'s main spawn loop), so it's reported the same
 #' as "missing" under `error = "continue"`, and aborts under
 #' `error = "cancel"`. An environment that exists under more than one
-#' registered backend simultaneously — `resolve_backend()`'s own
+#' registered backend simultaneously - `resolve_backend()`'s own
 #' `condathis_backend_ambiguous_env` abort, which (unlike a single-owner
-#' mismatch) always fires regardless of the `mutating` argument — gets the
+#' mismatch) always fires regardless of the `mutating` argument - gets the
 #' same `error_var`-gated treatment here rather than escaping uncaught:
 #' re-thrown as-is under `error = "cancel"`, degraded to "missing" under
 #' `error = "continue"`.
 #'
 #' @returns A list with `missing_envs` (a named character vector under
 #'   `error = "continue"`: names are the affected `env_name`s, values are
-#'   the specific stderr message to report for each — genuinely absent,
+#'   the specific stderr message to report for each - genuinely absent,
 #'   ambiguous ownership, and existing-under-an-unsupported-backend are
 #'   three different situations and get three different messages, not a
 #'   single generic "does not exist") and `resolved_backends` (a named

@@ -4,13 +4,13 @@
 #' execution paths converge here so that `timeout`, `supervise`,
 #' `cleanup_tree`, `linux_pdeathsig`, `encoding` and the echo/spinner
 #' behaviour are wired identically no matter which backend resolved the
-#' command — the `"micromamba"` path (via `native_cmd()`, which spawns
+#' command - the `"micromamba"` path (via `native_cmd()`, which spawns
 #' `micromamba run ...`) and any other backend's path (via
 #' `run_internal_backend()`, which spawns the resolved command directly).
 #'
 #' The split is `processx`'s, not `condathis`'s: `processx::run()` accepts
 #' `stdin = "|"` but never exposes the resulting connection, so writing to a
-#' child's stdin needs `processx::process$new()` driven by hand — see
+#' child's stdin needs `processx::process$new()` driven by hand - see
 #' `run_process_with_input()` for that half and the hazards it avoids.
 #'
 #' @param command Character string with the executable to spawn.
