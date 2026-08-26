@@ -511,8 +511,8 @@ backend_create_env <- function(
   packages = NULL,
   env_file = NULL,
   env_name = "condathis-env",
-  channels = c("conda-forge", "bioconda"),
-  channel_priority = c("disabled", "strict", "flexible"),
+  channels = "conda-forge",
+  channel_priority = c("strict", "flexible", "disabled"),
   additional_channels = NULL,
   platform = NULL,
   overwrite = FALSE,
@@ -527,8 +527,8 @@ backend_install <- function(
   backend,
   packages,
   env_name = "condathis-env",
-  channels = c("conda-forge", "bioconda"),
-  channel_priority = c("disabled", "strict", "flexible"),
+  channels = "conda-forge",
+  channel_priority = c("strict", "flexible", "disabled"),
   additional_channels = NULL,
   verbose = c("output", "silent", "cmd", "spinner", "full")
 ) {

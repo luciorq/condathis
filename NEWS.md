@@ -127,6 +127,30 @@ alongside it - see below.
 
 ### Changed
 
+* **Breaking (minor):** the default `channels` for `create_env()` and
+  `install_packages()` is now just `"conda-forge"` - `"bioconda"` is no
+  longer included implicitly. Aligns `condathis` with plain `micromamba`
+  behavior and avoids solving against a channel most environments never
+  use. Code that installs bioconda packages needs the channel stated
+  explicitly, in either of two ways: a channel-prefixed package spec -
+  `create_env(packages = "bioconda::samtools")` pulls the package *and*
+  its bioconda dependencies with no other change - or the channel
+  argument, e.g. `channels = c("conda-forge", "bioconda")`. Calls that
+  already passed `channels` explicitly are unaffected.
+
+* **Breaking (minor):** the default `channel_priority` for `create_env()`
+  and `install_packages()` is now `"strict"` (previously `"disabled"`),
+  matching `micromamba`'s own recommended default: when multiple channels
+  provide the same package name, only the highest-priority channel's
+  builds are considered, which keeps resolution reproducible and prevents
+  accidental cross-channel mixing. Pass
+  `channel_priority = "disabled"` (or `"flexible"`) to restore the
+  previous behavior for a specific call. Note for existing environments:
+  `install_packages()`'s channel-history warning may now fire for
+  environments created before this change with the old implicit
+  `"bioconda"` default - add the channel it names to `channels` or
+  `additional_channels` to silence it.
+
 * `run()` and `run_bin()` gain feature parity with `run_pipeline()`:
   * New `supervise`, `cleanup_tree`, and `linux_pdeathsig` arguments for
     crash-safe process cleanup (previously only available, and always on,

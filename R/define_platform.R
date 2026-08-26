@@ -8,10 +8,10 @@
 #' @param platform Character string with a user-specified platform.
 #'   Defaults to `NULL`.
 #' @param channels Character vector with channel names.
-#'   Defaults to `c("conda-forge", "bioconda")`.
+#'   Defaults to `"conda-forge"`.
 #' @param channel_priority Character string with channel priority mode.
-#'   Supported values are `"disabled"`, `"strict"`, and `"flexible"`.
-#'   Defaults to `"disabled"`.
+#'   Supported values are `"strict"`, `"flexible"`, and `"disabled"`.
+#'   Defaults to `"strict"`.
 #' @param additional_channels Character vector of additional channels.
 #'   Defaults to `NULL`.
 #' @param verbose Character string controlling console output.
@@ -25,15 +25,8 @@
 define_platform <- function(
   packages,
   platform = NULL,
-  channels = c(
-    "conda-forge",
-    "bioconda"
-  ),
-  channel_priority = c(
-    "disabled",
-    "strict",
-    "flexible"
-  ),
+  channels = "conda-forge",
+  channel_priority = c("strict", "flexible", "disabled"),
   additional_channels = NULL,
   verbose = "silent"
 ) {

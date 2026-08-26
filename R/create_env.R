@@ -12,10 +12,17 @@
 #' @param env_name Character string with the target environment name.
 #'   Defaults to `"condathis-env"`.
 #' @param channels Character vector with channel names used for dependency
-#'   resolution. Defaults to `c("conda-forge", "bioconda")`.
+#'   resolution. Defaults to `"conda-forge"`. Packages from other channels
+#'   (e.g. `bioconda`) can either use a channel-prefixed spec in
+#'   `packages` - `"bioconda::samtools"` pulls the package *and* its
+#'   bioconda dependencies without any change here - or add the channel
+#'   explicitly, e.g. `channels = c("conda-forge", "bioconda")`.
 #' @param channel_priority Character string with channel priority mode.
-#'   Supported values are `"disabled"`, `"strict"`, and `"flexible"`.
-#'   Defaults to `"disabled"`.
+#'   Supported values are `"strict"`, `"flexible"`, and `"disabled"`.
+#'   Defaults to `"strict"`, matching `micromamba`'s own recommended
+#'   default: when multiple channels provide a package, only the
+#'   highest-priority channel's builds are considered, which keeps
+#'   resolution reproducible.
 #' @param additional_channels Character vector of additional channels appended
 #'   to `channels`. Defaults to `NULL`.
 #' @param method Character string naming the backend to use. Defaults to
@@ -54,16 +61,9 @@ create_env <- function(
   packages = NULL,
   env_file = NULL,
   env_name = "condathis-env",
-  channels = c(
-    "conda-forge",
-    "bioconda"
-  ),
+  channels = "conda-forge",
   method = "auto",
-  channel_priority = c(
-    "disabled",
-    "strict",
-    "flexible"
-  ),
+  channel_priority = c("strict", "flexible", "disabled"),
   additional_channels = NULL,
   platform = NULL,
   verbose = c(

@@ -43,9 +43,10 @@ testthat::test_that("parse_strategy_channel_priority handles non-character input
 })
 
 testthat::test_that("parse_strategy_channel_priority handles missing input correctly", {
+  # The default is "strict", matching micromamba's own recommended default.
   testthat::expect_equal(
     parse_strategy_channel_priority(),
-    c("--no-channel-priority", "--channel-priority=0")
+    c("--strict-channel-priority", "--channel-priority=2")
   )
 })
 

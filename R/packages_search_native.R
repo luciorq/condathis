@@ -5,10 +5,10 @@
 #'
 #' @param packages Character vector of package MatchSpec strings.
 #' @param channels Character vector with channel names.
-#'   Defaults to `c("conda-forge", "bioconda")`.
+#'   Defaults to `"conda-forge"`.
 #' @param channel_priority Character string with channel priority mode.
-#'   Supported values are `"disabled"`, `"strict"`, and `"flexible"`.
-#'   Defaults to `"disabled"`.
+#'   Supported values are `"strict"`, `"flexible"`, and `"disabled"`.
+#'   Defaults to `"strict"`.
 #' @param additional_channels Character vector of additional channels.
 #'   Defaults to `NULL`.
 #' @param platform Character string with a target platform for search.
@@ -22,15 +22,8 @@
 #' @noRd
 packages_search_native <- function(
   packages,
-  channels = c(
-    "conda-forge",
-    "bioconda"
-  ),
-  channel_priority = c(
-    "disabled",
-    "strict",
-    "flexible"
-  ),
+  channels = "conda-forge",
+  channel_priority = c("strict", "flexible", "disabled"),
   additional_channels = NULL,
   platform = NULL,
   verbose = "silent"
