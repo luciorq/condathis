@@ -28,7 +28,15 @@ testthat::test_that("build_child_env applies the clean overlay without touching 
 })
 
 testthat::test_that("build_child_env layers overlay over clean, and path_prepend over both", {
-  withr::local_envvar(.new = list(`PATH` = "/usr/bin:/bin"))
+  # The fixture PATH must use the platform separator: on Windows,
+  # compose_path() splits by ";", so a ":"-joined value would (correctly)
+  # be treated as one single opaque entry - which is exactly what this
+  # test's first CI run demonstrated.
+  withr::local_envvar(
+    .new = list(
+      `PATH` = paste(c("/usr/bin", "/bin"), collapse = .Platform$path.sep)
+    )
+  )
 
   env <- build_child_env(
     tmp_dir = "/tmp/fake-tmp-dir",
