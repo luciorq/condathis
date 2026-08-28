@@ -127,6 +127,18 @@ alongside it - see below.
 
 ### Changed
 
+* `condathis` no longer temporarily mutates the calling R session's
+  environment variables while running commands. Previously, every
+  execution path applied its conda-isolation overrides (`R_HOME = ""`,
+  `TMPDIR`, `CONDA_*`/`MAMBA_*`, and for `run_bin()` also `PATH`) to the
+  *session* for the duration of the child process, and any R code that
+  happened to run during that window - console callbacks, condition
+  handlers, code in an interrupt path - observed the corrupted values
+  (most visibly `R.home()` returning nonsense while `R_HOME` was
+  blanked). Child processes now receive an explicitly constructed
+  environment block instead, and the session is never touched. Behavior
+  of the child processes themselves is unchanged.
+
 * **Breaking (minor):** the default `channels` for `create_env()` and
   `install_packages()` is now just `"conda-forge"` - `"bioconda"` is no
   longer included implicitly. Aligns `condathis` with plain `micromamba`
@@ -237,6 +249,20 @@ alongside it - see below.
   result with `status = 127` instead of erroring.
 
 ### Fixed
+
+* Fix `run_pipeline(activate = FALSE)` building a corrupted `PATH` for
+  its child processes on Windows: the hand-rolled activation used the
+  POSIX `":"` separator and a POSIX-only `bin/` layout. It now uses the
+  platform's real separator and the same Windows-aware environment
+  layout (`Scripts/`, `Library/bin/`, ...) the rest of the package uses.
+
+* Fix the cached `micromamba` activation variables freezing the session
+  `PATH` of whichever call first resolved an environment into every later
+  call for it: directories removed from the session `PATH` afterwards
+  were resurrected in child processes, later additions were missing, and
+  one caller's transient `PATH` prefix could leak into unrelated calls.
+  The cache now stores only the directories activation *adds*, and the
+  final `PATH` is composed against the live session `PATH` on every use.
 
 * Fix `install_micromamba()` always creating the default `"condathis-env"`
   as an undocumented side effect of installing the binary, even when
