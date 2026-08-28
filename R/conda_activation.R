@@ -16,7 +16,11 @@
 #' @keywords internal
 #' @noRd
 get_activation_envvars <- function(env_name, env_dir, tmp_dir) {
-  env_bin_dir <- fs::path(env_dir, "bin")
+  # `env_bin_search_dirs()` + `compose_path()`, not a hardcoded
+  # `<env_dir>/bin` + `":"`: Windows conda environments place binaries
+  # across `<env_dir>` itself, `Scripts/`, `Library/bin/`, etc., and the
+  # Windows PATH separator is `";"` - the previous hardcoded POSIX form
+  # produced a corrupted PATH there.
   envvar_vec <- c(
     CONDA_PREFIX = env_dir,
     CONDA_DEFAULT_ENV = env_name,
@@ -26,7 +30,10 @@ get_activation_envvars <- function(env_name, env_dir, tmp_dir) {
     MAMBA_PROMPT_MODIFIER = paste0("(", env_name, ") "),
     CONDA_ENVS_PATH = fs::path_dir(env_dir),
     TMPDIR = tmp_dir,
-    PATH = paste(env_bin_dir, Sys.getenv("PATH"), sep = ":")
+    PATH = compose_path(
+      env_bin_search_dirs(env_dir),
+      Sys.getenv("PATH")
+    )
   )
   return(envvar_vec)
 }

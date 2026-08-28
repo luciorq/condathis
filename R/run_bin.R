@@ -211,29 +211,34 @@ run_bin <- function(
     }
   }
   tmp_dir_path <- withr::local_tempdir(pattern = "condathis-tmp")
-  withr::local_envvar(
-    .new = get_clean_conda_envvars(tmp_dir = tmp_dir_path)
-  )
-  withr::local_path(
-    new = as.list(env_bin_search_dirs(env_dir)),
-    action = "prefix"
-  )
 
   # `activate = FALSE` stays honoured for every backend: it is the
   # documented way to run an environment's binary *without* its activation
   # variables, so a backend's `env` is applied only when activation was
   # actually asked for.
-  activation_env <- NULL
+  activation_overlay <- NULL
   if (isTRUE(activate) && fs::dir_exists(env_dir)) {
     if (isTRUE(is_micromamba)) {
-      activation_env <- c(
-        "current",
-        get_micromamba_activation_envvars(env_name = env_name)
+      activation_overlay <- get_micromamba_activation_envvars(
+        env_name = env_name
       )
     } else if (isTRUE(length(backend_run$env) > 0L)) {
-      activation_env <- c("current", backend_run$env)
+      activation_overlay <- backend_run$env
     }
   }
+
+  # The child's environment block is built explicitly (clean conda
+  # overlay, activation overlay, env bin dirs prepended to PATH) and
+  # passed as a full `env =` replacement - the calling session's own
+  # environment and PATH are never touched. This replaces the previous
+  # `withr::local_envvar()` + `withr::local_path()` session mutation,
+  # whose (scoped) PATH prefix additionally used to leak into the
+  # activation cache when this call was the one that filled it.
+  child_env <- build_child_env(
+    tmp_dir = tmp_dir_path,
+    overlay = activation_overlay,
+    path_prepend = env_bin_search_dirs(env_dir)
+  )
   px_res <- rethrow_error_run(
     expr = {
       if (identical(stdin, "|")) {
@@ -245,7 +250,7 @@ run_bin <- function(
           stderr = stderr,
           echo_cmd = verbose_list$cmd,
           echo = verbose_output,
-          env = activation_env,
+          env = child_env,
           error_on_status = error_var,
           cleanup_tree = cleanup_tree,
           supervise = supervise,
@@ -263,7 +268,7 @@ run_bin <- function(
           stdout = stdout,
           stderr = stderr,
           stdin = stdin,
-          env = activation_env,
+          env = child_env,
           error_on_status = error_var,
           cleanup_tree = cleanup_tree,
           supervise = supervise,

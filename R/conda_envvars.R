@@ -16,7 +16,10 @@
 #'   Defaults to `NULL` (set to empty string). When provided (for example, by
 #'   `native_cmd()`), `CONDA_ENVS_PATH` is set to this value.
 #'
-#' @returns A named list suitable for passing to `withr::local_envvar()`.
+#' @returns A named list of overrides for `build_child_env()`, where a
+#'   `NULL` entry (`CONDA_ENVS_DIRS`) means "remove from the child's
+#'   environment block" and every other entry is set as-is. Never applied
+#'   to the calling session itself.
 #'
 #' @keywords internal
 #' @noRd

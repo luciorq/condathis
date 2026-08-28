@@ -7,18 +7,20 @@ NULL
 
 #' Cache for `R.home("bin")`-derived paths, resolved at package load time
 #'
-#' `get_clean_conda_envvars()` sets `R_HOME = ""` via `withr::local_envvar()`
-#' so a spawned child (which may itself invoke R/Rscript, e.g. inside a
-#' target Conda environment) doesn't inherit the parent session's R
-#' installation. Since that's a real (session-wide, if temporary) mutation
-#' of `Sys.getenv("R_HOME")`, any code that calls `R.home()` while such a
-#' scope is active anywhere up the call stack gets a corrupted result
-#' (empirically: `/bin/Rscript` instead of the real path). Resolving once
-#' at package load - before any condathis function has had a chance to
-#' touch `R_HOME` - sidesteps the ordering problem entirely, rather than
-#' requiring every caller to resolve `R.home()` before its own
-#' `get_clean_conda_envvars()` call (which does not compose: a caller
-#' further up the stack may have already applied its own).
+#' Historical context: `get_clean_conda_envvars()`'s `R_HOME = ""`
+#' override (so a spawned child that itself invokes R/Rscript doesn't
+#' inherit the parent session's R installation) used to be applied to the
+#' *calling session* via `withr::local_envvar()`, and any `R.home()` call
+#' made while such a scope was active anywhere up the stack got a
+#' corrupted result (empirically: `/bin/Rscript` instead of the real
+#' path). This load-time cache was introduced to sidestep that.
+#'
+#' Child environments are now built explicitly by `build_child_env()` and
+#' passed as full `env =` blocks - condathis never mutates the session's
+#' `R_HOME` anymore - so the original hazard is gone. The cache is kept as
+#' cheap defense-in-depth: it is immune to any third-party code that does
+#' mutate `R_HOME`, and avoids re-deriving the path on every activation
+#' resolution.
 #'
 #' @keywords internal
 #' @noRd

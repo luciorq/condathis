@@ -163,10 +163,11 @@ run_pipeline <- function(
     Inf
   }
 
+  # No session-wide environment scope here: each stage's child environment
+  # is constructed explicitly at spawn time via `build_child_env()` (see
+  # `spawn_pipeline_process()`), so the calling R session's environment is
+  # never touched.
   tmp_dir_path <- withr::local_tempdir(pattern = "condathis-tmp")
-  withr::local_envvar(
-    .new = get_clean_conda_envvars(tmp_dir = tmp_dir_path)
-  )
 
   parsed <- parse_cmds_spec(
     cmds,
@@ -583,6 +584,15 @@ spawn_pipeline_process <- function(
     )
   }
 
+  # Full explicit environment block for this stage (clean conda overlay +
+  # activation overlay), never `c("current", ...)` - the calling session's
+  # environment is not mutated by `run_pipeline()`, so inheriting it
+  # directly would leak the caller's CONDA_*/MAMBA_* state into the stage.
+  child_env <- build_child_env(
+    tmp_dir = tmp_dir_path,
+    overlay = activation_envvars
+  )
+
   spawn_result <- tryCatch(
     expr = {
       processx::process$new(
@@ -592,7 +602,7 @@ spawn_pipeline_process <- function(
         stdout = stdout_i,
         stderr = stderr_i,
         poll_connection = if (isFALSE(is_last)) FALSE else NULL,
-        env = c("current", activation_envvars),
+        env = child_env,
         supervise = effective_supervise,
         cleanup_tree = cleanup_tree,
         linux_pdeathsig = linux_pdeathsig,
