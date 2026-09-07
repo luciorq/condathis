@@ -86,3 +86,20 @@ testthat::test_that("list_envs echoes the underlying command at verbose = 'full'
     stringr::fixed("Running")
   ))
 })
+
+testthat::test_that("realize_env_paths tolerates stale and vanished environment paths", {
+  # Regression test: a vectorized fs::path_real() errors ENOENT on the
+  # first stale registry entry (e.g. ~/.conda/environments.txt), which
+  # aborted list_envs() for every environment at once and made
+  # env_exists() report existing environments as absent through
+  # backend_has_env()'s never-errors coercion.
+  real_dir <- withr::local_tempdir()
+  stale_path <- fs::path(real_dir, "definitely-gone-subdir", "old-env")
+  out <- realize_env_paths(c(as.character(real_dir), as.character(stale_path)))
+  testthat::expect_equal(out, as.character(fs::path_real(real_dir)))
+  # All-stale input: empty result, no error.
+  testthat::expect_equal(
+    realize_env_paths(as.character(stale_path)),
+    character(0L)
+  )
+})

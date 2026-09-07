@@ -399,8 +399,45 @@ micromamba_backend_list_envs <- function(
 
   envs_list <- jsonlite::fromJSON(px_res$stdout)
   envs_str <- base::normalizePath(envs_list$envs, mustWork = FALSE)
-  envs_str <- fs::path_real(envs_str)
+  envs_str <- realize_env_paths(envs_str)
   return(condathis_env_names(envs_str, env_root_dir))
+}
+
+#' Resolve environment paths to their real form, tolerating missing ones
+#'
+#' `micromamba env list` reports whatever its registries (e.g.
+#' `~/.conda/environments.txt`) contain, including stale entries for
+#' directories that no longer exist - and an environment can also be
+#' removed by another process between the listing subprocess and this
+#' call. A vectorized `fs::path_real()` errors with ENOENT on the *first*
+#' such path, which used to abort `list_envs()` for every environment at
+#' once and, worse, flow through `backend_has_env()`'s never-errors
+#' contract as `FALSE` - making `env_exists()` report existing
+#' environments as absent and `resolve_backend()` treat them as brand-new.
+#' A stale entry must only affect itself: paths that no longer exist are
+#' dropped, and a path whose realization fails anyway (removed in the
+#' window after the existence check) falls back to its normalized form.
+#'
+#' @param envs_str Character vector of normalized environment paths.
+#'
+#' @returns Character vector: existing paths realized (symlinks resolved),
+#'   vanished paths removed.
+#'
+#' @keywords internal
+#' @noRd
+realize_env_paths <- function(envs_str) {
+  envs_str <- envs_str[fs::dir_exists(envs_str)]
+  return(vapply(
+    envs_str,
+    FUN = function(path) {
+      tryCatch(
+        as.character(fs::path_real(path)),
+        error = function(e) path
+      )
+    },
+    FUN.VALUE = character(1L),
+    USE.NAMES = FALSE
+  ))
 }
 
 #' @keywords internal

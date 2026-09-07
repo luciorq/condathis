@@ -498,3 +498,29 @@ test_that("format.condathis_result previews raw stdout without erroring", {
   testthat::expect_type(formatted, "character")
   testthat::expect_match(formatted, "binary data, 3 bytes")
 })
+
+test_that("Run proceeds when the environment existence check itself fails", {
+  # Regression test: the execution gate used backend_has_env(), whose
+  # never-errors contract coerces a *failed* `micromamba env list`
+  # (transient lock, corrupt metadata, JSON hiccup) to FALSE - so run()
+  # aborted "environment does not exist" for environments that exist and
+  # would run fine. An undeterminable existence check must fall through
+  # to execution, not block it.
+  testthat::local_mocked_bindings(
+    backend_env_exists = function(...) {
+      cli::cli_abort("Simulated transient listing failure.")
+    },
+    run_internal_native = function(...) {
+      list(status = 0L, stdout = "ran fine", stderr = "", timeout = FALSE)
+    }
+  )
+  res <- run(
+    "echo",
+    "hi",
+    env_name = "some-existing-env",
+    error = "cancel",
+    verbose = "silent"
+  )
+  testthat::expect_equal(res$status, 0L)
+  testthat::expect_equal(res$stdout, "ran fine")
+})
