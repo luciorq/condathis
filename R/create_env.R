@@ -77,6 +77,13 @@ create_env <- function(
 ) {
   validate_env_name(env_name, class = "condathis_create_invalid_env_name")
 
+  # Validated upfront, unconditionally: this arg_match used to run only
+  # inside `backend_create_env()`, which the already-satisfied early
+  # return below skips entirely - so whether an invalid `channel_priority`
+  # errored or was silently accepted depended on the current state of the
+  # target environment.
+  channel_priority <- rlang::arg_match(channel_priority)
+
   if (isFALSE(rlang::is_bool(overwrite))) {
     cli::cli_abort(
       message = c(

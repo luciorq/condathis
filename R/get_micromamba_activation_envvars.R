@@ -42,6 +42,14 @@
 #' @param env_name Character string with the Conda environment name.
 #' @param use_cache Logical. Whether to use/populate the per-`env_name`
 #'   cache. Defaults to `TRUE`.
+#' @param env_dir The environment's directory, when the caller already
+#'   resolved it. Defaults to `NULL`, which computes it directly from the
+#'   micromamba backend's own layout (`env_dir_for_backend()`, a pure
+#'   path computation) - deliberately *not* the public `get_env_dir()`,
+#'   whose backend resolution runs a `micromamba env list` subprocess on
+#'   every call (even activation cache hits) and can abort on
+#'   multi-backend ambiguity. This helper is micromamba-specific by
+#'   definition, so the micromamba layout is always the right answer.
 #'
 #' @returns A named character vector of the environment variables that
 #'   activating `env_name` via `micromamba run` adds or changes (including
@@ -50,8 +58,13 @@
 #'
 #' @keywords internal
 #' @noRd
-get_micromamba_activation_envvars <- function(env_name, use_cache = TRUE) {
-  env_dir <- get_env_dir(env_name = env_name)
+get_micromamba_activation_envvars <- function(
+  env_name,
+  use_cache = TRUE,
+  env_dir = NULL
+) {
+  env_dir <- env_dir %||%
+    env_dir_for_backend(micromamba_backend(), env_name = env_name)
 
   if (!fs::dir_exists(env_dir)) {
     cli::cli_abort(

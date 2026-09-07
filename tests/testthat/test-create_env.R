@@ -370,3 +370,19 @@ testthat::test_that("Create conda env from file", {
     env_name = "condathis-create-file-test-env"
   ))
 })
+
+testthat::test_that("create_env validates channel_priority regardless of environment state", {
+  # Regression test: this arg_match used to run only inside
+  # backend_create_env(), which the already-satisfied early return skips -
+  # so an invalid channel_priority errored or passed silently depending on
+  # whether the target environment already satisfied the request. Runs
+  # before any backend resolution, so no network is needed.
+  testthat::expect_error(
+    object = create_env(
+      packages = "zlib",
+      channel_priority = "bananas",
+      env_name = "condathis-priority-validation-env"
+    ),
+    class = "rlang_error"
+  )
+})

@@ -80,7 +80,12 @@ rethrow_error_run <- function(expr, env = parent.frame()) {
     )
   }
 
-  if (isFALSE(exists("px_res"))) {
+  # `inherits = FALSE` is essential: the default lookup walks up through
+  # the namespace to the user's global environment, so a workspace object
+  # that happened to be named `px_res` would make this check pass and get
+  # *returned as the process result* whenever the wrapped expression
+  # errored before assigning locally.
+  if (isFALSE(exists("px_res", inherits = FALSE))) {
     if (isTRUE(rlang::is_null(err_cnd[["status"]]))) {
       status_code <- 127L
     } else {

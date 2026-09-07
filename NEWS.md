@@ -250,6 +250,37 @@ alongside it - see below.
 
 ### Fixed
 
+* Support `micromamba` 2.9.0's changed `list --json` output format
+  (`{"log_history": ..., "packages": ...}` instead of a bare package
+  array), which broke `list_packages()` - and everything downstream of
+  it, like `create_env()`'s already-satisfied detection - when the
+  discovery chain picked up a system-installed 2.9+ binary. Both formats
+  are now parsed.
+
+* Fix `run()`/`run_bin()` potentially returning an unrelated object named
+  `px_res` from the user's workspace as the command result when the
+  underlying execution errored in an unusual way: the internal
+  had-a-result check searched enclosing environments all the way to the
+  global environment instead of only its own frame.
+
+* Fix `create_env()` accepting an invalid `channel_priority` without
+  error whenever the target environment already satisfied the request:
+  the validation only ran on the actual-creation path, so the same call
+  errored or passed depending on environment state. It is now validated
+  upfront, unconditionally.
+
+* Fix `getOption("condathis.backend_priority")` acting as an allowlist
+  instead of an ordering preference: naming only an unregistered backend
+  made `method = "auto"` abort "no backend available" even with a
+  working registered backend present. Registered backends the option
+  does not mention are now appended after the prioritized ones.
+
+* Activation-variable resolution no longer runs a `micromamba env list`
+  subprocess (via the public `get_env_dir()`) on every call - including
+  cache hits: the environment directory is computed directly from the
+  micromamba layout, removing a redundant subprocess from every activated
+  `run_bin()` call and pipeline command spawn.
+
 * Fix `run_pipeline(stderr = "some-file")` losing every command's stderr
   except the last one to open the file: each command's process opened
   (and truncated) the shared path independently, clobbering what earlier
