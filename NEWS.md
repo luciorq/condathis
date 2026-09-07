@@ -250,6 +250,34 @@ alongside it - see below.
 
 ### Fixed
 
+* Fix `install_micromamba(force = TRUE)` destroying a working
+  `micromamba` installation when the download failed: the standalone-
+  binary download strategy wrote directly onto the live binary path, and
+  its per-mirror cleanup deleted that path after every failed mirror - so
+  a forced reinstall on a machine with unreachable mirrors (e.g.
+  offline) deleted the existing binary and then aborted, leaving nothing.
+  Downloads now go to a temporary path and only replace the existing
+  binary once a complete new one exists; a failed install still aborts
+  (the requested version was not installed), but the previous working
+  binary survives.
+
+* Fix `run_pipeline()` deadlocking permanently once the data flowing
+  between commands exceeded the OS pipe buffers (~64KB): stages' captured
+  streams were drained one stage at a time, leaving the last command's
+  output pipe unread while earlier stages were waited on, and the
+  resulting backpressure froze every process in the pipeline - reproduced
+  with `seq 1 500000 | cat`. All stages' captured streams are now drained
+  concurrently in a single poll loop, on every platform.
+
+* Fix `timeout` being silently unenforced in `run()`/`run_bin()` when
+  both `stdout` and `stderr` are redirected to files (or the child closes
+  its streams but keeps running), and in `run_pipeline()` for commands
+  with no captured streams (e.g. `stderr = NULL`): the final wait on the
+  child was unbounded, so a 2-second timeout could wait out a
+  100-second command. The remaining time budget is now always enforced
+  with a bounded wait, and expiry reports the same `status = -9` /
+  `timeout = TRUE` result as any other timeout.
+
 * Fix `run_pipeline(activate = FALSE)` building a corrupted `PATH` for
   its child processes on Windows: the hand-rolled activation used the
   POSIX `":"` separator and a POSIX-only `bin/` layout. It now uses the
