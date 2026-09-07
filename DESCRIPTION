@@ -41,7 +41,7 @@ Config/Needs/dev: devtools, pkgload, remotes, rcmdcheck, covr, testthat,
     styler, cyclocomp
 Config/Needs/website: quarto, png
 Config/roxygen2/markdown: TRUE
-Config/roxygen2/version: 8.0.0
+Config/roxygen2/version: 8.1.0
 Config/testthat/edition: 3
 Config/testthat/parallel: true
 Config/testthat/start-first: create_env, rethrow_error, parse_match_spec,

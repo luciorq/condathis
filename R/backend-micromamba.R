@@ -486,6 +486,15 @@ micromamba_backend_list_packages <- function(
   }
 
   pkgs_df <- jsonlite::fromJSON(px_res$stdout)
+  # micromamba changed `list --json`'s output shape in 2.9.0: a bare array
+  # of packages before, `{"log_history": [...], "packages": [...]}` since.
+  # Both shapes must parse - which binary answers depends on the
+  # discovery chain (a system-installed 2.9+ can legitimately win over the
+  # pinned internal version), so this is a runtime property of the user's
+  # machine, not of the version condathis pins.
+  if (isFALSE(is.data.frame(pkgs_df)) && rlang::has_name(pkgs_df, "packages")) {
+    pkgs_df <- pkgs_df[["packages"]]
+  }
   if (identical(length(pkgs_df), 0L)) {
     pkgs_df <- base::data.frame(
       "base_url" = character(0L),
@@ -514,7 +523,10 @@ micromamba_backend_resolve_run <- function(
 ) {
   env_dir <- env_dir_for_backend(backend, env_name)
   cmd_path <- resolve_env_bin_path(env_dir, cmd) %||% cmd
-  activation_env <- get_micromamba_activation_envvars(env_name = env_name)
+  activation_env <- get_micromamba_activation_envvars(
+    env_name = env_name,
+    env_dir = env_dir
+  )
   return(list(
     command = as.character(cmd_path),
     args = as.character(args),

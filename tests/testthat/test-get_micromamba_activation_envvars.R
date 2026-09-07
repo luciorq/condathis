@@ -176,3 +176,22 @@ testthat::test_that("parse_activation_dump ignores activate.d noise around the J
   cnd2 <- rlang::catch_cnd(parse_activation_dump(broken, env_name = "x"))
   testthat::expect_s3_class(cnd2, "condathis_activation_dump_error")
 })
+
+testthat::test_that("activation resolution never routes through the public get_env_dir()", {
+  # Regression test: get_env_dir()'s backend resolution runs a
+  # `micromamba env list` subprocess on every call (even activation cache
+  # hits) and can abort on multi-backend ambiguity; the micromamba-specific
+  # activation helper must compute the env dir from the micromamba layout
+  # directly.
+  testthat::local_mocked_bindings(
+    get_env_dir = function(...) {
+      cli::cli_abort(
+        "get_env_dir() must not be called by activation resolution."
+      )
+    }
+  )
+  testthat::expect_error(
+    get_micromamba_activation_envvars("definitely-nonexistent-env-xyz"),
+    class = "condathis_activation_env_not_found"
+  )
+})

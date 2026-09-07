@@ -220,7 +220,8 @@ run_bin <- function(
   if (isTRUE(activate) && fs::dir_exists(env_dir)) {
     if (isTRUE(is_micromamba)) {
       activation_overlay <- get_micromamba_activation_envvars(
-        env_name = env_name
+        env_name = env_name,
+        env_dir = env_dir
       )
     } else if (isTRUE(length(backend_run$env) > 0L)) {
       activation_overlay <- backend_run$env
