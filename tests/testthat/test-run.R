@@ -391,6 +391,40 @@ test_that("Run respects timeout under error = continue", {
   testthat::expect_true(res$timeout)
 })
 
+test_that("Run timeout is enforced when stdout/stderr are redirected to files", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  # Regression test: with both streams file-redirected the stream pump has
+  # nothing to watch, returns immediately, and a bare `wait()` used to
+  # block until the child exited on its own - silently disabling `timeout`
+  # entirely (a 2-second timeout waited out the whole sleep).
+  create_env(
+    test_os_pkg("coreutils"),
+    env_name = "run-cli-tools-env",
+    verbose = "silent"
+  )
+  out_file <- withr::local_tempfile()
+  err_file <- withr::local_tempfile()
+  t_start <- Sys.time()
+  res <- run(
+    "sleep",
+    "30",
+    env_name = "run-cli-tools-env",
+    stdin = "|",
+    input = "",
+    stdout = out_file,
+    stderr = err_file,
+    error = "continue",
+    timeout = 2,
+    verbose = "silent"
+  )
+  elapsed <- as.numeric(Sys.time() - t_start, units = "secs")
+  testthat::expect_equal(res$status, -9L)
+  testthat::expect_true(res$timeout)
+  testthat::expect_lt(elapsed, 20)
+})
+
 test_that("Run respects timeout under error = cancel", {
   testthat::skip_on_cran()
   testthat::skip_if_offline()

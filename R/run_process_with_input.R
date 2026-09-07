@@ -88,6 +88,20 @@ run_process_with_input <- function(
   )
 
   p_timeout <- isTRUE(streams$timeout)
+  # pump_process_io() only observes the deadline through the streams it
+  # watches: with stdout/stderr redirected to files (or already closed by
+  # a child that keeps running), it returns before the deadline with
+  # nothing to report, and a bare `wait()` here would block until the
+  # child exited on its own - silently disabling `timeout` entirely
+  # (measured: `timeout = 2` waiting out a 100-second sleep). Enforce the
+  # remaining budget with a bounded wait instead.
+  if (isFALSE(p_timeout) && isTRUE(is.finite(deadline)) && proc$is_alive()) {
+    remaining_ms <- max(0, (deadline - proc.time()[["elapsed"]]) * 1000)
+    proc$wait(timeout = round(remaining_ms))
+    if (proc$is_alive()) {
+      p_timeout <- TRUE
+    }
+  }
   if (isTRUE(p_timeout)) {
     proc$kill()
   }

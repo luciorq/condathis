@@ -154,11 +154,10 @@ testthat::test_that("unregister_backend removes the registry entry and its S3 me
 })
 
 testthat::test_that("unregister_backend is a silent no-op for an unregistered name", {
-  result <- NULL
   testthat::expect_no_error({
     result <- unregister_backend("never-was-registered-xyz")
+    testthat::expect_false(result)
   })
-  testthat::expect_false(result)
 })
 
 testthat::test_that("unregister_backend validates its name argument", {

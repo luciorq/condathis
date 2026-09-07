@@ -506,6 +506,87 @@ test_that("Pipeline respects timeout under error = cancel", {
   testthat::expect_s3_class(cnd_res, "condathis_pipeline_timeout_error")
 })
 
+test_that("Pipeline does not deadlock when data volume exceeds pipe buffers across stages", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  # Regression test: the previous sequential per-stage draining left the
+  # last stage's stdout-to-R pipe unread while waiting for stage 1's
+  # stderr EOF; once the flowing data exceeded the OS pipe buffer (~64KB)
+  # the whole pipeline froze on backpressure, permanently - reproduced
+  # with exactly this workload. `timeout` is a safety net so a regression
+  # fails the test instead of hanging CI: the (also fixed) deadline
+  # enforcement kills the pipeline and the status assertions fail.
+  create_env(
+    pipeline_cli_pkgs(),
+    env_name = "run-pipeline-cli-tools-env",
+    verbose = "silent"
+  )
+  res <- run_pipeline(
+    cmds = list(
+      c("seq", "1", "200000"),
+      c("cat")
+    ),
+    env_name = "run-pipeline-cli-tools-env",
+    error = "continue",
+    timeout = 120
+  )
+  testthat::expect_false(res$timeout)
+  testthat::expect_equal(res$statuses, c(0L, 0L))
+  n_lines <- length(strsplit(trimws(res$processes[[2]]$stdout), "\n")[[1]])
+  testthat::expect_equal(n_lines, 200000L)
+
+  # Same, through an extra relay stage (multi-hop backpressure).
+  res3 <- run_pipeline(
+    cmds = list(
+      c("seq", "1", "200000"),
+      c("cat"),
+      c("cat")
+    ),
+    env_name = "run-pipeline-cli-tools-env",
+    error = "continue",
+    timeout = 120
+  )
+  testthat::expect_false(res3$timeout)
+  testthat::expect_equal(res3$statuses, c(0L, 0L, 0L))
+  n_lines3 <- length(strsplit(trimws(res3$processes[[3]]$stdout), "\n")[[1]])
+  testthat::expect_equal(n_lines3, 200000L)
+})
+
+test_that("Pipeline timeout is enforced for stages with no R-side streams", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  # Regression test: with `stderr = NULL` a non-last stage has no R-side
+  # pipes at all, so the stream pump cannot observe it; the per-stage
+  # settle used a bare `wait()`, which blocked until the child exited on
+  # its own - silently disabling `timeout` (measured: a 1-second deadline
+  # waiting out the full sleep). Only stage 1's status is asserted:
+  # whether the downstream stage exits 0 (EOF after the kill) or is
+  # killed itself is a timing race that differs across platforms.
+  create_env(
+    pipeline_cli_pkgs(),
+    env_name = "run-pipeline-cli-tools-env",
+    verbose = "silent"
+  )
+  t_start <- Sys.time()
+  res <- run_pipeline(
+    cmds = list(
+      c("sleep", "30"),
+      c("cat")
+    ),
+    stderr = NULL,
+    env_name = "run-pipeline-cli-tools-env",
+    error = "continue",
+    timeout = 2
+  )
+  elapsed <- as.numeric(Sys.time() - t_start, units = "secs")
+  testthat::expect_true(res$timeout)
+  testthat::expect_equal(res$statuses[1], -9L)
+  testthat::expect_true(res$processes[[1]]$timeout)
+  testthat::expect_lt(elapsed, 20)
+})
+
 test_that("Pipeline preserves output a killed downstream stage already produced", {
   testthat::skip_on_cran()
   testthat::skip_if_offline()
