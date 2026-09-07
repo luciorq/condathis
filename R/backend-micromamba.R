@@ -343,12 +343,15 @@ micromamba_backend_remove_env <- function(
 #' Extracted so the filtering can be unit-tested without a live `micromamba`
 #' call or real directories.
 #'
-#' `env_root_dir` is matched as a **literal** substring (`stringr::fixed()`),
-#' not a regex. It is a filesystem path (e.g. `~/.local/share/R/condathis`)
-#' whose `.` characters would otherwise be treated as "any character" regex
-#' metacharacters - matching, for example, `~/Xlocal/share/R/condathis/...`
-#' as if it belonged to condathis. The root path itself is excluded by the
-#' trailing `basename() != "condathis"` filter, same as before.
+#' `env_root_dir` is matched as an **anchored literal prefix**
+#' (`startsWith()` with a trailing separator appended), never a regex or a
+#' bare substring: a regex would treat the path's `.` characters as "any
+#' character" (matching `~/Xlocal/share/R/condathis/...`), and an
+#' unanchored substring match claimed any path merely *containing* the
+#' root somewhere inside it (e.g. a backup copy at
+#' `/backup/home/user/.local/share/R/condathis/envs/x`) as
+#' condathis-owned. The root path itself is excluded by the trailing
+#' `basename() != "condathis"` filter, same as before.
 #'
 #' @param envs_str Character vector of realized environment paths.
 #' @param env_root_dir Character string with the condathis install root.
@@ -358,11 +361,10 @@ micromamba_backend_remove_env <- function(
 #' @keywords internal
 #' @noRd
 condathis_env_names <- function(envs_str, env_root_dir) {
-  # `env_root_dir` is an `fs_path`; `stringr::fixed()` wants plain character.
-  under_root <- stringr::str_detect(
-    as.character(envs_str),
-    stringr::fixed(as.character(env_root_dir))
-  )
+  # Both sides are realized/normalized to forward-slash form upstream
+  # (`fs::path_real()`), so "/" is the separator on every platform here.
+  root_prefix <- paste0(sub("/+$", "", as.character(env_root_dir)), "/")
+  under_root <- startsWith(as.character(envs_str), root_prefix)
   env_names <- base::basename(envs_str[under_root])
   return(env_names[!env_names %in% "condathis"])
 }

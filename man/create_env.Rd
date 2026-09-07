@@ -24,7 +24,10 @@ Defaults to \code{NULL}.}
 
 \item{env_file}{Character string with the path to an environment YAML file.
 Defaults to \code{NULL}.
-When provided, it is passed to \verb{micromamba create -f}.}
+When provided, it is passed to \verb{micromamba create -f}, and the
+"environment already satisfies the request" shortcut is skipped:
+whether an existing environment satisfies a file's contents cannot
+be checked cheaply, so the creation always runs.}
 
 \item{env_name}{Character string with the target environment name.
 Defaults to \code{"condathis-env"}.}

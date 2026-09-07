@@ -234,6 +234,14 @@ run_pipeline <- function(
   procs <- spawned_all$procs
   spawn_failures <- spawned_all$spawn_failures
 
+  # Reap the pipeline on *any* exit from here on: an unexpected error in
+  # the pump or settle machinery must not leave stages running until
+  # garbage collection. On normal returns (and the deliberate
+  # error = "cancel" aborts) every stage has already exited and been
+  # wait()ed on, so this is a no-op there - kill_processes() only touches
+  # processes still alive.
+  on.exit(kill_processes(procs), add = TRUE)
+
   # Drain every stage's R-side streams (each stage's stderr, the last
   # stage's stdout) *concurrently*, interleaved with writing `input` to
   # the first stage's stdin - see pump_pipeline_io() for why no sequential
@@ -371,6 +379,17 @@ run_pipeline_spawn_all <- function(
   stderr_redirects <- vector("list", n_cmds)
   prev_read <- NULL
 
+  # If anything throws mid-loop (an unexpected spawn error class, a pipe
+  # creation failure, ...), the stages spawned so far must not be left
+  # running until garbage collection happens to reap them.
+  spawn_all_done <- FALSE
+  on.exit(
+    if (isFALSE(spawn_all_done)) {
+      kill_processes(procs)
+    },
+    add = TRUE
+  )
+
   for (i in seq_len(n_cmds)) {
     cmd_vec <- parsed[[i]]$cmd
     env_name_i <- parsed[[i]]$env_name
@@ -453,6 +472,7 @@ run_pipeline_spawn_all <- function(
     prev_read <- if (!is.null(next_pipe)) next_pipe[[2L]] else NULL
   }
 
+  spawn_all_done <- TRUE
   return(list(
     procs = procs,
     spawn_failures = spawn_failures,
@@ -654,14 +674,40 @@ spawn_pipeline_process <- function(
   # backend uses) and keeps the hand-rolled, hook-free variables, built
   # from `env_dir` alone.
   if (isTRUE(activate)) {
-    backend_run <- backend_resolve_run(
-      resolved_backend,
-      cmd = cmd_vec[1L],
-      args = cmd_vec[-1L],
-      env_name = env_name_i,
-      verbose = "silent"
+    # A failing backend resolution (e.g. a broken activate.d hook during
+    # activation) is routed into the same spawn-failure channel as a
+    # missing binary, so it honors `error = "continue"`/"cancel" like any
+    # other per-stage failure instead of escaping and aborting the whole
+    # pipeline unconditionally.
+    backend_run <- tryCatch(
+      {
+        resolved_run <- backend_resolve_run(
+          resolved_backend,
+          cmd = cmd_vec[1L],
+          args = cmd_vec[-1L],
+          env_name = env_name_i,
+          verbose = "silent"
+        )
+        validate_resolve_run(resolved_run, env_name = env_name_i)
+        resolved_run
+      },
+      error = function(cnd) cnd
     )
-    validate_resolve_run(backend_run, env_name = env_name_i)
+    if (inherits(backend_run, "condition")) {
+      return(list(
+        proc = NULL,
+        failure = list(
+          status = 127L,
+          stderr = paste0(
+            "Failed to resolve command for environment '",
+            env_name_i,
+            "': ",
+            conditionMessage(backend_run),
+            "\n"
+          )
+        )
+      ))
+    }
     resolved_cmd <- backend_run$command
     stage_args <- backend_run$args
     activation_envvars <- backend_run$env
