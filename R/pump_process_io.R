@@ -113,14 +113,32 @@ pump_process_io <- function(
     )
 
     if (isFALSE(input_done)) {
-      leftover <- proc$write_input(pending_input)
-      if (length(leftover) == 0L) {
+      # A child that exits before consuming its stdin is not an R-level
+      # error: the write raises a low-level broken-pipe condition
+      # (`c_error`/`rlib_error_3_0`, no `status` field), which used to
+      # escape up to `rethrow_error_run()` and get misreported as a
+      # status-127 "command not found" - masking the child's real exit
+      # status. Treat it as "input undeliverable" instead: stop writing,
+      # keep draining, and let the exit status tell the story (mirrors
+      # `pump_pipeline_io()`).
+      write_res <- tryCatch(
+        proc$write_input(pending_input),
+        error = function(e) e
+      )
+      if (inherits(write_res, "error")) {
         input_done <- TRUE
         if (isTRUE(proc$has_input_connection())) {
-          close(proc$get_input_connection())
+          try(close(proc$get_input_connection()), silent = TRUE)
         }
+      } else {
+        if (identical(length(write_res), 0L)) {
+          input_done <- TRUE
+          if (isTRUE(proc$has_input_connection())) {
+            close(proc$get_input_connection())
+          }
+        }
+        pending_input <- write_res
       }
-      pending_input <- leftover
     }
 
     if (has_out && isTRUE(proc$is_incomplete_output())) {

@@ -30,8 +30,10 @@
 #'   for the last command only (see `cmds`).
 #' @param stderr Standard error target for **all** processes.
 #'   `"|"` (default) captures stderr per-process. Use a file path to
-#'   redirect all stderr to a file, or `NULL` to discard. Can be overridden
-#'   per-command (see `cmds`).
+#'   redirect all stderr to a file - each command's stderr is written to
+#'   the file grouped in command order once the pipeline finishes, so
+#'   commands never overwrite each other's output - or `NULL` to discard.
+#'   Can be overridden per-command (see `cmds`).
 #' @param stdin Standard input source for the **first** process.
 #'   `NULL` (default) discards input. Provide a file path to redirect file
 #'   contents as stdin, or `"|"` to write `input` to the first process.
@@ -259,6 +261,10 @@ run_pipeline <- function(
   timeout_flag <- drained_all$timeout_flag
   any_failed <- drained_all$any_failed
 
+  # Before the aborts below, so a redirected-to-file stderr holds its
+  # diagnostics exactly when a stage failed or timed out.
+  collect_pipeline_stderr_files(spawned_all$stderr_redirects)
+
   if (isTRUE(error_var) && isTRUE(timeout_flag)) {
     abort_pipeline_timeout(processes, timeout)
   }
@@ -362,6 +368,7 @@ run_pipeline_spawn_all <- function(
 ) {
   procs <- vector("list", n_cmds)
   spawn_failures <- vector("list", n_cmds)
+  stderr_redirects <- vector("list", n_cmds)
   prev_read <- NULL
 
   for (i in seq_len(n_cmds)) {
@@ -380,6 +387,26 @@ run_pipeline_spawn_all <- function(
     stdin_i <- stdio$stdin_i
     stdout_i <- stdio$stdout_i
 
+    # A user-supplied stderr *file* target cannot be handed to every
+    # stage directly: each `process$new()` opens (and truncates) the path
+    # independently, so stages clobber each other's output - the second
+    # spawn wipes what the first already wrote, and concurrent stages
+    # write from a shared offset 0 (confirmed empirically). Each stage
+    # writes to its own temp file instead; the user's file is assembled
+    # once, in command order, after the pipeline settles (see
+    # collect_pipeline_stderr_files()).
+    stderr_target <- parsed[[i]]$stderr %||% stderr
+    stderr_i <- stderr_target
+    if (isTRUE(is_stderr_file_target(stderr_target))) {
+      stderr_i <- as.character(
+        fs::path(tmp_dir_path, sprintf("stage-%d-stderr.log", i))
+      )
+      stderr_redirects[[i]] <- list(
+        user_path = as.character(stderr_target),
+        tmp_path = stderr_i
+      )
+    }
+
     if (env_name_i %in% names(missing_envs)) {
       spawn_failures[[i]] <- list(
         status = 127L,
@@ -392,7 +419,7 @@ run_pipeline_spawn_all <- function(
         resolved_backend = resolved_backends[[env_name_i]]$backend,
         stdin_i = stdin_i,
         stdout_i = stdout_i,
-        stderr_i = parsed[[i]]$stderr %||% stderr,
+        stderr_i = stderr_i,
         is_last = identical(i, n_cmds),
         activate = activate,
         tmp_dir_path = tmp_dir_path,
@@ -426,7 +453,65 @@ run_pipeline_spawn_all <- function(
     prev_read <- if (!is.null(next_pipe)) next_pipe[[2L]] else NULL
   }
 
-  return(list(procs = procs, spawn_failures = spawn_failures))
+  return(list(
+    procs = procs,
+    spawn_failures = spawn_failures,
+    stderr_redirects = stderr_redirects
+  ))
+}
+
+#' Is a pipeline stderr target a file path?
+#'
+#' `processx`'s non-file stderr targets are `NULL` (discard), `"|"`
+#' (capture), `""` (inherit the console), and `"2>&1"`; anything else that
+#' is a single string is a file path.
+#'
+#' @keywords internal
+#' @noRd
+is_stderr_file_target <- function(target) {
+  isTRUE(rlang::is_character(target)) &&
+    isTRUE(identical(length(target), 1L)) &&
+    isFALSE(target %in% c("|", "", "2>&1"))
+}
+
+#' Assemble user-facing stderr files from the per-stage temp files
+#'
+#' For every distinct user-supplied stderr path, concatenates (in command
+#' order) the temp files of the stages redirected to it, writing the
+#' user's file exactly once. Byte-level copy, so binary stderr streams
+#' survive untouched. Runs before the `error = "cancel"` aborts, so the
+#' file the user asked for holds its diagnostics precisely when a stage
+#' failed - the moment it matters most.
+#'
+#' @param stderr_redirects Per-stage list of `list(user_path, tmp_path)`
+#'   entries (or `NULL` for stages with a non-file stderr target).
+#'
+#' @keywords internal
+#' @noRd
+collect_pipeline_stderr_files <- function(stderr_redirects) {
+  redirects <- Filter(Negate(is.null), stderr_redirects)
+  if (identical(length(redirects), 0L)) {
+    return(invisible(NULL))
+  }
+  user_paths <- unique(vapply(redirects, `[[`, character(1L), "user_path"))
+  for (user_path in user_paths) {
+    chunks <- lapply(redirects, function(redirect) {
+      if (
+        identical(redirect$user_path, user_path) &&
+          isTRUE(fs::file_exists(redirect$tmp_path))
+      ) {
+        readBin(
+          redirect$tmp_path,
+          what = "raw",
+          n = fs::file_size(redirect$tmp_path)
+        )
+      } else {
+        raw(0L)
+      }
+    })
+    writeBin(do.call(c, chunks), user_path)
+  }
+  return(invisible(NULL))
 }
 
 #' Settle every pipeline stage and assemble their per-process results
