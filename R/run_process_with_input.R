@@ -97,15 +97,17 @@ run_process_with_input <- function(
   # remaining budget with a bounded wait instead.
   if (isFALSE(p_timeout) && isTRUE(is.finite(deadline)) && proc$is_alive()) {
     remaining_ms <- max(0, (deadline - proc.time()[["elapsed"]]) * 1000)
-    proc$wait(timeout = round(remaining_ms))
+    wait_process_safely(proc, timeout = round(remaining_ms))
     if (proc$is_alive()) {
       p_timeout <- TRUE
     }
   }
   if (isTRUE(p_timeout)) {
-    proc$kill()
+    tryCatch(proc$kill(), error = function(e) NULL)
   }
-  proc$wait()
+  # Tolerates the Windows finalized-handle race - see
+  # wait_process_safely()'s docs.
+  wait_process_safely(proc)
 
   p_stdout <- if (is.null(streams$stdout)) empty_stream else streams$stdout
   p_stderr <- if (is.null(streams$stderr)) empty_stream else streams$stderr
@@ -121,10 +123,7 @@ run_process_with_input <- function(
   if (isTRUE(p_timeout)) {
     p_status <- -9L
   } else {
-    p_status <- proc$get_exit_status()
-    if (is.null(p_status)) {
-      p_status <- NA_integer_
-    }
+    p_status <- exit_status_safely(proc)
   }
   p_pid <- proc$get_pid()
 

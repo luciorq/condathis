@@ -828,7 +828,7 @@ settle_pipeline_stage <- function(
     # timeout contract - while stages that already exited keep their real
     # status and are not marked as timed out.
     if (proc_i$is_alive()) {
-      proc_i$kill()
+      tryCatch(proc_i$kill(), error = function(e) NULL)
       p_timeout <- TRUE
     }
   } else if (isTRUE(is.finite(pipeline_deadline))) {
@@ -842,13 +842,16 @@ settle_pipeline_stage <- function(
       0,
       (pipeline_deadline - proc.time()[["elapsed"]]) * 1000
     )
-    proc_i$wait(timeout = round(remaining_ms))
+    wait_process_safely(proc_i, timeout = round(remaining_ms))
     if (proc_i$is_alive()) {
-      proc_i$kill()
+      tryCatch(proc_i$kill(), error = function(e) NULL)
       p_timeout <- TRUE
     }
   }
-  proc_i$wait()
+  # wait_process_safely()/exit_status_safely(): tolerate the Windows race
+  # where the process handle is finalized between the liveness check (or
+  # kill) above and this wait - see wait_process_safely()'s docs.
+  wait_process_safely(proc_i)
 
   # Normalized to a fixed sentinel on timeout, same as run()/run_bin()
   # (see run_process_with_input.R) - a killed process's own reported
@@ -858,10 +861,7 @@ settle_pipeline_stage <- function(
   if (isTRUE(p_timeout)) {
     p_status <- -9L
   } else {
-    p_status <- proc_i$get_exit_status()
-    if (is.null(p_status)) {
-      p_status <- NA_integer_
-    }
+    p_status <- exit_status_safely(proc_i)
   }
 
   return(list(

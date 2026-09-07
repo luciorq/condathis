@@ -187,3 +187,56 @@ pump_process_io <- function(
     timeout = timed_out
   ))
 }
+
+#' Wait on a process, tolerating an already-finalized handle
+#'
+#' On Windows, `proc$wait()` can race a concurrent process exit: between a
+#' liveness check (or a `kill()`) and the wait itself, the OS-level
+#' process handle can be finalized, and `processx` then throws a low-level
+#' `c_error` ("failed to wait on process ... The handle is invalid.",
+#' system error 6) - for a process that is, by that very fact,
+#' definitively dead. Observed on Windows CI in a pipeline timeout test:
+#' the downstream stage exited on its own (EOF after the upstream kill)
+#' at the same moment the settle logic killed-and-waited on it. A wait
+#' that fails this way is equivalent to a wait that already returned.
+#'
+#' @param proc A `processx::process` object.
+#' @param timeout `NULL` for an unbounded wait, else milliseconds.
+#'
+#' @returns `TRUE` if the wait completed normally, `FALSE` if it failed
+#'   because the process handle was already finalized (invisibly).
+#'
+#' @keywords internal
+#' @noRd
+wait_process_safely <- function(proc, timeout = NULL) {
+  return(invisible(tryCatch(
+    {
+      if (is.null(timeout)) {
+        proc$wait()
+      } else {
+        proc$wait(timeout = timeout)
+      }
+      TRUE
+    },
+    error = function(e) FALSE
+  )))
+}
+
+#' Read a process's exit status, tolerating a finalized handle
+#'
+#' Companion to `wait_process_safely()`: when the handle was finalized
+#' mid-race, `get_exit_status()` may also fail; the caller treats `NA` as
+#' "exited, status unknown", which every consumer already handles.
+#'
+#' @keywords internal
+#' @noRd
+exit_status_safely <- function(proc) {
+  status <- tryCatch(
+    proc$get_exit_status(),
+    error = function(e) NULL
+  )
+  if (is.null(status)) {
+    return(NA_integer_)
+  }
+  return(status)
+}
