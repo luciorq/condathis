@@ -8,7 +8,10 @@
 #'   Defaults to `NULL`.
 #' @param env_file Character string with the path to an environment YAML file.
 #'   Defaults to `NULL`.
-#'   When provided, it is passed to `micromamba create -f`.
+#'   When provided, it is passed to `micromamba create -f`, and the
+#'   "environment already satisfies the request" shortcut is skipped:
+#'   whether an existing environment satisfies a file's contents cannot
+#'   be checked cheaply, so the creation always runs.
 #' @param env_name Character string with the target environment name.
 #'   Defaults to `"condathis-env"`.
 #' @param channels Character vector with channel names used for dependency
@@ -135,16 +138,23 @@ create_env <- function(
     collapse = " "
   )
 
-  early_result <- env_already_satisfies_request(
-    backend = resolved$backend,
-    env_name = env_name,
-    packages = packages,
-    overwrite = overwrite,
-    cmd_string = cmd_string,
-    verbose_list = verbose_list
-  )
-  if (isFALSE(is.null(early_result))) {
-    return(invisible(early_result))
+  # The already-satisfied shortcut only applies to plain `packages`
+  # requests: whether an environment satisfies an `env_file`'s contents
+  # cannot be checked cheaply, and taking the shortcut when both were
+  # supplied used to silently skip applying the file while reporting
+  # success. With `env_file` set, the real creation always runs.
+  if (isTRUE(rlang::is_null(env_file))) {
+    early_result <- env_already_satisfies_request(
+      backend = resolved$backend,
+      env_name = env_name,
+      packages = packages,
+      overwrite = overwrite,
+      cmd_string = cmd_string,
+      verbose_list = verbose_list
+    )
+    if (isFALSE(is.null(early_result))) {
+      return(invisible(early_result))
+    }
   }
 
   px_res <- backend_create_env(

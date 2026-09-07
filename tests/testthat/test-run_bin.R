@@ -363,3 +363,47 @@ test_that("run_bin(activate = TRUE) falls back gracefully for a missing env", {
   testthat::expect_true(is.numeric(res$status))
   testthat::expect_true(res$status != 0L)
 })
+
+test_that("run_bin() honors error = continue when activation resolution fails", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  # Regression test: a failing activation resolution (e.g. a broken
+  # activate.d hook) used to throw before the error-handling wrapper,
+  # escaping error = "continue" entirely. It must behave like any other
+  # failure: classed abort under "cancel", failed result under
+  # "continue" - and never silently run the command unactivated.
+  create_env(
+    test_os_pkg("coreutils"),
+    env_name = "run-cli-tools-env",
+    verbose = "silent"
+  )
+  testthat::local_mocked_bindings(
+    get_micromamba_activation_envvars = function(...) {
+      cli::cli_abort(
+        message = "Simulated activation failure.",
+        class = "condathis_activation_dump_error"
+      )
+    }
+  )
+  res <- run_bin(
+    "echo",
+    "hi",
+    env_name = "run-cli-tools-env",
+    error = "continue",
+    verbose = "silent"
+  )
+  testthat::expect_equal(res$status, 127L)
+  testthat::expect_match(res$stderr, "Failed to resolve activation")
+
+  testthat::expect_error(
+    object = run_bin(
+      "echo",
+      "hi",
+      env_name = "run-cli-tools-env",
+      error = "cancel",
+      verbose = "silent"
+    ),
+    class = "condathis_activation_dump_error"
+  )
+})

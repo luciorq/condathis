@@ -1111,3 +1111,76 @@ test_that("Pipeline survives the first stage exiting before consuming input", {
   testthat::expect_s3_class(res, "condathis_pipeline")
   testthat::expect_equal(res$statuses[[1]], 1L)
 })
+
+test_that("Pipeline routes activation-resolution failures through error = continue", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  # Regression test: a failing backend_resolve_run() (activation) threw
+  # outside the spawn tryCatch, aborting the whole pipeline regardless of
+  # error = "continue". It must land in the spawn-failure channel like a
+  # missing binary.
+  create_env(
+    pipeline_cli_pkgs(),
+    env_name = "run-pipeline-cli-tools-env",
+    verbose = "silent"
+  )
+  testthat::local_mocked_bindings(
+    backend_resolve_run = function(...) {
+      cli::cli_abort(
+        message = "Simulated activation failure.",
+        class = "condathis_activation_dump_error"
+      )
+    }
+  )
+  res <- run_pipeline(
+    cmds = list(
+      c("echo", "hi"),
+      c("cat")
+    ),
+    env_name = "run-pipeline-cli-tools-env",
+    error = "continue"
+  )
+  testthat::expect_s3_class(res, "condathis_pipeline")
+  testthat::expect_equal(res$statuses, c(127L, 127L))
+  testthat::expect_match(
+    res$processes[[1]]$stderr,
+    "Failed to resolve command"
+  )
+})
+
+test_that("Pipeline reaps spawned stages when an unexpected error escapes", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  # Regression test: an error thrown outside the spawn tryCatch's caught
+  # classes used to leave already-spawned stages running until garbage
+  # collection. The on.exit() reaper must let the error propagate while
+  # killing what was spawned. (Only propagation is asserted directly;
+  # process reaping is enforced by kill_processes() on exit.)
+  create_env(
+    pipeline_cli_pkgs(),
+    env_name = "run-pipeline-cli-tools-env",
+    verbose = "silent"
+  )
+  call_count <- 0L
+  testthat::local_mocked_bindings(
+    build_child_env = function(...) {
+      call_count <<- call_count + 1L
+      if (call_count >= 2L) {
+        stop("unexpected internal failure", call. = FALSE)
+      }
+      Sys.getenv()
+    }
+  )
+  testthat::expect_error(
+    run_pipeline(
+      cmds = list(
+        c("sleep", "30"),
+        c("cat")
+      ),
+      env_name = "run-pipeline-cli-tools-env",
+      error = "continue"
+    )
+  )
+})

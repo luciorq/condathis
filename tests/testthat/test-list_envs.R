@@ -10,20 +10,25 @@ testthat::test_that("list_envs returns a tibble with backend/env_name/path", {
   testthat::expect_true(all(envs$backend == "micromamba"))
 })
 
-testthat::test_that("condathis_env_names matches the install root literally, not as a regex", {
-  # Regression: the root was previously used as a regex pattern, so the `.`
-  # in a real install path (e.g. `~/.local/...`) matched any character and
-  # could pull in unrelated environments. `condathis_env_names()` must match
-  # the root as a literal substring.
+testthat::test_that("condathis_env_names matches the install root as an anchored literal prefix", {
+  # Two regressions covered: the root was once used as a regex pattern
+  # (the `.` in a real install path matched any character), and later as
+  # an unanchored literal substring (any path merely *containing* the
+  # root somewhere inside it - e.g. a backup copy - was claimed as
+  # condathis-owned). It must be an anchored literal prefix.
   root <- "/root/a.b/condathis"
   envs <- c(
-    "/root/a.b/condathis", # the root itself -> basename "condathis" -> dropped
+    "/root/a.b/condathis", # the root itself -> not a child -> dropped
     "/root/a.b/condathis/envs/foo", # a real child -> kept
-    "/root/aXb/condathis/envs/decoy" # NOT under root; `.` regex would match `X`
+    "/root/aXb/condathis/envs/decoy", # NOT under root; `.` regex would match
+    "/backup/root/a.b/condathis/envs/copy", # contains root as infix only
+    "/root/a.b/condathis-other/envs/sibling" # shares the prefix, no separator
   )
   result <- condathis_env_names(envs, root)
   testthat::expect_equal(result, "foo")
   testthat::expect_false("decoy" %in% result)
+  testthat::expect_false("copy" %in% result)
+  testthat::expect_false("sibling" %in% result)
   testthat::expect_false("condathis" %in% result)
 })
 

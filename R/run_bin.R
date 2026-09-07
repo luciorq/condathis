@@ -180,14 +180,46 @@ run_bin <- function(
   # which environment variables activation implies.
   backend_run <- NULL
   if (isFALSE(is_micromamba)) {
-    backend_run <- backend_resolve_run(
-      resolved$backend,
-      cmd = cmd,
-      args = args_vector,
-      env_name = env_name,
-      verbose = verbose_list$internal_verbose
+    # Same error contract as the activation block below: a failing
+    # backend resolution re-raises under `error = "cancel"` and reports a
+    # failed result under `error = "continue"`, instead of escaping past
+    # the `error` argument entirely.
+    backend_run <- tryCatch(
+      {
+        resolved_run <- backend_resolve_run(
+          resolved$backend,
+          cmd = cmd,
+          args = args_vector,
+          env_name = env_name,
+          verbose = verbose_list$internal_verbose
+        )
+        validate_resolve_run(resolved_run, env_name = env_name)
+        resolved_run
+      },
+      error = function(cnd) cnd
     )
-    validate_resolve_run(backend_run, env_name = env_name)
+    if (inherits(backend_run, "condition")) {
+      if (isTRUE(error_var)) {
+        rlang::cnd_signal(backend_run)
+      }
+      return(invisible(new_condathis_result(
+        status = 127L,
+        stdout = "",
+        stderr = paste0(
+          "Failed to resolve command for environment '",
+          env_name,
+          "': ",
+          conditionMessage(backend_run)
+        ),
+        timeout = FALSE,
+        pid = NA_integer_,
+        cmd = paste(
+          shQuote(as.character(c(cmd, args_vector))),
+          collapse = " "
+        ),
+        env_name = env_name
+      )))
+    }
     cmd_path <- backend_run$command
     args_vector <- as.character(backend_run$args)
   } else {
@@ -216,16 +248,54 @@ run_bin <- function(
   # documented way to run an environment's binary *without* its activation
   # variables, so a backend's `env` is applied only when activation was
   # actually asked for.
+  #
+  # Activation resolution is third-party-ish code (it executes the
+  # environment's own activate.d hooks) and can fail; that failure must
+  # honor `error` like every other failure. `error = "cancel"` re-raises
+  # the (classed) activation error; `error = "continue"` reports a failed
+  # result. Deliberately *not* a silent fallback to running unactivated:
+  # executing the command anyway, in a different environment than the
+  # caller asked for, would be a trap.
   activation_overlay <- NULL
   if (isTRUE(activate) && fs::dir_exists(env_dir)) {
-    if (isTRUE(is_micromamba)) {
-      activation_overlay <- get_micromamba_activation_envvars(
-        env_name = env_name,
-        env_dir = env_dir
-      )
-    } else if (isTRUE(length(backend_run$env) > 0L)) {
-      activation_overlay <- backend_run$env
+    activation_res <- tryCatch(
+      {
+        if (isTRUE(is_micromamba)) {
+          get_micromamba_activation_envvars(
+            env_name = env_name,
+            env_dir = env_dir
+          )
+        } else if (isTRUE(length(backend_run$env) > 0L)) {
+          backend_run$env
+        } else {
+          NULL
+        }
+      },
+      error = function(cnd) cnd
+    )
+    if (inherits(activation_res, "condition")) {
+      if (isTRUE(error_var)) {
+        rlang::cnd_signal(activation_res)
+      }
+      return(invisible(new_condathis_result(
+        status = 127L,
+        stdout = "",
+        stderr = paste0(
+          "Failed to resolve activation for environment '",
+          env_name,
+          "': ",
+          conditionMessage(activation_res)
+        ),
+        timeout = FALSE,
+        pid = NA_integer_,
+        cmd = paste(
+          shQuote(as.character(c(cmd, args_vector))),
+          collapse = " "
+        ),
+        env_name = env_name
+      )))
     }
+    activation_overlay <- activation_res
   }
 
   # The child's environment block is built explicitly (clean conda

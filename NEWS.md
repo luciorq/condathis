@@ -250,6 +250,28 @@ alongside it - see below.
 
 ### Fixed
 
+* Fix a failing activation resolution (e.g. a broken `activate.d` hook
+  script) escaping `error = "continue"` in `run_bin()` and
+  `run_pipeline()`: it now behaves like any other per-command failure -
+  a classed abort under `error = "cancel"`, a failed (`status = 127`)
+  result under `error = "continue"`. The command is deliberately *never*
+  run unactivated as a silent fallback.
+
+* Fix `create_env()` silently not applying `env_file` when `packages`
+  were also supplied and the environment already satisfied them: the
+  already-satisfied shortcut skipped the real creation, so the file's
+  contents were never installed while the call reported success. The
+  shortcut now only applies to plain `packages` requests.
+
+* Fix environment ownership matching claiming any path that merely
+  *contains* the condathis install root somewhere inside it (e.g. a
+  backup copy at `/backup/home/user/.local/share/R/condathis/envs/x`):
+  the root is now matched as an anchored path prefix.
+
+* `run_pipeline()` now reaps every spawned process when an unexpected
+  internal error escapes, instead of leaving already-spawned commands
+  running until R's garbage collector happened to clean them up.
+
 * Support `micromamba` 2.9.0's changed `list --json` output format
   (`{"log_history": ..., "packages": ...}` instead of a bare package
   array), which broke `list_packages()` - and everything downstream of
