@@ -212,3 +212,73 @@ testthat::test_that("No warnings when tar is unavailable", {
 
   testthat::expect_true(fs::file_exists(micromamba_bin_path()))
 })
+
+testthat::test_that("download_uncompressed_binary preserves an existing binary when all mirrors fail", {
+  # Regression test: the live binary path used to be passed directly as
+  # the download destination, and try_download_from_mirrors() deletes its
+  # destfile after every failed mirror - so `force = TRUE` on a machine
+  # with unreachable mirrors deleted a working installation and then
+  # aborted, leaving nothing. The download must go to a temporary path,
+  # and the existing binary must only be replaced once a complete new one
+  # exists.
+  bin_dir <- withr::local_tempdir()
+  bin_path <- fs::path(bin_dir, "micromamba")
+  writeLines("existing working binary", bin_path)
+
+  seen_destfiles <- character(0L)
+  testthat::local_mocked_bindings(
+    try_download_from_mirrors = function(urls, destfile, ...) {
+      seen_destfiles <<- c(seen_destfiles, as.character(destfile))
+      # Emulate the real per-mirror cleanup: the destination is deleted.
+      if (fs::file_exists(destfile)) {
+        fs::file_delete(destfile)
+      }
+      FALSE
+    }
+  )
+
+  result <- download_uncompressed_binary(
+    uncompressed_urls = c(
+      "https://mirror-a.invalid",
+      "https://mirror-b.invalid"
+    ),
+    umamba_bin_path = bin_path,
+    timeout_limit = 1,
+    download_method = "auto",
+    dl_quiet_flag = TRUE
+  )
+
+  testthat::expect_false(result)
+  # The live binary was never handed out as a download destination...
+  testthat::expect_false(as.character(bin_path) %in% seen_destfiles)
+  # ...and survived the total failure, intact.
+  testthat::expect_true(fs::file_exists(bin_path))
+  testthat::expect_equal(readLines(bin_path), "existing working binary")
+})
+
+testthat::test_that("download_uncompressed_binary replaces the binary only after a successful download", {
+  bin_dir <- withr::local_tempdir()
+  bin_path <- fs::path(bin_dir, "micromamba")
+  writeLines("old binary", bin_path)
+
+  testthat::local_mocked_bindings(
+    try_download_from_mirrors = function(urls, destfile, ...) {
+      writeLines("new binary", destfile)
+      TRUE
+    }
+  )
+
+  result <- download_uncompressed_binary(
+    uncompressed_urls = "https://mirror-a.invalid",
+    umamba_bin_path = bin_path,
+    timeout_limit = 1,
+    download_method = "auto",
+    dl_quiet_flag = TRUE
+  )
+
+  testthat::expect_true(result)
+  testthat::expect_equal(readLines(bin_path), "new binary")
+  # No temporary download debris left behind.
+  leftovers <- fs::dir_ls(bin_dir, glob = "*micromamba-dl-*")
+  testthat::expect_length(leftovers, 0L)
+})

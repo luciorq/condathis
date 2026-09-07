@@ -12,11 +12,15 @@
 #' package-shipped `activate.d`/`deactivate.d` hook scripts, and captures
 #' the *actual* resulting environment. It works by spawning `Rscript`
 #' *through* `micromamba run`, having it dump its own environment as JSON,
-#' and diffing that against a clean baseline (the same
-#' `get_clean_conda_envvars()` state `native_cmd()`/`run_pipeline()`
-#' establish before spawning anything) - so the result is only the
-#' variables activation actually added or changed, ready to be used as an
-#' `env = c("current", ...)` overlay, exactly like `get_activation_envvars()`.
+#' and diffing that against a clean baseline (the same `build_child_env()`
+#' construction `native_cmd()` hands every child, so the calling session's
+#' environment is never touched) - the result is only the variables
+#' activation actually added or changed, ready to be layered into a child
+#' environment via `build_child_env(overlay = ...)`, exactly like
+#' `get_activation_envvars()`. `PATH` is special-cased: the cache stores
+#' only the directories activation *adds*, and the returned overlay's
+#' `PATH` is composed against the live session `PATH` on every call (see
+#' `compose_activation_overlay()`).
 #'
 #' This is more accurate (it reflects whatever `micromamba run` really does,
 #' including hook scripts) but strictly more expensive: it spawns two
@@ -38,16 +42,29 @@
 #' @param env_name Character string with the Conda environment name.
 #' @param use_cache Logical. Whether to use/populate the per-`env_name`
 #'   cache. Defaults to `TRUE`.
+#' @param env_dir The environment's directory, when the caller already
+#'   resolved it. Defaults to `NULL`, which computes it directly from the
+#'   micromamba backend's own layout (`env_dir_for_backend()`, a pure
+#'   path computation) - deliberately *not* the public `get_env_dir()`,
+#'   whose backend resolution runs a `micromamba env list` subprocess on
+#'   every call (even activation cache hits) and can abort on
+#'   multi-backend ambiguity. This helper is micromamba-specific by
+#'   definition, so the micromamba layout is always the right answer.
 #'
 #' @returns A named character vector of the environment variables that
-#'   activating `env_name` via `micromamba run` adds or changes, suitable
-#'   for `processx::process$new(env = c("current", ...))` /
-#'   `processx::run(env = c("current", ...))`.
+#'   activating `env_name` via `micromamba run` adds or changes (including
+#'   a `PATH` composed against the live session `PATH`), suitable as the
+#'   `overlay` argument of `build_child_env()`.
 #'
 #' @keywords internal
 #' @noRd
-get_micromamba_activation_envvars <- function(env_name, use_cache = TRUE) {
-  env_dir <- get_env_dir(env_name = env_name)
+get_micromamba_activation_envvars <- function(
+  env_name,
+  use_cache = TRUE,
+  env_dir = NULL
+) {
+  env_dir <- env_dir %||%
+    env_dir_for_backend(micromamba_backend(), env_name = env_name)
 
   if (!fs::dir_exists(env_dir)) {
     cli::cli_abort(
@@ -67,11 +84,11 @@ get_micromamba_activation_envvars <- function(env_name, use_cache = TRUE) {
       ifnotfound = NULL
     )
     if (!is.null(cached) && identical(cached$stamp, cache_stamp)) {
-      return(cached$envvars)
+      return(compose_activation_overlay(cached$resolved))
     }
   }
 
-  envvars <- resolve_micromamba_activation_envvars(
+  resolved <- resolve_micromamba_activation_envvars(
     env_name = env_name,
     env_dir = env_dir
   )
@@ -79,11 +96,40 @@ get_micromamba_activation_envvars <- function(env_name, use_cache = TRUE) {
   if (isTRUE(use_cache)) {
     base::assign(
       x = env_name,
-      value = list(stamp = cache_stamp, envvars = envvars),
+      value = list(stamp = cache_stamp, resolved = resolved),
       envir = condathis_activation_cache
     )
   }
 
+  return(compose_activation_overlay(resolved))
+}
+
+#' Turn a cached activation resolution into a ready-to-use overlay
+#'
+#' `PATH` is deliberately *not* cached as a finished string: activation's
+#' `PATH` is "these environment directories, prepended to whatever `PATH`
+#' the session has" - a relative instruction, not an absolute value.
+#' Caching the composite (as this used to) froze the session `PATH` of
+#' whichever call happened to fill the cache into every later caller:
+#' directories the user removed from `PATH` afterwards were resurrected,
+#' additions were missing, and one caller's transient `PATH` state (e.g. a
+#' scoped prefix) leaked into unrelated calls until `conda-meta` happened
+#' to change. Composing against the live `PATH` at every call keeps the
+#' cached part env-specific only.
+#'
+#' @param resolved A list with `envvars` (named character vector, no
+#'   `PATH` entry) and `path_prepend` (character vector of directories).
+#'
+#' @keywords internal
+#' @noRd
+compose_activation_overlay <- function(resolved) {
+  envvars <- resolved$envvars
+  if (isTRUE(length(resolved$path_prepend) > 0L)) {
+    envvars <- c(
+      envvars,
+      PATH = compose_path(resolved$path_prepend, Sys.getenv("PATH"))
+    )
+  }
   return(envvars)
 }
 
@@ -182,24 +228,41 @@ activation_ignore_pattern_vars <- function() {
 #' @keywords internal
 #' @noRd
 resolve_micromamba_activation_envvars <- function(env_name, env_dir) {
-  # Resolved from the package-load-time cache, not R.home() here: a caller
-  # further up the stack (e.g. run_bin(), run_pipeline()) may have already
-  # applied its own get_clean_conda_envvars() scope, which sets R_HOME = ""
-  # for the whole R session for the duration of that scope - corrupting any
-  # R.home() call made after that point, regardless of ordering local to
-  # this function. See condathis-package.R.
+  # Resolved from the package-load-time cache rather than R.home() as
+  # defense-in-depth: condathis itself no longer mutates the session's
+  # R_HOME (children get their environment via build_child_env()), but
+  # the cached path is free and immune to any third-party code that does.
+  # See condathis-package.R.
   rscript_path <- get_condathis_rscript_path()
 
   tmp_dir_path <- withr::local_tempdir(pattern = "condathis-activation")
-  withr::local_envvar(
-    .new = get_clean_conda_envvars(tmp_dir = tmp_dir_path)
-  )
 
-  baseline_vars <- as.list(base::Sys.getenv())
+  # The baseline is what a condathis child receives *before* activation:
+  # the same explicit construction native_cmd() hands the dump subprocess
+  # below - not the calling session's own environment, which is never
+  # mutated. (native_cmd()'s per-call TMPDIR differs from this one, and it
+  # sets CONDA_ENVS_PATH; TMPDIR is in the ignore list and the
+  # CONDA_ENVS_PATH delta is a stable, env-root-specific value that is
+  # harmless to carry in the overlay.)
+  baseline_vars <- as.list(build_child_env(tmp_dir = tmp_dir_path))
 
+  # The JSON payload is fenced between unique markers: `activate.d` hook
+  # scripts run during activation and are free to print banners or other
+  # noise to stdout *before* the dump script executes, so the subprocess's
+  # stdout cannot be assumed to be pure JSON (parsing it directly used to
+  # crash with an opaque jsonlite lexical error that never mentioned the
+  # environment or activation as the cause).
   dump_script <- fs::path(tmp_dir_path, "dump_env.R")
   writeLines(
-    "cat(jsonlite::toJSON(as.list(base::Sys.getenv()), auto_unbox = TRUE))",
+    paste0(
+      "cat(\"",
+      activation_dump_marker("BEGIN"),
+      "\");",
+      "cat(jsonlite::toJSON(as.list(base::Sys.getenv()), auto_unbox = TRUE));",
+      "cat(\"",
+      activation_dump_marker("END"),
+      "\")"
+    ),
     dump_script
   )
 
@@ -212,7 +275,7 @@ resolve_micromamba_activation_envvars <- function(env_name, env_dir) {
     verbose = "silent",
     error = "cancel"
   )
-  activated_vars <- jsonlite::fromJSON(px_res$stdout)
+  activated_vars <- parse_activation_dump(px_res$stdout, env_name = env_name)
 
   changed_names <- Filter(
     f = function(nm) {
@@ -224,13 +287,101 @@ resolve_micromamba_activation_envvars <- function(env_name, env_dir) {
   changed_names <- changed_names[
     !grepl(activation_ignore_pattern_vars(), changed_names)
   ]
-  changed_names <- sort(changed_names)
 
+  # PATH is split out of the value overlay and reduced to the directories
+  # activation *added* (see compose_activation_overlay() for why the
+  # composite must never be cached). Name matching is case-insensitive on
+  # Windows via match_env_name(), where the activated block may spell it
+  # differently than the baseline.
+  activated_path_name <- match_env_name(names(activated_vars), "PATH")
+  baseline_path_name <- match_env_name(names(baseline_vars), "PATH")
+  path_prepend <- character(0L)
+  if (!is.na(activated_path_name)) {
+    path_prepend <- diff_path_prepend(
+      activated_path = as.character(activated_vars[[activated_path_name]]),
+      baseline_path = if (is.na(baseline_path_name)) {
+        ""
+      } else {
+        as.character(baseline_vars[[baseline_path_name]])
+      }
+    )
+    changed_names <- setdiff(changed_names, activated_path_name)
+  }
+
+  changed_names <- sort(changed_names)
   envvars <- vapply(
     X = changed_names,
     FUN = function(nm) as.character(activated_vars[[nm]]),
     FUN.VALUE = character(1L)
   )
 
-  return(envvars)
+  return(list(envvars = envvars, path_prepend = path_prepend))
+}
+
+#' Directories an activated `PATH` adds over a baseline `PATH`
+#'
+#' Order-preserving set difference of the activated `PATH`'s entries
+#' against the baseline's. Entries activation appended (rather than
+#' prepended) end up prepended on recomposition - an acceptable
+#' approximation, since conda activation prepends in practice.
+#'
+#' @keywords internal
+#' @noRd
+diff_path_prepend <- function(activated_path, baseline_path) {
+  sep <- .Platform$path.sep
+  activated_parts <- strsplit(activated_path, sep, fixed = TRUE)[[1L]]
+  baseline_parts <- strsplit(baseline_path %||% "", sep, fixed = TRUE)[[1L]]
+  added <- activated_parts[!(activated_parts %in% baseline_parts)]
+  return(added[nzchar(added)])
+}
+
+#' Marker strings fencing the activation dump's JSON payload
+#'
+#' @keywords internal
+#' @noRd
+activation_dump_marker <- function(which) {
+  paste0("---CONDATHIS-ENV-DUMP-", which, "---")
+}
+
+#' Extract and parse the JSON payload from the activation dump's stdout
+#'
+#' Anything an `activate.d` hook printed to stdout lands outside the
+#' markers and is ignored. A missing marker pair or an unparsable payload
+#' aborts with a classed error naming the environment and activation as
+#' the cause, instead of an opaque low-level jsonlite error.
+#'
+#' @keywords internal
+#' @noRd
+parse_activation_dump <- function(dump_stdout, env_name) {
+  fence_pattern <- paste0(
+    activation_dump_marker("BEGIN"),
+    "(.*)",
+    activation_dump_marker("END")
+  )
+  payload <- stringr::str_match(
+    dump_stdout,
+    stringr::regex(fence_pattern, dotall = TRUE)
+  )[, 2L]
+  parsed <- if (isTRUE(is.na(payload))) {
+    NULL
+  } else {
+    tryCatch(
+      jsonlite::fromJSON(payload),
+      error = function(e) NULL
+    )
+  }
+  if (is.null(parsed)) {
+    cli::cli_abort(
+      message = c(
+        `x` = "Failed to resolve the activation environment for {.field {env_name}}.",
+        `!` = "The activation dump did not produce a readable result.",
+        `i` = paste(
+          "This can happen when an {.file activate.d} hook script in the",
+          "environment fails or corrupts the process output."
+        )
+      ),
+      class = "condathis_activation_dump_error"
+    )
+  }
+  return(parsed)
 }

@@ -391,6 +391,40 @@ test_that("Run respects timeout under error = continue", {
   testthat::expect_true(res$timeout)
 })
 
+test_that("Run timeout is enforced when stdout/stderr are redirected to files", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  # Regression test: with both streams file-redirected the stream pump has
+  # nothing to watch, returns immediately, and a bare `wait()` used to
+  # block until the child exited on its own - silently disabling `timeout`
+  # entirely (a 2-second timeout waited out the whole sleep).
+  create_env(
+    test_os_pkg("coreutils"),
+    env_name = "run-cli-tools-env",
+    verbose = "silent"
+  )
+  out_file <- withr::local_tempfile()
+  err_file <- withr::local_tempfile()
+  t_start <- Sys.time()
+  res <- run(
+    "sleep",
+    "30",
+    env_name = "run-cli-tools-env",
+    stdin = "|",
+    input = "",
+    stdout = out_file,
+    stderr = err_file,
+    error = "continue",
+    timeout = 2,
+    verbose = "silent"
+  )
+  elapsed <- as.numeric(Sys.time() - t_start, units = "secs")
+  testthat::expect_equal(res$status, -9L)
+  testthat::expect_true(res$timeout)
+  testthat::expect_lt(elapsed, 20)
+})
+
 test_that("Run respects timeout under error = cancel", {
   testthat::skip_on_cran()
   testthat::skip_if_offline()
@@ -463,4 +497,71 @@ test_that("format.condathis_result previews raw stdout without erroring", {
   formatted <- format(res)
   testthat::expect_type(formatted, "character")
   testthat::expect_match(formatted, "binary data, 3 bytes")
+})
+
+test_that("Run proceeds when the environment existence check itself fails", {
+  # Regression test: the execution gate used backend_has_env(), whose
+  # never-errors contract coerces a *failed* `micromamba env list`
+  # (transient lock, corrupt metadata, JSON hiccup) to FALSE - so run()
+  # aborted "environment does not exist" for environments that exist and
+  # would run fine. An undeterminable existence check must fall through
+  # to execution, not block it.
+  testthat::local_mocked_bindings(
+    backend_env_exists = function(...) {
+      cli::cli_abort("Simulated transient listing failure.")
+    },
+    run_internal_native = function(...) {
+      list(status = 0L, stdout = "ran fine", stderr = "", timeout = FALSE)
+    }
+  )
+  res <- run(
+    "echo",
+    "hi",
+    env_name = "some-existing-env",
+    error = "cancel",
+    verbose = "silent"
+  )
+  testthat::expect_equal(res$status, 0L)
+  testthat::expect_equal(res$stdout, "ran fine")
+})
+
+test_that("Run reports the real exit status when the child exits before consuming input", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  # Regression test: a child exiting before consuming a large stdin
+  # `input` raises a low-level broken-pipe error from the write, which
+  # used to escape pump_process_io() and get misreported by
+  # rethrow_error_run() as a status-127 "command not found" - masking the
+  # child's real exit status.
+  create_env(
+    c(test_os_pkg("coreutils"), test_os_pkg("bash")),
+    env_name = "run-cli-tools-env",
+    verbose = "silent"
+  )
+  res <- run(
+    "bash",
+    "-c",
+    "exit 3",
+    stdin = "|",
+    input = strrep("x", 200000L),
+    env_name = "run-cli-tools-env",
+    error = "continue",
+    verbose = "silent"
+  )
+  testthat::expect_equal(res$status, 3L)
+
+  testthat::expect_error(
+    object = run(
+      "bash",
+      "-c",
+      "exit 3",
+      stdin = "|",
+      input = strrep("x", 200000L),
+      env_name = "run-cli-tools-env",
+      error = "cancel",
+      verbose = "silent"
+    ),
+    class = "condathis_run_status_error"
+  )
 })

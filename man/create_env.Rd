@@ -8,9 +8,9 @@ create_env(
   packages = NULL,
   env_file = NULL,
   env_name = "condathis-env",
-  channels = c("conda-forge", "bioconda"),
+  channels = "conda-forge",
   method = "auto",
-  channel_priority = c("disabled", "strict", "flexible"),
+  channel_priority = c("strict", "flexible", "disabled"),
   additional_channels = NULL,
   platform = NULL,
   verbose = c("output", "silent", "cmd", "spinner", "full"),
@@ -24,13 +24,20 @@ Defaults to \code{NULL}.}
 
 \item{env_file}{Character string with the path to an environment YAML file.
 Defaults to \code{NULL}.
-When provided, it is passed to \verb{micromamba create -f}.}
+When provided, it is passed to \verb{micromamba create -f}, and the
+"environment already satisfies the request" shortcut is skipped:
+whether an existing environment satisfies a file's contents cannot
+be checked cheaply, so the creation always runs.}
 
 \item{env_name}{Character string with the target environment name.
 Defaults to \code{"condathis-env"}.}
 
 \item{channels}{Character vector with channel names used for dependency
-resolution. Defaults to \code{c("conda-forge", "bioconda")}.}
+resolution. Defaults to \code{"conda-forge"}. Packages from other channels
+(e.g. \code{bioconda}) can either use a channel-prefixed spec in
+\code{packages} - \code{"bioconda::samtools"} pulls the package \emph{and} its
+bioconda dependencies without any change here - or add the channel
+explicitly, e.g. \code{channels = c("conda-forge", "bioconda")}.}
 
 \item{method}{Character string naming the backend to use. Defaults to
 \code{"auto"} (resolve automatically: the environment's own owning backend
@@ -40,8 +47,11 @@ order). \code{"micromamba"} is the only backend registered today.
 session).}
 
 \item{channel_priority}{Character string with channel priority mode.
-Supported values are \code{"disabled"}, \code{"strict"}, and \code{"flexible"}.
-Defaults to \code{"disabled"}.}
+Supported values are \code{"strict"}, \code{"flexible"}, and \code{"disabled"}.
+Defaults to \code{"strict"}, matching \code{micromamba}'s own recommended
+default: when multiple channels provide a package, only the
+highest-priority channel's builds are considered, which keeps
+resolution reproducible.}
 
 \item{additional_channels}{Character vector of additional channels appended
 to \code{channels}. Defaults to \code{NULL}.}

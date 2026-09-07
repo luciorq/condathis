@@ -10,10 +10,7 @@ format_channels_args <- function(...) {
   rlang::check_dots_unnamed()
   channels <- c(...)
   if (rlang::is_null(channels)) {
-    channels <- c(
-      "conda-forge",
-      "bioconda"
-    )
+    channels <- "conda-forge"
   }
   channels_arg <- c()
   for (channel in channels) {

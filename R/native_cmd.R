@@ -94,12 +94,6 @@ native_cmd <- function(
   env_envs_dir <- fs::path(env_root_dir, "envs")
   umamba_bin_path <- base::normalizePath(umamba_bin_path, mustWork = FALSE)
   tmp_dir_path <- withr::local_tempdir(pattern = "mamba-tmp")
-  withr::local_envvar(
-    .new = get_clean_conda_envvars(
-      tmp_dir = tmp_dir_path,
-      envs_dir = env_envs_dir
-    )
-  )
 
   cmd_args <- c(
     "--no-rc",
@@ -111,12 +105,22 @@ native_cmd <- function(
     ...
   )
 
-  # Environment variables are applied via the `withr::local_envvar()` above
-  # rather than passed as `env =`, so the child inherits this (already
-  # cleaned) environment -- hence no `env`/`wd` here.
+  # The child's environment block is constructed explicitly and passed as
+  # a full `env =` replacement - the calling R session's own environment
+  # is never touched. (This used to be a `withr::local_envvar()` scope the
+  # child inherited, which mutated the session for the duration of the
+  # call - most visibly `R_HOME = ""` corrupting parent-side `R.home()`
+  # calls, the bug the load-time Rscript-path cache in
+  # condathis-package.R was introduced to patch around.)
+  child_env <- build_child_env(
+    tmp_dir = tmp_dir_path,
+    envs_dir = env_envs_dir
+  )
+
   px_res <- execute_command(
     command = fs::path_real(umamba_bin_path),
     args = cmd_args,
+    env = child_env,
     spinner = verbose_list$spinner_flag,
     echo_cmd = verbose_list$cmd,
     echo = verbose_output,

@@ -368,7 +368,14 @@ resolve_backend_by_priority <- function(method, call = rlang::caller_env()) {
     "condathis.backend_priority",
     c("rattler", "micromamba")
   )
-  candidates <- intersect(priority, list_registered_backend_names())
+  # The option is an ordering *hint*, never an allowlist: registered
+  # backends it does not mention are appended after the prioritized ones,
+  # so e.g. `options(condathis.backend_priority = "rattler")` on a system
+  # where only micromamba is registered still resolves to micromamba
+  # instead of aborting "no backend available" with a working backend
+  # right there.
+  registered <- list_registered_backend_names()
+  candidates <- unique(c(intersect(priority, registered), registered))
   for (candidate in candidates) {
     backend <- get_backend(candidate, call = call)
     if (isTRUE(backend_available(backend))) {
@@ -511,8 +518,8 @@ backend_create_env <- function(
   packages = NULL,
   env_file = NULL,
   env_name = "condathis-env",
-  channels = c("conda-forge", "bioconda"),
-  channel_priority = c("disabled", "strict", "flexible"),
+  channels = "conda-forge",
+  channel_priority = c("strict", "flexible", "disabled"),
   additional_channels = NULL,
   platform = NULL,
   overwrite = FALSE,
@@ -527,8 +534,8 @@ backend_install <- function(
   backend,
   packages,
   env_name = "condathis-env",
-  channels = c("conda-forge", "bioconda"),
-  channel_priority = c("disabled", "strict", "flexible"),
+  channels = "conda-forge",
+  channel_priority = c("strict", "flexible", "disabled"),
   additional_channels = NULL,
   verbose = c("output", "silent", "cmd", "spinner", "full")
 ) {

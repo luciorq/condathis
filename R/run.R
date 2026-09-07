@@ -187,11 +187,21 @@ run <- function(
   # `condathis_pipeline_env_not_found` behavior for the same situation;
   # reports a `status = 127` result under `error = "continue"`, without
   # ever creating anything.
-  env_name_exists <- backend_has_env(
+  # backend_probe_env(), not backend_has_env(): the never-errors variant
+  # coerces a *failed* listing (transient lock, corrupt metadata, JSON
+  # hiccup) to FALSE, which used to make run() refuse with "environment
+  # does not exist" for environments that exist and would run fine. When
+  # existence cannot be determined (NA), proceed optimistically instead of
+  # blocking: a genuinely missing environment still fails, with the
+  # backend's own error, exactly as it did before this gate existed.
+  env_name_exists <- backend_probe_env(
     resolved$backend,
     env_name,
     verbose = verbose_list$internal_verbose
   )
+  if (isTRUE(is.na(env_name_exists))) {
+    env_name_exists <- TRUE
+  }
 
   if (isFALSE(env_name_exists) && identical(env_name, "condathis-env")) {
     create_base_env(verbose = verbose_list$internal_verbose)
