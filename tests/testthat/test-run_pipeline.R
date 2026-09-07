@@ -1055,3 +1055,59 @@ test_that("Pipeline with activate = FALSE never resolves backend activation", {
   testthat::expect_equal(res$statuses, c(0L, 0L))
   testthat::expect_match(res$processes[[2]]$stdout, "hello")
 })
+
+test_that("Pipeline stderr file target collects every stage's stderr", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  # Regression test: the same file path used to be handed to every
+  # stage's process$new(), each of which opened (and truncated) it
+  # independently - so stages clobbered each other and the surviving
+  # content was whichever stage wrote last, from offset 0.
+  create_env(
+    pipeline_cli_pkgs(),
+    env_name = "run-pipeline-cli-tools-env",
+    verbose = "silent"
+  )
+  err_file <- withr::local_tempfile()
+  res <- run_pipeline(
+    cmds = list(
+      c("bash", "-c", "echo stage-one-stderr >&2"),
+      c("bash", "-c", "cat; echo stage-two-stderr >&2")
+    ),
+    stderr = err_file,
+    env_name = "run-pipeline-cli-tools-env",
+    error = "continue"
+  )
+  testthat::expect_equal(res$statuses, c(0L, 0L))
+  err_content <- readLines(err_file)
+  testthat::expect_match(err_content[[1]], "stage-one-stderr")
+  testthat::expect_match(err_content[[2]], "stage-two-stderr")
+})
+
+test_that("Pipeline survives the first stage exiting before consuming input", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  # Regression test for the broken-pipe guard in pump_pipeline_io():
+  # writing a large `input` into a first stage that exits immediately
+  # raises a low-level broken-pipe error, which used to escape even under
+  # `error = "continue"`, abandoning the still-running downstream stages.
+  create_env(
+    pipeline_cli_pkgs(),
+    env_name = "run-pipeline-cli-tools-env",
+    verbose = "silent"
+  )
+  res <- run_pipeline(
+    cmds = list(
+      c("false"),
+      c("cat")
+    ),
+    stdin = "|",
+    input = strrep("x", 200000L),
+    env_name = "run-pipeline-cli-tools-env",
+    error = "continue"
+  )
+  testthat::expect_s3_class(res, "condathis_pipeline")
+  testthat::expect_equal(res$statuses[[1]], 1L)
+})

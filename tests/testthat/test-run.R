@@ -524,3 +524,44 @@ test_that("Run proceeds when the environment existence check itself fails", {
   testthat::expect_equal(res$status, 0L)
   testthat::expect_equal(res$stdout, "ran fine")
 })
+
+test_that("Run reports the real exit status when the child exits before consuming input", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  # Regression test: a child exiting before consuming a large stdin
+  # `input` raises a low-level broken-pipe error from the write, which
+  # used to escape pump_process_io() and get misreported by
+  # rethrow_error_run() as a status-127 "command not found" - masking the
+  # child's real exit status.
+  create_env(
+    c(test_os_pkg("coreutils"), test_os_pkg("bash")),
+    env_name = "run-cli-tools-env",
+    verbose = "silent"
+  )
+  res <- run(
+    "bash",
+    "-c",
+    "exit 3",
+    stdin = "|",
+    input = strrep("x", 200000L),
+    env_name = "run-cli-tools-env",
+    error = "continue",
+    verbose = "silent"
+  )
+  testthat::expect_equal(res$status, 3L)
+
+  testthat::expect_error(
+    object = run(
+      "bash",
+      "-c",
+      "exit 3",
+      stdin = "|",
+      input = strrep("x", 200000L),
+      env_name = "run-cli-tools-env",
+      error = "cancel",
+      verbose = "silent"
+    ),
+    class = "condathis_run_status_error"
+  )
+})

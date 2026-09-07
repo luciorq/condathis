@@ -250,6 +250,23 @@ alongside it - see below.
 
 ### Fixed
 
+* Fix `run_pipeline(stderr = "some-file")` losing every command's stderr
+  except the last one to open the file: each command's process opened
+  (and truncated) the shared path independently, clobbering what earlier
+  commands had written - worst exactly when a middle command failed and
+  its stderr was what the file was meant to keep. Each command now writes
+  to its own temporary file and the requested file is assembled once, in
+  command order, after the pipeline finishes (including when it aborts
+  under `error = "cancel"`).
+
+* Fix a low-level "broken pipe" error escaping when a command exits
+  before consuming its `input` (e.g. a large `input` written to a command
+  that fails immediately): in `run()`/`run_bin()` it was misreported as a
+  status-127 "command not found", masking the real exit status, and in
+  `run_pipeline()` it escaped even under `error = "continue"`. The
+  undeliverable input is now simply abandoned and the command's own exit
+  status is reported, on every platform.
+
 * Fix a single stale environment entry (e.g. in
   `~/.conda/environments.txt`, or an environment removed by another
   process mid-call) breaking every environment at once: realizing the
