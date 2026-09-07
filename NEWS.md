@@ -250,6 +250,33 @@ alongside it - see below.
 
 ### Fixed
 
+* Fix a single stale environment entry (e.g. in
+  `~/.conda/environments.txt`, or an environment removed by another
+  process mid-call) breaking every environment at once: realizing the
+  listed paths errored on the first one that no longer existed, which
+  aborted `list_envs()` entirely and made `env_exists()` report
+  *existing* environments as absent. Vanished paths are now dropped
+  individually and never affect the others.
+
+* Fix `run()` and `run_pipeline()` refusing to execute ("environment
+  does not exist") when the environment existence check itself failed
+  (transient lock, corrupt listing metadata, and similar): a failed check
+  is no longer treated as "absent" - execution proceeds, and a genuinely
+  missing environment still fails with the backend's own clear error.
+
+* Fix an unreadable low-level JSON error when resolving activation for an
+  environment whose `activate.d` hook scripts print to stdout (e.g. a
+  package that echoes a banner on activation): the activation dump is now
+  fenced with markers so hook output cannot corrupt it, and a genuinely
+  broken dump reports a clear, classed error naming the environment.
+
+* Fix `run_pipeline(activate = FALSE)` still performing the full
+  activation resolution it was asked to skip (two extra subprocess spawns
+  per environment on a cache miss) and still inheriting activation's
+  failure modes - a failing `activate.d` hook aborted the whole pipeline
+  even under `error = "continue"`. The activation-free path now resolves
+  the executable directly and never touches activation.
+
 * Fix `install_micromamba(force = TRUE)` destroying a working
   `micromamba` installation when the download failed: the standalone-
   binary download strategy wrote directly onto the live binary path, and

@@ -233,9 +233,23 @@ resolve_micromamba_activation_envvars <- function(env_name, env_dir) {
   # harmless to carry in the overlay.)
   baseline_vars <- as.list(build_child_env(tmp_dir = tmp_dir_path))
 
+  # The JSON payload is fenced between unique markers: `activate.d` hook
+  # scripts run during activation and are free to print banners or other
+  # noise to stdout *before* the dump script executes, so the subprocess's
+  # stdout cannot be assumed to be pure JSON (parsing it directly used to
+  # crash with an opaque jsonlite lexical error that never mentioned the
+  # environment or activation as the cause).
   dump_script <- fs::path(tmp_dir_path, "dump_env.R")
   writeLines(
-    "cat(jsonlite::toJSON(as.list(base::Sys.getenv()), auto_unbox = TRUE))",
+    paste0(
+      "cat(\"",
+      activation_dump_marker("BEGIN"),
+      "\");",
+      "cat(jsonlite::toJSON(as.list(base::Sys.getenv()), auto_unbox = TRUE));",
+      "cat(\"",
+      activation_dump_marker("END"),
+      "\")"
+    ),
     dump_script
   )
 
@@ -248,7 +262,7 @@ resolve_micromamba_activation_envvars <- function(env_name, env_dir) {
     verbose = "silent",
     error = "cancel"
   )
-  activated_vars <- jsonlite::fromJSON(px_res$stdout)
+  activated_vars <- parse_activation_dump(px_res$stdout, env_name = env_name)
 
   changed_names <- Filter(
     f = function(nm) {
@@ -306,4 +320,55 @@ diff_path_prepend <- function(activated_path, baseline_path) {
   baseline_parts <- strsplit(baseline_path %||% "", sep, fixed = TRUE)[[1L]]
   added <- activated_parts[!(activated_parts %in% baseline_parts)]
   return(added[nzchar(added)])
+}
+
+#' Marker strings fencing the activation dump's JSON payload
+#'
+#' @keywords internal
+#' @noRd
+activation_dump_marker <- function(which) {
+  paste0("---CONDATHIS-ENV-DUMP-", which, "---")
+}
+
+#' Extract and parse the JSON payload from the activation dump's stdout
+#'
+#' Anything an `activate.d` hook printed to stdout lands outside the
+#' markers and is ignored. A missing marker pair or an unparsable payload
+#' aborts with a classed error naming the environment and activation as
+#' the cause, instead of an opaque low-level jsonlite error.
+#'
+#' @keywords internal
+#' @noRd
+parse_activation_dump <- function(dump_stdout, env_name) {
+  fence_pattern <- paste0(
+    activation_dump_marker("BEGIN"),
+    "(.*)",
+    activation_dump_marker("END")
+  )
+  payload <- stringr::str_match(
+    dump_stdout,
+    stringr::regex(fence_pattern, dotall = TRUE)
+  )[, 2L]
+  parsed <- if (isTRUE(is.na(payload))) {
+    NULL
+  } else {
+    tryCatch(
+      jsonlite::fromJSON(payload),
+      error = function(e) NULL
+    )
+  }
+  if (is.null(parsed)) {
+    cli::cli_abort(
+      message = c(
+        `x` = "Failed to resolve the activation environment for {.field {env_name}}.",
+        `!` = "The activation dump did not produce a readable result.",
+        `i` = paste(
+          "This can happen when an {.file activate.d} hook script in the",
+          "environment fails or corrupts the process output."
+        )
+      ),
+      class = "condathis_activation_dump_error"
+    )
+  }
+  return(parsed)
 }

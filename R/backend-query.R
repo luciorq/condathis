@@ -150,3 +150,25 @@ write_backend_marker <- function(env_dir, backend_name) {
   )
   return(invisible(NULL))
 }
+
+#' Probe whether a backend has an environment, distinguishing failure
+#'
+#' Unlike `backend_has_env()` (whose never-errors contract coerces *any*
+#' failure of the underlying listing to `FALSE`), this keeps "the listing
+#' says it is absent" (`FALSE`) apart from "the listing itself failed"
+#' (`NA`). Execution gates must not treat the two the same: refusing to
+#' run a command because a transient `micromamba env list` hiccup made an
+#' existing environment look absent turns a recoverable blip into a hard
+#' "environment does not exist" error for an environment that is right
+#' there and would run fine.
+#'
+#' @returns `TRUE`, `FALSE`, or `NA` (existence could not be determined).
+#'
+#' @keywords internal
+#' @noRd
+backend_probe_env <- function(backend, env_name, verbose = FALSE) {
+  return(tryCatch(
+    isTRUE(backend_env_exists(backend, env_name = env_name, verbose = verbose)),
+    error = function(e) NA
+  ))
+}

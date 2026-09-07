@@ -558,24 +558,33 @@ spawn_pipeline_process <- function(
   # own). The backend falls back to the bare name when the command isn't
   # found inside the prefix, preserving the "command not found" behavior
   # below.
-  backend_run <- backend_resolve_run(
-    resolved_backend,
-    cmd = cmd_vec[1L],
-    args = cmd_vec[-1L],
-    env_name = env_name_i,
-    verbose = "silent"
-  )
-  validate_resolve_run(backend_run, env_name = env_name_i)
-  resolved_cmd <- backend_run$command
-
-  # `activate = FALSE` keeps the hand-rolled, activation-script-free
-  # variables: that path is deliberately backend-independent (built from
-  # `env_dir` alone), so it stays as-is rather than going through the
-  # backend.
-  activation_envvars <- if (isTRUE(activate)) {
-    backend_run$env
+  # `activate = FALSE` must not touch `backend_resolve_run()` at all: the
+  # micromamba implementation resolves the full activation environment
+  # (two subprocess spawns on a cache miss, plus any `activate.d` hook
+  # failure modes) before the flag could discard its result - so a user
+  # who set `activate = FALSE` precisely to skip activation still paid
+  # for it, and a failing activation hook aborted the whole pipeline
+  # regardless of `error = "continue"`. The activation-free path resolves
+  # the executable locally (same `resolve_env_bin_path()` fallback the
+  # backend uses) and keeps the hand-rolled, hook-free variables, built
+  # from `env_dir` alone.
+  if (isTRUE(activate)) {
+    backend_run <- backend_resolve_run(
+      resolved_backend,
+      cmd = cmd_vec[1L],
+      args = cmd_vec[-1L],
+      env_name = env_name_i,
+      verbose = "silent"
+    )
+    validate_resolve_run(backend_run, env_name = env_name_i)
+    resolved_cmd <- backend_run$command
+    stage_args <- backend_run$args
+    activation_envvars <- backend_run$env
   } else {
-    get_activation_envvars(
+    resolved_cmd <- resolve_env_bin_path(env_dir, cmd_vec[1L]) %||%
+      cmd_vec[1L]
+    stage_args <- cmd_vec[-1L]
+    activation_envvars <- get_activation_envvars(
       env_name = env_name_i,
       env_dir = env_dir,
       tmp_dir = tmp_dir_path
@@ -595,7 +604,7 @@ spawn_pipeline_process <- function(
     expr = {
       processx::process$new(
         command = resolved_cmd,
-        args = backend_run$args,
+        args = stage_args,
         stdin = stdin_i,
         stdout = stdout_i,
         stderr = stderr_i,
@@ -1009,9 +1018,18 @@ precreate_envs <- function(parsed, tmp_dir_path, error_var) {
       next
     }
 
-    if (
-      isFALSE(backend_has_env(resolved$backend, env_name_i, verbose = FALSE))
-    ) {
+    # backend_probe_env(), not backend_has_env(): a *failed* listing (NA)
+    # must not be treated as "absent" - refusing to run over a transient
+    # existence-check hiccup turned a recoverable blip into a hard
+    # env-not-found abort (or a synthetic 127) for environments that are
+    # right there. On NA, proceed optimistically; a genuinely missing
+    # environment still fails at spawn with its own clear error.
+    env_probe <- backend_probe_env(
+      resolved$backend,
+      env_name_i,
+      verbose = FALSE
+    )
+    if (isFALSE(env_probe)) {
       if (identical(env_name_i, "condathis-env")) {
         create_base_env(verbose = FALSE)
         resolved <- resolve_backend(
