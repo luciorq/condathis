@@ -14,10 +14,17 @@
 #'   today. `"native"` is a deprecated alias for `"micromamba"` (warns once
 #'   per session).
 #' @param channels Character vector with channel names used for dependency
-#'   resolution. Defaults to `c("conda-forge", "bioconda")`.
+#'   resolution. Defaults to `"conda-forge"`. Packages from other channels
+#'   (e.g. `bioconda`) can either use a channel-prefixed spec in
+#'   `packages` - `"bioconda::samtools"` pulls the package *and* its
+#'   bioconda dependencies without any change here - or add the channel
+#'   explicitly, e.g. `channels = c("conda-forge", "bioconda")`.
 #' @param channel_priority Character string with channel priority mode.
-#'   Supported values are `"disabled"`, `"strict"`, and `"flexible"`.
-#'   Defaults to `"disabled"`.
+#'   Supported values are `"strict"`, `"flexible"`, and `"disabled"`.
+#'   Defaults to `"strict"`, matching `micromamba`'s own recommended
+#'   default: when multiple channels provide a package, only the
+#'   highest-priority channel's builds are considered, which keeps
+#'   resolution reproducible.
 #' @param additional_channels Character vector of additional channels appended
 #'   to `channels`. Defaults to `NULL`.
 #' @param verbose Character string controlling console output.
@@ -48,15 +55,8 @@ install_packages <- function(
   packages,
   env_name = "condathis-env",
   method = "auto",
-  channels = c(
-    "conda-forge",
-    "bioconda"
-  ),
-  channel_priority = c(
-    "disabled",
-    "strict",
-    "flexible"
-  ),
+  channels = "conda-forge",
+  channel_priority = c("strict", "flexible", "disabled"),
   additional_channels = NULL,
   verbose = c(
     "output",

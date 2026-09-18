@@ -8,14 +8,24 @@
 #'   Defaults to `NULL`.
 #' @param env_file Character string with the path to an environment YAML file.
 #'   Defaults to `NULL`.
-#'   When provided, it is passed to `micromamba create -f`.
+#'   When provided, it is passed to `micromamba create -f`, and the
+#'   "environment already satisfies the request" shortcut is skipped:
+#'   whether an existing environment satisfies a file's contents cannot
+#'   be checked cheaply, so the creation always runs.
 #' @param env_name Character string with the target environment name.
 #'   Defaults to `"condathis-env"`.
 #' @param channels Character vector with channel names used for dependency
-#'   resolution. Defaults to `c("conda-forge", "bioconda")`.
+#'   resolution. Defaults to `"conda-forge"`. Packages from other channels
+#'   (e.g. `bioconda`) can either use a channel-prefixed spec in
+#'   `packages` - `"bioconda::samtools"` pulls the package *and* its
+#'   bioconda dependencies without any change here - or add the channel
+#'   explicitly, e.g. `channels = c("conda-forge", "bioconda")`.
 #' @param channel_priority Character string with channel priority mode.
-#'   Supported values are `"disabled"`, `"strict"`, and `"flexible"`.
-#'   Defaults to `"disabled"`.
+#'   Supported values are `"strict"`, `"flexible"`, and `"disabled"`.
+#'   Defaults to `"strict"`, matching `micromamba`'s own recommended
+#'   default: when multiple channels provide a package, only the
+#'   highest-priority channel's builds are considered, which keeps
+#'   resolution reproducible.
 #' @param additional_channels Character vector of additional channels appended
 #'   to `channels`. Defaults to `NULL`.
 #' @param method Character string naming the backend to use. Defaults to
@@ -54,16 +64,9 @@ create_env <- function(
   packages = NULL,
   env_file = NULL,
   env_name = "condathis-env",
-  channels = c(
-    "conda-forge",
-    "bioconda"
-  ),
+  channels = "conda-forge",
   method = "auto",
-  channel_priority = c(
-    "disabled",
-    "strict",
-    "flexible"
-  ),
+  channel_priority = c("strict", "flexible", "disabled"),
   additional_channels = NULL,
   platform = NULL,
   verbose = c(
@@ -76,6 +79,13 @@ create_env <- function(
   overwrite = FALSE
 ) {
   validate_env_name(env_name, class = "condathis_create_invalid_env_name")
+
+  # Validated upfront, unconditionally: this arg_match used to run only
+  # inside `backend_create_env()`, which the already-satisfied early
+  # return below skips entirely - so whether an invalid `channel_priority`
+  # errored or was silently accepted depended on the current state of the
+  # target environment.
+  channel_priority <- rlang::arg_match(channel_priority)
 
   if (isFALSE(rlang::is_bool(overwrite))) {
     cli::cli_abort(
@@ -128,16 +138,23 @@ create_env <- function(
     collapse = " "
   )
 
-  early_result <- env_already_satisfies_request(
-    backend = resolved$backend,
-    env_name = env_name,
-    packages = packages,
-    overwrite = overwrite,
-    cmd_string = cmd_string,
-    verbose_list = verbose_list
-  )
-  if (isFALSE(is.null(early_result))) {
-    return(invisible(early_result))
+  # The already-satisfied shortcut only applies to plain `packages`
+  # requests: whether an environment satisfies an `env_file`'s contents
+  # cannot be checked cheaply, and taking the shortcut when both were
+  # supplied used to silently skip applying the file while reporting
+  # success. With `env_file` set, the real creation always runs.
+  if (isTRUE(rlang::is_null(env_file))) {
+    early_result <- env_already_satisfies_request(
+      backend = resolved$backend,
+      env_name = env_name,
+      packages = packages,
+      overwrite = overwrite,
+      cmd_string = cmd_string,
+      verbose_list = verbose_list
+    )
+    if (isFALSE(is.null(early_result))) {
+      return(invisible(early_result))
+    }
   }
 
   px_res <- backend_create_env(

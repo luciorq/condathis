@@ -321,7 +321,9 @@ writable-stdin path round-trips input.
 
 ## Milestone: `rattlerthis` as a conforming backend (not started, depends on above)
 
-- [ ] `rattlerthis::R/condathis-backend.R`'s `new_backend_rattler()` needs
+- [x] (done on the `rattlerthis` side, verified 2026-09-17 against
+      `rattlerthis` `main`: the vtable now lists all 10 functions)
+      `rattlerthis::R/condathis-backend.R`'s `new_backend_rattler()` needs
       to actually populate its vtable with its own 10 already-written
       adapter functions (today it returns `structure(list(), class = ...)`
       — an **empty** list) so `condathis::register_backend("rattler", ...)`
@@ -329,11 +331,15 @@ writable-stdin path round-trips input.
       mechanical shape of that change (see the "one mechanical gap" note
       above) — not a rewrite of the adapter functions themselves, which
       are already correct.
-- [ ] `.onLoad()` registration guarded by
+- [x] (done on the `rattlerthis` side, verified 2026-09-17: `.onLoad()`
+      registers directly and via `setHook(packageEvent("condathis",
+      "onLoad"))`, `.onUnload()` unregisters)
+      `.onLoad()` registration guarded by
       `requireNamespace("condathis", quietly = TRUE)` — confirmed this
       doesn't exist yet; `rattlerthis/R/rattlerthis-package.R` is still the
       bare roxygen template with no `.onLoad()` at all.
-- [ ] The `backend_resolve_run()`-based execution branch in `run()`/
+- [x] (done 2026-08-13, see "Backend execution path" milestone above)
+      The `backend_resolve_run()`-based execution branch in `run()`/
       `run_bin()`/`run_pipeline()` (see "deliberately not done" above) —
       needed before `method = "rattler"` can actually run anything, not
       just create/list/remove environments.
@@ -345,6 +351,9 @@ writable-stdin path round-trips input.
       (cleaner ownership — `condathis`'s own CI shouldn't need a Rust
       toolchain), `skip_if_not_installed("rattlerthis")`-gated either way.
 - [ ] Document in both packages' READMEs how the two relate now.
+
+The two remaining items above, and every other item deferred past 0.2.0,
+are tracked with implementation plans in `../post-0.2.0/`.
 
 ## Later ideas (not scheduled)
 

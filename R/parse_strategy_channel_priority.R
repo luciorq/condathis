@@ -3,19 +3,15 @@
 #' Maps a channel priority mode to `micromamba` command-line flags.
 #'
 #' @param channel_priority Character string with channel priority mode.
-#'   Supported values are `"disabled"`, `"strict"`, and `"flexible"`.
-#'   Defaults to `"disabled"`.
+#'   Supported values are `"strict"`, `"flexible"`, and `"disabled"`.
+#'   Defaults to `"strict"`.
 #'
 #' @returns A character vector of command-line arguments.
 #'
 #' @keywords internal
 #' @noRd
 parse_strategy_channel_priority <- function(
-  channel_priority = c(
-    "disabled",
-    "strict",
-    "flexible"
-  )
+  channel_priority = c("strict", "flexible", "disabled")
 ) {
   channel_priority <- rlang::arg_match(
     channel_priority,

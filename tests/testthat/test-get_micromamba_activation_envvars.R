@@ -148,3 +148,50 @@ test_that("activation_cache_stamp() changes when conda-meta contents change", {
 
   fs::file_delete(fake_pkg_file)
 })
+
+testthat::test_that("parse_activation_dump ignores activate.d noise around the JSON payload", {
+  # Regression test: activate.d hook scripts may print banners to stdout
+  # before the dump script runs; parsing the whole stream as JSON crashed
+  # with an opaque jsonlite lexical error naming neither the environment
+  # nor activation as the cause.
+  noisy <- paste0(
+    "Welcome to my chatty activation hook!\n",
+    activation_dump_marker("BEGIN"),
+    "{\"CONDA_PREFIX\":\"/envs/x\",\"MY_VAR\":\"1\"}",
+    activation_dump_marker("END"),
+    "\ntrailing noise"
+  )
+  parsed <- parse_activation_dump(noisy, env_name = "x")
+  testthat::expect_equal(parsed$CONDA_PREFIX, "/envs/x")
+  testthat::expect_equal(parsed$MY_VAR, "1")
+
+  # Missing markers or an unparsable payload: classed error naming the env.
+  cnd <- rlang::catch_cnd(parse_activation_dump("just noise", env_name = "x"))
+  testthat::expect_s3_class(cnd, "condathis_activation_dump_error")
+  broken <- paste0(
+    activation_dump_marker("BEGIN"),
+    "{not json",
+    activation_dump_marker("END")
+  )
+  cnd2 <- rlang::catch_cnd(parse_activation_dump(broken, env_name = "x"))
+  testthat::expect_s3_class(cnd2, "condathis_activation_dump_error")
+})
+
+testthat::test_that("activation resolution never routes through the public get_env_dir()", {
+  # Regression test: get_env_dir()'s backend resolution runs a
+  # `micromamba env list` subprocess on every call (even activation cache
+  # hits) and can abort on multi-backend ambiguity; the micromamba-specific
+  # activation helper must compute the env dir from the micromamba layout
+  # directly.
+  testthat::local_mocked_bindings(
+    get_env_dir = function(...) {
+      cli::cli_abort(
+        "get_env_dir() must not be called by activation resolution."
+      )
+    }
+  )
+  testthat::expect_error(
+    get_micromamba_activation_envvars("definitely-nonexistent-env-xyz"),
+    class = "condathis_activation_env_not_found"
+  )
+})

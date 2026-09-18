@@ -45,8 +45,10 @@ for the last command only (see \code{cmds}).}
 
 \item{stderr}{Standard error target for \strong{all} processes.
 \code{"|"} (default) captures stderr per-process. Use a file path to
-redirect all stderr to a file, or \code{NULL} to discard. Can be overridden
-per-command (see \code{cmds}).}
+redirect all stderr to a file - each command's stderr is written to
+the file grouped in command order once the pipeline finishes, so
+commands never overwrite each other's output - or \code{NULL} to discard.
+Can be overridden per-command (see \code{cmds}).}
 
 \item{stdin}{Standard input source for the \strong{first} process.
 \code{NULL} (default) discards input. Provide a file path to redirect file

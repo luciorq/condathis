@@ -114,3 +114,30 @@ testthat::test_that("stdin is a file", {
   #  env = parent.frame()
   # )
 })
+
+testthat::test_that("rethrow_error_run never picks up a px_res from the user's workspace", {
+  # Regression test: the post-eval `exists("px_res")` check used the
+  # default inherits = TRUE, whose lookup reaches the global environment -
+  # a workspace object named `px_res` was returned *as the process result*
+  # whenever the wrapped expression errored before assigning locally.
+  assign("px_res", "user workspace object", envir = globalenv())
+  withr::defer(rm("px_res", envir = globalenv()))
+
+  # The variables rethrow_error_run() reads from its `env` argument are
+  # passed as an explicit environment object.
+  caller_env <- rlang::env(
+    error = "continue",
+    error_var = FALSE,
+    stdin = NULL,
+    cmd = "some-cmd"
+  )
+  res <- rethrow_error_run(
+    expr = {
+      rlang::abort(message = "boom", class = "c_error")
+    },
+    env = caller_env
+  )
+  testthat::expect_type(res, "list")
+  testthat::expect_false(identical(res, "user workspace object"))
+  testthat::expect_equal(res$status, 127L)
+})

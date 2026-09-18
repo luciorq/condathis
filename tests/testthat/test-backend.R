@@ -154,11 +154,10 @@ testthat::test_that("unregister_backend removes the registry entry and its S3 me
 })
 
 testthat::test_that("unregister_backend is a silent no-op for an unregistered name", {
-  result <- NULL
   testthat::expect_no_error({
     result <- unregister_backend("never-was-registered-xyz")
+    testthat::expect_false(result)
   })
-  testthat::expect_false(result)
 })
 
 testthat::test_that("unregister_backend validates its name argument", {
@@ -498,4 +497,16 @@ testthat::test_that("get_install_dir()/list_envs() return tibbles, 1 vs 2+ regis
 
   envs_one <- list_envs(method = "micromamba")
   testthat::expect_named(envs_one, c("backend", "env_name", "path"))
+})
+
+testthat::test_that("condathis.backend_priority is an ordering hint, not an allowlist", {
+  # Regression test: the option used to be intersected with the registered
+  # backends, so naming only an unregistered backend made method = "auto"
+  # abort "no backend available" while a working registered backend was
+  # right there.
+  withr::local_options(
+    condathis.backend_priority = "definitely-not-a-registered-backend"
+  )
+  resolved <- resolve_backend(method = "auto")
+  testthat::expect_equal(resolved$name, "micromamba")
 })

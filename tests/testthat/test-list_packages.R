@@ -40,3 +40,24 @@ test_that("list_packages raises condathis_cmd_status_error on failure instead of
     class = "condathis_cmd_status_error"
   )
 })
+
+testthat::test_that("list_packages parses both micromamba list --json output shapes", {
+  # micromamba 2.9.0 changed `list --json` from a bare package array to
+  # `{"log_history": [...], "packages": [...]}`. Which binary answers
+  # depends on the discovery chain (a system-installed 2.9+ can win over
+  # the pinned internal version), so both shapes must parse.
+  old_shape <- '[{"base_url":"u","build_number":1,"build_string":"b","channel":"c","dist_name":"d","name":"zlib","platform":"linux-64","version":"1.3"}]'
+  new_shape <- paste0('{"log_history":[],"packages":', old_shape, "}")
+
+  for (shape in c(old_shape, new_shape)) {
+    testthat::local_mocked_bindings(
+      backend_has_env = function(...) TRUE,
+      native_cmd = function(...) {
+        list(status = 0L, stdout = shape, stderr = "", timeout = FALSE)
+      }
+    )
+    pkgs <- list_packages(env_name = "condathis-env", verbose = "silent")
+    testthat::expect_equal(pkgs$name, "zlib")
+    testthat::expect_equal(pkgs$version, "1.3")
+  }
+})

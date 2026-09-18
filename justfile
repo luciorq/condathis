@@ -49,6 +49,8 @@ lint:
   # Remove duplicate lines from .gitignore and .Rbuildignore without changing their order
   awk '!seen[$0]++' .gitignore > .gitignore.tmp && \mv .gitignore.tmp .gitignore;
   awk '!seen[$0]++' .Rbuildignore > .Rbuildignore.tmp && \mv .Rbuildignore.tmp .Rbuildignore;
+  # TODO: @luciorq - Check what is the proper verbosity level for lychee
+  lychee . || \builtin echo 'lychee not installed.';
   \builtin echo "Linting done!";
 
 # Run All Unit Tests

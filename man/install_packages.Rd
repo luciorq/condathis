@@ -8,8 +8,8 @@ install_packages(
   packages,
   env_name = "condathis-env",
   method = "auto",
-  channels = c("conda-forge", "bioconda"),
-  channel_priority = c("disabled", "strict", "flexible"),
+  channels = "conda-forge",
+  channel_priority = c("strict", "flexible", "disabled"),
   additional_channels = NULL,
   verbose = c("output", "silent", "cmd", "spinner", "full")
 )
@@ -29,11 +29,18 @@ today. \code{"native"} is a deprecated alias for \code{"micromamba"} (warns once
 per session).}
 
 \item{channels}{Character vector with channel names used for dependency
-resolution. Defaults to \code{c("conda-forge", "bioconda")}.}
+resolution. Defaults to \code{"conda-forge"}. Packages from other channels
+(e.g. \code{bioconda}) can either use a channel-prefixed spec in
+\code{packages} - \code{"bioconda::samtools"} pulls the package \emph{and} its
+bioconda dependencies without any change here - or add the channel
+explicitly, e.g. \code{channels = c("conda-forge", "bioconda")}.}
 
 \item{channel_priority}{Character string with channel priority mode.
-Supported values are \code{"disabled"}, \code{"strict"}, and \code{"flexible"}.
-Defaults to \code{"disabled"}.}
+Supported values are \code{"strict"}, \code{"flexible"}, and \code{"disabled"}.
+Defaults to \code{"strict"}, matching \code{micromamba}'s own recommended
+default: when multiple channels provide a package, only the
+highest-priority channel's builds are considered, which keeps
+resolution reproducible.}
 
 \item{additional_channels}{Character vector of additional channels appended
 to \code{channels}. Defaults to \code{NULL}.}

@@ -127,6 +127,42 @@ alongside it - see below.
 
 ### Changed
 
+* `condathis` no longer temporarily mutates the calling R session's
+  environment variables while running commands. Previously, every
+  execution path applied its conda-isolation overrides (`R_HOME = ""`,
+  `TMPDIR`, `CONDA_*`/`MAMBA_*`, and for `run_bin()` also `PATH`) to the
+  *session* for the duration of the child process, and any R code that
+  happened to run during that window - console callbacks, condition
+  handlers, code in an interrupt path - observed the corrupted values
+  (most visibly `R.home()` returning nonsense while `R_HOME` was
+  blanked). Child processes now receive an explicitly constructed
+  environment block instead, and the session is never touched. Behavior
+  of the child processes themselves is unchanged.
+
+* **Breaking (minor):** the default `channels` for `create_env()` and
+  `install_packages()` is now just `"conda-forge"` - `"bioconda"` is no
+  longer included implicitly. Aligns `condathis` with plain `micromamba`
+  behavior and avoids solving against a channel most environments never
+  use. Code that installs bioconda packages needs the channel stated
+  explicitly, in either of two ways: a channel-prefixed package spec -
+  `create_env(packages = "bioconda::samtools")` pulls the package *and*
+  its bioconda dependencies with no other change - or the channel
+  argument, e.g. `channels = c("conda-forge", "bioconda")`. Calls that
+  already passed `channels` explicitly are unaffected.
+
+* **Breaking (minor):** the default `channel_priority` for `create_env()`
+  and `install_packages()` is now `"strict"` (previously `"disabled"`),
+  matching `micromamba`'s own recommended default: when multiple channels
+  provide the same package name, only the highest-priority channel's
+  builds are considered, which keeps resolution reproducible and prevents
+  accidental cross-channel mixing. Pass
+  `channel_priority = "disabled"` (or `"flexible"`) to restore the
+  previous behavior for a specific call. Note for existing environments:
+  `install_packages()`'s channel-history warning may now fire for
+  environments created before this change with the old implicit
+  `"bioconda"` default - add the channel it names to `channels` or
+  `additional_channels` to silence it.
+
 * `run()` and `run_bin()` gain feature parity with `run_pipeline()`:
   * New `supervise`, `cleanup_tree`, and `linux_pdeathsig` arguments for
     crash-safe process cleanup (previously only available, and always on,
@@ -213,6 +249,145 @@ alongside it - see below.
   result with `status = 127` instead of erroring.
 
 ### Fixed
+
+* Fix a failing activation resolution (e.g. a broken `activate.d` hook
+  script) escaping `error = "continue"` in `run_bin()` and
+  `run_pipeline()`: it now behaves like any other per-command failure -
+  a classed abort under `error = "cancel"`, a failed (`status = 127`)
+  result under `error = "continue"`. The command is deliberately *never*
+  run unactivated as a silent fallback.
+
+* Fix `create_env()` silently not applying `env_file` when `packages`
+  were also supplied and the environment already satisfied them: the
+  already-satisfied shortcut skipped the real creation, so the file's
+  contents were never installed while the call reported success. The
+  shortcut now only applies to plain `packages` requests.
+
+* Fix environment ownership matching claiming any path that merely
+  *contains* the condathis install root somewhere inside it (e.g. a
+  backup copy at `/backup/home/user/.local/share/R/condathis/envs/x`):
+  the root is now matched as an anchored path prefix.
+
+* `run_pipeline()` now reaps every spawned process when an unexpected
+  internal error escapes, instead of leaving already-spawned commands
+  running until R's garbage collector happened to clean them up.
+
+* Support `micromamba` 2.9.0's changed `list --json` output format
+  (`{"log_history": ..., "packages": ...}` instead of a bare package
+  array), which broke `list_packages()` - and everything downstream of
+  it, like `create_env()`'s already-satisfied detection - when the
+  discovery chain picked up a system-installed 2.9+ binary. Both formats
+  are now parsed.
+
+* Fix `run()`/`run_bin()` potentially returning an unrelated object named
+  `px_res` from the user's workspace as the command result when the
+  underlying execution errored in an unusual way: the internal
+  had-a-result check searched enclosing environments all the way to the
+  global environment instead of only its own frame.
+
+* Fix `create_env()` accepting an invalid `channel_priority` without
+  error whenever the target environment already satisfied the request:
+  the validation only ran on the actual-creation path, so the same call
+  errored or passed depending on environment state. It is now validated
+  upfront, unconditionally.
+
+* Fix `getOption("condathis.backend_priority")` acting as an allowlist
+  instead of an ordering preference: naming only an unregistered backend
+  made `method = "auto"` abort "no backend available" even with a
+  working registered backend present. Registered backends the option
+  does not mention are now appended after the prioritized ones.
+
+* Activation-variable resolution no longer runs a `micromamba env list`
+  subprocess (via the public `get_env_dir()`) on every call - including
+  cache hits: the environment directory is computed directly from the
+  micromamba layout, removing a redundant subprocess from every activated
+  `run_bin()` call and pipeline command spawn.
+
+* Fix `run_pipeline(stderr = "some-file")` losing every command's stderr
+  except the last one to open the file: each command's process opened
+  (and truncated) the shared path independently, clobbering what earlier
+  commands had written - worst exactly when a middle command failed and
+  its stderr was what the file was meant to keep. Each command now writes
+  to its own temporary file and the requested file is assembled once, in
+  command order, after the pipeline finishes (including when it aborts
+  under `error = "cancel"`).
+
+* Fix a low-level "broken pipe" error escaping when a command exits
+  before consuming its `input` (e.g. a large `input` written to a command
+  that fails immediately): in `run()`/`run_bin()` it was misreported as a
+  status-127 "command not found", masking the real exit status, and in
+  `run_pipeline()` it escaped even under `error = "continue"`. The
+  undeliverable input is now simply abandoned and the command's own exit
+  status is reported, on every platform.
+
+* Fix a single stale environment entry (e.g. in
+  `~/.conda/environments.txt`, or an environment removed by another
+  process mid-call) breaking every environment at once: realizing the
+  listed paths errored on the first one that no longer existed, which
+  aborted `list_envs()` entirely and made `env_exists()` report
+  *existing* environments as absent. Vanished paths are now dropped
+  individually and never affect the others.
+
+* Fix `run()` and `run_pipeline()` refusing to execute ("environment
+  does not exist") when the environment existence check itself failed
+  (transient lock, corrupt listing metadata, and similar): a failed check
+  is no longer treated as "absent" - execution proceeds, and a genuinely
+  missing environment still fails with the backend's own clear error.
+
+* Fix an unreadable low-level JSON error when resolving activation for an
+  environment whose `activate.d` hook scripts print to stdout (e.g. a
+  package that echoes a banner on activation): the activation dump is now
+  fenced with markers so hook output cannot corrupt it, and a genuinely
+  broken dump reports a clear, classed error naming the environment.
+
+* Fix `run_pipeline(activate = FALSE)` still performing the full
+  activation resolution it was asked to skip (two extra subprocess spawns
+  per environment on a cache miss) and still inheriting activation's
+  failure modes - a failing `activate.d` hook aborted the whole pipeline
+  even under `error = "continue"`. The activation-free path now resolves
+  the executable directly and never touches activation.
+
+* Fix `install_micromamba(force = TRUE)` destroying a working
+  `micromamba` installation when the download failed: the standalone-
+  binary download strategy wrote directly onto the live binary path, and
+  its per-mirror cleanup deleted that path after every failed mirror - so
+  a forced reinstall on a machine with unreachable mirrors (e.g.
+  offline) deleted the existing binary and then aborted, leaving nothing.
+  Downloads now go to a temporary path and only replace the existing
+  binary once a complete new one exists; a failed install still aborts
+  (the requested version was not installed), but the previous working
+  binary survives.
+
+* Fix `run_pipeline()` deadlocking permanently once the data flowing
+  between commands exceeded the OS pipe buffers (~64KB): stages' captured
+  streams were drained one stage at a time, leaving the last command's
+  output pipe unread while earlier stages were waited on, and the
+  resulting backpressure froze every process in the pipeline - reproduced
+  with `seq 1 500000 | cat`. All stages' captured streams are now drained
+  concurrently in a single poll loop, on every platform.
+
+* Fix `timeout` being silently unenforced in `run()`/`run_bin()` when
+  both `stdout` and `stderr` are redirected to files (or the child closes
+  its streams but keeps running), and in `run_pipeline()` for commands
+  with no captured streams (e.g. `stderr = NULL`): the final wait on the
+  child was unbounded, so a 2-second timeout could wait out a
+  100-second command. The remaining time budget is now always enforced
+  with a bounded wait, and expiry reports the same `status = -9` /
+  `timeout = TRUE` result as any other timeout.
+
+* Fix `run_pipeline(activate = FALSE)` building a corrupted `PATH` for
+  its child processes on Windows: the hand-rolled activation used the
+  POSIX `":"` separator and a POSIX-only `bin/` layout. It now uses the
+  platform's real separator and the same Windows-aware environment
+  layout (`Scripts/`, `Library/bin/`, ...) the rest of the package uses.
+
+* Fix the cached `micromamba` activation variables freezing the session
+  `PATH` of whichever call first resolved an environment into every later
+  call for it: directories removed from the session `PATH` afterwards
+  were resurrected in child processes, later additions were missing, and
+  one caller's transient `PATH` prefix could leak into unrelated calls.
+  The cache now stores only the directories activation *adds*, and the
+  final `PATH` is composed against the live session `PATH` on every use.
 
 * Fix `install_micromamba()` always creating the default `"condathis-env"`
   as an undocumented side effect of installing the binary, even when

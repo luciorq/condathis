@@ -113,14 +113,32 @@ pump_process_io <- function(
     )
 
     if (isFALSE(input_done)) {
-      leftover <- proc$write_input(pending_input)
-      if (length(leftover) == 0L) {
+      # A child that exits before consuming its stdin is not an R-level
+      # error: the write raises a low-level broken-pipe condition
+      # (`c_error`/`rlib_error_3_0`, no `status` field), which used to
+      # escape up to `rethrow_error_run()` and get misreported as a
+      # status-127 "command not found" - masking the child's real exit
+      # status. Treat it as "input undeliverable" instead: stop writing,
+      # keep draining, and let the exit status tell the story (mirrors
+      # `pump_pipeline_io()`).
+      write_res <- tryCatch(
+        proc$write_input(pending_input),
+        error = function(e) e
+      )
+      if (inherits(write_res, "error")) {
         input_done <- TRUE
         if (isTRUE(proc$has_input_connection())) {
-          close(proc$get_input_connection())
+          try(close(proc$get_input_connection()), silent = TRUE)
         }
+      } else {
+        if (identical(length(write_res), 0L)) {
+          input_done <- TRUE
+          if (isTRUE(proc$has_input_connection())) {
+            close(proc$get_input_connection())
+          }
+        }
+        pending_input <- write_res
       }
-      pending_input <- leftover
     }
 
     if (has_out && isTRUE(proc$is_incomplete_output())) {
@@ -168,4 +186,57 @@ pump_process_io <- function(
     stderr = if (has_err) combine(err_chunks) else NULL,
     timeout = timed_out
   ))
+}
+
+#' Wait on a process, tolerating an already-finalized handle
+#'
+#' On Windows, `proc$wait()` can race a concurrent process exit: between a
+#' liveness check (or a `kill()`) and the wait itself, the OS-level
+#' process handle can be finalized, and `processx` then throws a low-level
+#' `c_error` ("failed to wait on process ... The handle is invalid.",
+#' system error 6) - for a process that is, by that very fact,
+#' definitively dead. Observed on Windows CI in a pipeline timeout test:
+#' the downstream stage exited on its own (EOF after the upstream kill)
+#' at the same moment the settle logic killed-and-waited on it. A wait
+#' that fails this way is equivalent to a wait that already returned.
+#'
+#' @param proc A `processx::process` object.
+#' @param timeout `NULL` for an unbounded wait, else milliseconds.
+#'
+#' @returns `TRUE` if the wait completed normally, `FALSE` if it failed
+#'   because the process handle was already finalized (invisibly).
+#'
+#' @keywords internal
+#' @noRd
+wait_process_safely <- function(proc, timeout = NULL) {
+  return(invisible(tryCatch(
+    {
+      if (is.null(timeout)) {
+        proc$wait()
+      } else {
+        proc$wait(timeout = timeout)
+      }
+      TRUE
+    },
+    error = function(e) FALSE
+  )))
+}
+
+#' Read a process's exit status, tolerating a finalized handle
+#'
+#' Companion to `wait_process_safely()`: when the handle was finalized
+#' mid-race, `get_exit_status()` may also fail; the caller treats `NA` as
+#' "exited, status unknown", which every consumer already handles.
+#'
+#' @keywords internal
+#' @noRd
+exit_status_safely <- function(proc) {
+  status <- tryCatch(
+    proc$get_exit_status(),
+    error = function(e) NULL
+  )
+  if (is.null(status)) {
+    return(NA_integer_)
+  }
+  return(status)
 }

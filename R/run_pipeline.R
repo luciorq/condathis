@@ -30,8 +30,10 @@
 #'   for the last command only (see `cmds`).
 #' @param stderr Standard error target for **all** processes.
 #'   `"|"` (default) captures stderr per-process. Use a file path to
-#'   redirect all stderr to a file, or `NULL` to discard. Can be overridden
-#'   per-command (see `cmds`).
+#'   redirect all stderr to a file - each command's stderr is written to
+#'   the file grouped in command order once the pipeline finishes, so
+#'   commands never overwrite each other's output - or `NULL` to discard.
+#'   Can be overridden per-command (see `cmds`).
 #' @param stdin Standard input source for the **first** process.
 #'   `NULL` (default) discards input. Provide a file path to redirect file
 #'   contents as stdin, or `"|"` to write `input` to the first process.
@@ -163,10 +165,11 @@ run_pipeline <- function(
     Inf
   }
 
+  # No session-wide environment scope here: each stage's child environment
+  # is constructed explicitly at spawn time via `build_child_env()` (see
+  # `spawn_pipeline_process()`), so the calling R session's environment is
+  # never touched.
   tmp_dir_path <- withr::local_tempdir(pattern = "condathis-tmp")
-  withr::local_envvar(
-    .new = get_clean_conda_envvars(tmp_dir = tmp_dir_path)
-  )
 
   parsed <- parse_cmds_spec(
     cmds,
@@ -231,34 +234,33 @@ run_pipeline <- function(
   procs <- spawned_all$procs
   spawn_failures <- spawned_all$spawn_failures
 
-  # Write `input` to the first process's stdin while draining *its* stderr
-  # (never its stdout - that's piped straight into the second command, not
-  # captured by R) concurrently, via pump_process_io(). Writing once and
-  # closing immediately, as this used to do, silently truncates `input`
-  # larger than the OS pipe buffer - confirmed empirically, not just
-  # reasoned about (see pump_process_io()) - and not draining stderr while
-  # writing risks the same deadlock class pump_process_io() is built to
-  # avoid, one level up. This fully drains the first process's stderr to
-  # EOF as a side effect, so the main loop below reuses this result for
-  # process 1 instead of draining it a second time.
-  first_proc_streams <- NULL
-  if (identical(stdin, "|") && !is.null(procs[[1L]])) {
-    first_proc_streams <- pump_process_io(
-      procs[[1L]],
-      input = input,
-      want_stdout = FALSE,
-      want_stderr = TRUE,
-      binary = binary,
-      deadline = pipeline_deadline
-    )
-  }
+  # Reap the pipeline on *any* exit from here on: an unexpected error in
+  # the pump or settle machinery must not leave stages running until
+  # garbage collection. On normal returns (and the deliberate
+  # error = "cancel" aborts) every stage has already exited and been
+  # wait()ed on, so this is a no-op there - kill_processes() only touches
+  # processes still alive.
+  on.exit(kill_processes(procs), add = TRUE)
+
+  # Drain every stage's R-side streams (each stage's stderr, the last
+  # stage's stdout) *concurrently*, interleaved with writing `input` to
+  # the first stage's stdin - see pump_pipeline_io() for why no sequential
+  # per-stage draining order can avoid deadlocking once the data flowing
+  # through the pipeline exceeds the OS pipe buffers (reproduced
+  # empirically with `seq 1 500000 | cat`).
+  pumped <- pump_pipeline_io(
+    procs = procs,
+    input = if (identical(stdin, "|")) input else NULL,
+    binary = binary,
+    deadline = pipeline_deadline
+  )
 
   drained_all <- run_pipeline_drain_all(
     n_cmds = n_cmds,
     parsed = parsed,
     procs = procs,
     spawn_failures = spawn_failures,
-    first_proc_streams = first_proc_streams,
+    pumped = pumped,
     binary = binary,
     pipeline_deadline = pipeline_deadline
   )
@@ -266,6 +268,10 @@ run_pipeline <- function(
   all_statuses <- drained_all$all_statuses
   timeout_flag <- drained_all$timeout_flag
   any_failed <- drained_all$any_failed
+
+  # Before the aborts below, so a redirected-to-file stderr holds its
+  # diagnostics exactly when a stage failed or timed out.
+  collect_pipeline_stderr_files(spawned_all$stderr_redirects)
 
   if (isTRUE(error_var) && isTRUE(timeout_flag)) {
     abort_pipeline_timeout(processes, timeout)
@@ -370,7 +376,19 @@ run_pipeline_spawn_all <- function(
 ) {
   procs <- vector("list", n_cmds)
   spawn_failures <- vector("list", n_cmds)
+  stderr_redirects <- vector("list", n_cmds)
   prev_read <- NULL
+
+  # If anything throws mid-loop (an unexpected spawn error class, a pipe
+  # creation failure, ...), the stages spawned so far must not be left
+  # running until garbage collection happens to reap them.
+  spawn_all_done <- FALSE
+  on.exit(
+    if (isFALSE(spawn_all_done)) {
+      kill_processes(procs)
+    },
+    add = TRUE
+  )
 
   for (i in seq_len(n_cmds)) {
     cmd_vec <- parsed[[i]]$cmd
@@ -388,6 +406,26 @@ run_pipeline_spawn_all <- function(
     stdin_i <- stdio$stdin_i
     stdout_i <- stdio$stdout_i
 
+    # A user-supplied stderr *file* target cannot be handed to every
+    # stage directly: each `process$new()` opens (and truncates) the path
+    # independently, so stages clobber each other's output - the second
+    # spawn wipes what the first already wrote, and concurrent stages
+    # write from a shared offset 0 (confirmed empirically). Each stage
+    # writes to its own temp file instead; the user's file is assembled
+    # once, in command order, after the pipeline settles (see
+    # collect_pipeline_stderr_files()).
+    stderr_target <- parsed[[i]]$stderr %||% stderr
+    stderr_i <- stderr_target
+    if (isTRUE(is_stderr_file_target(stderr_target))) {
+      stderr_i <- as.character(
+        fs::path(tmp_dir_path, sprintf("stage-%d-stderr.log", i))
+      )
+      stderr_redirects[[i]] <- list(
+        user_path = as.character(stderr_target),
+        tmp_path = stderr_i
+      )
+    }
+
     if (env_name_i %in% names(missing_envs)) {
       spawn_failures[[i]] <- list(
         status = 127L,
@@ -400,7 +438,7 @@ run_pipeline_spawn_all <- function(
         resolved_backend = resolved_backends[[env_name_i]]$backend,
         stdin_i = stdin_i,
         stdout_i = stdout_i,
-        stderr_i = parsed[[i]]$stderr %||% stderr,
+        stderr_i = stderr_i,
         is_last = identical(i, n_cmds),
         activate = activate,
         tmp_dir_path = tmp_dir_path,
@@ -434,10 +472,76 @@ run_pipeline_spawn_all <- function(
     prev_read <- if (!is.null(next_pipe)) next_pipe[[2L]] else NULL
   }
 
-  return(list(procs = procs, spawn_failures = spawn_failures))
+  spawn_all_done <- TRUE
+  return(list(
+    procs = procs,
+    spawn_failures = spawn_failures,
+    stderr_redirects = stderr_redirects
+  ))
 }
 
-#' Drain every pipeline stage and assemble their per-process results
+#' Is a pipeline stderr target a file path?
+#'
+#' `processx`'s non-file stderr targets are `NULL` (discard), `"|"`
+#' (capture), `""` (inherit the console), and `"2>&1"`; anything else that
+#' is a single string is a file path.
+#'
+#' @keywords internal
+#' @noRd
+is_stderr_file_target <- function(target) {
+  isTRUE(rlang::is_character(target)) &&
+    isTRUE(identical(length(target), 1L)) &&
+    isFALSE(target %in% c("|", "", "2>&1"))
+}
+
+#' Assemble user-facing stderr files from the per-stage temp files
+#'
+#' For every distinct user-supplied stderr path, concatenates (in command
+#' order) the temp files of the stages redirected to it, writing the
+#' user's file exactly once. Byte-level copy, so binary stderr streams
+#' survive untouched. Runs before the `error = "cancel"` aborts, so the
+#' file the user asked for holds its diagnostics precisely when a stage
+#' failed - the moment it matters most.
+#'
+#' @param stderr_redirects Per-stage list of `list(user_path, tmp_path)`
+#'   entries (or `NULL` for stages with a non-file stderr target).
+#'
+#' @keywords internal
+#' @noRd
+collect_pipeline_stderr_files <- function(stderr_redirects) {
+  redirects <- Filter(Negate(is.null), stderr_redirects)
+  if (identical(length(redirects), 0L)) {
+    return(invisible(NULL))
+  }
+  user_paths <- unique(vapply(redirects, `[[`, character(1L), "user_path"))
+  for (user_path in user_paths) {
+    chunks <- lapply(redirects, function(redirect) {
+      if (
+        identical(redirect$user_path, user_path) &&
+          isTRUE(fs::file_exists(redirect$tmp_path))
+      ) {
+        readBin(
+          redirect$tmp_path,
+          what = "raw",
+          n = fs::file_size(redirect$tmp_path)
+        )
+      } else {
+        raw(0L)
+      }
+    })
+    writeBin(do.call(c, chunks), user_path)
+  }
+  return(invisible(NULL))
+}
+
+#' Settle every pipeline stage and assemble their per-process results
+#'
+#' Runs after `pump_pipeline_io()` has already drained every R-side
+#' stream, so per stage this only has to enforce the shared deadline,
+#' kill what is still running past it, and collect exit statuses.
+#'
+#' @param pumped The `pump_pipeline_io()` result: per-stage `stdout`/
+#'   `stderr` stream lists plus the pipeline-wide `timeout` flag.
 #'
 #' @returns A list with `processes` (per-stage `condathis_result` objects),
 #'   `all_statuses` (integer vector), `timeout_flag` (logical, whether any
@@ -451,11 +555,11 @@ run_pipeline_drain_all <- function(
   parsed,
   procs,
   spawn_failures,
-  first_proc_streams,
+  pumped,
   binary,
   pipeline_deadline
 ) {
-  timeout_flag <- FALSE
+  timeout_flag <- isTRUE(pumped$timeout)
   processes <- vector("list", n_cmds)
   all_statuses <- integer(n_cmds)
   any_failed <- FALSE
@@ -465,31 +569,31 @@ run_pipeline_drain_all <- function(
     env_name_i <- parsed[[i]]$env_name
     cmd_string <- paste(shQuote(cmd_vec), collapse = " ")
 
-    drained <- drain_pipeline_stage(
+    settled <- settle_pipeline_stage(
       proc_i = procs[[i]],
       spawn_failure = spawn_failures[[i]],
-      is_last = identical(i, n_cmds),
-      is_first = identical(i, 1L),
-      first_proc_streams = first_proc_streams,
+      stage_stdout = pumped$stdout[[i]],
+      stage_stderr = pumped$stderr[[i]],
+      pump_timed_out = pumped$timeout,
       binary = binary,
       pipeline_deadline = pipeline_deadline
     )
 
-    if (isTRUE(drained$timeout)) {
+    if (isTRUE(settled$timeout)) {
       timeout_flag <- TRUE
     }
 
-    all_statuses[i] <- drained$status
-    if (isTRUE(drained$status != 0L) && !is.na(drained$status)) {
+    all_statuses[i] <- settled$status
+    if (isTRUE(settled$status != 0L) && !is.na(settled$status)) {
       any_failed <- TRUE
     }
 
     processes[[i]] <- new_condathis_result(
-      status = drained$status,
-      stdout = drained$stdout,
-      stderr = drained$stderr,
-      timeout = drained$timeout,
-      pid = drained$pid,
+      status = settled$status,
+      stdout = settled$stdout,
+      stderr = settled$stderr,
+      timeout = settled$timeout,
+      pid = settled$pid,
       cmd = cmd_string,
       env_name = env_name_i
     )
@@ -559,40 +663,84 @@ spawn_pipeline_process <- function(
   # own). The backend falls back to the bare name when the command isn't
   # found inside the prefix, preserving the "command not found" behavior
   # below.
-  backend_run <- backend_resolve_run(
-    resolved_backend,
-    cmd = cmd_vec[1L],
-    args = cmd_vec[-1L],
-    env_name = env_name_i,
-    verbose = "silent"
-  )
-  validate_resolve_run(backend_run, env_name = env_name_i)
-  resolved_cmd <- backend_run$command
-
-  # `activate = FALSE` keeps the hand-rolled, activation-script-free
-  # variables: that path is deliberately backend-independent (built from
-  # `env_dir` alone), so it stays as-is rather than going through the
-  # backend.
-  activation_envvars <- if (isTRUE(activate)) {
-    backend_run$env
+  # `activate = FALSE` must not touch `backend_resolve_run()` at all: the
+  # micromamba implementation resolves the full activation environment
+  # (two subprocess spawns on a cache miss, plus any `activate.d` hook
+  # failure modes) before the flag could discard its result - so a user
+  # who set `activate = FALSE` precisely to skip activation still paid
+  # for it, and a failing activation hook aborted the whole pipeline
+  # regardless of `error = "continue"`. The activation-free path resolves
+  # the executable locally (same `resolve_env_bin_path()` fallback the
+  # backend uses) and keeps the hand-rolled, hook-free variables, built
+  # from `env_dir` alone.
+  if (isTRUE(activate)) {
+    # A failing backend resolution (e.g. a broken activate.d hook during
+    # activation) is routed into the same spawn-failure channel as a
+    # missing binary, so it honors `error = "continue"`/"cancel" like any
+    # other per-stage failure instead of escaping and aborting the whole
+    # pipeline unconditionally.
+    backend_run <- tryCatch(
+      {
+        resolved_run <- backend_resolve_run(
+          resolved_backend,
+          cmd = cmd_vec[1L],
+          args = cmd_vec[-1L],
+          env_name = env_name_i,
+          verbose = "silent"
+        )
+        validate_resolve_run(resolved_run, env_name = env_name_i)
+        resolved_run
+      },
+      error = function(cnd) cnd
+    )
+    if (inherits(backend_run, "condition")) {
+      return(list(
+        proc = NULL,
+        failure = list(
+          status = 127L,
+          stderr = paste0(
+            "Failed to resolve command for environment '",
+            env_name_i,
+            "': ",
+            conditionMessage(backend_run),
+            "\n"
+          )
+        )
+      ))
+    }
+    resolved_cmd <- backend_run$command
+    stage_args <- backend_run$args
+    activation_envvars <- backend_run$env
   } else {
-    get_activation_envvars(
+    resolved_cmd <- resolve_env_bin_path(env_dir, cmd_vec[1L]) %||%
+      cmd_vec[1L]
+    stage_args <- cmd_vec[-1L]
+    activation_envvars <- get_activation_envvars(
       env_name = env_name_i,
       env_dir = env_dir,
       tmp_dir = tmp_dir_path
     )
   }
 
+  # Full explicit environment block for this stage (clean conda overlay +
+  # activation overlay), never `c("current", ...)` - the calling session's
+  # environment is not mutated by `run_pipeline()`, so inheriting it
+  # directly would leak the caller's CONDA_*/MAMBA_* state into the stage.
+  child_env <- build_child_env(
+    tmp_dir = tmp_dir_path,
+    overlay = activation_envvars
+  )
+
   spawn_result <- tryCatch(
     expr = {
       processx::process$new(
         command = resolved_cmd,
-        args = backend_run$args,
+        args = stage_args,
         stdin = stdin_i,
         stdout = stdout_i,
         stderr = stderr_i,
         poll_connection = if (isFALSE(is_last)) FALSE else NULL,
-        env = c("current", activation_envvars),
+        env = child_env,
         supervise = effective_supervise,
         cleanup_tree = cleanup_tree,
         linux_pdeathsig = linux_pdeathsig,
@@ -623,40 +771,38 @@ spawn_pipeline_process <- function(
   return(list(proc = spawn_result, failure = NULL))
 }
 
-#' Drain a single pipeline stage and collect its result
+#' Settle a single pipeline stage and collect its result
 #'
 #' Handles both the "never spawned" case (a `spawn_pipeline_process()`
 #' failure, or a missing-environment placeholder) and the real-process
-#' case: draining stdout/stderr *before* `wait()`ing on it, killing it if
-#' the shared pipeline deadline was hit, and reading back its final exit
-#' status/pid.
+#' case. Stream draining already happened pipeline-wide in
+#' `pump_pipeline_io()`; this enforces the shared deadline (killing the
+#' stage if still running past it), waits for exit, and reads back the
+#' final status/pid.
 #'
 #' @param proc_i The stage's `processx::process` object, or `NULL` if it
 #'   never spawned.
 #' @param spawn_failure `NULL`, or `list(status, stderr)` from a missing
 #'   environment / `spawn_pipeline_process()` failure.
-#' @param is_last Logical. Whether this is the pipeline's last command -
-#'   only the last command's stdout is captured by R (every other
-#'   command's stdout is piped straight into the next command).
-#' @param is_first Logical. Whether this is the pipeline's first command -
-#'   its stderr may already have been drained by the caller (interleaved
-#'   with writing `input` to its stdin) and handed back as
-#'   `first_proc_streams`, in which case it must not be drained again.
-#' @param first_proc_streams The first stage's already-drained streams (see
-#'   `is_first`), or `NULL` if there's nothing to reuse.
+#' @param stage_stdout,stage_stderr This stage's already-drained streams
+#'   from `pump_pipeline_io()` (`NULL` when the stream was not piped to
+#'   R).
+#' @param pump_timed_out Logical. Whether `pump_pipeline_io()` hit the
+#'   shared pipeline deadline.
 #' @param binary Logical. Whether streams are raw bytes or UTF-8 text.
-#' @param pipeline_deadline Passed through to `pump_process_io()`.
+#' @param pipeline_deadline Absolute deadline, enforced here with a
+#'   bounded `wait()` for stages the pump could not observe.
 #'
 #' @returns A list with `status`, `stdout`, `stderr`, `pid`, `timeout`.
 #'
 #' @keywords internal
 #' @noRd
-drain_pipeline_stage <- function(
+settle_pipeline_stage <- function(
   proc_i,
   spawn_failure,
-  is_last,
-  is_first,
-  first_proc_streams,
+  stage_stdout,
+  stage_stderr,
+  pump_timed_out,
   binary,
   pipeline_deadline
 ) {
@@ -672,46 +818,40 @@ drain_pipeline_stage <- function(
 
   empty_stream <- if (isTRUE(binary)) raw(0L) else ""
 
-  # Drain this process's own stream(s) *before* wait()ing on it - see
-  # pump_process_io() for why: wait()-then-read (or draining stdout and
-  # stderr sequentially, for the last command which has both piped)
-  # deadlocks once output exceeds the OS pipe buffer. Each process's
-  # captured streams are independent of every other process's, so
-  # draining/waiting one at a time (rather than across the whole
-  # pipeline at once) is safe: the inter-process stdout-to-stdin
-  # chaining is plain OS-level piping, with no R-side buffering.
-  # Process 1's stderr was already fully drained above (interleaved
-  # with writing it `input`), reuse that instead of draining it again.
-  # Every stage shares the same absolute `pipeline_deadline`: once one
-  # stage times out, later stages' own check reads as already elapsed
-  # too - but `pump_process_io()` still does one last non-blocking
-  # drain before reporting it, so already-buffered output (e.g. this
-  # stage received before an upstream stage was killed) isn't lost.
-  streams <- if (isTRUE(is_first) && isFALSE(is.null(first_proc_streams))) {
-    first_proc_streams
-  } else {
-    pump_process_io(
-      proc_i,
-      want_stdout = is_last,
-      want_stderr = TRUE,
-      binary = binary,
-      deadline = pipeline_deadline
+  p_timeout <- FALSE
+  if (isTRUE(pump_timed_out)) {
+    # The shared deadline has passed and pump_pipeline_io() already took
+    # its final non-blocking drain of every captured stream, so killing
+    # here cannot discard readable output (`kill()` invalidates a
+    # process's connections immediately, confirmed empirically). Every
+    # still-running stage is killed - the documented whole-pipeline
+    # timeout contract - while stages that already exited keep their real
+    # status and are not marked as timed out.
+    if (proc_i$is_alive()) {
+      tryCatch(proc_i$kill(), error = function(e) NULL)
+      p_timeout <- TRUE
+    }
+  } else if (isTRUE(is.finite(pipeline_deadline))) {
+    # All watched streams hit EOF before the deadline, but a stage with no
+    # R-side streams (e.g. `stderr = NULL` on a non-last command) - or one
+    # that closed its streams and kept running - is invisible to the pump,
+    # so the deadline must be enforced here with a *bounded* wait. A bare
+    # `wait()` silently disabled `timeout` for exactly those stages
+    # (measured: a 1s deadline waiting the full 6s of a sleeping child).
+    remaining_ms <- max(
+      0,
+      (pipeline_deadline - proc.time()[["elapsed"]]) * 1000
     )
+    wait_process_safely(proc_i, timeout = round(remaining_ms))
+    if (proc_i$is_alive()) {
+      tryCatch(proc_i$kill(), error = function(e) NULL)
+      p_timeout <- TRUE
+    }
   }
-
-  p_timeout <- isTRUE(streams$timeout)
-  # Kill only *this* stage, and only after having drained it above -
-  # `kill()` invalidates a process's own connection immediately
-  # (confirmed empirically), discarding anything still unread, so
-  # draining downstream stages before reaching this point (rather
-  # than killing every process up front) is what lets them keep
-  # whatever they'd already produced. Killing this one process also
-  # closes its stdout pipe, so the next stage (reading from it) sees
-  # EOF and can finish draining normally instead of blocking further.
-  if (isTRUE(p_timeout) && proc_i$is_alive()) {
-    proc_i$kill()
-  }
-  proc_i$wait()
+  # wait_process_safely()/exit_status_safely(): tolerate the Windows race
+  # where the process handle is finalized between the liveness check (or
+  # kill) above and this wait - see wait_process_safely()'s docs.
+  wait_process_safely(proc_i)
 
   # Normalized to a fixed sentinel on timeout, same as run()/run_bin()
   # (see run_process_with_input.R) - a killed process's own reported
@@ -721,16 +861,13 @@ drain_pipeline_stage <- function(
   if (isTRUE(p_timeout)) {
     p_status <- -9L
   } else {
-    p_status <- proc_i$get_exit_status()
-    if (is.null(p_status)) {
-      p_status <- NA_integer_
-    }
+    p_status <- exit_status_safely(proc_i)
   }
 
   return(list(
     status = p_status,
-    stdout = streams$stdout %||% NA_character_,
-    stderr = streams$stderr %||% empty_stream,
+    stdout = stage_stdout %||% NA_character_,
+    stderr = stage_stderr %||% empty_stream,
     pid = proc_i$get_pid(),
     timeout = p_timeout
   ))
@@ -999,7 +1136,7 @@ precreate_envs <- function(parsed, tmp_dir_path, error_var) {
       ),
       condathis_backend_ambiguous_env = function(cnd) {
         if (isTRUE(error_var)) {
-          stop(cnd)
+          rlang::cnd_signal(cnd)
         }
         return(NULL)
       }
@@ -1012,9 +1149,18 @@ precreate_envs <- function(parsed, tmp_dir_path, error_var) {
       next
     }
 
-    if (
-      isFALSE(backend_has_env(resolved$backend, env_name_i, verbose = FALSE))
-    ) {
+    # backend_probe_env(), not backend_has_env(): a *failed* listing (NA)
+    # must not be treated as "absent" - refusing to run over a transient
+    # existence-check hiccup turned a recoverable blip into a hard
+    # env-not-found abort (or a synthetic 127) for environments that are
+    # right there. On NA, proceed optimistically; a genuinely missing
+    # environment still fails at spawn with its own clear error.
+    env_probe <- backend_probe_env(
+      resolved$backend,
+      env_name_i,
+      verbose = FALSE
+    )
+    if (isFALSE(env_probe)) {
       if (identical(env_name_i, "condathis-env")) {
         create_base_env(verbose = FALSE)
         resolved <- resolve_backend(

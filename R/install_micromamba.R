@@ -118,8 +118,18 @@ install_micromamba <- function(
     )
   }
 
-  # --- Verify the binary exists ---
-  if (isFALSE(file_exists_retry(umamba_bin_path))) {
+  # --- Verify the download actually succeeded ---
+  # Keyed on the strategies' own success flag, not on the file existing:
+  # a failed `force = TRUE` reinstall now deliberately preserves the
+  # previous working binary at `umamba_bin_path` (see
+  # `download_uncompressed_binary()`), so mere existence no longer implies
+  # this call installed anything. A failed install must still abort - the
+  # requested version was not installed - with the old binary left intact
+  # as the safety net.
+  if (
+    isFALSE(extraction_succeeded) ||
+      isFALSE(file_exists_retry(umamba_bin_path))
+  ) {
     cli::cli_abort(
       message = c(
         `x` = "{.file {umamba_bin_path}} was not downloaded or extracted successfully.",
@@ -250,7 +260,10 @@ download_compressed_and_extract <- function(
 #' failed to extract.
 #'
 #' @param uncompressed_urls Character vector of raw binary mirror endpoints.
-#' @param umamba_bin_path Destination path for the downloaded binary.
+#' @param umamba_bin_path Final destination path for the binary. Never
+#'   written to (or deleted) until a complete download exists at a
+#'   temporary sibling path - see the comment in the body: an existing
+#'   working installation must survive a total download failure.
 #' @param timeout_limit,download_method,dl_quiet_flag Passed through to
 #'   `try_download_from_mirrors()`.
 #'
@@ -272,18 +285,41 @@ download_uncompressed_binary <- function(
     fs::dir_create(base_dl_dir)
   }
 
+  # Download to a temporary sibling path, never onto the live binary:
+  # try_download_from_mirrors() deletes its destfile after every failed
+  # mirror (and a partial download would corrupt the destination in
+  # place), so passing `umamba_bin_path` directly - as this used to -
+  # meant `install_micromamba(force = TRUE)` on a machine whose mirrors
+  # were unreachable *deleted a working installation* and then aborted,
+  # leaving nothing behind. The compressed strategy already downloads to
+  # a separate archive path first; this mirrors that. A sibling in the
+  # same directory (not `tempfile()`) keeps the final move a same-
+  # filesystem rename.
+  tmp_dl_path <- fs::path(
+    base_dl_dir,
+    paste0("micromamba-dl-", Sys.getpid(), ".tmp")
+  )
+
   uncompressed_ok <- try_download_from_mirrors(
     urls = uncompressed_urls,
-    destfile = umamba_bin_path,
+    destfile = tmp_dl_path,
     timeout_limit = timeout_limit,
     method = download_method,
     quiet = dl_quiet_flag
   )
 
   if (isFALSE(uncompressed_ok)) {
+    if (isTRUE(fs::file_exists(tmp_dl_path))) {
+      try(fs::file_delete(tmp_dl_path), silent = TRUE)
+    }
     return(FALSE)
   }
 
+  # The complete new binary exists on disk before the old one is touched.
+  if (isTRUE(fs::file_exists(umamba_bin_path))) {
+    fs::file_delete(umamba_bin_path)
+  }
+  fs::file_move(path = tmp_dl_path, new_path = umamba_bin_path)
   fs::file_chmod(umamba_bin_path, mode = "u+x")
   return(TRUE)
 }

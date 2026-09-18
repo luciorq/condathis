@@ -370,3 +370,49 @@ testthat::test_that("Create conda env from file", {
     env_name = "condathis-create-file-test-env"
   ))
 })
+
+testthat::test_that("create_env validates channel_priority regardless of environment state", {
+  # Regression test: this arg_match used to run only inside
+  # backend_create_env(), which the already-satisfied early return skips -
+  # so an invalid channel_priority errored or passed silently depending on
+  # whether the target environment already satisfied the request. Runs
+  # before any backend resolution, so no network is needed.
+  testthat::expect_error(
+    object = create_env(
+      packages = "zlib",
+      channel_priority = "bananas",
+      env_name = "condathis-priority-validation-env"
+    ),
+    class = "rlang_error"
+  )
+})
+
+testthat::test_that("create_env applies env_file even when packages are already satisfied", {
+  # Regression test: with both `packages` and `env_file` supplied and the
+  # packages already satisfied, the shortcut skipped the real creation -
+  # so the file's contents were silently never applied while the call
+  # reported success. `env_file` must always reach the backend.
+  create_calls <- 0L
+  testthat::local_mocked_bindings(
+    env_already_satisfies_request = function(...) {
+      cli::cli_abort("the shortcut must not be consulted when env_file is set")
+    },
+    backend_create_env = function(...) {
+      create_calls <<- create_calls + 1L
+      list(status = 0L, stdout = "", stderr = "", pid = NA_integer_)
+    },
+    write_backend_marker = function(...) invisible(NULL)
+  )
+  tmp_env_file <- withr::local_tempfile(
+    fileext = ".yml",
+    lines = "dependencies: []"
+  )
+  res <- create_env(
+    packages = "zlib",
+    env_file = tmp_env_file,
+    env_name = "condathis-envfile-shortcut-env",
+    verbose = "silent"
+  )
+  testthat::expect_equal(res$status, 0L)
+  testthat::expect_equal(create_calls, 1L)
+})

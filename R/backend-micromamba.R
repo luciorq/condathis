@@ -183,8 +183,8 @@ micromamba_backend_create_env <- function(
   packages = NULL,
   env_file = NULL,
   env_name = "condathis-env",
-  channels = c("conda-forge", "bioconda"),
-  channel_priority = c("disabled", "strict", "flexible"),
+  channels = "conda-forge",
+  channel_priority = c("strict", "flexible", "disabled"),
   additional_channels = NULL,
   platform = NULL,
   overwrite = FALSE,
@@ -252,8 +252,8 @@ micromamba_backend_install <- function(
   backend,
   packages,
   env_name = "condathis-env",
-  channels = c("conda-forge", "bioconda"),
-  channel_priority = c("disabled", "strict", "flexible"),
+  channels = "conda-forge",
+  channel_priority = c("strict", "flexible", "disabled"),
   additional_channels = NULL,
   verbose = c("output", "silent", "cmd", "spinner", "full")
 ) {
@@ -343,12 +343,15 @@ micromamba_backend_remove_env <- function(
 #' Extracted so the filtering can be unit-tested without a live `micromamba`
 #' call or real directories.
 #'
-#' `env_root_dir` is matched as a **literal** substring (`stringr::fixed()`),
-#' not a regex. It is a filesystem path (e.g. `~/.local/share/R/condathis`)
-#' whose `.` characters would otherwise be treated as "any character" regex
-#' metacharacters - matching, for example, `~/Xlocal/share/R/condathis/...`
-#' as if it belonged to condathis. The root path itself is excluded by the
-#' trailing `basename() != "condathis"` filter, same as before.
+#' `env_root_dir` is matched as an **anchored literal prefix**
+#' (`startsWith()` with a trailing separator appended), never a regex or a
+#' bare substring: a regex would treat the path's `.` characters as "any
+#' character" (matching `~/Xlocal/share/R/condathis/...`), and an
+#' unanchored substring match claimed any path merely *containing* the
+#' root somewhere inside it (e.g. a backup copy at
+#' `/backup/home/user/.local/share/R/condathis/envs/x`) as
+#' condathis-owned. The root path itself is excluded by the trailing
+#' `basename() != "condathis"` filter, same as before.
 #'
 #' @param envs_str Character vector of realized environment paths.
 #' @param env_root_dir Character string with the condathis install root.
@@ -358,11 +361,10 @@ micromamba_backend_remove_env <- function(
 #' @keywords internal
 #' @noRd
 condathis_env_names <- function(envs_str, env_root_dir) {
-  # `env_root_dir` is an `fs_path`; `stringr::fixed()` wants plain character.
-  under_root <- stringr::str_detect(
-    as.character(envs_str),
-    stringr::fixed(as.character(env_root_dir))
-  )
+  # Both sides are realized/normalized to forward-slash form upstream
+  # (`fs::path_real()`), so "/" is the separator on every platform here.
+  root_prefix <- paste0(sub("/+$", "", as.character(env_root_dir)), "/")
+  under_root <- startsWith(as.character(envs_str), root_prefix)
   env_names <- base::basename(envs_str[under_root])
   return(env_names[!env_names %in% "condathis"])
 }
@@ -399,8 +401,45 @@ micromamba_backend_list_envs <- function(
 
   envs_list <- jsonlite::fromJSON(px_res$stdout)
   envs_str <- base::normalizePath(envs_list$envs, mustWork = FALSE)
-  envs_str <- fs::path_real(envs_str)
+  envs_str <- realize_env_paths(envs_str)
   return(condathis_env_names(envs_str, env_root_dir))
+}
+
+#' Resolve environment paths to their real form, tolerating missing ones
+#'
+#' `micromamba env list` reports whatever its registries (e.g.
+#' `~/.conda/environments.txt`) contain, including stale entries for
+#' directories that no longer exist - and an environment can also be
+#' removed by another process between the listing subprocess and this
+#' call. A vectorized `fs::path_real()` errors with ENOENT on the *first*
+#' such path, which used to abort `list_envs()` for every environment at
+#' once and, worse, flow through `backend_has_env()`'s never-errors
+#' contract as `FALSE` - making `env_exists()` report existing
+#' environments as absent and `resolve_backend()` treat them as brand-new.
+#' A stale entry must only affect itself: paths that no longer exist are
+#' dropped, and a path whose realization fails anyway (removed in the
+#' window after the existence check) falls back to its normalized form.
+#'
+#' @param envs_str Character vector of normalized environment paths.
+#'
+#' @returns Character vector: existing paths realized (symlinks resolved),
+#'   vanished paths removed.
+#'
+#' @keywords internal
+#' @noRd
+realize_env_paths <- function(envs_str) {
+  envs_str <- envs_str[fs::dir_exists(envs_str)]
+  return(vapply(
+    envs_str,
+    FUN = function(path) {
+      tryCatch(
+        as.character(fs::path_real(path)),
+        error = function(e) path
+      )
+    },
+    FUN.VALUE = character(1L),
+    USE.NAMES = FALSE
+  ))
 }
 
 #' @keywords internal
@@ -449,6 +488,15 @@ micromamba_backend_list_packages <- function(
   }
 
   pkgs_df <- jsonlite::fromJSON(px_res$stdout)
+  # micromamba changed `list --json`'s output shape in 2.9.0: a bare array
+  # of packages before, `{"log_history": [...], "packages": [...]}` since.
+  # Both shapes must parse - which binary answers depends on the
+  # discovery chain (a system-installed 2.9+ can legitimately win over the
+  # pinned internal version), so this is a runtime property of the user's
+  # machine, not of the version condathis pins.
+  if (isFALSE(is.data.frame(pkgs_df)) && rlang::has_name(pkgs_df, "packages")) {
+    pkgs_df <- pkgs_df[["packages"]]
+  }
   if (identical(length(pkgs_df), 0L)) {
     pkgs_df <- base::data.frame(
       "base_url" = character(0L),
@@ -477,7 +525,10 @@ micromamba_backend_resolve_run <- function(
 ) {
   env_dir <- env_dir_for_backend(backend, env_name)
   cmd_path <- resolve_env_bin_path(env_dir, cmd) %||% cmd
-  activation_env <- get_micromamba_activation_envvars(env_name = env_name)
+  activation_env <- get_micromamba_activation_envvars(
+    env_name = env_name,
+    env_dir = env_dir
+  )
   return(list(
     command = as.character(cmd_path),
     args = as.character(args),

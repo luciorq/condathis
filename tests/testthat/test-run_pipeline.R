@@ -506,6 +506,87 @@ test_that("Pipeline respects timeout under error = cancel", {
   testthat::expect_s3_class(cnd_res, "condathis_pipeline_timeout_error")
 })
 
+test_that("Pipeline does not deadlock when data volume exceeds pipe buffers across stages", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  # Regression test: the previous sequential per-stage draining left the
+  # last stage's stdout-to-R pipe unread while waiting for stage 1's
+  # stderr EOF; once the flowing data exceeded the OS pipe buffer (~64KB)
+  # the whole pipeline froze on backpressure, permanently - reproduced
+  # with exactly this workload. `timeout` is a safety net so a regression
+  # fails the test instead of hanging CI: the (also fixed) deadline
+  # enforcement kills the pipeline and the status assertions fail.
+  create_env(
+    pipeline_cli_pkgs(),
+    env_name = "run-pipeline-cli-tools-env",
+    verbose = "silent"
+  )
+  res <- run_pipeline(
+    cmds = list(
+      c("seq", "1", "200000"),
+      c("cat")
+    ),
+    env_name = "run-pipeline-cli-tools-env",
+    error = "continue",
+    timeout = 120
+  )
+  testthat::expect_false(res$timeout)
+  testthat::expect_equal(res$statuses, c(0L, 0L))
+  n_lines <- length(strsplit(trimws(res$processes[[2]]$stdout), "\n")[[1]])
+  testthat::expect_equal(n_lines, 200000L)
+
+  # Same, through an extra relay stage (multi-hop backpressure).
+  res3 <- run_pipeline(
+    cmds = list(
+      c("seq", "1", "200000"),
+      c("cat"),
+      c("cat")
+    ),
+    env_name = "run-pipeline-cli-tools-env",
+    error = "continue",
+    timeout = 120
+  )
+  testthat::expect_false(res3$timeout)
+  testthat::expect_equal(res3$statuses, c(0L, 0L, 0L))
+  n_lines3 <- length(strsplit(trimws(res3$processes[[3]]$stdout), "\n")[[1]])
+  testthat::expect_equal(n_lines3, 200000L)
+})
+
+test_that("Pipeline timeout is enforced for stages with no R-side streams", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  # Regression test: with `stderr = NULL` a non-last stage has no R-side
+  # pipes at all, so the stream pump cannot observe it; the per-stage
+  # settle used a bare `wait()`, which blocked until the child exited on
+  # its own - silently disabling `timeout` (measured: a 1-second deadline
+  # waiting out the full sleep). Only stage 1's status is asserted:
+  # whether the downstream stage exits 0 (EOF after the kill) or is
+  # killed itself is a timing race that differs across platforms.
+  create_env(
+    pipeline_cli_pkgs(),
+    env_name = "run-pipeline-cli-tools-env",
+    verbose = "silent"
+  )
+  t_start <- Sys.time()
+  res <- run_pipeline(
+    cmds = list(
+      c("sleep", "30"),
+      c("cat")
+    ),
+    stderr = NULL,
+    env_name = "run-pipeline-cli-tools-env",
+    error = "continue",
+    timeout = 2
+  )
+  elapsed <- as.numeric(Sys.time() - t_start, units = "secs")
+  testthat::expect_true(res$timeout)
+  testthat::expect_equal(res$statuses[1], -9L)
+  testthat::expect_true(res$processes[[1]]$timeout)
+  testthat::expect_lt(elapsed, 20)
+})
+
 test_that("Pipeline preserves output a killed downstream stage already produced", {
   testthat::skip_on_cran()
   testthat::skip_if_offline()
@@ -520,14 +601,19 @@ test_that("Pipeline preserves output a killed downstream stage already produced"
     env_name = "run-pipeline-cli-tools-env",
     verbose = "silent"
   )
+  # `timeout = 5` (not 1): the deadline clock starts at run_pipeline()
+  # entry, before backend resolution and spawning, and every stream is
+  # cut at the deadline - so the budget must comfortably cover
+  # spawn + `echo` on a slow, loaded runner, while staying far below the
+  # sleep so the kill is still what ends the pipeline.
   res <- run_pipeline(
     cmds = list(
-      c("bash", "-c", "echo hello; sleep 5"),
+      c("bash", "-c", "echo hello; sleep 30"),
       c("cat")
     ),
     env_name = "run-pipeline-cli-tools-env",
     error = "continue",
-    timeout = 1
+    timeout = 5
   )
   testthat::expect_true(res$timeout)
   testthat::expect_match(res$processes[[2]]$stdout, "hello")
@@ -929,5 +1015,172 @@ test_that("Pipeline with activate = FALSE uses the hand-rolled activation", {
     trimws(res$processes[[2]]$stdout),
     "run-pipeline-cli-tools-env",
     fixed = TRUE
+  )
+})
+
+test_that("Pipeline with activate = FALSE never resolves backend activation", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  # Regression test: `activate = FALSE` still called
+  # `backend_resolve_run()`, whose micromamba implementation performs the
+  # full activation resolution (two subprocess spawns on a cache miss,
+  # plus any activate.d failure mode) before the flag discarded the
+  # result - so opting out of activation neither skipped its cost nor its
+  # failure modes.
+  create_env(
+    pipeline_cli_pkgs(),
+    env_name = "run-pipeline-cli-tools-env",
+    verbose = "silent"
+  )
+  testthat::local_mocked_bindings(
+    backend_resolve_run = function(...) {
+      cli::cli_abort(
+        "backend_resolve_run() must not be called when activate = FALSE."
+      )
+    },
+    get_micromamba_activation_envvars = function(...) {
+      cli::cli_abort("activation must not be resolved when activate = FALSE.")
+    }
+  )
+  res <- run_pipeline(
+    cmds = list(
+      c("echo", "hello"),
+      c("cat")
+    ),
+    env_name = "run-pipeline-cli-tools-env",
+    error = "continue",
+    activate = FALSE
+  )
+  testthat::expect_equal(res$statuses, c(0L, 0L))
+  testthat::expect_match(res$processes[[2]]$stdout, "hello")
+})
+
+test_that("Pipeline stderr file target collects every stage's stderr", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  # Regression test: the same file path used to be handed to every
+  # stage's process$new(), each of which opened (and truncated) it
+  # independently - so stages clobbered each other and the surviving
+  # content was whichever stage wrote last, from offset 0.
+  create_env(
+    pipeline_cli_pkgs(),
+    env_name = "run-pipeline-cli-tools-env",
+    verbose = "silent"
+  )
+  err_file <- withr::local_tempfile()
+  res <- run_pipeline(
+    cmds = list(
+      c("bash", "-c", "echo stage-one-stderr >&2"),
+      c("bash", "-c", "cat; echo stage-two-stderr >&2")
+    ),
+    stderr = err_file,
+    env_name = "run-pipeline-cli-tools-env",
+    error = "continue"
+  )
+  testthat::expect_equal(res$statuses, c(0L, 0L))
+  err_content <- readLines(err_file)
+  testthat::expect_match(err_content[[1]], "stage-one-stderr")
+  testthat::expect_match(err_content[[2]], "stage-two-stderr")
+})
+
+test_that("Pipeline survives the first stage exiting before consuming input", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  # Regression test for the broken-pipe guard in pump_pipeline_io():
+  # writing a large `input` into a first stage that exits immediately
+  # raises a low-level broken-pipe error, which used to escape even under
+  # `error = "continue"`, abandoning the still-running downstream stages.
+  create_env(
+    pipeline_cli_pkgs(),
+    env_name = "run-pipeline-cli-tools-env",
+    verbose = "silent"
+  )
+  res <- run_pipeline(
+    cmds = list(
+      c("false"),
+      c("cat")
+    ),
+    stdin = "|",
+    input = strrep("x", 200000L),
+    env_name = "run-pipeline-cli-tools-env",
+    error = "continue"
+  )
+  testthat::expect_s3_class(res, "condathis_pipeline")
+  testthat::expect_equal(res$statuses[[1]], 1L)
+})
+
+test_that("Pipeline routes activation-resolution failures through error = continue", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  # Regression test: a failing backend_resolve_run() (activation) threw
+  # outside the spawn tryCatch, aborting the whole pipeline regardless of
+  # error = "continue". It must land in the spawn-failure channel like a
+  # missing binary.
+  create_env(
+    pipeline_cli_pkgs(),
+    env_name = "run-pipeline-cli-tools-env",
+    verbose = "silent"
+  )
+  testthat::local_mocked_bindings(
+    backend_resolve_run = function(...) {
+      cli::cli_abort(
+        message = "Simulated activation failure.",
+        class = "condathis_activation_dump_error"
+      )
+    }
+  )
+  res <- run_pipeline(
+    cmds = list(
+      c("echo", "hi"),
+      c("cat")
+    ),
+    env_name = "run-pipeline-cli-tools-env",
+    error = "continue"
+  )
+  testthat::expect_s3_class(res, "condathis_pipeline")
+  testthat::expect_equal(res$statuses, c(127L, 127L))
+  testthat::expect_match(
+    res$processes[[1]]$stderr,
+    "Failed to resolve command"
+  )
+})
+
+test_that("Pipeline reaps spawned stages when an unexpected error escapes", {
+  testthat::skip_on_cran()
+  testthat::skip_if_offline()
+
+  # Regression test: an error thrown outside the spawn tryCatch's caught
+  # classes used to leave already-spawned stages running until garbage
+  # collection. The on.exit() reaper must let the error propagate while
+  # killing what was spawned. (Only propagation is asserted directly;
+  # process reaping is enforced by kill_processes() on exit.)
+  create_env(
+    pipeline_cli_pkgs(),
+    env_name = "run-pipeline-cli-tools-env",
+    verbose = "silent"
+  )
+  call_count <- 0L
+  testthat::local_mocked_bindings(
+    build_child_env = function(...) {
+      call_count <<- call_count + 1L
+      if (call_count >= 2L) {
+        stop("unexpected internal failure", call. = FALSE)
+      }
+      Sys.getenv()
+    }
+  )
+  testthat::expect_error(
+    run_pipeline(
+      cmds = list(
+        c("sleep", "30"),
+        c("cat")
+      ),
+      env_name = "run-pipeline-cli-tools-env",
+      error = "continue"
+    )
   )
 })

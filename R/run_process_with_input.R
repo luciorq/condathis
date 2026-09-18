@@ -88,10 +88,26 @@ run_process_with_input <- function(
   )
 
   p_timeout <- isTRUE(streams$timeout)
-  if (isTRUE(p_timeout)) {
-    proc$kill()
+  # pump_process_io() only observes the deadline through the streams it
+  # watches: with stdout/stderr redirected to files (or already closed by
+  # a child that keeps running), it returns before the deadline with
+  # nothing to report, and a bare `wait()` here would block until the
+  # child exited on its own - silently disabling `timeout` entirely
+  # (measured: `timeout = 2` waiting out a 100-second sleep). Enforce the
+  # remaining budget with a bounded wait instead.
+  if (isFALSE(p_timeout) && isTRUE(is.finite(deadline)) && proc$is_alive()) {
+    remaining_ms <- max(0, (deadline - proc.time()[["elapsed"]]) * 1000)
+    wait_process_safely(proc, timeout = round(remaining_ms))
+    if (proc$is_alive()) {
+      p_timeout <- TRUE
+    }
   }
-  proc$wait()
+  if (isTRUE(p_timeout)) {
+    tryCatch(proc$kill(), error = function(e) NULL)
+  }
+  # Tolerates the Windows finalized-handle race - see
+  # wait_process_safely()'s docs.
+  wait_process_safely(proc)
 
   p_stdout <- if (is.null(streams$stdout)) empty_stream else streams$stdout
   p_stderr <- if (is.null(streams$stderr)) empty_stream else streams$stderr
@@ -107,10 +123,7 @@ run_process_with_input <- function(
   if (isTRUE(p_timeout)) {
     p_status <- -9L
   } else {
-    p_status <- proc$get_exit_status()
-    if (is.null(p_status)) {
-      p_status <- NA_integer_
-    }
+    p_status <- exit_status_safely(proc)
   }
   p_pid <- proc$get_pid()
 
