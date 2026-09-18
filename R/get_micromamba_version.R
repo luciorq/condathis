@@ -34,7 +34,7 @@ get_micromamba_version <- function(umamba_path = NULL) {
     stderr = NULL,
     error_on_status = FALSE
   )
-  version_string <- parse_output(px_res)
+  version_string <- parse_output(px_res, stream = "both")
   version_string <- stringr::str_extract(
     version_string,
     pattern = stringr::regex(r"(\d+\.\d+\.\d+)")

@@ -7,6 +7,9 @@ testthat::test_that("satisfies_dependencies returns null for null input", {
 })
 
 testthat::test_that("satisfies_dependencies returns correct results", {
+  testthat::skip_if_offline()
+  testthat::skip_on_cran()
+
   if (env_exists("numpy-test-env")) {
     remove_env("numpy-test-env", verbose = "silent")
   }
