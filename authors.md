@@ -11,7 +11,7 @@
 ## Citation
 
 Source:
-[`DESCRIPTION`](https://github.com/luciorq/condathis/blob/main/DESCRIPTION)
+[`DESCRIPTION`](https://github.com/luciorq/condathis/blob/v0.1.4/DESCRIPTION)
 
 Queiroz L, Zanettini C (2026). *condathis: Run Any CLI Tool on a 'Conda'
 Environment*. R package version 0.1.4,

@@ -2,6 +2,8 @@
 
 ## condathis 0.1.4
 
+CRAN release: 2026-06-19
+
 Release Date: 2026-06-19
 
 Development Changelog:
