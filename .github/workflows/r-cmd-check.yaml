@@ -40,6 +40,9 @@ concurrency:
 jobs:
   r-cmd-check:
     runs-on: ${{ matrix.config.os }}
+    # Run the weekly cron only in the canonical repository, never in
+    # + forks (pushes, PRs and manual dispatches still run everywhere).
+    if: github.event_name != 'schedule' || github.repository == 'luciorq/condathis'
 
     name: ${{ matrix.config.os }} (${{ matrix.config.r }})
 
