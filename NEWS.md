@@ -250,6 +250,17 @@ alongside it - see below.
 
 ### Fixed
 
+* The `~/.mamba/pkgs` workaround for libmamba (#13) is now version-gated
+  and its cleanup no longer deletes an existing `~/.mamba` directory.
+  The underlying libmamba bug (`error libmamba Could not lock non-existing
+  path ~/.mamba/pkgs` when the root prefix lives elsewhere) affects
+  micromamba 2.0.0-2.0.2 only; from 2.0.4 libmamba creates the directory
+  itself. `create_env()` now applies the workaround only when the resolved
+  micromamba is older than 2.0.4, and removes only what it created.
+  Previously, if `~/.mamba` existed without a `pkgs` subdirectory, the
+  whole `~/.mamba` directory (including unrelated user files) was deleted
+  after every `create_env()` call.
+
 * Fix a failing activation resolution (e.g. a broken `activate.d` hook
   script) escaping `error = "continue"` in `run_bin()` and
   `run_pipeline()`: it now behaves like any other per-command failure -
@@ -507,7 +518,7 @@ Development Changelog: [0.1.4](https://github.com/luciorq/condathis/compare/v0.1
 * Condathis now support system installed `micromamba` binaries.
   For that we added 1 new option and 1 environment variable to control that behavior.
   `condathis_micromamba_path` and `"CONDATHIS_MICROMAMBA_PATH"` respectively.
-  The order of discovey is as follows:
+  The order of discovery is as follows:
   * User override via `getOption("condathis.micromamba_path")`.
   * User override via `CONDATHIS_MICROMAMBA_PATH` environment variable.
   * condathis internal managed path (`micromamba_bin_path()`).

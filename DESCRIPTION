@@ -47,3 +47,4 @@ Config/testthat/parallel: true
 Config/testthat/start-first: create_env, rethrow_error, parse_match_spec,
     run_verbose_levels
 Encoding: UTF-8
+Language: en-US

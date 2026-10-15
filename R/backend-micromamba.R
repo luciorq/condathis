@@ -63,14 +63,89 @@ micromamba_backend_get_env_dir <- function(
   return(fs::path(install_dir_for_backend(backend), "envs", env_name))
 }
 
-#' Work around a libmamba bug that checks for `~/.mamba/pkgs` unconditionally
+#' First micromamba release that no longer needs the `~/.mamba/pkgs` workaround
 #'
-#' Some versions of libmamba check for a `pkgs_dir` in the home directory
-#' even when the package cache is configured elsewhere. Creates it if
-#' missing, and registers a `withr::defer()` cleanup that removes it again
-#' once the caller (normally `create_env()`) returns - so a fresh
-#' `~/.mamba` isn't left behind on a machine that never had one. No cleanup
-#' fires if the directory already existed.
+#' libmamba 2.0.0 through 2.0.2 tried to lock the *default* package cache
+#' (`~/.mamba/pkgs`, `%APPDATA%/.mamba/pkgs` on Windows) even when the root
+#' prefix and `pkgs_dirs` were configured elsewhere, logging
+#' `error libmamba Could not lock non-existing path ...` when it was missing
+#' (luciorq/condathis#13). From 2.0.4 on libmamba creates that directory
+#' itself and stays silent. Verified empirically on 2026-10-02 against
+#' 2.0.2 (error) and 2.0.4, 2.0.5, 2.0.8, 2.3.1, 2.8.1, 2.9.0 (no error);
+#' there was no stable 2.0.3 release.
+#'
+#' @keywords internal
+#' @noRd
+libmamba_pkgs_dir_workaround_fixed_version <- "2.0.4"
+
+#' Default libmamba package-cache directory in the user's home
+#'
+#' @returns `fs::path` to `~/.mamba/pkgs` (`%APPDATA%/.mamba/pkgs` on
+#'   Windows).
+#'
+#' @keywords internal
+#' @noRd
+libmamba_default_pkgs_dir <- function() {
+  if (isTRUE(is_windows())) {
+    base_dir <- base::Sys.getenv(
+      x = "APPDATA",
+      unset = fs::path_home("AppData", "Roaming"),
+      names = FALSE
+    )
+    return(fs::path(base_dir, ".mamba", "pkgs"))
+  }
+  return(fs::path_home(".mamba", "pkgs"))
+}
+
+#' Does the micromamba in use still need the `~/.mamba/pkgs` workaround?
+#'
+#' @param umamba_version Character string. Resolved from
+#'   `get_best_micromamba_path()` when `NULL`. Returns `FALSE` when no
+#'   micromamba is available yet (the first `create_env()` call installs
+#'   the pinned version, which is newer than the fix) or when the version
+#'   cannot be read.
+#'
+#' @returns Logical scalar.
+#'
+#' @keywords internal
+#' @noRd
+needs_libmamba_pkgs_dir_workaround <- function(umamba_version = NULL) {
+  if (rlang::is_null(umamba_version)) {
+    umamba_path <- get_best_micromamba_path()
+    if (rlang::is_null(umamba_path)) {
+      return(FALSE)
+    }
+    cnd <- rlang::catch_cnd(
+      expr = {
+        umamba_version <- get_micromamba_version(umamba_path)
+      }
+    )
+    if (isTRUE(rlang::is_condition(cnd))) {
+      return(FALSE)
+    }
+  }
+  compare_res <- utils::compareVersion(
+    umamba_version,
+    libmamba_pkgs_dir_workaround_fixed_version
+  )
+  return(isTRUE(compare_res < 0L))
+}
+
+#' Work around libmamba 2.0.0-2.0.2 requiring `~/.mamba/pkgs` to exist
+#'
+#' See `libmamba_pkgs_dir_workaround_fixed_version` for the bug. The
+#' workaround is version-gated via `needs_libmamba_pkgs_dir_workaround()`:
+#' nothing is touched for micromamba >= 2.0.4, or when no micromamba is
+#' available yet. (Today the discovery chain only accepts >= 2.8.1, so in
+#' practice this never fires; it is kept, gated, for the case where that
+#' floor is lowered.)
+#'
+#' When it does run, it creates the directory if missing and registers a
+#' `withr::defer()` cleanup that removes *only what it created*: the `pkgs`
+#' directory, plus the parent `.mamba` directory only if that did not exist
+#' beforehand either. A pre-existing `.mamba` with other contents is never
+#' removed. (Before 0.2.0 the cleanup deleted the whole parent whenever
+#' `pkgs` was missing, which could wipe a user's unrelated `.mamba` files.)
 #'
 #' @param envir Environment whose exit the deferred cleanup is tied to.
 #'   Defaults to the caller's own frame (`parent.frame()`) - `withr::defer()`'s
@@ -78,37 +153,40 @@ micromamba_backend_get_env_dir <- function(
 #'   so without explicitly threading `envir` through here, the cleanup
 #'   would fire the instant this helper returns rather than when
 #'   `create_env()` itself exits.
+#' @param umamba_version Character string, the micromamba version to gate
+#'   on. Resolved automatically when `NULL`; exposed so tests can pin it.
 #'
 #' @keywords internal
 #' @noRd
-ensure_libmamba_pkgs_dir_workaround <- function(envir = parent.frame()) {
-  pkgs_dir <- fs::path_home(".mamba", "pkgs")
-  pkgs_dir_already_exists <- FALSE
-  if (isTRUE(is_windows())) {
-    pkgs_dir <- base::Sys.getenv(
-      x = "APPDATA",
-      unset = fs::path_home("AppData", "Roaming"),
-      names = FALSE
-    )
-    pkgs_dir <- fs::path(pkgs_dir, ".mamba", "pkgs")
+ensure_libmamba_pkgs_dir_workaround <- function(
+  envir = parent.frame(),
+  umamba_version = NULL
+) {
+  if (isFALSE(needs_libmamba_pkgs_dir_workaround(umamba_version))) {
+    return(invisible(NULL))
   }
-  if (isFALSE(fs::dir_exists(pkgs_dir))) {
-    fs::dir_create(pkgs_dir)
-  } else {
-    pkgs_dir_already_exists <- TRUE
+  pkgs_dir <- libmamba_default_pkgs_dir()
+  mamba_dir <- fs::path_dir(pkgs_dir)
+  if (isTRUE(fs::dir_exists(pkgs_dir))) {
+    return(invisible(NULL))
   }
+  mamba_dir_already_exists <- isTRUE(fs::dir_exists(mamba_dir))
+  fs::dir_create(pkgs_dir)
   withr::defer(
     expr = {
-      if (
-        isFALSE(pkgs_dir_already_exists) &&
-          fs::dir_exists(base::dirname(pkgs_dir))
-      ) {
-        invisible(rlang::catch_cnd(
-          expr = {
-            fs::dir_delete(base::dirname(pkgs_dir))
+      invisible(rlang::catch_cnd(
+        expr = {
+          if (isTRUE(fs::dir_exists(pkgs_dir))) {
+            fs::dir_delete(pkgs_dir)
           }
-        ))
-      }
+          if (
+            isFALSE(mamba_dir_already_exists) &&
+              isTRUE(fs::dir_exists(mamba_dir))
+          ) {
+            fs::dir_delete(mamba_dir)
+          }
+        }
+      ))
     },
     envir = envir
   )
