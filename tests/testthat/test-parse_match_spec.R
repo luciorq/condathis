@@ -22,6 +22,38 @@ testthat::test_that("parse_match_spec rejects invalid input", {
 })
 
 
+testthat::test_that("parse_match_spec errors have the shared classes", {
+  # Rule R1: an argument error has condathis_invalid_arg and the root
+  # class condathis_error.
+  tail <- c(
+    "condathis_invalid_arg",
+    "condathis_error",
+    "rlang_error",
+    "error",
+    "condition"
+  )
+  cases <- list(
+    list(spec = NULL, class = "condathis_parse_match_spec_invalid_input"),
+    list(
+      spec = "conda-forge::",
+      class = "condathis_parse_match_spec_invalid_name"
+    ),
+    list(
+      spec = "https://example.com/nodashesatall.tar.bz2",
+      class = "condathis_parse_match_spec_invalid_url"
+    )
+  )
+  for (case in cases) {
+    cnd <- rlang::catch_cnd(parse_match_spec(case$spec), classes = "error")
+    testthat::expect_identical(
+      class(cnd),
+      c(case$class, tail),
+      info = deparse(case$spec)
+    )
+  }
+})
+
+
 testthat::test_that("parse_match_spec rejects a spec with an empty package name", {
   # A channel with nothing after it leaves no package name to parse.
   testthat::expect_error(
@@ -432,4 +464,64 @@ testthat::test_that("parse_match_spec matches libmambapy implementation", {
       info = paste0("Spec: '", spec_str, "'")
     )
   }
+})
+
+testthat::test_that("match_spec_bracket_attrs() returns every bracket key", {
+  # parse_match_spec() keeps `build_number`, `md5`, ... only in
+  # `formatted_spec`, so the satisfaction check reads them here.
+  testthat::expect_identical(match_spec_bracket_attrs("zlib"), list())
+  testthat::expect_identical(match_spec_bracket_attrs(""), list())
+  testthat::expect_identical(match_spec_bracket_attrs("zlib>=1.3"), list())
+  testthat::expect_identical(
+    match_spec_bracket_attrs("zlib[build_number=2]"),
+    list(build_number = "2")
+  )
+  testthat::expect_identical(
+    match_spec_bracket_attrs(
+      "conda-forge::zlib[Build_Number='>=2', md5=\"abc\"]"
+    ),
+    list(build_number = ">=2", md5 = "abc")
+  )
+  testthat::expect_identical(
+    match_spec_bracket_attrs("  zlib[md5=abc]   # a comment"),
+    list(md5 = "abc")
+  )
+  testthat::expect_identical(
+    match_spec_bracket_attrs("python[version='>= 3.11']"),
+    list(version = ">=3.11")
+  )
+  # Brackets of the channel are platform filters, not attributes.
+  testthat::expect_identical(
+    match_spec_bracket_attrs("conda-forge[linux-64]::zlib"),
+    list()
+  )
+  testthat::expect_identical(
+    match_spec_bracket_attrs(
+      "https://conda.anaconda.org/conda-forge/linux-64/zlib-1.3.1-h4ab18f5_1.conda"
+    ),
+    list()
+  )
+  testthat::expect_identical(
+    match_spec_bracket_attrs(
+      "https://conda.anaconda.org/conda-forge/linux-64/zlib-1.3.1-h4ab18f5_1.conda#0123abcd"
+    ),
+    list()
+  )
+})
+
+testthat::test_that("parse_match_spec() still reads archive URLs and comments after the refactor", {
+  url <- "https://conda.anaconda.org/conda-forge/linux-64/zlib-1.3.1-h4ab18f5_1.conda"
+  testthat::expect_identical(
+    parse_match_spec(paste0(url, "#0123abcd")),
+    parse_match_spec(url)
+  )
+  testthat::expect_identical(parse_match_spec(url)$name, "zlib")
+  testthat::expect_identical(
+    parse_match_spec("numpy >= 1.8 # comment"),
+    parse_match_spec("numpy>=1.8")
+  )
+  testthat::expect_identical(
+    parse_match_spec("   # only a comment")$name,
+    "*"
+  )
 })

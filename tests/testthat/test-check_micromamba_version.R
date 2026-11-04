@@ -48,8 +48,25 @@ testthat::test_that("is_umamba_version_available accepts newer versions", {
   # TODO: @luciorq - Update this to the newer version of micromamba upon
   # + update and ensure the test reflects that
   testthat::local_mocked_bindings(
-    get_micromamba_version = function(...) "2.8.1"
+    get_micromamba_version = function(...) "2.10.0"
   )
   # This should return TRUE since check_micromamba_version uses >= by default
   testthat::expect_true(is_umamba_version_available("/mock/path"))
+})
+
+testthat::test_that("check_micromamba_version compares a two-digit minor version as a number", {
+  # micromamba 2.10.0 is the first release with a two-digit minor version.
+  # As text, "2.10.0" sorts before "2.8.1".
+  testthat::local_mocked_bindings(
+    get_micromamba_version = function(...) "2.10.0"
+  )
+  testthat::expect_true(check_micromamba_version())
+  testthat::expect_true(check_micromamba_version(target_version = "2.9.0"))
+  testthat::expect_false(check_micromamba_version(target_version = "2.11.0"))
+  testthat::expect_true(
+    check_micromamba_version(target_version = "2.10.0", minimum = FALSE)
+  )
+  testthat::expect_false(
+    check_micromamba_version(target_version = "2.1.0", minimum = FALSE)
+  )
 })

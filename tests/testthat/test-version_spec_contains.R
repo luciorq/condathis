@@ -30,6 +30,28 @@ testthat::test_that("version_spec_contains rejects invalid input", {
 })
 
 
+testthat::test_that("version_spec_contains errors have the shared classes", {
+  # Rule R1: an argument error has condathis_invalid_arg and the root
+  # class condathis_error.
+  for (call in list(
+    quote(version_spec_contains(NULL, ">=1.0")),
+    quote(version_spec_contains("1.0", 42))
+  )) {
+    cnd <- rlang::catch_cnd(eval(call), classes = "error")
+    testthat::expect_identical(
+      class(cnd),
+      c(
+        "condathis_version_spec_contains_invalid_input",
+        "condathis_invalid_arg",
+        "condathis_error",
+        "rlang_error",
+        "error",
+        "condition"
+      )
+    )
+  }
+})
+
 testthat::test_that("version_spec_contains: free interval (wildcard) always TRUE", {
   testthat::expect_true(version_spec_contains("1.0", "*"))
   testthat::expect_true(version_spec_contains("0.0.1", "*"))
@@ -310,10 +332,15 @@ testthat::test_that("version_spec_contains: version comparisons with letter-only
 
 
 testthat::test_that("version_spec_contains: compatible release with single segment", {
-  # ~=2 means >= 2 (only 1 segment, level=0, no prefix constraint)
-  testthat::expect_true(version_spec_contains("2", "~=2"))
-  testthat::expect_true(version_spec_contains("3", "~=2"))
+  # Not compared: libmamba's VersionSpec reads `~=2` as `>=2`, but the
+  # micromamba 2.9.0 and 2.10.0 solver installs no version for it.
+  testthat::expect_false(version_spec_contains("2", "~=2"))
+  testthat::expect_false(version_spec_contains("3", "~=2"))
   testthat::expect_false(version_spec_contains("1", "~=2"))
+  testthat::expect_false(version_spec_is_compared("~=2"))
+  testthat::expect_false(version_spec_is_compared("~=2025a"))
+  testthat::expect_false(version_spec_is_compared("~=1!1"))
+  testthat::expect_true(version_spec_is_compared("~=1.2"))
 })
 
 
@@ -324,6 +351,89 @@ testthat::test_that("version_spec_contains: starts_with edge cases", {
   testthat::expect_true(version_spec_contains("1.99", "=1"))
   testthat::expect_false(version_spec_contains("2", "=1"))
   testthat::expect_false(version_spec_contains("0.1", "=1"))
+})
+
+testthat::test_that("version_spec_contains: globs after an operator return, as micromamba reads them", {
+  # The versions that `micromamba search` 2.9.0 matched for each spec, on a
+  # channel with these versions. `vs_parse_ver_segment()` looped forever on
+  # every `*` that reached it, as in `">=1.3.*"`.
+  versions <- c(
+    "0.1.0",
+    "1.0.0",
+    "1.2.0",
+    "1.2.5",
+    "1.3.0",
+    "1.3.5",
+    "1.30.0",
+    "2.0.0",
+    "2.1.0",
+    "3.0.0"
+  )
+  matched <- function(spec) {
+    versions[vapply(versions, version_spec_contains, logical(1L), spec)]
+  }
+  from_1_3 <- c("1.3.0", "1.3.5", "1.30.0", "2.0.0", "2.1.0", "3.0.0")
+  testthat::expect_identical(matched(">=1.3.*"), from_1_3)
+  testthat::expect_identical(matched(">= 1.3.*"), from_1_3)
+  # micromamba leaves out pre-releases of 1.3 for `>=1.3.*`, as `>=1.3`
+  # does, but matches them for `>=1.3*` and `>=1.3.*.*` (not compared).
+  testthat::expect_false(version_spec_contains("1.3.0rc1", ">=1.3.*"))
+  testthat::expect_false(version_spec_contains("1.3.0rc1", ">=1.3"))
+  testthat::expect_identical(
+    matched(">=1.2.*,<2"),
+    c("1.2.0", "1.2.5", "1.3.0", "1.3.5", "1.30.0")
+  )
+  testthat::expect_identical(matched(">=1.3.*|<1"), c("0.1.0", from_1_3))
+  testthat::expect_identical(matched("==1.3*"), c("1.3.0", "1.3.5"))
+  testthat::expect_identical(
+    matched("!=1.3.*"),
+    setdiff(versions, c("1.3.0", "1.3.5"))
+  )
+
+  # micromamba 2.9.0 and 2.10.0 read these differently from conda, so they
+  # are not compared and never satisfied, also inside an OR. micromamba
+  # matches no version for `>1.3.*`, `<=1.3.*`, `<1.3.*`, `<2.*` and
+  # `~=1.2.*` (conda drops the glob), reads `~=1.2*` as `~=1.2`, `!=1.3*`
+  # as a literal version, `>=1.3*` and `>=1.3.*.*` with pre-releases of 1.3,
+  # `1.3.*.*` as four version parts only, `>=*` and `!=*` as any version,
+  # and rejects an operator with no version, as in `>=,<2`.
+  uncompared <- c(
+    ">1.3.*",
+    "<=1.3.*",
+    "<1.3.*",
+    "<2.*",
+    "~=1.2.*",
+    "~=1.2*",
+    "!=1.3*",
+    "1.*.5",
+    "=1.*.5",
+    ">1.3.*|<1",
+    ">=1.3*",
+    ">=1.3.*.*",
+    ">=1.3.0*",
+    "1.3.*.*",
+    "=1.3.*.*",
+    ">=*",
+    "!=*",
+    ">*",
+    ">=",
+    ">=,<2",
+    ">,<2",
+    "<=,<2",
+    "<,<2",
+    "!=,<2",
+    "~=,<2",
+    "==,<2",
+    "=,<2",
+    ">=|<1"
+  )
+  for (spec in uncompared) {
+    testthat::expect_identical(matched(spec), character(0L), info = spec)
+    testthat::expect_false(version_spec_is_compared(spec), info = spec)
+  }
+  testthat::expect_true(version_spec_is_compared(">=1.3.*"))
+  testthat::expect_true(version_spec_is_compared("1.3.*"))
+  testthat::expect_true(version_spec_is_compared("*"))
 })
 
 
@@ -536,8 +646,18 @@ testthat::test_that("ms_version_compare: matches libmambapy implementation", {
     c("1.0.dev", "<1.0") # TRUE
   )
 
+  # Specs that condathis does not compare are never satisfied, whatever
+  # libmamba's VersionSpec says: the micromamba solver reads `~=2` (one
+  # part) differently. The list is pinned, so no other spec drops out of
+  # the comparison unnoticed.
+  uncompared_specs <- character(0L)
   for (test_vector in test_versions) {
     is_satisfied_rstats <- version_spec_contains(test_vector[1], test_vector[2])
+    if (isFALSE(version_spec_is_compared(test_vector[2]))) {
+      uncompared_specs <- c(uncompared_specs, test_vector[2])
+      testthat::expect_false(is_satisfied_rstats, info = test_vector[2])
+      next
+    }
     is_satisfied_py <- version_spec_contains_py(test_vector[1], test_vector[2])
     testthat::expect_equal(
       is_satisfied_rstats,
@@ -551,4 +671,8 @@ testthat::test_that("ms_version_compare: matches libmambapy implementation", {
       )
     )
   }
+  testthat::expect_setequal(
+    unique(uncompared_specs),
+    c("~=2", "~=2022a,<2025|2025b")
+  )
 })
