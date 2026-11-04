@@ -23,7 +23,7 @@ Nothing here blocks the v0.2.0 release.
 - [ ] 9c: bump the mocked micromamba version in
       `test-check_micromamba_version.R:48` when the internal pin moves
       past 2.8.1
-- [ ] 7: check conda-forge for a fixed win-64 MinGW runtime batch; drop the
+- [ ] 7: check conda-forge for a fixed win-64 MinGW runtime batch. Drop the
       `libgcc`/`libgfortran5` pins in `helper-cli-tools.R` if Windows CI
       is green without them; otherwise file the upstream report
 
@@ -37,7 +37,7 @@ Nothing here blocks the v0.2.0 release.
 - [ ] 3: (optional) assert the four guaranteed columns after
       `backend_list_packages()` dispatch in condathis
 - [ ] 10: `backend_status()` user-facing diagnostics function
-- [ ] 4: README "Alternative backends" section in condathis; README
+- [ ] 4: README "Alternative backends" section in condathis. README
       cross-link check in rattlerthis
 
 ## Needs a decision

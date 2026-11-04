@@ -9,43 +9,43 @@ and design decisions.
       API consistency, dead code, complexity, testing/docs. Findings +
       severities recorded in `PLAN.md`.
 - [x] Empirical checksum investigation: downloaded + hashed the micromamba
-      binary from every mirror × strategy × 5 platforms for v2.8.1-0.
+      binary from every mirror x strategy x 5 platforms for v2.8.1-0.
       Result: GitHub `.sha256` is a universal, correct target for the final
       binary everywhere; `tools::sha256sum()` (base R, already imported,
       R >= 4.5) removes the system-dependency concern; `micro.mamba.pm`
       mirror found broken. Recommended design written up.
 
-## Author decisions — both received and implemented
+## Author decisions (both implemented)
 
 **Decision 1 (checksum policy):** warn-and-continue on mismatch *or* on the
 hashing tool itself failing (never block an install either way). Implement
 `tools::sha256sum()` gated on R >= 4.5 *and* the function actually existing
 in the `tools` namespace; fall back through other implementations; keep
 `digest` as a `Suggests` dependency; make the system-CLI fallback provably
-robust, not just "exit status 0" — verify it actually produces the expected
+reliable, not just "exit status 0". Verify it actually produces the expected
 output across OSes.
 
 - [x] Rewrote `compute_sha256()` (`R/install_micromamba.R`) with the full
       priority chain: `tools::sha256sum()` (new `has_tools_sha256sum()`
-      gate: R >= 4.5 *and* namespace presence) → `digest::digest()`
-      (`Suggests`, added to `DESCRIPTION`) → a system `sha256sum`/`shasum`,
+      gate: R >= 4.5 *and* namespace presence), then `digest::digest()`
+      (`Suggests`, added to `DESCRIPTION`), then a system `sha256sum`/`shasum`,
       **only trusted after passing a known-answer test** (new
       `sha256_command_is_trustworthy()`): runs the candidate command
       against the standard SHA-256 test vector for `"abc"`
       (`ba7816bf8f01cfea...`, cross-checked live against
       `tools::sha256sum()`, `digest::digest()`, `openssl::sha256()`, and
-      Python's `hashlib` — all agree — before hardcoding it). New
+      Python's `hashlib` (all agree) before hardcoding it). New
       `run_sha256_command()` additionally rejects any output that isn't
       exactly 64 hex characters, regardless of exit status. Every step
       wrapped so a failure anywhere falls through to the next; returns
       `NA_character_` (never errors) if nothing works.
 - [x] Re-enabled the `verify_micromamba_checksum()` call site (previously
-      commented out) — its mismatch handling already warned rather than
+      commented out). Its mismatch handling already warned rather than
       aborted, matching the chosen policy exactly, so no change was needed
       there. Verified live end-to-end: a real install produces no warning
       (hash matches); feeding an unrelated file as `bin_path` produces a
       clear mismatch warning with expected/actual hashes, without erroring.
-- [x] R floor left at `>= 4.3` (not bumped to 4.5) — `has_tools_sha256sum()`
+- [x] R floor left at `>= 4.3` (not bumped to 4.5). `has_tools_sha256sum()`
       gates the base-R path and everything falls back correctly on older R.
 - [x] New `tests/testthat/test-compute_sha256.R` (13 tests): the R-version
       gate, the system-tool self-test (accepts a real tool, rejects a
@@ -57,7 +57,7 @@ output across OSes.
       Caught and fixed a real scoping bug in my own first draft of the test
       helper along the way (`withr::local_tempfile()`'s default
       `.local_envir` deleted the file before `compute_sha256()` ever read
-      it — same class of gotcha as `with_sandbox_dir()`'s documented
+      it. Same class of gotcha as `with_sandbox_dir()`'s documented
       behavior from the previous review pass).
 - [x] Full regression: `test-compute_sha256.R` (13/13),
       `test-install_micromamba.R` (26/26, real network installs),
@@ -65,7 +65,7 @@ output across OSes.
       `test-run.R` all clean.
 
 **Decision 2 (`run()` auto-create):** `run()` should never create the
-*target* environment when it's missing — only error. The existing
+*target* environment when it's missing. It only errors. The existing
 auto-create-`"condathis-env"`-regardless-of-`env_name`, was a workaround
 for an old `micromamba` requirement (root prefix needed *some* environment
 to exist before `micromamba run` worked at all), status in the current
@@ -75,34 +75,34 @@ pinned version unconfirmed by the author.
       install root, with only a custom-named environment ever created
       (`"condathis-env"` never touched), runs commands in that custom
       environment correctly with the current pinned `micromamba`
-      (`2.8.1-0`) — the old requirement does not reproduce. The
+      (`2.8.1-0`). The old requirement does not reproduce. The
       auto-create-as-workaround is confirmed unnecessary today.
 - [x] Rewrote `R/run.R`'s environment-existence handling: still
       auto-creates `"condathis-env"` when it's missing *and* is the actual
-      target (the deliberate, documented default-env convenience — kept
+      target (the deliberate, documented default-env convenience, kept
       unchanged) but no longer touches it as a side effect when targeting
       a different, missing environment. A missing custom `env_name` now:
       aborts with new class `condathis_run_env_not_found` under
       `error = "cancel"` (default); returns a `status = 127` result under
-      `error = "continue"`, without creating anything — mirrors
+      `error = "continue"`, without creating anything. This mirrors
       `run_pipeline()`'s existing `condathis_pipeline_env_not_found`
       behavior for the identical situation, for consistency.
       `run_bin()` was already correct here (already falls back to running
       outside any managed environment, already tested) and needed no
       change.
-- [x] New tests in `test-run.R`: missing custom env × `error = "continue"`
-      (returns 127, doesn't create anything), × `error = "cancel"` (aborts
+- [x] New tests in `test-run.R`: missing custom env with `error = "continue"`
+      (returns 127, doesn't create anything), with `error = "cancel"` (aborts
       with the new class), and an explicit check that
       `"condathis-env"` is never created as a side effect of targeting an
-      unrelated missing environment — the exact bug being fixed. Updated
+      unrelated missing environment (the exact bug being fixed). Updated
       `@param env_name`/`@param error` docs (and regenerated `man/run.Rd`).
 - [x] Full regression: `test-run.R` (44/44), plus every file that calls
       `run()` (`test-create_nested_env.R`, `test-list_envs.R`,
       `test-run_output_file.R`, `test-create_env.R`, `test-rethrow_error.R`,
-      `test-run_verbose_levels.R`) — all clean, confirming no existing test
+      `test-run_verbose_levels.R`), all clean, confirming no existing test
       relied on the old side-effect-creation behavior.
 
-## Clear-cut — implemented, not yet committed
+## Clear-cut: implemented, not yet committed
 
 - [x] 2a: `list_envs()` regex-injection. Extracted the filtering into a new
       pure helper `condathis_env_names(envs_str, env_root_dir)`
@@ -116,32 +116,32 @@ pinned version unconfirmed by the author.
       `R/get_sys_arch.R` (single source of truth built on `get_sys_arch()`,
       consistent with the existing `with_mocked_bindings(get_sys_arch=...)`
       test pattern). Replaced all genuinely-redundant call sites:
-      `resolve_env_bin_path.R` (both — one had a local variable literally
+      `resolve_env_bin_path.R` (both, one had a local variable literally
       named `is_windows`, renamed to `on_windows` to avoid shadowing the new
       function), `micromamba_bin_path.R`, `create_env.R`, `run_pipeline.R`,
       `run_internal_native.R` (was the odd one out, using
       `identical(Sys.info()["sysname"], c(sysname = "Windows"))`), and
-      `get_condathis_path.R`'s Darwin check → `is_macos()`.
+      `get_condathis_path.R`'s Darwin check (now `is_macos()`).
       **Deliberately left unchanged:** `condathis-package.R:38`'s
-      `identical(.Platform$OS.type, "windows")` inside `.onLoad()` — it's
+      `identical(.Platform$OS.type, "windows")` inside `.onLoad()`. It is
       the most dependency-free check available (no `Sys.info()`/`stringr`
       needed) at the earliest, most fragile point in the package lifecycle;
       unifying it would trade robustness for consistency with no real
       benefit. New test: `test-get_sys_arch.R` (added to the existing file
-      rather than a new one, proportional to the size of what's tested) —
+      rather than a new one, proportional to the size of what's tested).
       9/9. Full regression: `test-create_env.R`, `test-run_pipeline.R`,
       `test-get_install_dir.R`, `test-micromamba_bin_path.R`, `test-run.R`
       all clean.
 - [x] 3 (narrowed after investigation): dropped the dead `micro.mamba.pm`
       mirror from `get_micromamba_urls()`'s `compressed` and `check_urls`
       lists. The "harden `try_download_from_mirrors()`" half of this item
-      turned out to be unnecessary — verified empirically that **both**
+      turned out to be unnecessary: verified empirically that **both**
       `curl::curl_download()` and `utils::download.file()` already
       correctly error/warn on `micro.mamba.pm`'s HTTP 404 (confirmed live:
       `curl_download()` throws `"HTTP response code said error"`;
       `download.file()` warns `"HTTP status was '404 Not Found'"`), and
       `download_micromamba_file()`'s existing `tryCatch` already converts
-      both into `FALSE` — so the mirror loop already correctly skips to the
+      both into `FALSE`, so the mirror loop already correctly skips to the
       next candidate today. No corrupt-file/silent-success gap actually
       exists; that part of the original finding was an unverified
       assumption, corrected here rather than "fixed" with redundant code.
@@ -153,8 +153,8 @@ pinned version unconfirmed by the author.
       `run_pipeline()`, threaded through to `processx` (default preserves
       current no-limit behavior exactly). Both `processx` execution paths
       covered: `processx::run()`'s native `timeout` support (verified
-      empirically: kills the process, `status = -9`, and — gated by
-      `error_on_status` — throws a distinct `system_command_timeout_error`
+      empirically: kills the process, `status = -9`, and, gated by
+      `error_on_status`, throws a distinct `system_command_timeout_error`
       instead of the regular status-error class) and the hand-rolled
       `run_process_with_input()`/`pump_process_io()` path used whenever
       `stdin = "|"` (new `deadline` parameter on `pump_process_io()`,
@@ -168,8 +168,8 @@ pinned version unconfirmed by the author.
       `error = "cancel"`. `run_pipeline()` uses one shared deadline across
       the whole pipeline; found (by testing a real multi-stage pipeline,
       not by reasoning) that `processx` invalidates a process's own
-      connection immediately on `kill()`, discarding any unread output —
-      fixed by having `pump_process_io()` always attempt one last
+      connection immediately on `kill()`, discarding any unread output.
+      Fixed by having `pump_process_io()` always attempt one last
       non-blocking drain in the same iteration the deadline is hit, and by
       killing only the one stage that actually timed out (after draining
       it), not every process up front. Verified live end-to-end for all
@@ -177,7 +177,7 @@ pinned version unconfirmed by the author.
       output-preservation case for `run_pipeline()`. See `PLAN.md` for the
       full empirical detail. Full regression clean (see below).
 - [x] 3: reused the `env_exists()` `env_name` validator across
-      `install_packages()`/`get_env_dir()` (not `clean_cache()` — it has no
+      `install_packages()`/`get_env_dir()` (not `clean_cache()`, which has no
       `env_name` argument at all, so there's nothing to attach a validator
       to; the original finding was imprecise on this point). Extracted the
       exact type-check `env_exists()` already had into a new internal
@@ -198,7 +198,7 @@ pinned version unconfirmed by the author.
 
 - [x] 4: removed the dead connectivity pre-check in `install_micromamba.R`
       (`check_connection()` + `get_micromamba_urls()$check_urls`). Author
-      decision: delete rather than wire back in — the download path
+      decision: delete rather than wire back in. The download path
       (`try_download_from_mirrors()`/`install_micromamba()`) already fails
       cleanly with a clear, classed error when no mirror is reachable, so
       the pre-check would only add redundant network round-trips. Deleted
@@ -212,16 +212,16 @@ pinned version unconfirmed by the author.
       `install_micromamba.R` afterward. `test-install_micromamba.R`: 24/24
       (real network installs, not skipped).
 
-- [x] 3/5: `method` argument — resolved by author correction, not by a fix
+- [x] 3/5: `method` argument, resolved by author correction, not by a fix
       in this file: it is **not** dead API surface to deprecate or drop.
       It's reserved for a pluggable-backend feature, already scoped in
       full in `.github/devdocs/feat-backend-abstraction/PLAN.md` + its
-      `TODO.md` — a separate, large milestone (11 confirmed design
+      `TODO.md`, a separate, large milestone (11 confirmed design
       decisions, own file layout, own test plan) to be implemented in a
       future session, not part of this review. No code changed here;
       removed from this checklist so it isn't tracked in two places.
 
-## Remaining — needs a decision or is lower priority
+## Remaining: needs a decision or is lower priority
 
 Nothing left needing a decision. See "Lower priority / follow-up" below for
 what's left in this file; the next *milestone*-sized piece of work is
@@ -230,11 +230,11 @@ what's left in this file; the next *milestone*-sized piece of work is
 ## Lower priority / follow-up
 
 - [x] 4: split `install_micromamba()` / `create_env()` to reduce cyclomatic
-      complexity. `install_micromamba()` 30 → under 15: extracted
+      complexity. `install_micromamba()` 30 to under 15: extracted
       `download_compressed_and_extract()` and
       `download_uncompressed_binary()` (its two download strategies),
       merged two duplicate "already installed" checks into one guard.
-      `create_env()` 29 → 0 lints: extracted
+      `create_env()` 29 to 0 lints: extracted
       `ensure_libmamba_pkgs_dir_workaround()`,
       `resolve_create_env_packages_arg()`,
       `resolve_create_env_platform_args()`, and
@@ -245,20 +245,20 @@ what's left in this file; the next *milestone*-sized piece of work is
       needed an explicit `envir = parent.frame()` parameter threaded into
       `withr::defer(..., envir = envir)`, otherwise the cleanup would fire
       when the new helper returns instead of when `create_env()` itself
-      exits — the same scoping trap as `withr::local_tempfile()`'s
+      exits. This is the same scoping trap as `withr::local_tempfile()`'s
       `.local_envir` default, hit twice before elsewhere in this
       codebase. Verified empirically against a fake `HOME` (fresh
-      `.mamba/pkgs` removed on caller exit; pre-existing one preserved) —
-      first verification attempt gave a false-positive "bug" caused by
+      `.mamba/pkgs` removed on caller exit; pre-existing one preserved).
+      The first verification attempt gave a false-positive "bug" caused by
       `withr::local_tempdir()`'s own teardown deleting the whole fake
       `HOME` tree, re-tested with a non-auto-cleaned fake `HOME` to get
       the real answer. See `PLAN.md` for full detail. Full regression:
       `test-install_micromamba.R` (24/24), `test-create_env.R` (36/36),
       `test-create_nested_env.R` (5/5), `test-install_packages.R`
-      (14/14), `test-run.R` (49/49), `test-list_envs.R` (11/11) — all
+      (14/14), `test-run.R` (49/49), `test-list_envs.R` (11/11), all
       clean. `lintr::cyclocomp_linter(complexity_limit = 15L)`: neither
       function flagged anymore.
-- [x] 5: `\dontrun{}` → `\donttest{}` — reconsidered and reversed. Author
+- [x] 5: `\dontrun{}` to `\donttest{}`: reconsidered and reversed. Author
       pushed back citing CRAN best-practice guidance that `\dontrun{}` is
       the right choice for internet/external-CLI-touching examples;
       verified directly against `tools::check.R` (R 4.6.1) rather than
@@ -277,23 +277,23 @@ what's left in this file; the next *milestone*-sized piece of work is
       their workflow either. **Net result: all 12 functions keep
       `\dontrun{}`, no markup change.** See `PLAN.md` for the full
       corrected writeup.
-      - [x] `run_bin()`: fixed the example content — it referenced a
+      - [x] `run_bin()`: fixed the example content. It referenced a
             `my-env` never created by the example itself (independent bug,
             found during the original audit, still valid regardless of the
             markup reversal). Added a real `create_env()` setup step,
             matching every other example's pattern. Regenerated
             `man/run_bin.Rd`.
       - [x] `with_sandbox_dir()`'s example doesn't need `\dontrun{}` at all
-            (no network/`micromamba` involved) — moved to a plain,
+            (no network/`micromamba` involved), moved to a plain,
             always-run example.
 - [x] Example portability audit (2026-07-28, corrected 2026-07-28): the
       `run_bin()` fix above introduced `conda-forge::coreutils`, which has
-      no `win-64` build — caught by the author, prompted auditing every
+      no `win-64` build. The author caught this, which prompted auditing every
       `@examples` block for the same class of problem.
       - [x] **Correction the author caught in the first pass:** initially
-            swapped `bioconda::fastqc` → `conda-forge::ripgrep` in 6
+            swapped `bioconda::fastqc` to `conda-forge::ripgrep` in 6
             examples based on `fastqc`'s `channeldata.json` `subdirs` not
-            listing `win-64` — wrong inference for a `noarch` package
+            listing `win-64`, a wrong inference for a `noarch` package
             (a Java wrapper script, not a compiled binary): `noarch`
             packages install on any platform as long as dependencies
             resolve there. Verified directly: a real
@@ -307,15 +307,15 @@ what's left in this file; the next *milestone*-sized piece of work is
             comment corrected to a value verified from a real install,
             `[1] 66 11` (the pre-existing `[1] 34 8` was already stale
             regardless of package choice).
-      - [x] Genuinely fixed, **not** affected by the correction — `grep`/
+      - [x] Genuinely fixed, **not** affected by the correction: `grep`/
             `coreutils` are compiled, not `noarch`, so this inference does
-            hold for them: `conda-forge::coreutils`/`"ls"` →
+            hold for them: `conda-forge::coreutils`/`"ls"` to
             `conda-forge::ripgrep`/`"rg"` in `run_bin()`; simplified
             `run_pipeline()`'s example by dropping the `get_sys_arch()`
             `grep`/`m2-grep` conditional entirely in favor of `ripgrep`/`rg`.
       - [x] `run()`/`run_pipeline()`'s `bioconda::samtools` use (operating
             on the packaged `example.bam`) left as Linux/macOS-only, with
-            an explicit code comment — also unaffected by the correction:
+            an explicit code comment. It is also unaffected by the correction:
             `samtools` is a compiled `htslib`-based binary, not `noarch`,
             and genuinely has no Windows build under any name, on any
             channel.

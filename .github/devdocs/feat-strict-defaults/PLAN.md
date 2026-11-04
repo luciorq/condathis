@@ -57,12 +57,12 @@ Fixes from the pre-release /code-review (findings 1, 3, 4):
   R-side pipes, e.g. `stderr = NULL`) still honor `timeout`.
 - `run_process_with_input()`: same bounded-wait fix for `run()`/
   `run_bin()` with file-redirected streams.
-- Platform notes: `processx::poll()` multi-process polling and
-  `wait(timeout=)` are cross-platform; stages with no R-side connections
-  are excluded from the poll list; `-9` remains condathis's own
-  normalized timeout sentinel on every OS; tests deliberately do not
-  assert on a downstream stage's exact post-kill status (EOF-exit vs
-  kill is a timing race that differs across platforms).
+- Platform notes:
+  - `processx::poll()` multi-process polling and `wait(timeout=)` are cross-platform.
+  - Stages with no R-side connections are excluded from the poll list.
+  - `-9` remains condathis's own normalized timeout sentinel on every OS.
+  - Tests deliberately do not assert on a downstream stage's exact post-kill status
+    (EOF-exit vs kill is a timing race that differs across platforms).
 
 ## North star: run()/run_bin()/run_pipeline() convergence
 
@@ -72,12 +72,14 @@ OS. Progress so far: shared `condathis_result` shape, shared
 `error`/`timeout`/`binary`/`stdin`+`input` semantics, shared `-9`
 timeout sentinel, shared child-environment construction
 (`build_child_env()`), and (this addendum) shared deadline enforcement
-and concurrent stream draining. Known remaining gaps:
+and concurrent stream draining.
+Known remaining gaps:
 
 - Activation model: `run()` wraps in `micromamba run` (live activation,
-  hooks re-run per call, no `activate` argument); `run_bin()`/
-  `run_pipeline()` apply the cached activation snapshot with a direct
-  spawn. Unifying `run()` onto the resolve-once + direct-spawn model is
+  hooks re-run per call, no `activate` argument).
+  `run_bin()`/`run_pipeline()` apply the cached activation snapshot with a direct
+  spawn.
+  Unifying `run()` onto the resolve-once + direct-spawn model is
   the documented final step (see get_micromamba_activation_envvars.R),
   deferred past 0.2.0 because it changes observable hook semantics.
 - Binary resolution: micromamba's activated-PATH search (run()) vs

@@ -58,7 +58,7 @@ the 0.2.0 stack:
   one-argument form. **Not relevant** (checked 2026-09-18): the
   `processx::run()` call discards stderr (`stderr = NULL`, so
   `res$stderr` is `NULL`) and `parse_output()`'s `"both"` branch then
-  reduces to stdout alone. No behaviour difference; the current branch
+  reduces to stdout alone. No behaviour difference. The current branch
   detects the version correctly and CI is green on all platforms.
 - `tests/testthat/test-satisfy_dependencies.R`: the
   "returns correct results" test gained `testthat::skip_if_offline()` and
@@ -85,7 +85,7 @@ there is no recorded SHA for the submission.
    from DESCRIPTION, so it must run from the tag checkout, not from the
    0.2.0 dev tree.
 2. (Done 2026-09-18, both edits applied to `feat-strict-defaults`, files
-   now byte-identical to the tarball; the author chose to port the no-op
+   now byte-identical to the tarball. The author chose to port the no-op
    too so sources match CRAN.) Port the `skip_if_offline()` + `skip_on_cran()` edit to
    `test-satisfy_dependencies.R` onto `feat-strict-defaults` (or `main`
    right after the merge). Tests ship in the tarball (`^tests` is not in
@@ -96,7 +96,7 @@ there is no recorded SHA for the submission.
    at least note the SHA in the release notes) so the next release leaves
    a record.
 4. Fix the `git-tag` recipe's message typo risk: the commit message
-   "prepare for v1.4.0" was hand-typed; the recipe itself reads the
+   "prepare for v1.4.0" was hand-typed. The recipe itself reads the
    version from DESCRIPTION and is fine.
 
 ## 1. Converge `run()` onto the resolve-once + direct-spawn model
@@ -131,7 +131,7 @@ it changes observable hook semantics" in feat-strict-defaults).
   match" rather than a new behaviour. Recommended: yes, and say so in
   NEWS as a breaking (minor) change.
 - Binary resolution: `run()` today finds `cmd` on micromamba's activated
-  `PATH`; `run_bin()` uses `resolve_env_bin_path()` with a bare-name
+  `PATH`. `run_bin()` uses `resolve_env_bin_path()` with a bare-name
   fallback. Recommended: `run()` adopts `backend_resolve_run()` exactly
   like `run_pipeline()` already does, so all three share one resolver.
 
@@ -249,7 +249,7 @@ the `register_backend()` lifecycle text.
 ## 5. Package-wide supervisor escape hatch
 
 **Origin.** `feat-pipeline/PLAN.md` "Possible follow-up, not yet decided
-or implemented"; the only unchecked box in `feat-pipeline/TODO.md`.
+or implemented". It is the only unchecked box in `feat-pipeline/TODO.md`.
 
 **Where things stand.** `supervise` is a per-call argument. Defaults are
 `FALSE` on `run()`/`run_bin()` and `TRUE` on `run_pipeline()`, except that
@@ -263,7 +263,7 @@ wants it off everywhere must pass it on every call. Upstream processx's
 each function's own default", `FALSE` forces off, `TRUE` forces on except
 on Windows for `run_pipeline()` where the platform gate still wins. An env
 var `CONDATHIS_SUPERVISE` is only worth adding if there is a real need to
-set this outside R (CI); options are the established pattern in this
+set this outside R (CI). Options are the established pattern in this
 package (`condathis.backend_priority`).
 
 **Implementation plan.**
@@ -352,7 +352,7 @@ TODO (item 9b), so do those together.
 
 Not in scope: the 403 `lintr::lint_package()` findings (168 line length,
 168 explicit return, 27 commented code, 24 object-usage false positives).
-The project does not run lintr in CI or `just lint`; jarl, styler and air
+The project does not run lintr in CI or `just lint`. The gates are jarl, styler and air
 are the gates.
 
 ## 9. In-code `TODO: @luciorq` comments
@@ -388,7 +388,7 @@ Design is sketched (image per `env_name`, `backend_get_env_dir()` as a
 bind-mount path, `backend_resolve_run()` translating to `docker run` /
 `singularity exec`, `backend_available()` probing the daemon). No package
 exists and none is planned. Decision needed on whether to pursue it at
-all; nothing in condathis needs to change first, which was the point of
+all; nothing in condathis needs to change first. That was the point of
 the "resolve, don't execute" contract.
 
 ## 12. `verbose` on `run_pipeline()`: explicitly not planned
@@ -403,11 +403,11 @@ stdout chunks as they arrive would be the minimal version.
 ## Suggested ordering after the 0.2.0 release
 
 1. Item 8 + 9b + 9c (lint cleanup, mechanical, low risk) as one small PR.
-2. Item 7 (Windows pins) whenever conda-forge ships a fix; independent.
+2. Item 7 (Windows pins) whenever conda-forge ships a fix. It is independent.
 3. Item 2, then 3, then 4 and 10 together (the rattlerthis integration
    becomes real and documented).
 4. Item 5 (supervisor option) as its own small PR.
 5. Item 6, then item 1 (the `run()` convergence) as the headline of the
    next minor release.
-6. Item 9a (env_file + packages) can slot in anywhere; it touches
+6. Item 9a (env_file + packages) can slot in anywhere. It touches
    `create_env()` docs and tests only.
