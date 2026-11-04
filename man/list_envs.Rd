@@ -7,43 +7,100 @@
 list_envs(method = "auto", verbose = "silent")
 }
 \arguments{
-\item{method}{Character string naming which backend(s) to list.
-Defaults to \code{"auto"}: every currently \emph{registered and available}
-backend. \code{"micromamba"} is the only backend registered today.
-\code{"native"} is a deprecated alias for \code{"micromamba"} (warns once per
-session).}
+\item{method}{Character string naming the backend to query. \code{"auto"} (the
+default) covers every registered backend, in
+\code{getOption("condathis.backend_priority")} order, also a backend that
+reports itself unavailable. Any name from
+\code{\link[=list_registered_backend_names]{list_registered_backend_names()}} queries only that backend.
+\code{"micromamba"} is built in. The name of a backend whose package
+condathis knows, such as \code{"rattler"} of the \code{rattlerthis} package,
+also queries only that backend. condathis loads that package. When it
+is not installed, the call aborts with class
+\code{condathis_backend_not_installed}. \code{"native"} is a deprecated alias for
+\code{"micromamba"} (warns once per session). Invalid values abort with
+class \code{condathis_invalid_method}.}
 
-\item{verbose}{Character string controlling console output.
-Defaults to \code{"silent"}.}
+\item{verbose}{Character string that controls the console output. One
+of:
+\itemize{
+\item \code{"output"}: show the output of the command and the messages of
+condathis.
+\item \code{"silent"}: show nothing.
+\item \code{"cmd"}: show the command line.
+\item \code{"spinner"}: show only a spinner.
+\item \code{"full"}: show the command line, the output, and the backend's own
+log.
+}
+
+\code{TRUE} means \code{"output"} and \code{FALSE} means \code{"silent"}. Every level
+except \code{"silent"} shows a spinner in interactive sessions. Invalid
+values abort with class \code{condathis_invalid_verbose} (see
+\link{condathis-conditions}). The default is shown in Usage.
+
+The command line shown, the \code{cmd} of a result and the messages of
+\code{condathis} show the password and the token of a URL as \verb{*****}.
+\code{micromamba} does the same (\verb{https://user:*****@host/channel},
+\verb{https://host/t/*****/channel}). The command still gets them.}
 }
 \value{
-A tibble-classed data frame with one row per environment,
-columns \code{backend} (chr), \code{env_name} (chr), and \code{path} (chr) - one row
-per environment across every backend covered by \code{method}. With a
-single registered backend (today's default), this is always the same
-shape, just one \code{backend} value throughout.
+A data frame (a tibble) with one row per environment and the
+columns \code{backend} (chr), \code{env_name} (chr) and \code{path} (chr). The
+rows follow the backend order of \code{method}. When the listing fails for
+the backend that \code{method} names, \code{list_envs()} aborts with class
+\code{condathis_list_envs_failed} (also \code{condathis_backend_error}). With
+\code{method = "auto"}, \code{list_envs()} skips a backend whose listing fails
+and warns with class \code{condathis_backend_query_failed}. It aborts only
+when every backend fails.
 }
 \description{
-Returns environment names located under each registered backend's own
-installation root. Environments not managed by \code{condathis} are excluded.
+Returns a data frame of the environments under the data directory of
+each registered backend. It leaves out environments that \code{condathis} does
+not manage.
+}
+\details{
+\code{list_envs()} is a query: it never creates an environment. On a new data
+directory, with no environment yet, it returns a data frame with no rows.
+It does not start or install micromamba.
+When no micromamba binary is installed, the micromamba backend reads
+the \code{envs} directory of its data directory and the package records in
+\verb{conda-meta/} instead. It never installs micromamba.
 }
 \examples{
 \dontrun{
 condathis::with_sandbox_dir({
-  # Create environments
-  condathis::create_env(
-    packages = "bioconda::fastqc",
-    env_name = "fastqc-env"
-  )
-  condathis::create_env(
-    packages = "python",
-    env_name = "python-env"
+  # A local channel shipped with condathis, with `polyglot`: a
+  # dependency-free script that runs on Linux, macOS and Windows.
+  channel <- system.file(
+    "extdata", "polyglot-channel",
+    package = "condathis"
   )
 
+  # Create environments
+  condathis::create_env(
+    "polyglot",
+    env_name = "polyglot-env",
+    channels = channel
+  )
+  condathis::create_env(env_name = "empty-env")
+
   # List environments
-  condathis::list_envs()$env_name
-  #> [1] "fastqc-env" "python-env"
+  print(condathis::list_envs()$env_name)
+  #> [1] "empty-env"    "polyglot-env"
 })
 }
 
 }
+\seealso{
+\link{condathis-conditions} for every condition class.
+
+Other environments:
+\code{\link[=create_env]{create_env()}},
+\code{\link[=env_exists]{env_exists()}},
+\code{\link[=env_path]{env_path()}},
+\code{\link[=get_env_dir]{get_env_dir()}},
+\code{\link[=install_packages]{install_packages()}},
+\code{\link[=list_packages]{list_packages()}},
+\code{\link[=remove_env]{remove_env()}},
+\code{\link[=validate_env]{validate_env()}}
+}
+\concept{environments}

@@ -2,68 +2,140 @@
 % Please edit documentation in R/install_micromamba.R
 \name{install_micromamba}
 \alias{install_micromamba}
-\title{Install micromamba binaries in the managed condathis path}
+\title{Install micromamba}
 \usage{
 install_micromamba(
-  micromamba_version = "2.8.1-0",
-  timeout_limit = 3600,
+  micromamba_version = "2.10.0-0",
+  timeout = 3600,
   download_method = "auto",
   force = FALSE,
-  verbose = c("output", "silent", "cmd", "spinner", "full")
+  verbose = c("output", "silent", "cmd", "spinner", "full"),
+  timeout_limit = NULL
 )
 }
 \arguments{
-\item{micromamba_version}{Character string with the micromamba version.
-Defaults to \code{"2.8.1-0"}.}
+\item{micromamba_version}{Character string with the micromamba version,
+in the format \code{"X.Y.Z-N"} (version and build number), for example
+\code{"2.10.0-0"}, the default. Another format aborts with class
+\code{condathis_install_micromamba_invalid_micromamba_version}. Versions
+older than 2.8.1 abort with class
+\code{condathis_install_micromamba_unsupported_version}, because
+\code{condathis} does not use them. When you pass \code{micromamba_version} and a
+binary is already installed, \code{install_micromamba()} keeps the binary
+only when its version (\code{X.Y.Z}) is the requested one. When it reports
+another version, or its version cannot be read, \code{install_micromamba()}
+installs the requested version. Without \code{micromamba_version}, it
+always keeps an installed binary, unless \code{force = TRUE}.}
 
-\item{timeout_limit}{Numeric download timeout in seconds.
-Defaults to \code{3600}.}
+\item{timeout}{Numeric download timeout in seconds, a single
+non-negative number. \code{Inf} means no limit. Defaults to \code{3600}. Each
+download uses the larger of this value and \code{getOption("timeout")}, so
+\code{0} means no limit only when \code{getOption("timeout")} is \code{0} too. The
+function lowers values above 2147483 seconds (about 24.8 days) to
+2147483. Other values abort with class
+\code{condathis_install_micromamba_invalid_timeout}.}
 
-\item{download_method}{Character string passed as the download method when
-\code{utils::download.file()} is used. Defaults to \code{"auto"}.}
+\item{download_method}{Character string with the download method of
+\code{\link[utils:download.file]{utils::download.file()}}: one of \code{"auto"} (the default), \code{"internal"},
+\code{"libcurl"}, \code{"wget"}, \code{"curl"} or \code{"wininet"}. It is ignored when the
+\code{curl} package 5.0.0 or later is installed, because then
+\code{\link[curl:curl_download]{curl::curl_download()}} is used. Other values abort with class
+\code{condathis_install_micromamba_invalid_download_method}.}
 
-\item{force}{Logical value that controls forced reinstallation.
-Defaults to \code{FALSE}.}
+\item{force}{Logical value. \code{TRUE} downloads micromamba also when a
+binary is already installed. Defaults to \code{FALSE}. A value that is not
+\code{TRUE} or \code{FALSE} aborts with class
+\code{condathis_install_micromamba_invalid_force}.}
 
-\item{verbose}{Character string controlling console output.
-Supported values are \code{"output"}, \code{"silent"}, \code{"cmd"}, \code{"spinner"},
-and \code{"full"}. Defaults to \code{"output"}.}
+\item{verbose}{Character string that controls the console output. One
+of:
+\itemize{
+\item \code{"output"}: show the output of the command and the messages of
+condathis.
+\item \code{"silent"}: show nothing.
+\item \code{"cmd"}: show the command line.
+\item \code{"spinner"}: show only a spinner.
+\item \code{"full"}: show the command line, the output, and the backend's own
+log.
+}
+
+\code{TRUE} means \code{"output"} and \code{FALSE} means \code{"silent"}. Every level
+except \code{"silent"} shows a spinner in interactive sessions. Invalid
+values abort with class \code{condathis_invalid_verbose} (see
+\link{condathis-conditions}). The default is shown in Usage.
+
+The command line shown, the \code{cmd} of a result and the messages of
+\code{condathis} show the password and the token of a URL as \verb{*****}.
+\code{micromamba} does the same (\verb{https://user:*****@host/channel},
+\verb{https://host/t/*****/channel}). The command still gets them.}
+
+\item{timeout_limit}{Deprecated. Use \code{timeout}. A value warns with class
+\code{condathis_deprecated_arg} and is used as \code{timeout}. Passing both
+aborts with class \code{condathis_install_micromamba_conflicting_args}.}
 }
 \value{
-The installed micromamba binary path (a \code{fs_path}/character
-string), invisibly - not a \code{condathis_result} object like \code{run()},
-\code{run_bin()}, \code{create_env()}, \code{install_packages()}, \code{remove_env()}, and
-\code{clean_cache()} return. This is intentional, not an oversight: those
-functions each wrap a single \code{micromamba} subprocess call, so a real
-status/stdout/stderr/pid is available to report. \code{install_micromamba()}
-downloads and extracts a binary directly (no \code{micromamba} subprocess
-involved at all), so there is no real process result to expose - the
-installed path is the only meaningful thing to return, exactly like
-\code{get_env_dir()}/\code{get_install_dir()}/\code{micromamba_bin_path()}. On
-failure, this function always raises an error rather than returning a
-partial or invalid path.
+The path of the micromamba binary, an \code{fs_path}, invisibly: the
+path that \code{\link[=micromamba_bin_path]{micromamba_bin_path()}} returns. A failed download aborts
+with class \code{condathis_install_micromamba_download_failed}.
 }
 \description{
-Downloads and installs the \code{micromamba} executable used by \code{condathis}.
+Downloads the \code{micromamba} binary that \code{condathis} uses and installs it
+in the condathis data directory, at the path that
+\code{\link[=micromamba_bin_path]{micromamba_bin_path()}} returns. The functions that need micromamba call
+it when no usable binary is found (see \emph{micromamba discovery} in
+\link{condathis-options}). You need to call it only to choose the version, or
+to install micromamba ahead of time.
 }
 \details{
-Download mirrors are tried in order until one succeeds.
-When system \code{tar} and \code{bzip2} are available, a compressed archive may be
-used first. Otherwise, or when extraction fails, a standalone binary is
-downloaded.
+The binary is the build for the platform of the running R (see
+\code{\link[=get_sys_arch]{get_sys_arch()}}): \code{linux-64}, \code{linux-aarch64}, \code{linux-ppc64le},
+\code{osx-64}, \code{osx-arm64}, \code{win-64} or \code{win-arm64}. A native ARM64 R on
+Windows gets \code{win-arm64}. An x64 R on an ARM64 PC gets \code{win-64}, which
+runs through x64 emulation. Every R of a user shares the installed
+binary. So on an ARM64 PC, the binary installed first stays until you
+replace it, for example with \code{force = TRUE}. Either binary works with
+both builds of R: micromamba builds environments for its own platform.
+
+\code{install_micromamba()} tries the compressed archive first, from the
+micromamba releases on GitHub, then from the conda-forge channel on
+anaconda.org and prefix.dev. It extracts the archive with R's internal
+\code{tar}, so no system \code{tar} or \code{bzip2} is needed. When every archive
+fails, it downloads the standalone binary from GitHub. A mirror fails
+when the download fails, or when the file does not extract, does not
+run, or does not match the SHA256 checksum published with the release.
+Then it tries the next mirror. It replaces an installed binary only with
+a download that passed these checks, also with \code{force = TRUE}.
+
+When no published checksum can be read, \code{install_micromamba()} installs
+the binary. It warns with class
+\code{condathis_install_micromamba_checksum_unavailable} when \code{verbose} is
+\code{"output"} or \code{"full"}. A checksum that does not match warns with class
+\code{condathis_install_micromamba_checksum_mismatch}, and that binary is not
+installed.
 }
 \examples{
 \dontrun{
 condathis::with_sandbox_dir({
-  # Install the default version of Micromamba
+  # Install the default version of micromamba
   condathis::install_micromamba()
 
-  # Install a specific version of Micromamba
-  condathis::install_micromamba(micromamba_version = "2.0.2-2")
+  # Install a specific version (2.8.1 or newer): it replaces a binary of
+  # another version
+  condathis::install_micromamba(micromamba_version = "2.9.0-0")
 
-  # Force reinstallation of Micromamba
+  # Without `micromamba_version`, the installed binary is kept unless
+  # `force = TRUE`
   condathis::install_micromamba(force = TRUE)
 })
 }
 
 }
+\seealso{
+Other setup:
+\code{\link[=clean_cache]{clean_cache()}},
+\code{\link[=get_install_dir]{get_install_dir()}},
+\code{\link[=get_sys_arch]{get_sys_arch()}},
+\code{\link[=micromamba_bin_path]{micromamba_bin_path()}},
+\code{\link[=with_sandbox_dir]{with_sandbox_dir()}}
+}
+\concept{setup}

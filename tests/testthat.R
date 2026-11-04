@@ -9,4 +9,11 @@
 library(testthat)
 library(condathis)
 
+# On CRAN, the tests run in one process. Parallel workers, with the
+# processes that the tests start, can use more than 2.5 times as much CPU
+# time as elapsed time, which CRAN's checks report.
+if (!identical(Sys.getenv("NOT_CRAN"), "true")) {
+  Sys.setenv(TESTTHAT_PARALLEL = "false")
+}
+
 testthat::test_check("condathis")

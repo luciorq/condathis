@@ -2,7 +2,7 @@
 % Please edit documentation in R/run.R
 \name{run}
 \alias{run}
-\title{Run a command inside a Conda environment}
+\title{Run a command in a Conda environment}
 \usage{
 run(
   cmd,
@@ -23,119 +23,247 @@ run(
 )
 }
 \arguments{
-\item{cmd}{Character string with the command to execute.}
+\item{cmd}{Character string, the command to run: a single, non-empty
+string. Other values abort with class \code{condathis_invalid_cmd}. Pass the
+arguments of the command in \code{...}.}
 
-\item{...}{Additional unnamed command arguments passed to \code{cmd}.}
+\item{...}{Arguments of the command, unnamed: character, numeric or
+logical vectors, each element one argument. \code{run()} drops \code{NULL}
+values. It writes numbers in full, never in scientific notation:
+\code{100000} is passed as \code{"100000"}. \code{NA}, named arguments, and values
+that are not atomic vectors (for example lists) abort with class
+\code{condathis_run_invalid_args}.}
 
-\item{env_name}{Character string with the target environment name.
-Defaults to \code{"condathis-env"}.
-If the default environment does not exist, it is created automatically.
-A missing \emph{custom} \code{env_name} is never created automatically - it
-fails instead, per \code{error} below.}
+\item{env_name}{Character string with the environment name.
+It must be a plain directory name that is valid on Linux, macOS and
+Windows:
+\itemize{
+\item Not empty, and not \code{.} or \code{..}.
+\item Not starting with \code{-}, and not ending with \code{.}.
+\item Without path separators, \code{:}, \verb{#}, whitespace, control characters or
+\verb{<>"|?*}.
+\item Not a Windows device name, such as \code{NUL} or \code{COM1} (see
+\emph{Environment names} in \code{\link[=create_env]{create_env()}}).
+}
 
-\item{method}{Character string naming the backend to use. Defaults to
-\code{"auto"} (resolve automatically: the environment's own owning backend
-if it already exists). \code{"micromamba"} is the only backend registered
-today - and the only one \code{run()} can actually execute through so far.
-\code{"native"} is a deprecated alias for \code{"micromamba"} (warns once per
-session).}
+Invalid values abort with class \code{condathis_invalid_env_name}.
+Functions that take only names reject an \code{\link[=env_path]{env_path()}} value with class
+\code{condathis_env_path_read_only}. \code{\link[=run]{run()}}, \code{\link[=run_bin]{run_bin()}}, \code{\link[=run_pipeline]{run_pipeline()}}
+and \code{\link[=run_step]{run_step()}} accept one.}
 
-\item{verbose}{Character string controlling console output.
-Supported values are \code{"output"}, \code{"silent"}, \code{"cmd"}, \code{"spinner"},
-and \code{"full"}. Defaults to \code{"output"}.
-Logical values are accepted for backward compatibility:
-\code{TRUE} maps to \code{"output"} and \code{FALSE} maps to \code{"silent"}.}
+\item{method}{Character string naming the backend. \code{"auto"} (the
+default) uses the backend that owns \code{env_name} when it exists, and
+otherwise the first available backend in
+\code{getOption("condathis.backend_priority")} order (see
+\link{condathis-options}). Any name from \code{\link[=list_registered_backend_names]{list_registered_backend_names()}}
+selects that backend, and \code{"micromamba"} is built in. The name of a
+backend whose package \code{condathis} knows, such as \code{"rattler"} of the
+\code{rattlerthis} package, also selects it. \code{condathis} loads the package
+on first use. It aborts with class \code{condathis_backend_not_installed}
+when the package is not installed. \code{"native"} is a deprecated alias for
+\code{"micromamba"} (warns once per session).
+If you name a backend other than the owner, functions that change the
+environment abort with class \code{condathis_backend_mismatch}. The others
+warn (\code{condathis_backend_mismatch_warning}) and use the owner.
+An environment found under several backends aborts with
+\code{condathis_backend_ambiguous_env} unless \code{method} names one of them.
+Invalid values abort with class \code{condathis_invalid_method}.}
 
-\item{error}{Character string that controls error behavior.
-Supported values are \code{"cancel"} and \code{"continue"}.
-Defaults to \code{"cancel"}. Also controls what happens when \code{env_name} is
-a non-default environment that does not exist: \code{"cancel"} aborts with
-class \code{condathis_run_env_not_found}; \code{"continue"} returns a result
-with \code{status = 127} instead of running anything.}
+\item{verbose}{Character string that controls the console output. One
+of:
+\itemize{
+\item \code{"output"}: show the output of the command and the messages of
+condathis.
+\item \code{"silent"}: show nothing.
+\item \code{"cmd"}: show the command line.
+\item \code{"spinner"}: show only a spinner.
+\item \code{"full"}: show the command line, the output, and the backend's own
+log.
+}
 
-\item{stdout}{Standard output target.
-Defaults to \code{"|"} (capture stdout in the returned object).
-Provide a file path to redirect stdout to a file.}
+\code{TRUE} means \code{"output"} and \code{FALSE} means \code{"silent"}. Every level
+except \code{"silent"} shows a spinner in interactive sessions. Invalid
+values abort with class \code{condathis_invalid_verbose} (see
+\link{condathis-conditions}). The default is shown in Usage.
 
-\item{stderr}{Standard error target.
-Defaults to \code{"|"} (capture stderr in the returned object).
-Provide a file path to redirect stderr to a file.}
+The command line shown, the \code{cmd} of a result and the messages of
+\code{condathis} show the password and the token of a URL as \verb{*****}.
+\code{micromamba} does the same (\verb{https://user:*****@host/channel},
+\verb{https://host/t/*****/channel}). The command still gets them.}
 
-\item{stdin}{Standard input source.
-Defaults to \code{NULL} (no stdin stream).
-Provide a file path to use file contents as stdin, or \code{"|"} to write
-\code{input} to the process.}
+\item{error}{Character string that controls what happens when the
+command fails. With \code{"cancel"} (the default), \code{condathis} aborts with
+these classes:
+\itemize{
+\item A non-zero exit status: \verb{condathis_<function>_status_error} (also
+\code{condathis_status_error}).
+\item A timeout: \verb{condathis_<function>_timeout_error} (also
+\code{condathis_timeout_error}).
+\item A missing environment: \verb{condathis_<function>_env_not_found} (also
+\code{condathis_env_not_found}).
+}
 
-\item{input}{Character or raw vector written to the process's standard
-input when \code{stdin = "|"}. Defaults to \code{NULL}. Ignored (and must not be
-set) when \code{stdin} is not \code{"|"}. Note: live (real-time) stdout/stderr
-streaming and the spinner are not available when \code{input} triggers the
-writable-stdin code path; \code{timeout} still works.}
+A problem with an \code{\link[=env_path]{env_path()}} value also adds
+\code{condathis_env_path_not_found} or \code{condathis_env_path_not_conda_env}.
+A command that the backend fails to resolve (for example a failed
+activation) aborts with class \verb{condathis_<function>_resolve_failed}
+(also \code{condathis_backend_error}). It keeps the condathis classes of the
+backend's error, such as \code{condathis_activation_dump_error}, and has
+that error as its parent. The status and timeout errors carry the
+fields \code{status}, \code{stdout}, \code{stderr} and \code{timeout}.
 
-\item{binary}{Logical. Whether to capture stdout/stderr as raw vectors
-instead of decoding them as UTF-8 text. Defaults to \code{FALSE}. Since a
-process's stdout and stderr share a single encoding, both streams are
-returned raw when \code{TRUE}, even if only one of them actually carries
-binary data - check with \code{is.raw()} before treating either as text.
-Binary streams are never live-echoed to the console, regardless of
-\code{verbose}.}
+With \code{"continue"}, \code{condathis} returns a result instead. Its exit
+status is the status of the command, 127 for a missing environment or a
+command that could not start, or -9 for a timeout.
 
-\item{supervise}{Logical. Whether the process should be supervised by the
-\code{processx} supervisor for crash-safe cleanup - the process (and its
-descendants, with \code{cleanup_tree = TRUE}) is killed if the R session
-crashes. Defaults to \code{FALSE}.}
+Invalid values abort with class \code{condathis_invalid_error}. See
+\link{condathis-conditions} for all classes.}
 
-\item{cleanup_tree}{Logical. Whether to clean up the child process tree
-(not just the direct child) on crash/interrupt. Defaults to \code{FALSE}.}
+\item{stdout}{Standard output target: \code{"|"} (the default) captures it in
+the result, a file path writes it to that file, and \code{NULL} discards it.}
 
-\item{linux_pdeathsig}{Logical. On Linux, whether to send \code{SIGKILL} to the
-child process if the parent R process dies. Has no effect on other
+\item{stderr}{Standard error target: \code{"|"} (the default) captures it in
+the result, a file path writes it to that file, and \code{NULL} discards it.}
+
+\item{stdin}{Standard input source: \code{NULL} (the default) for no input,
+the path of an existing file to read, or \code{"|"} to write \code{input} to the
+command. Other values abort with class \code{condathis_invalid_stdin}.}
+
+\item{input}{Character or raw vector written to the standard input of
+the command. \code{condathis} joins the elements of a character vector with
+line feeds and adds none after the last one. Must be \code{NULL} (the default)
+unless \code{stdin = "|"}. Other values abort with class
+\code{condathis_invalid_input}. With \code{stdin = "|"}, \code{condathis} shows the
+output when the command ends, not while it runs, and shows no spinner.}
+
+\item{binary}{Logical. Whether to return \code{stdout} and \code{stderr} as raw
+vectors instead of decoding them as UTF-8 text. Defaults to \code{FALSE}. A
+process has one encoding for both streams, so with \code{TRUE} both are raw,
+even if only one of them carries binary data. Check with \code{is.raw()}
+before treating either as text. \code{condathis} never shows raw streams on
+the console, whatever \code{verbose} is. Values other than \code{TRUE} and \code{FALSE}
+abort with class \code{condathis_invalid_binary}.}
+
+\item{supervise}{Logical. Whether the \code{processx} supervisor watches the
+process: when the R session ends, even by a crash, the supervisor kills
+it. Defaults to \code{FALSE}.}
+
+\item{cleanup_tree}{Logical. Whether to kill the process tree of the
+command, its child processes included, when the command finishes, times
+out, or is interrupted. Defaults to \code{FALSE}, so that a daemon that the
+command starts keeps running after the command exits. On Windows, a
+daemon that keeps the captured standard output or error of the command
+open ends when R has read that output. This is a limit of \code{processx} on
+Windows, whatever \code{cleanup_tree} is. Send the output to files
+(\code{stdout}, \code{stderr}) to keep such a daemon running.}
+
+\item{linux_pdeathsig}{Logical. On Linux, whether the command gets
+\code{SIGTERM} when the R session ends, even by a crash. Ignored on other
 platforms. Defaults to \code{FALSE}.}
 
-\item{timeout}{Numeric. Maximum number of seconds to let the command run
-before it's killed. Defaults to \code{Inf} (no limit, the previous
-behavior). On expiry, the process is killed, \code{timeout} is \code{TRUE} in the
-returned result, and \code{error = "cancel"} aborts with class
-\code{condathis_run_timeout_error} (\code{error = "continue"} returns normally
-with \code{status = -9}).}
+\item{timeout}{Number of seconds the call may take, the activation of the
+environment included (see Details in \code{\link[=run]{run()}}). Defaults to \code{Inf} (no
+limit). \code{condathis} lowers a finite value above 2147483 (about 24.8
+days) to that value. When the time is up, \code{condathis} kills the
+command, or does not start it when the activation took all the time.
+\code{error = "cancel"} then aborts, and \code{error = "continue"} returns a
+result with \code{status = -9} and \code{timeout = TRUE}. Values that are not a
+single, non-negative number abort with class
+\code{condathis_invalid_timeout}.}
 }
 \value{
-A \code{condathis_result} S3 object (a classed list, still usable as
-a plain list) with \code{status}, \code{stdout}, \code{stderr}, \code{timeout}, \code{pid},
-\code{cmd}, and \code{env_name}.
+A \code{condathis_result} object, invisibly: a classed list with
+\code{status}, \code{stdout}, \code{stderr}, \code{timeout}, \code{pid}, \code{cmd} and \code{env_name},
+which prints as a short summary. \code{status} is the exit status of the
+command. On Linux and macOS, a command that a signal ends has status
+128 plus the signal number, as in a shell (143 for \code{SIGTERM}).
+\code{stdout} and \code{stderr} are \code{NA} when that stream was not captured (a
+target other than \code{"|"}). \code{pid} is the process ID of the command with
+\code{stdin = "|"}, and \code{NA} otherwise. \code{cmd} is your command line, each part
+quoted, with the credentials of URLs masked (see \code{verbose}). \code{env_name}
+is the environment name, or the directory of an \code{\link[=env_path]{env_path()}}.
 }
 \description{
-Executes a command in a Conda environment managed by \code{condathis}.
-The command is run through \verb{micromamba run} using the internal Conda root.
+Runs a command line tool with a Conda environment activated. The command
+gets the environment variables that the activation sets, including those
+of the \code{activate.d} scripts of its packages. To run a program without
+activation, use \code{\link[=run_bin]{run_bin()}} with \code{activate = FALSE}.
 }
 \details{
-This function is the main execution entry point in \code{condathis}.
-Use it to run CLI tools with reproducible dependencies isolated in Conda
-environments.
+\code{run()} activates the environment and starts the command itself. The
+micromamba backend records the activation of an environment the first
+time a command runs in it. That first command takes longer, and \code{timeout}
+includes the activation. The backend reuses the activation until the
+environment changes (its packages, \code{activate.d} scripts or \code{env_vars.d}
+files). A change in the environment variables of the R session also ends
+the reuse.
+
+Arguments in \code{...} reach the command exactly as given on every platform.
+No shell is involved. Characters such as \code{>}, \code{|}, \code{&}, \verb{\%}, \code{$}, \code{*} and
+quotes have no special meaning. Shell builtins (for example \code{echo} or
+\code{dir} on Windows) are not available as commands. To use shell features,
+run a shell explicitly, as in \code{run("bash", "-c", "...")}. To connect
+commands with pipes, use \code{\link[=run_pipeline]{run_pipeline()}}. One exception applies on
+Windows. Windows starts batch files (\code{.bat}, \code{.cmd}) through \code{cmd.exe},
+which parses their arguments again.
+
+When \code{env_name} is the default \code{"condathis-env"} and that environment
+does not exist, \code{run()} creates it, empty, with the backend that \code{method}
+selects. \code{run()} never creates any other missing environment. The call
+fails, as \code{error} describes.
+
+The errors of a failed or timed-out command carry the fields \code{status},
+\code{stdout}, \code{stderr} and \code{timeout}. A handler does not need to parse the
+message, as in
+\code{tryCatch(run("false"), condathis_status_error = function(e) e$status)}.
 }
 \examples{
 \dontrun{
 condathis::with_sandbox_dir({
-  ## Create env
-  ## `samtools` (bioconda) has no Windows build on any channel, so this
-  ## specific example only runs on Linux/macOS - unlike most `condathis`
-  ## examples, there's no portable substitute that still demonstrates a
-  ## real bioinformatics CLI operating on the packaged BAM file below.
-  create_env("bioconda::samtools", env_name = "samtools-env")
+  # A local channel shipped with condathis, with `polyglot`: a
+  # dependency-free script that runs on Linux, macOS and Windows.
+  channel <- system.file(
+    "extdata", "polyglot-channel",
+    package = "condathis"
+  )
+  create_env("polyglot", env_name = "polyglot-env", channels = channel)
 
-  ## Run a command in a specific Conda environment
-  samtools_res <- run(
-    "samtools", "view",
-    fs::path_package("condathis", "extdata", "example.bam"),
-    env_name = "samtools-env",
+  # Run its command, on any platform
+  polyglot_res <- run(
+    "polyglot",
+    env_name = "polyglot-env",
     verbose = "silent"
   )
-  parse_output(samtools_res)[1]
-  #> [1] "SOLEXA-1GA-1_6_FC20ET7:6:92:473:531\t0\tchr1\t10156..."
+  print(parse_output(polyglot_res)[1])
+  #> [1] "System detected: Linux/Unix"
+
+  # `pigz` (conda-forge) has builds for Linux, macOS and Windows
+  create_env("conda-forge::pigz", env_name = "pigz-env")
+
+  # Decompress a FASTQ file shipped with condathis
+  fastq_file <- fs::path_package(
+    "condathis", "extdata", "sample1_L001_R1_001.fastq.gz"
+  )
+  pigz_res <- run(
+    "pigz", "--decompress", "--stdout", fastq_file,
+    env_name = "pigz-env",
+    verbose = "silent"
+  )
+  print(parse_output(pigz_res)[1])
+  #> [1] "@read1/gi|424037187|ref|NR_073460.1| Homo sapiens ribosome ..."
 })
 }
 
 }
 \seealso{
-\code{\link{install_micromamba}}, \code{\link{create_env}}
+\code{\link[=create_env]{create_env()}} to create an environment, \code{\link[=env_path]{env_path()}} for an
+environment created outside \code{condathis}, and \link{condathis-conditions}
+for the condition classes.
+
+Other commands:
+\code{\link[=parse_output]{parse_output()}},
+\code{\link[=run_bin]{run_bin()}},
+\code{\link[=run_pipeline]{run_pipeline()}},
+\code{\link[=run_step]{run_step()}}
 }
+\concept{commands}

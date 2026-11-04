@@ -5,91 +5,323 @@
 \title{Create a Conda environment}
 \usage{
 create_env(
-  packages = NULL,
-  env_file = NULL,
+  ...,
   env_name = "condathis-env",
-  channels = "conda-forge",
   method = "auto",
-  channel_priority = c("strict", "flexible", "disabled"),
-  additional_channels = NULL,
-  platform = NULL,
   verbose = c("output", "silent", "cmd", "spinner", "full"),
+  channels = "conda-forge",
+  additional_channels = NULL,
+  channel_priority = c("strict", "flexible", "disabled"),
+  platform = NULL,
+  env_file = NULL,
   overwrite = FALSE
 )
 }
 \arguments{
-\item{packages}{Character vector of package MatchSpec strings.
-Examples: \code{"python=3.13"}, \code{"bioconda::fastqc==0.12.1"}.
-Defaults to \code{NULL}.}
+\item{...}{Package match specs (MatchSpec strings), unnamed: character
+strings or character vectors, in order. Examples: \code{"python=3.13"},
+\code{"bioconda::fastqc==0.12.1"}. With no specs, \code{create_env()} creates an
+empty environment.
+Any other value aborts with class
+\code{condathis_create_env_invalid_packages}. Such values are:
+\itemize{
+\item A named argument that \code{create_env()} does not have. The error names
+the closest argument.
+\item A value that is not a character vector.
+\item \code{NA} or \code{""}.
+\item A file name that ends in \code{.yml} or \code{.yaml}. Pass it as \code{env_file}.
+}
 
-\item{env_file}{Character string with the path to an environment YAML file.
-Defaults to \code{NULL}.
-When provided, it is passed to \verb{micromamba create -f}, and the
-"environment already satisfies the request" shortcut is skipped:
-whether an existing environment satisfies a file's contents cannot
-be checked cheaply, so the creation always runs.}
+\verb{packages = <specs>} still works. It is deprecated and warns once per
+session (class \code{condathis_deprecated_packages_arg}).
+\code{create_env()} aborts with class
+\code{condathis_create_env_positional_env_name} when \code{env_name} is not given
+and the last of two or more specs names an existing environment. Name
+the argument, as in \code{env_name = "my-env"}.}
 
-\item{env_name}{Character string with the target environment name.
-Defaults to \code{"condathis-env"}.}
+\item{env_name}{Character string with the environment name.
+It must be a plain directory name that is valid on Linux, macOS and
+Windows:
+\itemize{
+\item Not empty, and not \code{.} or \code{..}.
+\item Not starting with \code{-}, and not ending with \code{.}.
+\item Without path separators, \code{:}, \verb{#}, whitespace, control characters or
+\verb{<>"|?*}.
+\item Not a Windows device name, such as \code{NUL} or \code{COM1} (see
+\emph{Environment names} in \code{\link[=create_env]{create_env()}}).
+}
 
-\item{channels}{Character vector with channel names used for dependency
-resolution. Defaults to \code{"conda-forge"}. Packages from other channels
-(e.g. \code{bioconda}) can either use a channel-prefixed spec in
-\code{packages} - \code{"bioconda::samtools"} pulls the package \emph{and} its
-bioconda dependencies without any change here - or add the channel
-explicitly, e.g. \code{channels = c("conda-forge", "bioconda")}.}
+Invalid values abort with class \code{condathis_invalid_env_name}.
+Functions that take only names reject an \code{\link[=env_path]{env_path()}} value with class
+\code{condathis_env_path_read_only}. \code{\link[=run]{run()}}, \code{\link[=run_bin]{run_bin()}}, \code{\link[=run_pipeline]{run_pipeline()}}
+and \code{\link[=run_step]{run_step()}} accept one.}
 
-\item{method}{Character string naming the backend to use. Defaults to
-\code{"auto"} (resolve automatically: the environment's own owning backend
-if it already exists, otherwise \code{getOption("condathis.backend_priority")}
-order). \code{"micromamba"} is the only backend registered today.
-\code{"native"} is a deprecated alias for \code{"micromamba"} (warns once per
-session).}
+\item{method}{Character string naming the backend. \code{"auto"} (the
+default) uses the backend that owns \code{env_name} when it exists, and
+otherwise the first available backend in
+\code{getOption("condathis.backend_priority")} order (see
+\link{condathis-options}). Any name from \code{\link[=list_registered_backend_names]{list_registered_backend_names()}}
+selects that backend, and \code{"micromamba"} is built in. The name of a
+backend whose package \code{condathis} knows, such as \code{"rattler"} of the
+\code{rattlerthis} package, also selects it. \code{condathis} loads the package
+on first use. It aborts with class \code{condathis_backend_not_installed}
+when the package is not installed. \code{"native"} is a deprecated alias for
+\code{"micromamba"} (warns once per session).
+If you name a backend other than the owner, functions that change the
+environment abort with class \code{condathis_backend_mismatch}. The others
+warn (\code{condathis_backend_mismatch_warning}) and use the owner.
+An environment found under several backends aborts with
+\code{condathis_backend_ambiguous_env} unless \code{method} names one of them.
+Invalid values abort with class \code{condathis_invalid_method}.}
 
-\item{channel_priority}{Character string with channel priority mode.
-Supported values are \code{"strict"}, \code{"flexible"}, and \code{"disabled"}.
-Defaults to \code{"strict"}, matching \code{micromamba}'s own recommended
-default: when multiple channels provide a package, only the
-highest-priority channel's builds are considered, which keeps
-resolution reproducible.}
+\item{verbose}{Character string that controls the console output. One
+of:
+\itemize{
+\item \code{"output"}: show the output of the command and the messages of
+condathis.
+\item \code{"silent"}: show nothing.
+\item \code{"cmd"}: show the command line.
+\item \code{"spinner"}: show only a spinner.
+\item \code{"full"}: show the command line, the output, and the backend's own
+log.
+}
 
-\item{additional_channels}{Character vector of additional channels appended
-to \code{channels}. Defaults to \code{NULL}.}
+\code{TRUE} means \code{"output"} and \code{FALSE} means \code{"silent"}. Every level
+except \code{"silent"} shows a spinner in interactive sessions. Invalid
+values abort with class \code{condathis_invalid_verbose} (see
+\link{condathis-conditions}). The default is shown in Usage.
 
-\item{platform}{Character string with the platform used for dependency
-solving (for example, \code{"linux-64"}, \code{"osx-64"}, \code{"osx-arm64"},
-\code{"win-64"}, \code{"noarch"}). Defaults to \code{NULL}.
-On Apple Silicon, \code{condathis} may fall back to \code{"osx-64"} when Rosetta 2
-is available and packages are not available for \code{"osx-arm64"}.}
+The command line shown, the \code{cmd} of a result and the messages of
+\code{condathis} show the password and the token of a URL as \verb{*****}.
+\code{micromamba} does the same (\verb{https://user:*****@host/channel},
+\verb{https://host/t/*****/channel}). The command still gets them.}
 
-\item{verbose}{Character string controlling console output.
-Supported values are \code{"output"}, \code{"silent"}, \code{"cmd"}, \code{"spinner"},
-and \code{"full"}. Defaults to \code{"output"}.
-Logical values are accepted for backward compatibility:
-\code{TRUE} maps to \code{"output"} and \code{FALSE} maps to \code{"silent"}.}
+\item{channels}{A non-empty character vector of channel names or URLs,
+in priority order. For a package from another channel, either name the
+channel in the spec (\code{"bioconda::samtools"}) or add it here, as in
+\code{channels = c("conda-forge", "bioconda")}. Invalid values, such as
+\code{NULL}, \code{NA} or \code{""}, abort with class
+\code{condathis_create_env_invalid_channels}.}
 
-\item{overwrite}{Logical value that controls whether an existing environment
-should always be recreated. Defaults to \code{FALSE}.}
+\item{additional_channels}{\code{NULL} (the default) or a non-empty character
+vector of channel names or URLs, used after \code{channels}. Invalid values
+abort with class \code{condathis_create_env_invalid_channels} (also
+\code{condathis_invalid_additional_channels}).}
+
+\item{channel_priority}{Channel priority mode: \code{"strict"} (the default),
+\code{"flexible"} or \code{"disabled"}. With \code{"strict"}, when several channels
+have a package, the solver uses only the builds from the first of them.
+This keeps the solution reproducible. The mamba documentation recommends
+this setting. Invalid values abort with class
+\code{condathis_create_env_invalid_channel_priority}.}
+
+\item{platform}{\code{NULL} (the default) or the platform for the solver: a
+known conda platform (subdir) name in lower case, such as
+\code{"linux-64"}, \code{"linux-aarch64"}, \code{"osx-64"}, \code{"osx-arm64"},
+\code{"win-64"}, \code{"win-arm64"} or \code{"emscripten-wasm32"}. Other values abort
+with class \code{condathis_create_env_invalid_platform} before anything
+runs. The message suggests a close name, such as \code{"linux-aarch64"}
+for \code{"linux-arm64"}. When the channels have no packages for a known
+platform, the backend fails. Then \code{create_env()} aborts with class
+\code{condathis_create_env_failed}.
+With \code{NULL}, condathis can fall back to an emulated platform. This
+happens when the package specs or the \code{env_file} cannot be installed
+for the native platform, dependencies included, but can for the
+emulated one. This works with every backend that can tell whether a
+request solves for a platform, micromamba included. On Apple Silicon,
+condathis uses \code{"osx-64"} when Rosetta 2 is available. With a backend
+that solves for \code{"win-arm64"}, condathis uses \code{"win-64"} through x64
+emulation. The \code{win-arm64} micromamba, which a native ARM64 R on
+Windows installs, is such a backend. \code{\link[=install_packages]{install_packages()}} later
+installs packages for the platform that the environment was created
+for, given or emulated.
+For an existing environment, see \emph{Existing environments}.}
+
+\item{env_file}{\code{NULL} (the default) or the path of an environment YAML
+file. With the micromamba backend, condathis passes it to
+\verb{micromamba create -f}. No backend applies the \verb{variables:} of a YAML
+file: the commands that run in the environment do not get them. Do not
+use both package specs and \code{env_file}: that aborts with class
+\code{condathis_create_env_conflicting_args}. A file that does not exist
+aborts with class \code{condathis_create_env_missing_env_file}.}
+
+\item{overwrite}{\code{TRUE} or \code{FALSE} (the default).
+With \code{FALSE}, \code{create_env()} never replaces an existing environment.
+\code{create_env()} keeps the environment and runs nothing when it has every
+requested package (see \emph{Existing environments}) or when no package is
+requested. It returns status 0.
+Otherwise, and always when \code{env_file} is set, \code{create_env()} aborts with
+class \code{condathis_create_env_exists}. Use \code{\link[=install_packages]{install_packages()}} to add
+packages to an existing environment. Use \code{\link[=validate_env]{validate_env()}} to check one.
+With \code{TRUE}, \code{create_env()} creates the environment again from scratch,
+also when it exists or was built for another \code{platform}. When
+\code{create_env()} fails to create the new environment (a misspelled
+package, a download error), it keeps the existing one as it was. When it
+cannot move the existing one aside first (on Windows, while a program
+uses one of its files), it aborts with class
+\code{condathis_create_env_failed} and changes nothing.
+Invalid values abort with class \code{condathis_create_env_invalid_overwrite}.}
 }
 \value{
-A \code{condathis_result} S3 object (a classed list, still usable as
-a plain list) with \code{status}, \code{stdout}, \code{stderr}, \code{timeout}, \code{pid},
-\code{cmd}, and \code{env_name}.
+A \code{condathis_result} object, invisibly: a classed list with
+\code{status}, \code{stdout}, \code{stderr}, \code{timeout}, \code{pid}, \code{cmd} and \code{env_name}.
+\code{cmd} is the command line that the backend ran. It is \code{NA} when the
+backend reports none or when nothing ran (an existing environment that
+already has the requested packages). \code{stdout}, \code{stderr} and \code{pid} are
+\code{NA} when the backend reports none, and \code{pid} always is with micromamba.
+A backend failure aborts with class \code{condathis_create_env_failed} (also
+\code{condathis_backend_error}), with the backend's error as the parent.
+micromamba runs the link scripts of packages (\code{pre-link} and
+\code{post-link}). A backend that does not, such as \code{"rattler"} of the
+\code{rattlerthis} package, makes \code{create_env()} warn with class
+\code{condathis_create_env_link_scripts_skipped} (also
+\code{condathis_link_scripts_skipped}). The warning names the packages,
+which may not work.
 }
 \description{
-Creates a Conda environment managed by \code{condathis} and installs dependencies
-from package specs or from an environment file.
+Creates a Conda environment from package specs or from an environment
+file. With \code{overwrite = FALSE} (the default), \code{create_env()} never replaces
+an existing environment. It keeps the environment when it already has the
+requested packages. Otherwise, it aborts (see \emph{Existing environments}).
 }
+\details{
+With the micromamba backend, \code{create_env()} adds the new environment to
+\verb{~/.conda/environments.txt}, the registry that conda and mamba share.
+It does so only when micromamba needs your home directory, for example
+for channel credentials you saved there (see Details in
+\code{\link[=get_install_dir]{get_install_dir()}}).
+}
+\section{Existing environments}{
+
+With \code{overwrite = FALSE}, \code{create_env()} compares an existing environment
+with the request. \code{\link[=validate_env]{validate_env()}} makes the same comparison.
+
+An installed package satisfies a spec when it matches the name, version,
+build string and channel of the spec. The name match ignores case:
+\code{"PyYAML"} matches \code{pyyaml}. A spec without a channel must match a
+package from \code{channels} or \code{additional_channels}. The channel comparison
+ignores credentials and platform subdirectories, and compares a local
+channel by its absolute path. \code{"defaults"} matches the \code{pkgs/main} and
+\code{pkgs/r} packages it installs. The comparison uses only these bracket
+constraints: \code{version}, \code{build}, \code{build_number} and \code{channel}. \verb{>=1.2.*}
+is read as \verb{>=1.2}, as micromamba does. A build string matches with \code{*}
+as its only wildcard.
+
+A spec that condathis cannot compare, or that micromamba, rattler and
+conda read differently, never counts as satisfied. \code{create_env()} then
+aborts for it with class \code{condathis_create_env_exists}. These are specs
+with:
+\itemize{
+\item Another bracket constraint, such as \code{"zlib[md5=...]"}, or a group in
+parentheses at the end, such as \code{"zlib (>=1.2,<2)"} (read as bracket
+constraints).
+\item A version with \code{*} after \code{>}, \code{<}, \code{<=} or \verb{~=} (\code{"zlib<2.*"}).
+\item A version with \code{*} in its middle (\code{"zlib=1.*.3"}, \code{"zlib=1.3.*.*"}), in
+\verb{!=1.2*} or in \verb{=1.2*}.
+\item A version with \code{*} after \code{>=}, other than a single \verb{.*} at the end
+(\code{"zlib>=1.2*"}).
+\item \verb{~=} with a one-part version (\code{"zlib~=1"}), an operator with no
+version (\code{"zlib>=*"}), a missing operand (\code{"zlib>=1.2,"}), a
+\code{build_number} with \code{==} (\code{"zlib[build_number='==0']"}), or a version
+that micromamba rejects (\code{"zlib>==1.2"}).
+\item A build string with a character other than a letter, a digit, \verb{_},
+\code{.} and \code{*}, such as a regular expression (\code{"zlib=1.3.1=^h4.*$"}) or
+\verb{?}.
+}
+
+A spec that condathis cannot read, such as \code{"::"}, aborts with class
+\code{condathis_parse_match_spec_invalid_name}. The URL of a package file
+whose name is not \verb{<name>-<version>-<build>} aborts with class
+\code{condathis_parse_match_spec_invalid_url}. Both errors also have class
+\code{condathis_invalid_arg}. For a new environment, only the backend reads
+the specs. A spec it cannot read aborts with class
+\code{condathis_create_env_failed}.
+
+When \code{platform} is given, the platform of the installed packages must be
+\code{platform} (\code{noarch} packages match any platform). A different platform
+aborts with class \code{condathis_create_env_platform_mismatch}, and
+\code{create_env()} keeps the environment. With \code{platform = NULL}, the
+platform is not compared.
+}
+
+\section{Other R sessions}{
+
+Only one R session at a time changes an environment. \code{\link[=create_env]{create_env()}},
+\code{\link[=install_packages]{install_packages()}} and \code{\link[=remove_env]{remove_env()}} hold a lock on the environment
+name while they work, with every backend. A call for an environment that
+another R session is changing waits until that session is done. After
+two seconds, the call says so with a message of class
+\code{condathis_env_lock_waiting}. \code{verbose = "silent"} hides this message.
+Ctrl-C stops the wait. \code{\link[=clean_cache]{clean_cache()}} waits until no other R session
+creates an environment or installs packages. Those calls wait while it
+cleans. Each wait gives a message of class \code{condathis_cache_lock_waiting}.
+A lock lasts only as long as its session, also when the session crashes
+or is killed. The lock files are in the directory \code{locks} of the
+condathis data directory (see \code{\link[=get_install_dir]{get_install_dir()}}). Where files cannot be
+locked, such as on some network file systems, the call goes on without
+the lock. When it changes something, it warns once per session with class
+\code{condathis_env_lock_unavailable}.
+}
+
+\section{Environment names}{
+
+An \code{env_name} cannot be a Windows device name, on any OS. These names are
+\code{CON}, \code{PRN}, \code{AUX}, \code{NUL}, \verb{CONIN$}, \verb{CONOUT$}, \code{COM1} to \code{COM9} and
+\code{LPT1} to \code{LPT9}, and \code{COM} or \code{LPT} followed by a superscript one, two
+or three. The match ignores letter case and also applies with an
+extension, such as \code{nul.txt}.
+}
+
 \examples{
 \dontrun{
 condathis::with_sandbox_dir({
+  # A local channel shipped with condathis, with `polyglot`: a
+  # dependency-free script that runs on Linux, macOS and Windows.
+  channel <- system.file(
+    "extdata", "polyglot-channel",
+    package = "condathis"
+  )
+
+  # Create a Conda environment from that channel, without network access
+  # once micromamba is installed.
+  condathis::create_env(
+    "polyglot",
+    env_name = "polyglot-env",
+    channels = channel
+  )
+
+  # A second call keeps the environment: it already has `polyglot`.
+  condathis::create_env(
+    "polyglot",
+    env_name = "polyglot-env",
+    channels = channel
+  )
+
+  # Create an empty environment.
+  condathis::create_env(env_name = "empty-env")
+
   # Create a Conda environment and install the CLI `fastqc` in it.
   # Explicitly using the channel `bioconda` and version `0.12.1`.
   condathis::create_env(
-    packages = "bioconda::fastqc==0.12.1",
+    "bioconda::fastqc==0.12.1",
     env_name = "fastqc-env",
     verbose = "output"
   )
 })
 }
 }
+\seealso{
+\link{condathis-conditions} for every condition class, and
+\link{condathis-options} for the options that choose the backend.
+
+Other environments:
+\code{\link[=env_exists]{env_exists()}},
+\code{\link[=env_path]{env_path()}},
+\code{\link[=get_env_dir]{get_env_dir()}},
+\code{\link[=install_packages]{install_packages()}},
+\code{\link[=list_envs]{list_envs()}},
+\code{\link[=list_packages]{list_packages()}},
+\code{\link[=remove_env]{remove_env()}},
+\code{\link[=validate_env]{validate_env()}}
+}
+\concept{environments}

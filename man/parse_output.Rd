@@ -2,29 +2,70 @@
 % Please edit documentation in R/parse_output.R
 \name{parse_output}
 \alias{parse_output}
-\title{Parse command output text}
+\title{Split the output of a command into lines}
 \usage{
-parse_output(res, stream = c("stdout", "stderr", "both", "plain"))
+parse_output(
+  res,
+  stream = c("stdout", "stderr", "both", "plain"),
+  trim = FALSE
+)
 }
 \arguments{
-\item{res}{Either a process result list (with \code{stdout} and/or \code{stderr}) or a
-character vector when \code{stream = "plain"}. Errors if the requested
-stream(s) hold raw binary data (from \code{run()}/\code{run_bin()}/
-\code{run_pipeline()} called with \code{binary = TRUE}) - read those directly
-instead, e.g. with \code{writeBin()}.}
+\item{res}{A \code{\link[=run]{run()}}, \code{\link[=run_bin]{run_bin()}} or \code{\link[=run_pipeline]{run_pipeline()}} result, another
+list with \code{stdout} or \code{stderr} elements, or a character vector for
+\code{stream = "plain"}. For a pipeline result, \code{"stdout"} is the output of
+the last command, the only one whose standard output is captured.
+\code{"stderr"} joins the captured standard error of every command, in
+command order. \code{parse_output()} cannot split a raw stream, from
+\code{binary = TRUE}, into lines. Use the raw vector itself, for example with
+\code{\link[=writeBin]{writeBin()}}.}
 
-\item{stream}{Character string selecting the output source.
-Supported values are \code{"stdout"}, \code{"stderr"}, \code{"both"}, and \code{"plain"}.
-Defaults to \code{"stdout"}.}
+\item{stream}{Character string selecting the output source:
+\code{"stdout"} (the default), \code{"stderr"}, \code{"both"} or \code{"plain"}.
+\itemize{
+\item \code{"stdout"} and \code{"stderr"} abort when that stream was not captured
+(redirected to a file or discarded, \code{NA} in the result).
+\item \code{"both"} gives all of the standard output, then all of the standard
+error. The order in which the command wrote to the two streams is
+lost. \code{parse_output()} leaves out a stream that was not captured. It
+aborts only if neither stream was captured.
+\item \code{"plain"} reads \code{res} itself, a character vector without missing
+values. \code{parse_output()} joins its elements with line ends.
+}
+
+Other values abort with class \code{condathis_invalid_stream}.}
+
+\item{trim}{Logical. Whether to remove whitespace at the start and end of
+each line, and blank lines at the start and end of the output. Defaults
+to \code{FALSE}. Values other than \code{TRUE} and \code{FALSE} abort with class
+\code{condathis_invalid_trim}.}
 }
 \value{
-A character vector with one trimmed line per element.
+A character vector with one line per element, without line
+ends. \code{character(0)} for empty output. A \code{res} that cannot be read
+aborts with class \code{condathis_parse_output_invalid_res} (also
+\code{condathis_invalid_res}), and a raw stream with
+\code{condathis_parse_output_binary_stream}.
 }
 \description{
-Parses output from a \code{run()} result into trimmed text lines.
+Splits an output stream of a \code{\link[=run]{run()}}, \code{\link[=run_bin]{run_bin()}} or \code{\link[=run_pipeline]{run_pipeline()}}
+result into lines.
+}
+\details{
+Lines end at a line feed, a carriage return and line feed pair, or a
+carriage return alone, so the result is the same on every operating
+system. \code{parse_output()} removes the line ends, and a line end at the end
+of the output does not start one more, empty line. It keeps the rest of
+the text as the command wrote it: spaces and tabs at the start and end of
+lines, and blank lines. Empty output gives \code{character(0)}.
+
+\code{trim = TRUE} also removes whitespace at the start and end of each line,
+and blank lines at the start and end of the output. This is useful for
+a single value, such as a version string. It changes tab-separated
+output with empty first or last fields, and indented text such as YAML.
 }
 \examples{
-# Example result object from condathis::run()
+# A list with the output fields of a `run()` result
 res <- list(
   stdout = "line1\nline2\nline3\n",
   stderr = "error1\nerror2\n"
@@ -43,4 +84,19 @@ parse_output(res, stream = "both")
 plain_text <- "This is line one.\nThis is line two.\nThis is line three."
 parse_output(plain_text, stream = "plain")
 
+# Whitespace is kept: the empty first field of this tab-separated line
+# stays in place
+parse_output("\tchr1\t100\n", stream = "plain")
+
+# Remove it when only the text matters
+parse_output("  2.9.0  \n\n", stream = "plain", trim = TRUE)
+
 }
+\seealso{
+Other commands:
+\code{\link[=run]{run()}},
+\code{\link[=run_bin]{run_bin()}},
+\code{\link[=run_pipeline]{run_pipeline()}},
+\code{\link[=run_step]{run_step()}}
+}
+\concept{commands}

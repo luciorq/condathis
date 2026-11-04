@@ -2,29 +2,39 @@
 % Please edit documentation in R/micromamba_bin_path.R
 \name{micromamba_bin_path}
 \alias{micromamba_bin_path}
-\title{Get the managed \code{micromamba} binary path}
+\title{Get the path of the managed micromamba binary}
 \usage{
 micromamba_bin_path()
 }
 \value{
-A character string with the full executable path.
-On Windows this points to \code{micromamba.exe} under \code{Library/bin}.
-On other platforms this points to \code{micromamba} under \code{bin}.
-This is purely a computed, expected path - it does not check whether a
-file actually exists there yet (unlike \code{get_install_dir()}, which
-creates its directory before returning). Use \code{fs::file_exists()} on
-the result, or \code{install_micromamba()}, if you need the binary to
-actually be present.
+An \code{fs_path}, the full path of the executable:
+\code{micromamba/bin/micromamba} in the condathis data directory, or
+\code{micromamba/Library/bin/micromamba.exe} on Windows. It does not check
+that a file exists there. Like \code{\link[=get_install_dir]{get_install_dir()}}, it creates the
+condathis data directory when it is missing. Use \code{\link[fs:file_exists]{fs::file_exists()}} on
+the result to check that the binary is present, or
+\code{\link[=install_micromamba]{install_micromamba()}} to install it.
 }
 \description{
-Returns the expected path to the \code{micromamba} executable managed by
-\code{condathis} for the current operating system.
+Returns the path of the \code{micromamba} executable that
+\code{\link[=install_micromamba]{install_micromamba()}} installs, in the condathis data directory (see
+\code{\link[=get_install_dir]{get_install_dir()}}). It is the third candidate of \emph{micromamba
+discovery} in \link{condathis-options}, after the \code{condathis.micromamba_path}
+option and the \code{CONDATHIS_MICROMAMBA_PATH} variable.
 }
 \examples{
 condathis::with_sandbox_dir({
-  # Retrieve the path used by condathis for micromamba
-  micromamba_path <- condathis::micromamba_bin_path()
-  print(micromamba_path)
+  # The path where condathis installs micromamba
+  print(condathis::micromamba_bin_path())
 })
 
 }
+\seealso{
+Other setup:
+\code{\link[=clean_cache]{clean_cache()}},
+\code{\link[=get_install_dir]{get_install_dir()}},
+\code{\link[=get_sys_arch]{get_sys_arch()}},
+\code{\link[=install_micromamba]{install_micromamba()}},
+\code{\link[=with_sandbox_dir]{with_sandbox_dir()}}
+}
+\concept{setup}

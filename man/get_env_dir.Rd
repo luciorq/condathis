@@ -8,31 +8,75 @@ get_env_dir(env_name = "condathis-env", method = "auto")
 }
 \arguments{
 \item{env_name}{Character string with the environment name.
-Defaults to \code{"condathis-env"}.}
+It must be a plain directory name that is valid on Linux, macOS and
+Windows:
+\itemize{
+\item Not empty, and not \code{.} or \code{..}.
+\item Not starting with \code{-}, and not ending with \code{.}.
+\item Without path separators, \code{:}, \verb{#}, whitespace, control characters or
+\verb{<>"|?*}.
+\item Not a Windows device name, such as \code{NUL} or \code{COM1} (see
+\emph{Environment names} in \code{\link[=create_env]{create_env()}}).
+}
 
-\item{method}{Character string naming the backend to use. Defaults to
-\code{"auto"} (resolve automatically: the environment's own owning
-backend if it already exists). \code{"micromamba"} is the only backend
-registered today. \code{"native"} is a deprecated alias for \code{"micromamba"}
-(warns once per session).}
+Invalid values abort with class \code{condathis_invalid_env_name}.
+Functions that take only names reject an \code{\link[=env_path]{env_path()}} value with class
+\code{condathis_env_path_read_only}. \code{\link[=run]{run()}}, \code{\link[=run_bin]{run_bin()}}, \code{\link[=run_pipeline]{run_pipeline()}}
+and \code{\link[=run_step]{run_step()}} accept one.}
+
+\item{method}{Character string naming the backend. \code{"auto"} (the
+default) uses the backend that owns \code{env_name} when it exists, and
+otherwise the first available backend in
+\code{getOption("condathis.backend_priority")} order (see
+\link{condathis-options}). Any name from \code{\link[=list_registered_backend_names]{list_registered_backend_names()}}
+selects that backend, and \code{"micromamba"} is built in. The name of a
+backend whose package \code{condathis} knows, such as \code{"rattler"} of the
+\code{rattlerthis} package, also selects it. \code{condathis} loads the package
+on first use. It aborts with class \code{condathis_backend_not_installed}
+when the package is not installed. \code{"native"} is a deprecated alias for
+\code{"micromamba"} (warns once per session).
+If you name a backend other than the owner, functions that change the
+environment abort with class \code{condathis_backend_mismatch}. The others
+warn (\code{condathis_backend_mismatch_warning}) and use the owner.
+An environment found under several backends aborts with
+\code{condathis_backend_ambiguous_env} unless \code{method} names one of them.
+Invalid values abort with class \code{condathis_invalid_method}.}
 }
 \value{
-A character string with the expected environment directory path.
+An \code{fs_path}: the absolute path of the environment directory.
 }
 \description{
-Returns the absolute path where an environment is expected under its
-owning backend's installation root. The path is returned even if the
-environment has not been created yet.
+Returns the absolute path where an environment is expected under the data
+directory of its backend. It returns the path even if the environment
+does not exist yet.
+}
+\details{
+Looks up which registered backend owns \code{env_name}, and creates the
+backend's data directory when needed. It creates no environment. When
+\code{env_name} has no directory yet, it does not start or install
+micromamba.
 }
 \examples{
 condathis::with_sandbox_dir({
   # Get the default environment directory
-  condathis::get_env_dir()
-  #> "/path/to/condathis/envs/condathis-env"
+  print(condathis::get_env_dir())
+  #> <data dir>/R/condathis/envs/condathis-env
 
   # Get the directory for a specific environment
   condathis::get_env_dir("my-env")
-  #> "/path/to/condathis/envs/my-env"
+  #> <data dir>/R/condathis/envs/my-env
 })
 
 }
+\seealso{
+Other environments:
+\code{\link[=create_env]{create_env()}},
+\code{\link[=env_exists]{env_exists()}},
+\code{\link[=env_path]{env_path()}},
+\code{\link[=install_packages]{install_packages()}},
+\code{\link[=list_envs]{list_envs()}},
+\code{\link[=list_packages]{list_packages()}},
+\code{\link[=remove_env]{remove_env()}},
+\code{\link[=validate_env]{validate_env()}}
+}
+\concept{environments}

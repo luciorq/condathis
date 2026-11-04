@@ -7,31 +7,98 @@
 clean_cache(verbose = c("output", "silent", "cmd", "spinner", "full"))
 }
 \arguments{
-\item{verbose}{Character string controlling console output.
-Supported values are \code{"output"}, \code{"silent"}, \code{"cmd"}, \code{"spinner"},
-and \code{"full"}. Defaults to \code{"output"}.}
-}
-\value{
-A \code{condathis_result} S3 object (a classed list, still usable as
-a plain list) with \code{status}, \code{stdout}, \code{stderr}, \code{timeout}, \code{pid},
-\code{cmd}, and \code{env_name}. \code{env_name} is always \code{NA} since cache cleanup is
-not tied to a specific environment.
-}
-\description{
-Removes cached packages and archives from the \code{condathis} Conda root.
-Also removes files from the package cache directory returned by
-\code{tools::R_user_dir(package = "condathis", which = "cache")}.
-}
-\details{
-Package files still referenced by existing environments may not be removed.
-To maximize cleanup, remove environments first with \code{list_envs()} and
-\code{remove_env()}.
-}
-\examples{
-\dontrun{
-condathis::with_sandbox_dir({
-  clean_cache(verbose = "output")
-})
+\item{verbose}{Character string that controls the console output. One
+of:
+\itemize{
+\item \code{"output"}: show the output of the command and the messages of
+condathis.
+\item \code{"silent"}: show nothing.
+\item \code{"cmd"}: show the command line.
+\item \code{"spinner"}: show only a spinner.
+\item \code{"full"}: show the command line, the output, and the backend's own
+log.
 }
 
+\code{TRUE} means \code{"output"} and \code{FALSE} means \code{"silent"}. Every level
+except \code{"silent"} shows a spinner in interactive sessions. Invalid
+values abort with class \code{condathis_invalid_verbose} (see
+\link{condathis-conditions}). The default is shown in Usage.
+
+The command line shown, the \code{cmd} of a result and the messages of
+\code{condathis} show the password and the token of a URL as \verb{*****}.
+\code{micromamba} does the same (\verb{https://user:*****@host/channel},
+\verb{https://host/t/*****/channel}). The command still gets them.}
 }
+\value{
+A \code{condathis_result} object, invisibly: a classed list with
+\code{status}, \code{stdout}, \code{stderr}, \code{timeout}, \code{pid}, \code{cmd} and \code{env_name}.
+The values come from the micromamba command that ran, and \code{cmd} is its
+command line.
+When no micromamba command ran, \code{status} is \code{0}, \code{timeout} is \code{FALSE}
+and the other fields are \code{NA}. \code{pid} is always \code{NA}, and so is
+\code{env_name}: the caches are not tied to an environment.
+}
+\description{
+Removes the package and metadata caches of condathis and of every
+registered backend, and nothing else:
+\itemize{
+\item For the built-in micromamba backend, the package cache, \code{pkgs}, and
+the repodata cache, \code{cache}, in its data directory (see
+\code{\link[=get_install_dir]{get_install_dir()}}).
+\item For every other backend, its own package and metadata caches, and
+\code{conda-pkgs} in its data directory. \code{conda-pkgs} is the package cache
+of the Conda tools that run in its environments (see \emph{Child processes}
+in \code{\link[=register_backend]{register_backend()}}).
+\item The contents of the condathis cache directory,
+\code{tools::R_user_dir("condathis", "cache")}.
+}
+
+\code{clean_cache()} never deletes the per-user caches of conda, mamba and
+micromamba, such as \verb{~/.cache/conda}, which other tools share.
+}
+\details{
+Environments keep the files of their packages. These files usually share
+disk space with the package cache through hard links. You free that space
+only by also removing those environments (see \code{\link[=list_envs]{list_envs()}} and
+\code{\link[=remove_env]{remove_env()}}).
+
+When the micromamba package cache does not exist, micromamba has nothing
+to clean. \code{clean_cache()} then starts no process and does not install
+micromamba. It still deletes the repodata cache and clears the condathis
+cache directory.
+
+\code{clean_cache()} loads a backend whose package condathis knows, such as
+\code{"rattler"} of the \code{rattlerthis} package, when its data directory has
+caches or environments. When that package is not installed,
+\code{clean_cache()} does not clean its caches and warns with class
+\code{condathis_backend_not_installed}.
+
+\code{clean_cache()} waits until no other R session creates an environment
+or installs packages. Those sessions wait until it is done (see \emph{Other R
+sessions} in \code{\link[=create_env]{create_env()}}).
+
+When a backend fails to clean its caches, \code{clean_cache()} still cleans
+the caches of the other backends and the directories above. Then it
+aborts with the first failure. That error has the classes
+\code{condathis_clean_cache_failed} and \code{condathis_backend_error}, and the
+error of the backend as its parent. When \code{clean_cache()} cannot delete a
+directory itself, it aborts with class \code{condathis_clean_cache_failed} the
+same way.
+}
+\examples{
+condathis::with_sandbox_dir({
+  condathis::clean_cache(verbose = "output")
+})
+
+}
+\seealso{
+\link{condathis-conditions} for every condition class.
+
+Other setup:
+\code{\link[=get_install_dir]{get_install_dir()}},
+\code{\link[=get_sys_arch]{get_sys_arch()}},
+\code{\link[=install_micromamba]{install_micromamba()}},
+\code{\link[=micromamba_bin_path]{micromamba_bin_path()}},
+\code{\link[=with_sandbox_dir]{with_sandbox_dir()}}
+}
+\concept{setup}

@@ -5,15 +5,16 @@
 \title{Run a pipeline of commands connected with pipes}
 \usage{
 run_pipeline(
-  cmds,
+  ...,
+  env_name = "condathis-env",
+  method = "auto",
+  verbose = c("output", "silent", "cmd", "spinner", "full"),
+  error = c("cancel", "continue"),
   stdout = "|",
   stderr = "|",
   stdin = NULL,
   input = NULL,
   binary = FALSE,
-  error = c("cancel", "continue"),
-  env_name = "condathis-env",
-  method = "auto",
   supervise = TRUE,
   cleanup_tree = TRUE,
   linux_pdeathsig = FALSE,
@@ -22,154 +23,253 @@ run_pipeline(
 )
 }
 \arguments{
-\item{cmds}{A list of command specifications. Each element is either:
+\item{...}{Two or more pipeline steps, built with \code{\link[=run_step]{run_step()}}, in
+pipeline order. Splice in a list of steps, built with \code{\link[=list]{list()}} or \code{\link[=c]{c()}},
+with \verb{!!!}, as in \code{run_pipeline(!!!steps)}. \code{\link[=c]{c()}} on steps gives a list
+of steps that later \code{\link[=c]{c()}} calls extend, as in
+\code{c(c(step_1, step_2), step_3)}. To add a step to a plain list or to
+\code{NULL}, wrap it in \code{\link[=list]{list()}}, as in \code{c(steps, list(step))}. \code{\link[=c]{c()}} with a
+plain list or \code{NULL} first splits a step into its fields. Any other
+value aborts with class \code{condathis_run_pipeline_invalid_step}, so name
+every option below in full. Fewer than two steps abort with class
+\code{condathis_run_pipeline_too_few_commands}.}
+
+\item{env_name}{Character string with the default environment of the
+steps that do not set their own, or an environment given by
+\code{\link[=env_path]{env_path()}}. Defaults to \code{"condathis-env"}, which \code{run_pipeline()}
+creates (empty, with the backend that \code{method} selects) when it does
+not exist. \code{run_pipeline()} never creates any other missing environment
+and fails per \code{error}. A name must follow the rules of the \code{env_name}
+argument of \code{\link[=run]{run()}}. Invalid values abort with class
+\code{condathis_invalid_env_name}.}
+
+\item{method}{Character string naming the default backend of the steps
+that do not set their own \code{method} (see \code{\link[=run_step]{run_step()}}). \code{"auto"} (the
+default) uses the backend that owns each environment, and otherwise the
+first available backend in \code{getOption("condathis.backend_priority")}
+order (see \link{condathis-options}). Any name from
+\code{\link[=list_registered_backend_names]{list_registered_backend_names()}} selects that backend. \code{"micromamba"}
+is built in. The name of a backend whose package condathis knows also
+selects it, such as \code{"rattler"} of the \code{rattlerthis} package.
+condathis loads that package, and aborts with class
+\code{condathis_backend_not_installed} when it is not installed. \code{"native"}
+is a deprecated alias for \code{"micromamba"} (it warns once per session).
+If you name a backend other than the owner of an environment,
+condathis warns (\code{condathis_backend_mismatch_warning}) and uses the
+owner. An environment found under several backends aborts with class
+\code{condathis_backend_ambiguous_env}, unless \code{method} names one of them.
+With \code{error = "continue"}, its steps get status 127. Steps that share
+an environment must agree on the backend. Otherwise \code{run_pipeline()}
+aborts with class \code{condathis_run_pipeline_conflicting_method}. Invalid
+values abort with class \code{condathis_invalid_method}.}
+
+\item{verbose}{Character string that controls the console output. One
+of \code{"output"}, \code{"silent"}, \code{"cmd"}, \code{"spinner"} and \code{"full"}. Usage
+shows the default.
+\code{"output"} prints, while the pipeline runs, what it captures: the last
+command's standard output and every command's standard error, when
+their target is \code{"|"}. \code{"cmd"} prints the whole pipeline first.
+\code{"full"} does both. \code{"spinner"} shows only a spinner, and \code{"silent"}
+shows nothing. \code{TRUE} means \code{"output"} and \code{FALSE} means \code{"silent"}.
+Every level except \code{"silent"} shows a spinner in interactive sessions.
+Invalid values abort with class \code{condathis_invalid_verbose}.}
+
+\item{error}{Character string that controls what happens when a command
+fails. With \code{"cancel"} (the default), \code{run_pipeline()} aborts:
 \itemize{
-\item A character vector: \code{c("cmd", "arg1", ...)}. Runs in the
-default \code{env_name}.
-\item A named list with \code{cmd} (character vector) and, optionally,
-\code{env_name} (character string) to specify a per-command environment,
-\code{method} (character string) to specify a per-command backend
-(see \code{method} below - only the \code{"micromamba"} backend can
-actually execute a command today, regardless of which backend
-owns its environment), \code{stderr} to override the top-level
-\code{stderr} target for this command, and \code{stdout} to override the
-top-level \code{stdout} target, only allowed on the \strong{last} command,
-since every other command's standard output is always piped to
-the next command.
-}}
+\item a command that exits with a non-zero status: class
+\code{condathis_run_pipeline_status_error} (also
+\code{condathis_status_error}). A broken pipe can end a command that is not
+the last one: that does not count (see \emph{Broken pipes}).
+\item a timeout: class \code{condathis_run_pipeline_timeout_error} (also
+\code{condathis_timeout_error}).
+\item a step environment that does not exist: class
+\code{condathis_run_pipeline_env_not_found} (also
+\code{condathis_env_not_found}). For an \code{\link[=env_path]{env_path()}}, the error also has
+\code{condathis_env_path_not_found} or \code{condathis_env_path_not_conda_env}.
+\item a step environment found under several backends: class
+\code{condathis_backend_ambiguous_env} (see \code{method}).
+\item a command that the backend fails to resolve, for example because an
+\code{activate.d} script of the environment fails: class
+\code{condathis_run_pipeline_resolve_failed} (also
+\code{condathis_backend_error}). The error keeps the condathis classes of
+the backend's error, for example \code{condathis_micromamba_status_error},
+and has that error as its parent.
+\item an invalid command description from a backend package (a bug in that
+package): class \code{condathis_backend_resolve_run_invalid}.
+}
 
-\item{stdout}{Standard output target for the \strong{last} process.
-\code{"|"} (default) captures output in the result. Use a file path to
-redirect to a file, or \code{NULL} to discard. Can be overridden per-command
-for the last command only (see \code{cmds}).}
+The status and timeout errors carry the fields \code{status}, \code{stdout},
+\code{stderr} and \code{timeout}, as the errors of \code{\link[=run]{run()}} do. They also carry
+\code{result} (the \code{condathis_pipeline} object that \code{error = "continue"}
+returns) and \code{statuses}. With \code{"continue"}, \code{run_pipeline()} returns the
+result instead. Every step in an environment that does not exist or is
+found under several backends gets status 127, with the reason in its
+\code{stderr}. So does every command that cannot be resolved or started. The
+other steps still run. A timeout gives status -9.
+Invalid values abort with class \code{condathis_invalid_error}. See
+\link{condathis-conditions} for all classes.}
 
-\item{stderr}{Standard error target for \strong{all} processes.
-\code{"|"} (default) captures stderr per-process. Use a file path to
-redirect all stderr to a file - each command's stderr is written to
-the file grouped in command order once the pipeline finishes, so
-commands never overwrite each other's output - or \code{NULL} to discard.
-Can be overridden per-command (see \code{cmds}).}
+\item{stdout}{Standard output target of the \strong{last} command: \code{"|"} (the
+default) captures it in the result, a file path writes it to that file,
+and \code{NULL} discards it. The standard output of every other command goes
+to the next command.}
 
-\item{stdin}{Standard input source for the \strong{first} process.
-\code{NULL} (default) discards input. Provide a file path to redirect file
-contents as stdin, or \code{"|"} to write \code{input} to the first process.}
+\item{stderr}{Standard error target for \strong{all} processes. \code{"|"} (the
+default) captures each command's standard error in its result. A file
+path writes them all to that file, in command order once the pipeline
+finishes. \code{NULL} discards them. The \code{stderr} argument of \code{\link[=run_step]{run_step()}}
+replaces it for one command.}
 
-\item{input}{Character or raw vector written to the first process's
-standard input when \code{stdin = "|"}. Defaults to \code{NULL}. Ignored (and
-must not be set) when \code{stdin} is not \code{"|"}.}
+\item{stdin}{Standard input source of the \strong{first} command: \code{NULL} (the
+default) for no input, the path of an existing file to read, or \code{"|"}
+to write \code{input} to it.}
 
-\item{binary}{Logical. Whether to capture every process's stderr, and the
-last process's stdout, as raw vectors instead of decoding them as UTF-8
-text. Defaults to \code{FALSE}. Applies to the whole pipeline; there is no
-per-command override.}
+\item{input}{Character or raw vector written to the standard input of
+the first command, as in \code{\link[=run]{run()}}. Must be \code{NULL} (the default) unless
+\code{stdin = "|"}. Other values abort with class \code{condathis_invalid_input}.}
 
-\item{error}{Character string controlling error behavior.
-Supported values are \code{"cancel"} and \code{"continue"}.
-Defaults to \code{"cancel"}.}
+\item{binary}{Logical. Whether to return raw vectors, not UTF-8 text, for
+the standard error of every command and the standard output of the last
+one. Defaults to \code{FALSE}. It applies to the whole pipeline. There is no
+per-command setting.}
 
-\item{env_name}{Character string with the default Conda environment name
-for commands that do not specify their own.
-Defaults to \code{"condathis-env"}.}
+\item{supervise}{Logical. Whether the \code{processx} supervisor watches each
+process: when the R session ends, even by a crash, the supervisor kills
+it. Defaults to \code{TRUE}, unlike in \code{\link[=run]{run()}} and \code{\link[=run_bin]{run_bin()}}, since a
+pipeline starts several connected processes. Ignored on Windows, where
+supervised pipelines hang.}
 
-\item{method}{Character string naming the default backend for commands
-that do not specify their own \code{method} (see \code{cmds}). Defaults to
-\code{"auto"} (resolve automatically: each command's environment's own
-owning backend). \code{"micromamba"} is the only backend registered
-today - and the only one that can actually execute a command so far.
-\code{"native"} is a deprecated alias for \code{"micromamba"} (warns once per
-session).}
+\item{cleanup_tree}{Logical. Whether to kill the process tree of each
+command, processes that it started in the background included. R kills
+the tree when it frees the process object of the command, at a garbage
+collection after the pipeline finishes. Defaults to \code{TRUE}, so that no
+command outlives the pipeline, unlike in \code{\link[=run]{run()}} and \code{\link[=run_bin]{run_bin()}}, where
+a daemon that a command starts keeps running.}
 
-\item{supervise}{Logical. Whether each process should be supervised by
-the \code{processx} supervisor for crash-safe cleanup. Defaults to \code{TRUE}
-(unlike \code{run()}/\code{run_bin()}, which default to \code{FALSE}) since a pipeline
-manages multiple concurrently connected processes.}
+\item{linux_pdeathsig}{Logical. On Linux, whether each command gets
+\code{SIGTERM} when the R session ends, even by a crash. Ignored on other
+platforms. Defaults to \code{FALSE}.}
 
-\item{cleanup_tree}{Logical. Whether to clean up each process's child
-tree on crash/interrupt. Defaults to \code{TRUE}.}
+\item{activate}{Logical. \code{TRUE} (the default) runs each command with the
+activation of its environment, as \code{\link[=run]{run()}} does. \code{FALSE} sets a fixed
+set of variables instead, without \code{activate.d} scripts (see
+\link{condathis-options}). Each command runs in the working directory of
+the R session, unless the activation of a backend gives another one.}
 
-\item{linux_pdeathsig}{Logical. On Linux, whether to send \code{SIGKILL} to
-each child process if the parent R process dies. Has no effect on
-other platforms. Defaults to \code{FALSE}.}
-
-\item{activate}{Logical. Whether to resolve each command's environment
-through a real \verb{micromamba run} activation (including package
-\code{activate.d} hook scripts), cached per
-\code{env_name}. Defaults to \code{TRUE}. Set to \code{FALSE} to use the original,
-faster hand-rolled activation (a fixed set of \verb{CONDA_*}/\verb{MAMBA_*}
-variables, no \code{activate.d} execution). The
-first pipeline call touching a given \code{env_name} with \code{activate = TRUE}
-pays for two extra subprocess spawns to resolve it; repeat calls for
-the same, unchanged environment hit the cache.}
-
-\item{timeout}{Numeric. Maximum number of seconds to let the whole
-pipeline run before every process in it is killed. Defaults to \code{Inf}
-(no limit, the previous behavior). Applies to the pipeline as a whole
-(a single shared deadline across every command), not per-command. On
-expiry, every still-running process is killed (\code{status = -9}, matching
-\code{processx::run()}'s own convention) and, gated by \code{error} exactly like
-a non-zero exit status, \code{error = "cancel"} aborts with class
-\code{condathis_pipeline_timeout_error} while \code{error = "continue"} returns
-normally with \code{result$timeout} (and each killed process's own
-\code{timeout}) set to \code{TRUE}.}
+\item{timeout}{Number of seconds the whole pipeline may take, the
+activations of the environments included: one deadline for all
+commands, not one per command. Defaults to \code{Inf} (no limit).
+\code{run_pipeline()} lowers a finite value above 2147483 (about 24.8 days)
+to that value. When the time is up, \code{run_pipeline()} kills every
+command still running (status -9 and \code{timeout = TRUE} in its result).
+It does not start a command whose activation took the rest of the time,
+and counts it as killed.
+\code{error = "cancel"} then aborts with class
+\code{condathis_run_pipeline_timeout_error}, and \code{error = "continue"}
+returns the result, with \code{timeout = TRUE}. Values that are not a
+single, non-negative number abort with class
+\code{condathis_invalid_timeout}.}
 }
 \value{
-A \code{condathis_pipeline} S3 object with per-process results:
-\item{statuses}{Integer vector of exit statuses, one per command.}
-\item{processes}{List of per-process \code{condathis_result} objects (the
-same class \code{run()}/\code{run_bin()} return), each with \code{cmd}, \code{env_name},
-\code{status}, \code{stdout} (\code{NA} for non-last processes), \code{stderr}, \code{pid},
-and \code{timeout} (\code{TRUE} for whichever process(es) were still running
-when the pipeline's \code{timeout} expired, \code{FALSE} otherwise).
-\code{format()}/\code{print()} work directly on an individual \code{processes[[i]]},
-not just on the whole pipeline result.}
+A \code{condathis_pipeline} object, invisibly, which prints as a
+short summary and which \code{\link[=parse_output]{parse_output()}} reads. It is a classed list
+with:
+\item{status}{Integer. The status of the pipeline: -9 when it timed
+out, otherwise the status of the first command that failed, or 0. A
+broken pipe can end a command that is not the last one: that does not
+count (see \emph{Broken pipes}).}
+\item{statuses}{Integer vector, the exit status of each command. A
+command that a signal ends has the negative signal number, such as
+-13 for \code{SIGPIPE}.}
+\item{processes}{List of \code{condathis_result} objects, one per command,
+with the fields of a \code{\link[=run]{run()}} result: \code{stdout} is \code{NA} for every
+command but the last, \code{env_name} is the environment name or the
+directory of an \code{\link[=env_path]{env_path()}}, and \code{timeout} is \code{TRUE} for the
+commands that the timeout killed.}
 \item{timeout}{Logical. Whether the pipeline timed out.}
+\item{cmd}{Character string. The command lines of the commands, each
+part quoted, joined with \code{" | "}.}
 }
 \description{
-Executes a sequence of commands where each command's standard output is
-piped as standard input to the next command (like a Unix shell pipeline).
-Data flows directly between child processes via kernel-level pipes, the
-parent R process only sees the output of the final command.
+Runs commands connected with pipes, as \code{cmd1 | cmd2} in a shell. The
+standard output of each command is the standard input of the next one.
+The data flows between the processes through operating system pipes, not
+through R. R gets the standard output of the last command and the
+standard error of every command.
 
-Each command in the pipeline can run in a \strong{different} Conda environment.
-Commands that do not specify an environment use the default \code{env_name}.
+Describe each command with \code{\link[=run_step]{run_step()}}, which takes the same command,
+arguments and \code{env_name} as \code{\link[=run]{run()}}. Each command can run in a
+\strong{different} Conda environment. Commands that do not set an environment
+use the \code{env_name} of \code{run_pipeline()}.
 }
+\section{Broken pipes}{
+
+A command that is not the last one ends as it would in a shell when it
+writes again after the next command has exited. On Linux and macOS,
+\code{SIGPIPE} kills it. Windows has no such signal. There, \code{run_pipeline()}
+reads the pipe in place of the command that exited. It kills the writer
+when more output comes after the pipe was empty for about one second in
+total. It also kills the writer when more than 64 KiB comes, which is
+what a Linux pipe holds. Output that was already in the pipe does not
+count. Either way, the status of the writer is -13, and that is not a
+failure. It does not make \code{error = "cancel"} abort, and it is not the
+\code{status} of the result. So \verb{seq 1 1000000 | head -n 1} has status 0.
+Programs that handle \code{SIGPIPE} themselves, such as R and Python, exit
+with their own status (R with 1, Python usually with 120), which counts
+as a failure. A command that writes nothing more keeps running, on every
+platform, and keeps its own status. On Windows, the reader that takes the
+place of the exited command is a small \code{Rscript} process. When it cannot
+start, the writer gets one second to exit on its own, and
+\code{run_pipeline()} then kills it.
+}
+
 \examples{
 \dontrun{
 condathis::with_sandbox_dir({
-  # `ripgrep` (the `rg` binary) is used here instead of GNU `grep`: a
-  # single package name that installs and runs the same way on every
-  # platform `condathis` supports, unlike `grep`, which on Windows only
-  # exists under the "m2-" (MSYS2) prefix on conda-forge.
-  #
-  # `samtools` (bioconda) has no Windows build on any channel, so this
-  # specific example only runs on Linux/macOS regardless - there's no
-  # portable substitute that still demonstrates a real bioinformatics
-  # CLI operating on the packaged BAM file below.
-  create_env("bioconda::samtools", env_name = "samtools-env")
+  # `pigz` and `ripgrep` (the `rg` binary) come from conda-forge, which
+  # builds both for Linux, macOS and Windows. `rg` is used here instead
+  # of GNU `grep`, which conda-forge has for Windows only as an MSYS2
+  # package (with the "m2-" prefix).
+  create_env("conda-forge::pigz", env_name = "pigz-env")
   create_env("conda-forge::ripgrep", env_name = "ripgrep-env")
 
-  # Pipeline with per-command environments
-  res <- run_pipeline(
-    list(
-      list(
-        cmd = c(
-          "samtools", "view", "-H",
-          fs::path_package("condathis", "extdata", "example.bam")
-        ),
-        env_name = "samtools-env"
-      ),
-      list(
-        cmd = c("rg", "@SQ"),
-        env_name = "ripgrep-env"
-      )
-    )
+  # Pipeline with per-command environments: count the reads of a FASTQ
+  # file shipped with condathis. In this file, the header line of each
+  # read starts with "@read".
+  fastq_file <- fs::path_package(
+    "condathis", "extdata", "sample1_L001_R1_001.fastq.gz"
   )
-  print(res)
+  res <- run_pipeline(
+    run_step(
+      "pigz", "--decompress", "--stdout", fastq_file,
+      env_name = "pigz-env"
+    ),
+    run_step("rg", "--count", "^@read", env_name = "ripgrep-env"),
+    verbose = "silent"
+  )
+  print(parse_output(res))
+  #> [1] "1086"
+
+  # Steps are values: build a list of them, then splice it in with `!!!`
+  steps <- list(
+    run_step("rg", "--version", env_name = "ripgrep-env"),
+    run_step("rg", "ripgrep", env_name = "ripgrep-env")
+  )
+  print(parse_output(run_pipeline(!!!steps, verbose = "silent")))
+  #> [1] "ripgrep 15.2.0 (rev 78115297cd)"
 })
 }
 
 }
 \seealso{
-\code{\link{run}} for single-command execution,
-\code{\link{run_bin}} for direct binary execution.
+\code{\link[=env_path]{env_path()}} for an environment created outside \code{condathis},
+and \link{condathis-conditions} for the condition classes.
+
+Other commands:
+\code{\link[=parse_output]{parse_output()}},
+\code{\link[=run]{run()}},
+\code{\link[=run_bin]{run_bin()}},
+\code{\link[=run_step]{run_step()}}
 }
+\concept{commands}
