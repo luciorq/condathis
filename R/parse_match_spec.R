@@ -44,24 +44,18 @@ parse_match_spec <- function(spec_string) {
       !is.character(spec_string) ||
       !identical(length(spec_string), 1L)
   ) {
-    cli::cli_abort(
+    condathis_abort(
       message = c(
         `x` = "The {.code MatchSpec} string must be a single character string."
       ),
-      class = "condathis_parse_match_spec_invalid_input"
+      class = c(
+        "condathis_parse_match_spec_invalid_input",
+        "condathis_invalid_arg"
+      )
     )
   }
 
-  raw_string <- spec_string
-
-  # Strip comments: everything after " #" (including space)
-  comment_pos <- as.integer(base::regexpr(" #", raw_string, fixed = TRUE))
-  if (isTRUE(comment_pos > 0L)) {
-    raw_string <- base::substring(raw_string, 1L, comment_pos - 1L)
-  }
-
-  # Strip whitespace
-  raw_string <- trimws(raw_string)
+  raw_string <- ms_clean_spec_string(spec_string)
 
   if (identical(raw_string, "")) {
     # Empty MatchSpec returns all-free spec
@@ -77,41 +71,9 @@ parse_match_spec <- function(spec_string) {
     ))
   }
 
-  # Normalize spaces after operators (libmamba does this)
-  op_vector <- c(">=", "<=", "!=", "==", "~=", ">", "<", "=", ",")
-  for (op_string in op_vector) {
-    escaped_op <- gsub("([|.\\^$*+?(){}\\[\\]])", "\\\\\\1", op_string)
-    bad_pattern <- paste0(escaped_op, " +")
-    raw_string <- gsub(bad_pattern, op_string, raw_string, perl = TRUE)
-  }
-
-  raw_string <- trimws(raw_string)
-
-  if (identical(raw_string, "")) {
-    return(ms_make_result(
-      name = "*",
-      name_space = "",
-      channel_location = NULL,
-      channel_platform_filters = NULL,
-      version = "=*",
-      build_string = "*",
-      extra_platforms = NULL,
-      extra = list()
-    ))
-  }
-
-  # Check for archive URL (ends with .tar.bz2 or .conda)
-  if (isTRUE(grepl("\\.(tar\\.bz2|conda)$", raw_string))) {
-    return(ms_parse_url(raw_string))
-  }
-
-  # Check for URL with MD5 hash fragment
-  if (isTRUE(grepl("#[0-9a-fA-F]+$", raw_string))) {
-    hash_match <- as.integer(base::regexpr("#[0-9a-fA-F]+$", raw_string))
-    url_part <- base::substring(raw_string, 1L, hash_match - 1L)
-    if (isTRUE(grepl("\\.(tar\\.bz2|conda)$", url_part))) {
-      return(ms_parse_url(url_part))
-    }
+  archive_url <- ms_archive_url(raw_string)
+  if (isFALSE(rlang::is_null(archive_url))) {
+    return(ms_parse_url(archive_url))
   }
 
   # 1. Split channel:namespace:spec
@@ -201,11 +163,14 @@ parse_match_spec <- function(spec_string) {
   pos_build <- nvb$build
 
   if (identical(pkg_name, "")) {
-    cli::cli_abort(
+    condathis_abort(
       message = c(
         `x` = "Invalid MatchSpec: Empty package name."
       ),
-      class = "condathis_parse_match_spec_invalid_name"
+      class = c(
+        "condathis_parse_match_spec_invalid_name",
+        "condathis_invalid_arg"
+      )
     )
   }
 
@@ -249,6 +214,96 @@ parse_match_spec <- function(spec_string) {
     extra_platforms = extra_platforms,
     extra = extra
   )
+}
+
+
+#' Bracket attributes of a MatchSpec string
+#'
+#' The `key=value` pairs inside `[...]` (or `(...)`) of a spec, after the
+#' same clean-up as `parse_match_spec()`. `parse_match_spec()` moves
+#' `version`, `build` and `channel` into its own fields, but keeps the other
+#' keys (`build_number`, `md5`, ...) only in `formatted_spec`. A caller that
+#' compares a spec with an installed package needs every key.
+#'
+#' @param spec_string A single character string with a MatchSpec.
+#'
+#' @returns A named list of character strings: the keys in lower case, the
+#'   values without quotes. An empty list for a spec without brackets, an
+#'   empty spec, and a package archive URL.
+#'
+#' @keywords internal
+#' @noRd
+match_spec_bracket_attrs <- function(spec_string) {
+  raw_string <- ms_clean_spec_string(spec_string)
+  if (
+    identical(raw_string, "") ||
+      isFALSE(rlang::is_null(ms_archive_url(raw_string)))
+  ) {
+    return(list())
+  }
+  remaining <- ms_split_channel_namespace_spec(raw_string)$spec
+  attrs <- ms_rparse_brackets(remaining)$attributes
+  if (isTRUE(length(attrs) > 0L)) {
+    names(attrs) <- tolower(trimws(names(attrs)))
+  }
+  return(attrs)
+}
+
+#' Remove the comment and the extra spaces of a MatchSpec string
+#'
+#' Strips a comment (`" #"` and everything after it), surrounding white
+#' space, and the spaces after operators, as libmamba does.
+#'
+#' @param spec_string A single character string with a MatchSpec.
+#'
+#' @returns A character string, possibly empty.
+#'
+#' @keywords internal
+#' @noRd
+ms_clean_spec_string <- function(spec_string) {
+  raw_string <- spec_string
+
+  # Strip comments: everything after " #" (including space)
+  comment_pos <- as.integer(base::regexpr(" #", raw_string, fixed = TRUE))
+  if (isTRUE(comment_pos > 0L)) {
+    raw_string <- base::substring(raw_string, 1L, comment_pos - 1L)
+  }
+
+  # Strip whitespace
+  raw_string <- trimws(raw_string)
+
+  # Normalize spaces after operators (libmamba does this)
+  op_vector <- c(">=", "<=", "!=", "==", "~=", ">", "<", "=", ",")
+  for (op_string in op_vector) {
+    escaped_op <- gsub("([|.\\^$*+?(){}\\[\\]])", "\\\\\\1", op_string)
+    bad_pattern <- paste0(escaped_op, " +")
+    raw_string <- gsub(bad_pattern, op_string, raw_string, perl = TRUE)
+  }
+
+  return(trimws(raw_string))
+}
+
+#' The package archive URL of a MatchSpec string
+#'
+#' @param raw_string A MatchSpec string from `ms_clean_spec_string()`.
+#'
+#' @returns The URL of a `.tar.bz2` or `.conda` archive, without an MD5
+#'   fragment (`#<hex>`), or `NULL` when the spec is not such a URL.
+#'
+#' @keywords internal
+#' @noRd
+ms_archive_url <- function(raw_string) {
+  if (isTRUE(grepl("\\.(tar\\.bz2|conda)$", raw_string))) {
+    return(raw_string)
+  }
+  if (isTRUE(grepl("#[0-9a-fA-F]+$", raw_string))) {
+    hash_match <- as.integer(base::regexpr("#[0-9a-fA-F]+$", raw_string))
+    url_part <- base::substring(raw_string, 1L, hash_match - 1L)
+    if (isTRUE(grepl("\\.(tar\\.bz2|conda)$", url_part))) {
+      return(url_part)
+    }
+  }
+  return(NULL)
 }
 
 
@@ -935,6 +990,11 @@ ms_parse_bracket_content <- function(content) {
       key <- trimws(base::substring(pair, 1L, eq_pos - 1L))
       val <- trimws(base::substring(pair, eq_pos + 1L))
       val <- ms_strip_quotes(val)
+      # An empty key, as in `"rp<2,(=|>1)"`, was dropped, so the group
+      # was lost; it is kept under a name that is never compared.
+      if (identical(key, "")) {
+        key <- "(empty key)"
+      }
       attrs[[tolower(key)]] <- val
     } else {
       # Bare keyword like "optional"
@@ -1200,10 +1260,37 @@ ms_normalize_version <- function(version) {
     return("=*")
   }
 
+  # A missing operand (`">=1.3,"`, `">=1,,<2"`, `"|<2"`): the version is
+  # kept as it is, and `vs_parse_spec_expr()` does not compare it.
+  # Splitting it into atoms dropped a trailing operand.
+  if (grepl("^[,|]|[,|]$|[,|][[:space:]]*[,|]", ver)) {
+    return(ver)
+  }
+
+  # Parentheses: each atom is normalized as in a compound expression, and
+  # the parentheses are kept. Splitting on `,` and `|` broke them.
+  if (grepl("[()]", ver)) {
+    tokens <- vs_tokenize_spec(ver)
+    is_atom <- !(tokens %in% c(",", "|", "(", ")"))
+    tokens[is_atom] <- vapply(
+      tokens[is_atom],
+      ms_normalize_version_atom,
+      character(1L),
+      USE.NAMES = FALSE
+    )
+    return(paste(tokens, collapse = ""))
+  }
+
   # Compound expression: contains comma or pipe
   # Must be handled before simple atom rules
   if (grepl("[,|]", ver)) {
     return(ms_normalize_compound_version(ver))
+  }
+
+  # A `*` left after one trailing glob, as in "=1.3.*.*": the version is
+  # kept, so version_spec_is_compared() sees it and it is not compared.
+  if (grepl("\\*", sub("\\.?\\*$", "", ver))) {
+    return(ver)
   }
 
   # Strip trailing .* from fuzzy versions: "=1.8.*" -> "=1.8"
@@ -1212,11 +1299,8 @@ ms_normalize_version <- function(version) {
     return(ver)
   }
 
-  # Handle trailing * without dot on fuzzy: "=1.8*" -> "=1.8"
-  if (grepl("^=([^=]).*[^.]\\*$", ver)) {
-    ver <- sub("\\*$", "", ver)
-    return(ver)
-  }
+  # "=1.8*" stays: micromamba reads it as 1.8 followed by more version
+  # parts, so it is not compared (see vs_parse_predicate()).
 
   # Handle bare version with trailing .*: "1.8.*" -> "=1.8" (fuzzy)
   if (!grepl("^[<>=!~]", ver) && grepl("\\.\\*$", ver)) {
@@ -1309,6 +1393,19 @@ ms_normalize_version_atom <- function(atom) {
     return("=*")
   }
 
+  # A `*` left after one trailing glob, as in "1.3.*.*": not stripped, so
+  # the version is not compared.
+  if (grepl("\\*", sub("\\.?\\*$", "", atom))) {
+    return(if (grepl("^[<>=!~]", atom)) atom else paste0("==", atom))
+  }
+
+  # A glob without a dot in a compound expression ("1.3*", "==1.3*",
+  # "=1.3*"): micromamba can read it as a literal version there, so it
+  # becomes "=1.3*", which is not compared.
+  if (grepl("^(==|=)?[^<>=!~*]([^*]*[^.*])?\\*$", atom)) {
+    return(paste0("=", sub("^(==|=)", "", atom)))
+  }
+
   # Already has operator prefix -> return as-is
   if (grepl("^[<>=!~]", atom)) {
     # Strip trailing .* for fuzzy
@@ -1374,11 +1471,14 @@ ms_parse_url <- function(url) {
   # Split by '-' from right: name-version-build
   last_dash <- ms_find_last_of(pkg_str, "-")
   if (rlang::is_null(last_dash)) {
-    cli::cli_abort(
+    condathis_abort(
       message = c(
         `x` = "Invalid archive URL: cannot parse filename."
       ),
-      class = "condathis_parse_match_spec_invalid_url"
+      class = c(
+        "condathis_parse_match_spec_invalid_url",
+        "condathis_invalid_arg"
+      )
     )
   }
   build_str <- substring(pkg_str, last_dash + 1L)
@@ -1386,11 +1486,14 @@ ms_parse_url <- function(url) {
 
   second_last_dash <- ms_find_last_of(rest, "-")
   if (rlang::is_null(second_last_dash)) {
-    cli::cli_abort(
+    condathis_abort(
       message = c(
         `x` = "Invalid archive URL: cannot parse name and version."
       ),
-      class = "condathis_parse_match_spec_invalid_url"
+      class = c(
+        "condathis_parse_match_spec_invalid_url",
+        "condathis_invalid_arg"
+      )
     )
   }
   ver_str <- substring(rest, second_last_dash + 1L)

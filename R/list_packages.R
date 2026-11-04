@@ -1,37 +1,71 @@
 #' List packages in a Conda environment
 #'
-#' Returns package metadata for a Conda environment as a tibble.
+#' Returns the packages installed in a Conda environment, as a data frame.
 #'
-#' @param env_name Character string with the target environment name.
-#'   Defaults to `"condathis-env"`.
-#' @param method Character string naming the backend to use. Defaults to
-#'   `"auto"` (resolve automatically: the environment's own owning
-#'   backend). `"micromamba"` is the only backend registered today.
-#'   `"native"` is a deprecated alias for `"micromamba"` (warns once per
-#'   session).
-#' @param verbose Character string controlling console output.
-#'   Supported values are `"output"`, `"silent"`, `"cmd"`, `"spinner"`,
-#'   and `"full"`. Defaults to `"output"`.
+#' `list_packages()` is a query: it never creates an environment, also not
+#' the default `"condathis-env"`. A missing environment aborts. When the
+#' environment has no directory, as on a new data directory,
+#' `list_packages()` does not start or install micromamba.
+#' When no micromamba binary is installed, the micromamba backend reads
+#' the `envs` directory of its data directory and the package records in
+#' `conda-meta/` instead. It never installs micromamba.
 #'
-#' @returns A data frame (`tibble`) with installed packages. Only four
-#'   columns are guaranteed present regardless of backend: **name**,
-#'   **version**, **build_number**, and **channel**. Additional columns
-#'   vary by backend and shouldn't be relied on in cross-backend code - the
-#'   `"micromamba"` backend today also includes `base_url`,
-#'   `build_string`, `dist_name`, `platform`, `md5`, `sha256`, and `url`.
+#' @inheritParams condathis-params
+#'
+#' @returns A data frame (a tibble) with one row per installed package,
+#'   returned visibly. Six columns are guaranteed on every backend:
+#'   * `name` (chr): the package name.
+#'   * `version` (chr): the package version.
+#'   * `build_number` (int): the build number.
+#'   * `build_string` (chr): the build string.
+#'   * `channel` (chr): a channel name or URL.
+#'   * `platform` (chr): the platform subdirectory, such as `"linux-64"` or
+#'     `"noarch"`.
+#'
+#'   The list includes the packages that pip or uv installed into the
+#'   environment, with every backend. It shows them as micromamba does:
+#'   channel `"pypi"`, build string `"pypi_0"`, build number 0, and the
+#'   platform as pip reports it, such as `"linux-x86_64"`. Only the
+#'   environment's own `site-packages` counts, not the user's site
+#'   directory or `PYTHONPATH`.
+#'
+#'   Other columns vary by backend. Do not rely on them in code that must
+#'   work with every backend. The `"micromamba"` backend today also includes
+#'   `base_url`, `dist_name`, `md5`, `sha256` and `url`.
+#'
+#'   `list_packages()` shows the password and the token of a channel URL as
+#'   `*****`, as micromamba does (`https://user:*****@host/channel`,
+#'   `https://host/t/*****/channel`).
+#'
+#'   A missing environment aborts with class
+#'   `condathis_list_packages_env_not_found` (also
+#'   `condathis_env_not_found`). A failed listing aborts with class
+#'   `condathis_list_packages_failed` (also `condathis_backend_error`).
+#'   A listing without the six columns also has the class
+#'   `condathis_backend_invalid_return`.
+#'
+#' @family environments
+#' @seealso [condathis-conditions] for every condition class.
 #'
 #' @examples
 #' \dontrun{
 #' condathis::with_sandbox_dir({
-#'   # Creates a Conda environment with the CLI `fastqc`
-#'   condathis::create_env(
-#'     packages = "bioconda::fastqc",
-#'     env_name = "fastqc-env"
+#'   # A local channel shipped with condathis, with `polyglot`: a
+#'   # dependency-free script that runs on Linux, macOS and Windows.
+#'   channel <- system.file(
+#'     "extdata", "polyglot-channel",
+#'     package = "condathis"
 #'   )
-#'   # Lists the packages in env `fastqc-env`
-#'   dat <- condathis::list_packages("fastqc-env")
-#'   dim(dat)
-#'   #> [1] 66 11
+#'
+#'   # Creates a Conda environment with `polyglot`
+#'   condathis::create_env(
+#'     "polyglot",
+#'     env_name = "polyglot-env",
+#'     channels = channel
+#'   )
+#'   # Lists the packages in env `polyglot-env`
+#'   dat <- condathis::list_packages("polyglot-env")
+#'   print(dat[, c("name", "version", "channel")])
 #' })
 #' }
 #'
@@ -39,23 +73,15 @@
 list_packages <- function(
   env_name = "condathis-env",
   method = "auto",
-  verbose = c(
-    "output",
-    "silent",
-    "cmd",
-    "spinner",
-    "full"
-  )
+  verbose = "silent"
 ) {
+  # Rule R2: every argument is checked before the first backend call.
+  # `resolve_backend()` checks `method` before it probes any backend.
   validate_env_name(
     env_name,
     class = "condathis_list_packages_invalid_env_name"
   )
-  verbose_list <- parse_strategy_verbose(verbose = verbose)
-
-  if (identical(env_name, "condathis-env")) {
-    create_base_env(verbose = verbose_list$internal_verbose)
-  }
+  verbose_list <- parse_verbose_arg(verbose)
 
   resolved <- resolve_backend(
     env_name = env_name,
@@ -63,35 +89,50 @@ list_packages <- function(
     mutating = FALSE
   )
 
-  if (
-    isFALSE(backend_has_env(
-      resolved$backend,
+  # Rule R5: only a definite "absent" (`FALSE`) aborts here. When the probe
+  # fails (`NA`), the listing below runs and reports the backend's real
+  # error.
+  probe <- backend_probe_env(resolved$backend, env_name, verbose = "silent")
+  if (isFALSE(probe)) {
+    abort_env_not_found(
       env_name,
-      verbose = verbose_list$internal_verbose
-    ))
-  ) {
-    cli::cli_abort(
-      message = c(
-        `x` = "Environment {.field {env_name}} does not exist.",
-        `!` = "Check {.code list_envs()} for available environments."
-      ),
-      class = "condathis_list_packages_missing_env"
-    )
-  }
-
-  pkgs_df <- backend_list_packages(
-    resolved$backend,
-    env_name = env_name,
-    verbose = verbose
-  )
-
-  if (isTRUE(verbose_list$strategy %in% c("full", "output"))) {
-    cli::cli_inform(
-      message = c(
-        `!` = "Retrieved {nrow(pkgs_df)} packages from environment {.field {env_name}}."
+      class = c(
+        "condathis_list_packages_env_not_found",
+        "condathis_list_packages_missing_env"
       )
     )
-    return(pkgs_df)
   }
-  return(invisible(pkgs_df))
+
+  # The value is checked inside `with_backend_errors()`, as in `list_envs()`
+  # and `validate_env()`: an invalid listing also gets
+  # `condathis_list_packages_failed` and `condathis_backend_error`, so one
+  # handler catches every failed listing.
+  pkgs_df <- with_backend_errors(
+    backend_list_packages_checked(
+      resolved$backend,
+      env_name = env_name,
+      verbose = verbose_list$strategy
+    ),
+    fn = "list_packages",
+    backend_name = resolved$name,
+    action = paste0("list the packages of environment '", env_name, "'")
+  )
+  pkgs_df <- new_tbl(pkgs_df)
+  # micromamba and rattler record a package's URL and channel with the
+  # credentials hidden; the records of other tools may keep them.
+  for (column in names(pkgs_df)) {
+    if (isTRUE(is.character(pkgs_df[[column]]))) {
+      pkgs_df[[column]] <- hide_secrets(pkgs_df[[column]])
+    }
+  }
+
+  if (isTRUE(verbose_list$strategy %in% c("full", "output"))) {
+    n_packages <- base::nrow(pkgs_df)
+    condathis_inform(
+      message = c(
+        `i` = "Retrieved {n_packages} package{?s} from environment {.field {env_name}}."
+      )
+    )
+  }
+  return(pkgs_df)
 }

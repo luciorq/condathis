@@ -14,57 +14,88 @@ is_executable <- function(path) {
   if (!file.exists(path)) {
     return(FALSE)
   }
-  # Check executable bit via file.access (0 = exists, 1 = execute)
-  identical(file.access(path, mode = 1L), 0L)
+  # Check executable bit via file.access (0 = exists, 1 = execute).
+  # file.access() names its result after the path, so identical() with a
+  # bare 0L was always FALSE, and no TAR path was ever accepted.
+  return(identical(unname(file.access(path, mode = 1L)), 0L))
+}
+
+#' Find a program on `PATH`
+#'
+#' A wrapper around `Sys.which()`, so tests can replace the `PATH` lookup.
+#' On Windows, `Sys.which()` also searches the system directories before
+#' `PATH`, so a test cannot control the result through `PATH` alone.
+#'
+#' @param name Character string. Program name.
+#'
+#' @returns Character string with the program path, or `""` when the
+#'   program is not found.
+#'
+#' @keywords internal
+#' @noRd
+find_program <- function(name) {
+  return(unname(Sys.which(name)))
+}
+
+#' Resolve the system `tar` program
+#'
+#' The one rule that `has_system_tar()` and `extract_tar_bz2()` share, so a
+#' `tar` that is reported as available is also the one that runs:
+#'
+#' 1. `TAR`, when it names a program. A value with a path separator is a
+#'    path, used when it is executable. Any other value is a program name,
+#'    looked up on `PATH`. The value `"internal"` (R's own tar, see
+#'    `utils::untar()`) and an empty value name no program and are skipped.
+#' 2. `tar` on `PATH`.
+#'
+#' A `TAR` value that names no usable program is skipped, not used as is:
+#' the system tar is only a fallback for when R's internal tar fails, and
+#' a broken `TAR` must not disable it.
+#'
+#' @param tar_env Character string. Value of the `TAR` environment
+#'   variable.
+#'
+#' @returns Character string with the path of the `tar` program, or `NULL`
+#'   when no `tar` program is found. A relative path in `TAR` is returned
+#'   as an absolute path, because `extract_tar_bz2()` runs `tar` in another
+#'   working directory.
+#'
+#' @keywords internal
+#' @noRd
+system_tar_program <- function(tar_env = Sys.getenv("TAR", unset = "")) {
+  if (
+    isTRUE(rlang::is_string(tar_env)) &&
+      isTRUE(nzchar(tar_env)) &&
+      isFALSE(identical(tar_env, "internal"))
+  ) {
+    if (isTRUE(grepl("[/\\\\]", tar_env))) {
+      if (isTRUE(is_executable(tar_env))) {
+        return(as.character(fs::path_abs(path.expand(tar_env))))
+      }
+    } else {
+      tar_path <- find_program(tar_env)
+      if (isTRUE(nzchar(tar_path))) {
+        return(tar_path)
+      }
+    }
+  }
+  path_tar <- find_program("tar")
+  if (isTRUE(nzchar(path_tar))) {
+    return(path_tar)
+  }
+  return(NULL)
 }
 
 #' Check if System Tar Program is Available
 #'
-#' Checks whether a working `tar` executable is available. First checks the
-#' `TAR` environment variable (also used by `utils::untar()`), then falls back
-#' to `Sys.which("tar")`.
+#' Checks whether a system `tar` program is available, with the rule of
+#' `system_tar_program()`: `TAR` when it names a usable program, then `tar`
+#' on `PATH`.
 #'
 #' @returns Logical. `TRUE` if `tar` is found, `FALSE` otherwise.
 #'
 #' @keywords internal
 #' @noRd
 has_system_tar <- function() {
-  # R respects the TAR env var in utils::untar()
-  tar_env <- Sys.getenv("TAR", unset = "")
-  if (nzchar(tar_env) && is_executable(tar_env)) {
-    return(TRUE)
-  }
-  return(nzchar(Sys.which("tar")))
-}
-
-#' Check if System `bzip2` is Available
-#'
-#' Checks whether a working `bzip2` executable is available. First checks
-#' the `R_BZIPCMD` environment variable (used by R internals for bzip2
-#' decompression), then falls back to `Sys.which("bzip2")`.
-#'
-#' @returns Logical. `TRUE` if `bzip2` is found, `FALSE` otherwise.
-#'
-#' @keywords internal
-#' @noRd
-has_system_bzip2 <- function() {
-  # R uses R_BZIPCMD for bzip2 operations (see ?connections)
-  bzip2_env <- Sys.getenv("R_BZIPCMD", unset = "")
-  if (nzchar(bzip2_env) && is_executable(bzip2_env)) {
-    return(TRUE)
-  }
-  return(nzchar(Sys.which("bzip2")))
-}
-
-#' Check if Compressed Archive Extraction is Possible
-#'
-#' Checks whether the system has both `tar` and `bzip2` available,
-#' which are required to extract `.tar.bz2` archives.
-#'
-#' @returns Logical. `TRUE` if both `tar` and `bzip2` are available.
-#'
-#' @keywords internal
-#' @noRd
-can_extract_tar_bz2 <- function() {
-  return(has_system_tar() && has_system_bzip2())
+  return(isFALSE(is.null(system_tar_program())))
 }

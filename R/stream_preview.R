@@ -1,10 +1,10 @@
 #' Single-line, raw-safe preview of a captured stdout/stderr stream
 #'
 #' Used by `format.condathis_result()` and `format.condathis_pipeline()`.
-#' `binary = TRUE` on `run()`/`run_bin()`/`run_pipeline()` can make *either*
+#' `binary = TRUE` on `run()`/`run_bin()`/`run_pipeline()` can make either
 #' stdout or stderr a raw vector (`processx` shares one `encoding` between
-#' both streams of a process), so both call sites must check for `raw` before
-#' running character-only operations like `nzchar()`/`strsplit()` on it.
+#' both streams of a process). Check for `raw` before running character-only
+#' operations like `nzchar()`/`strsplit()`.
 #'
 #' @param x A character string, a raw vector, or `NA`/`NULL`.
 #' @param max_chars Maximum length of the returned preview.

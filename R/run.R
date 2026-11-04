@@ -1,103 +1,143 @@
-#' Run a command inside a Conda environment
+#' Run a command in a Conda environment
 #'
-#' Executes a command in a Conda environment managed by `condathis`.
-#' The command is run through `micromamba run` using the internal Conda root.
+#' Runs a command line tool with a Conda environment activated. The command
+#' gets the environment variables that the activation sets, including those
+#' of the `activate.d` scripts of its packages. To run a program without
+#' activation, use [run_bin()] with `activate = FALSE`.
 #'
-#' @param cmd Character string with the command to execute.
-#' @param ... Additional unnamed command arguments passed to `cmd`.
-#' @param env_name Character string with the target environment name.
-#'   Defaults to `"condathis-env"`.
-#'   If the default environment does not exist, it is created automatically.
-#'   A missing *custom* `env_name` is never created automatically - it
-#'   fails instead, per `error` below.
-#' @param method Character string naming the backend to use. Defaults to
-#'   `"auto"` (resolve automatically: the environment's own owning backend
-#'   if it already exists). `"micromamba"` is the only backend registered
-#'   today - and the only one `run()` can actually execute through so far.
-#'   `"native"` is a deprecated alias for `"micromamba"` (warns once per
-#'   session).
-#' @param verbose Character string controlling console output.
-#'   Supported values are `"output"`, `"silent"`, `"cmd"`, `"spinner"`,
-#'   and `"full"`. Defaults to `"output"`.
-#'   Logical values are accepted for backward compatibility:
-#'   `TRUE` maps to `"output"` and `FALSE` maps to `"silent"`.
-#' @param error Character string that controls error behavior.
-#'   Supported values are `"cancel"` and `"continue"`.
-#'   Defaults to `"cancel"`. Also controls what happens when `env_name` is
-#'   a non-default environment that does not exist: `"cancel"` aborts with
-#'   class `condathis_run_env_not_found`; `"continue"` returns a result
-#'   with `status = 127` instead of running anything.
-#' @param stdout Standard output target.
-#'   Defaults to `"|"` (capture stdout in the returned object).
-#'   Provide a file path to redirect stdout to a file.
-#' @param stderr Standard error target.
-#'   Defaults to `"|"` (capture stderr in the returned object).
-#'   Provide a file path to redirect stderr to a file.
-#' @param stdin Standard input source.
-#'   Defaults to `NULL` (no stdin stream).
-#'   Provide a file path to use file contents as stdin, or `"|"` to write
-#'   `input` to the process.
-#' @param input Character or raw vector written to the process's standard
-#'   input when `stdin = "|"`. Defaults to `NULL`. Ignored (and must not be
-#'   set) when `stdin` is not `"|"`. Note: live (real-time) stdout/stderr
-#'   streaming and the spinner are not available when `input` triggers the
-#'   writable-stdin code path; `timeout` still works.
-#' @param binary Logical. Whether to capture stdout/stderr as raw vectors
-#'   instead of decoding them as UTF-8 text. Defaults to `FALSE`. Since a
-#'   process's stdout and stderr share a single encoding, both streams are
-#'   returned raw when `TRUE`, even if only one of them actually carries
-#'   binary data - check with `is.raw()` before treating either as text.
-#'   Binary streams are never live-echoed to the console, regardless of
-#'   `verbose`.
-#' @param supervise Logical. Whether the process should be supervised by the
-#'   `processx` supervisor for crash-safe cleanup - the process (and its
-#'   descendants, with `cleanup_tree = TRUE`) is killed if the R session
-#'   crashes. Defaults to `FALSE`.
-#' @param cleanup_tree Logical. Whether to clean up the child process tree
-#'   (not just the direct child) on crash/interrupt. Defaults to `FALSE`.
-#' @param linux_pdeathsig Logical. On Linux, whether to send `SIGKILL` to the
-#'   child process if the parent R process dies. Has no effect on other
+#' `run()` activates the environment and starts the command itself. The
+#' micromamba backend records the activation of an environment the first
+#' time a command runs in it. That first command takes longer, and `timeout`
+#' includes the activation. The backend reuses the activation until the
+#' environment changes (its packages, `activate.d` scripts or `env_vars.d`
+#' files). A change in the environment variables of the R session also ends
+#' the reuse.
+#'
+#' Arguments in `...` reach the command exactly as given on every platform.
+#' No shell is involved. Characters such as `>`, `|`, `&`, `%`, `$`, `*` and
+#' quotes have no special meaning. Shell builtins (for example `echo` or
+#' `dir` on Windows) are not available as commands. To use shell features,
+#' run a shell explicitly, as in `run("bash", "-c", "...")`. To connect
+#' commands with pipes, use [run_pipeline()]. One exception applies on
+#' Windows. Windows starts batch files (`.bat`, `.cmd`) through `cmd.exe`,
+#' which parses their arguments again.
+#'
+#' When `env_name` is the default `"condathis-env"` and that environment
+#' does not exist, `run()` creates it, empty, with the backend that `method`
+#' selects. `run()` never creates any other missing environment. The call
+#' fails, as `error` describes.
+#'
+#' The errors of a failed or timed-out command carry the fields `status`,
+#' `stdout`, `stderr` and `timeout`. A handler does not need to parse the
+#' message, as in
+#' `tryCatch(run("false"), condathis_status_error = function(e) e$status)`.
+#'
+#' @inheritParams condathis-params
+#' @param cmd Character string, the command to run: a single, non-empty
+#'   string. Other values abort with class `condathis_invalid_cmd`. Pass the
+#'   arguments of the command in `...`.
+#' @param ... Arguments of the command, unnamed: character, numeric or
+#'   logical vectors, each element one argument. `run()` drops `NULL`
+#'   values. It writes numbers in full, never in scientific notation:
+#'   `100000` is passed as `"100000"`. `NA`, named arguments, and values
+#'   that are not atomic vectors (for example lists) abort with class
+#'   `condathis_run_invalid_args`.
+#' @param stdout Standard output target: `"|"` (the default) captures it in
+#'   the result, a file path writes it to that file, and `NULL` discards it.
+#' @param stderr Standard error target: `"|"` (the default) captures it in
+#'   the result, a file path writes it to that file, and `NULL` discards it.
+#' @param stdin Standard input source: `NULL` (the default) for no input,
+#'   the path of an existing file to read, or `"|"` to write `input` to the
+#'   command. Other values abort with class `condathis_invalid_stdin`.
+#' @param input Character or raw vector written to the standard input of
+#'   the command. `condathis` joins the elements of a character vector with
+#'   line feeds and adds none after the last one. Must be `NULL` (the default)
+#'   unless `stdin = "|"`. Other values abort with class
+#'   `condathis_invalid_input`. With `stdin = "|"`, `condathis` shows the
+#'   output when the command ends, not while it runs, and shows no spinner.
+#' @param binary Logical. Whether to return `stdout` and `stderr` as raw
+#'   vectors instead of decoding them as UTF-8 text. Defaults to `FALSE`. A
+#'   process has one encoding for both streams, so with `TRUE` both are raw,
+#'   even if only one of them carries binary data. Check with `is.raw()`
+#'   before treating either as text. `condathis` never shows raw streams on
+#'   the console, whatever `verbose` is. Values other than `TRUE` and `FALSE`
+#'   abort with class `condathis_invalid_binary`.
+#' @param supervise Logical. Whether the `processx` supervisor watches the
+#'   process: when the R session ends, even by a crash, the supervisor kills
+#'   it. Defaults to `FALSE`.
+#' @param cleanup_tree Logical. Whether to kill the process tree of the
+#'   command, its child processes included, when the command finishes, times
+#'   out, or is interrupted. Defaults to `FALSE`, so that a daemon that the
+#'   command starts keeps running after the command exits. On Windows, a
+#'   daemon that keeps the captured standard output or error of the command
+#'   open ends when R has read that output. This is a limit of `processx` on
+#'   Windows, whatever `cleanup_tree` is. Send the output to files
+#'   (`stdout`, `stderr`) to keep such a daemon running.
+#' @param linux_pdeathsig Logical. On Linux, whether the command gets
+#'   `SIGTERM` when the R session ends, even by a crash. Ignored on other
 #'   platforms. Defaults to `FALSE`.
-#' @param timeout Numeric. Maximum number of seconds to let the command run
-#'   before it's killed. Defaults to `Inf` (no limit, the previous
-#'   behavior). On expiry, the process is killed, `timeout` is `TRUE` in the
-#'   returned result, and `error = "cancel"` aborts with class
-#'   `condathis_run_timeout_error` (`error = "continue"` returns normally
-#'   with `status = -9`).
+#' @param timeout Number of seconds the call may take, the activation of the
+#'   environment included (see Details in [run()]). Defaults to `Inf` (no
+#'   limit). `condathis` lowers a finite value above 2147483 (about 24.8
+#'   days) to that value. When the time is up, `condathis` kills the
+#'   command, or does not start it when the activation took all the time.
+#'   `error = "cancel"` then aborts, and `error = "continue"` returns a
+#'   result with `status = -9` and `timeout = TRUE`. Values that are not a
+#'   single, non-negative number abort with class
+#'   `condathis_invalid_timeout`.
 #'
-#' @returns A `condathis_result` S3 object (a classed list, still usable as
-#'   a plain list) with `status`, `stdout`, `stderr`, `timeout`, `pid`,
-#'   `cmd`, and `env_name`.
-#'
-#' @details
-#' This function is the main execution entry point in `condathis`.
-#' Use it to run CLI tools with reproducible dependencies isolated in Conda
-#' environments.
+#' @returns A `condathis_result` object, invisibly: a classed list with
+#'   `status`, `stdout`, `stderr`, `timeout`, `pid`, `cmd` and `env_name`,
+#'   which prints as a short summary. `status` is the exit status of the
+#'   command. On Linux and macOS, a command that a signal ends has status
+#'   128 plus the signal number, as in a shell (143 for `SIGTERM`).
+#'   `stdout` and `stderr` are `NA` when that stream was not captured (a
+#'   target other than `"|"`). `pid` is the process ID of the command with
+#'   `stdin = "|"`, and `NA` otherwise. `cmd` is your command line, each part
+#'   quoted, with the credentials of URLs masked (see `verbose`). `env_name`
+#'   is the environment name, or the directory of an [env_path()].
 #'
 #' @examples
 #' \dontrun{
 #' condathis::with_sandbox_dir({
-#'   ## Create env
-#'   ## `samtools` (bioconda) has no Windows build on any channel, so this
-#'   ## specific example only runs on Linux/macOS - unlike most `condathis`
-#'   ## examples, there's no portable substitute that still demonstrates a
-#'   ## real bioinformatics CLI operating on the packaged BAM file below.
-#'   create_env("bioconda::samtools", env_name = "samtools-env")
+#'   # A local channel shipped with condathis, with `polyglot`: a
+#'   # dependency-free script that runs on Linux, macOS and Windows.
+#'   channel <- system.file(
+#'     "extdata", "polyglot-channel",
+#'     package = "condathis"
+#'   )
+#'   create_env("polyglot", env_name = "polyglot-env", channels = channel)
 #'
-#'   ## Run a command in a specific Conda environment
-#'   samtools_res <- run(
-#'     "samtools", "view",
-#'     fs::path_package("condathis", "extdata", "example.bam"),
-#'     env_name = "samtools-env",
+#'   # Run its command, on any platform
+#'   polyglot_res <- run(
+#'     "polyglot",
+#'     env_name = "polyglot-env",
 #'     verbose = "silent"
 #'   )
-#'   parse_output(samtools_res)[1]
-#'   #> [1] "SOLEXA-1GA-1_6_FC20ET7:6:92:473:531\t0\tchr1\t10156..."
+#'   print(parse_output(polyglot_res)[1])
+#'   #> [1] "System detected: Linux/Unix"
+#'
+#'   # `pigz` (conda-forge) has builds for Linux, macOS and Windows
+#'   create_env("conda-forge::pigz", env_name = "pigz-env")
+#'
+#'   # Decompress a FASTQ file shipped with condathis
+#'   fastq_file <- fs::path_package(
+#'     "condathis", "extdata", "sample1_L001_R1_001.fastq.gz"
+#'   )
+#'   pigz_res <- run(
+#'     "pigz", "--decompress", "--stdout", fastq_file,
+#'     env_name = "pigz-env",
+#'     verbose = "silent"
+#'   )
+#'   print(parse_output(pigz_res)[1])
+#'   #> [1] "@read1/gi|424037187|ref|NR_073460.1| Homo sapiens ribosome ..."
 #' })
 #' }
 #'
-#' @seealso
-#' \code{\link{install_micromamba}}, \code{\link{create_env}}
+#' @seealso [create_env()] to create an environment, [env_path()] for an
+#'   environment created outside `condathis`, and [condathis-conditions]
+#'   for the condition classes.
+#' @family commands
 #'
 #' @export
 run <- function(
@@ -123,136 +163,153 @@ run <- function(
   linux_pdeathsig = FALSE,
   timeout = Inf
 ) {
-  rlang::check_dots_unnamed()
-  rlang::check_required(cmd)
-  if (rlang::is_null(cmd)) {
-    cli::cli_abort(
-      message = c(
-        `x` = "{.field cmd} need to be a {.code character} string."
-      ),
-      class = "condathis_run_null_cmd"
-    )
+  # Every argument is checked before the first backend call or other side
+  # effect (rule R2), so a bad value never creates `condathis-env` first.
+  validate_cmd_arg(
+    cmd,
+    class = c("condathis_run_invalid_cmd", "condathis_run_null_cmd")
+  )
+  args <- cmd_args_as_character(
+    list(...),
+    class = "condathis_run_invalid_args",
+    formal_names = names(formals(run)),
+    named_class = dots_named_old_class
+  )
+  validate_input_with_stdin(
+    input,
+    stdin = stdin,
+    class = arg_error_class("run", "input")
+  )
+  validate_bool_arg(
+    binary,
+    class = arg_error_class(
+      "run",
+      "binary",
+      aliases = "condathis_run_invalid_binary_arg"
+    ),
+    arg_name = "binary"
+  )
+  env_name_class <- "condathis_run_invalid_env_name"
+  if (isTRUE(is_env_path(env_name))) {
+    validate_env_path_object(env_name, class = env_name_class)
+  } else {
+    validate_env_name(env_name, class = env_name_class)
   }
-  if (!is.null(input) && !identical(stdin, "|")) {
-    cli::cli_abort(
-      message = c(
-        `x` = "{.field input} can only be used when {.field stdin} is {.val {\"|\"}}."
-      ),
-      class = "condathis_run_invalid_input"
-    )
-  }
-  if (isFALSE(rlang::is_bool(binary))) {
-    cli::cli_abort(
-      message = c(
-        `x` = "{.field binary} needs to be a single {.cls logical} value."
-      ),
-      class = "condathis_run_invalid_binary_arg"
-    )
-  }
-  validate_env_name(env_name, class = "condathis_run_invalid_env_name")
-  error <- rlang::arg_match(error)
-
-  verbose_list <- parse_strategy_verbose(verbose = verbose)
+  error <- arg_match_classed(
+    error,
+    values = c("cancel", "continue"),
+    class = "condathis_invalid_error",
+    arg_name = "error"
+  )
+  verbose_list <- parse_verbose_arg(verbose)
+  run_args <- validate_run_args(
+    fn = "run",
+    timeout = timeout,
+    supervise = supervise,
+    cleanup_tree = cleanup_tree,
+    linux_pdeathsig = linux_pdeathsig,
+    stdin = stdin,
+    stdout = stdout,
+    stderr = stderr
+  )
+  # `rethrow_error_run()` reads `timeout` from this frame for its message.
+  timeout <- run_args$timeout
+  validate_method_arg(method)
 
   # Ignore linter warning. `error_var` is used by `rethrow_error_run()`
   # + env by accessing this function environment.
-  if (identical(error, "cancel")) {
-    error_var <- TRUE
+  error_var <- identical(error, "cancel")
+
+  # An environment given by `env_path()` has no name to look up: it skips
+  # backend resolution and the default environment's auto-creation, and is
+  # checked to be a Conda environment instead.
+  env_path_stderr <- NULL
+  env_dir <- NULL
+  if (isTRUE(is_env_path(env_name))) {
+    resolved <- resolve_env_path_target(
+      env_name,
+      method = method,
+      class = env_name_class
+    )
+    env_dir <- resolved$env_dir
+    env_label <- env_dir
+    env_path_stderr <- check_env_path_usable(
+      env_dir,
+      error_var = error_var,
+      class = "condathis_run_env_not_found"
+    )
+    env_name_exists <- is.null(env_path_stderr)
   } else {
-    error_var <- FALSE
-  }
-
-  resolved <- resolve_backend(
-    env_name = env_name,
-    method = method,
-    mutating = FALSE
-  )
-
-  # Only the default environment is auto-created when missing (a
-  # deliberate, documented convenience). A missing *custom* `env_name`
-  # used to be silently papered over here too: this check only ever
-  # tested for `"condathis-env"` specifically, regardless of the actual
-  # `env_name` argument, so calling `run(cmd, env_name = "my-env")` when
-  # `"my-env"` didn't exist would create an unrelated, empty
-  # `"condathis-env"` as a side effect and then still fail - the
-  # auto-create never actually helped the real target. (This
-  # side-effect-creation existed to work around an old `micromamba`
-  # requirement that the root prefix have *some* environment before
-  # `micromamba run` would work at all; confirmed empirically that a
-  # fresh install root with only a custom-named environment - never
-  # touching `"condathis-env"` - runs commands in it correctly with the
-  # current pinned `micromamba` version, so that workaround is no longer
-  # needed.) A missing custom `env_name` now fails clearly instead:
-  # aborts under `error = "cancel"`, matching `run_pipeline()`'s
-  # `condathis_pipeline_env_not_found` behavior for the same situation;
-  # reports a `status = 127` result under `error = "continue"`, without
-  # ever creating anything.
-  # backend_probe_env(), not backend_has_env(): the never-errors variant
-  # coerces a *failed* listing (transient lock, corrupt metadata, JSON
-  # hiccup) to FALSE, which used to make run() refuse with "environment
-  # does not exist" for environments that exist and would run fine. When
-  # existence cannot be determined (NA), proceed optimistically instead of
-  # blocking: a genuinely missing environment still fails, with the
-  # backend's own error, exactly as it did before this gate existed.
-  env_name_exists <- backend_probe_env(
-    resolved$backend,
-    env_name,
-    verbose = verbose_list$internal_verbose
-  )
-  if (isTRUE(is.na(env_name_exists))) {
-    env_name_exists <- TRUE
-  }
-
-  if (isFALSE(env_name_exists) && identical(env_name, "condathis-env")) {
-    create_base_env(verbose = verbose_list$internal_verbose)
-    # Re-resolve rather than reusing the pre-creation `resolved`:
-    # `create_base_env()` -> `create_env()` independently resolves its own
-    # backend via `method = "auto"`, which can differ from what was
-    # resolved above (e.g. a higher-priority backend than the one
-    # originally checked). `resolved$name` is used below to decide the
-    # execution path, so a stale value here could pick the wrong one.
-    # Mirrors `run_pipeline()`'s `precreate_envs()`, which re-resolves for
-    # the same reason after its own `create_base_env()` call.
+    env_label <- env_name
     resolved <- resolve_backend(
       env_name = env_name,
       method = method,
       mutating = FALSE
     )
-    env_name_exists <- TRUE
+
+    # Use backend_probe_env(), not backend_has_env(): a failed listing
+    # (transient lock, corrupt metadata, JSON error) gives NA, and NA must
+    # not refuse an existing environment (rule R5). The command then runs,
+    # and a missing environment fails with the backend's own error.
+    env_name_exists <- backend_probe_env(
+      resolved$backend,
+      env_name,
+      verbose = "silent"
+    )
+    if (isTRUE(is.na(env_name_exists))) {
+      env_name_exists <- TRUE
+    }
+
+    # Only the default environment is created when it is missing (decision
+    # D3), and with the backend this call resolved, so that it never ends
+    # up under another backend than the one `method` names.
+    if (isFALSE(env_name_exists) && identical(env_name, "condathis-env")) {
+      create_base_env(
+        method = resolved$name,
+        verbose = verbose_list$internal_verbose
+      )
+      env_name_exists <- TRUE
+    }
   }
 
   if (isFALSE(env_name_exists)) {
+    # An unusable environment given by path has already aborted under
+    # `error = "cancel"`, in `check_env_path_usable()`.
     if (isTRUE(error_var)) {
-      cli::cli_abort(
-        message = c(
-          `x` = "Environment {.field {env_name}} does not exist.",
-          `!` = "Create it with {.fn create_env} first."
-        ),
-        class = "condathis_run_env_not_found"
-      )
+      abort_env_not_found(env_name, class = "condathis_run_env_not_found")
     }
     px_res <- list(
       status = 127L,
       stdout = "",
-      stderr = sprintf(
-        "Conda environment '%s' does not exist.\n",
-        env_name
-      ),
+      stderr = env_path_stderr %||%
+        sprintf("Conda environment '%s' does not exist.\n", env_name),
       timeout = FALSE
     )
-  } else if (isFALSE(identical(resolved$name, "micromamba"))) {
-    # Non-micromamba backends describe the invocation via
-    # `backend_resolve_run()` and it is spawned directly, rather than
-    # delegating activation to a `micromamba run` subprocess. Both paths
-    # converge on `execute_command()`, so streaming, spinner, timeout and
-    # supervise/cleanup_tree/linux_pdeathsig behave identically either way.
+  } else {
+    # Every backend describes the invocation with `backend_resolve_run()`,
+    # and condathis starts the command itself, so streaming, spinner,
+    # timeout and supervise/cleanup_tree/linux_pdeathsig behave the same
+    # for every backend and OS. For the micromamba backend, the activation
+    # variables are those of a real `micromamba run` activation, cached per
+    # environment (see `get_micromamba_activation_envvars()`).
+    #
+    # The command used to run through `micromamba run` on Linux and macOS.
+    # Then what `activate.d` scripts printed was in the output, and the
+    # command got micromamba's own
+    # environment (`MAMBA_ROOT_PREFIX`, its `TMPDIR`), unlike `run_bin()`,
+    # `run_pipeline()` and every other backend. On Windows, `micromamba run`
+    # wraps the command in a temporary `.bat` script, so `cmd.exe` re-parses
+    # every argument: `>`, `<`, `|` and `&` become redirections and command
+    # separators, `^` and `%` are consumed, and newlines cannot be passed at
+    # all.
     px_res <- rethrow_error_run(
       expr = {
         run_internal_backend(
           resolved$backend,
           cmd = cmd,
-          ...,
-          env_name = env_name,
+          args,
+          env_name = env_label,
+          env_dir = env_dir,
           verbose = verbose_list,
           error = error,
           stdout = stdout,
@@ -263,45 +320,158 @@ run <- function(
           supervise = supervise,
           cleanup_tree = cleanup_tree,
           linux_pdeathsig = linux_pdeathsig,
-          timeout = timeout
+          timeout = timeout,
+          backend_name = resolved$name,
+          call = rlang::current_env()
         )
-      }
-    )
-  } else {
-    px_res <- rethrow_error_run(
-      expr = {
-        run_internal_native(
-          cmd = cmd,
-          ...,
-          env_name = env_name,
-          verbose = verbose_list,
-          error = error,
-          stdout = stdout,
-          stderr = stderr,
-          stdin = stdin,
-          input = input,
-          binary = binary,
-          supervise = supervise,
-          cleanup_tree = cleanup_tree,
-          linux_pdeathsig = linux_pdeathsig,
-          timeout = timeout
-        )
-      }
+      },
+      fn = "run"
     )
   }
 
-  cmd_string <- paste(
-    shQuote(as.character(c(cmd, unlist(list(...))))),
-    collapse = " "
-  )
+  cmd_string <- format_cmd_line(c(cmd, args))
   result <- new_condathis_result(
     status = px_res$status,
-    stdout = px_res$stdout,
-    stderr = px_res$stderr,
+    stdout = captured_or_na(px_res$stdout, target = stdout),
+    stderr = captured_or_na(px_res$stderr, target = stderr),
     timeout = if (is.null(px_res$timeout)) FALSE else px_res$timeout,
     pid = if (is.null(px_res$pid)) NA_integer_ else px_res$pid,
     cmd = cmd_string,
-    env_name = env_name
+    env_name = env_label
   )
   return(invisible(result))
+}
+
+#' Old classes of a named value in `...` of `run()` and `run_bin()`
+#'
+#' Before, `run()` and `run_bin()` called `rlang::check_dots_unnamed()`,
+#' whose error has these classes. They stay on the error of
+#' `cmd_args_as_character()`, after the condathis classes.
+#'
+#' @keywords internal
+#' @noRd
+dots_named_old_class <- c("rlib_error_dots_named", "rlib_error_dots")
+
+#' Convert the command arguments of the `run()` family to a character vector
+#'
+#' `run()`, `run_bin()` and `run_step()` all convert their `...` values with
+#' this function, so a value reaches the command the same way through each
+#' of them.
+#'
+#' `as.character()` writes doubles from `1e5` on in scientific notation and
+#' rounds them to 15 significant digits: `100000` became `"1e+05"`, which
+#' `head -n` rejects. Doubles are written in fixed notation instead, with
+#' the fewest digits (15 to 17) that read back as the same number. Integers,
+#' logical values and character strings use `as.character()`. A value with
+#' a class (a factor, a date) uses its own `as.character()` method.
+#'
+#' A named value aborts too. An argument after `...` must be named exactly,
+#' so a misspelled option such as `verbos = "silent"` lands in `...`; the
+#' error then names the closest formal of the caller.
+#'
+#' @param args List of the values given in `...`. `NULL` values are
+#'   dropped.
+#' @param class Character string. Condition class of the error, one per
+#'   calling function. The error also has the classes
+#'   `condathis_invalid_cmd_args` and `condathis_invalid_arg`.
+#' @param formal_names Character vector, the formals of the calling
+#'   function, for the hint of a named value. `NULL` gives no hint.
+#' @param named_class Character vector of extra classes for the error of a
+#'   named value only, after `condathis_error`. `run()` and `run_bin()`
+#'   pass the classes of the error of `rlang::check_dots_unnamed()`, which
+#'   they raised before, so old handlers still match.
+#' @param call Calling environment, for the error.
+#'
+#' @returns An unnamed character vector.
+#'
+#' @keywords internal
+#' @noRd
+cmd_args_as_character <- function(
+  args,
+  class,
+  formal_names = NULL,
+  named_class = NULL,
+  call = rlang::caller_env()
+) {
+  error_class <- c(class, "condathis_invalid_cmd_args", "condathis_invalid_arg")
+  arg_names <- names(args)
+  if (isTRUE(any(nzchar(arg_names)))) {
+    bad_name <- arg_names[nzchar(arg_names)][[1L]]
+    suggestion <- closest_names(bad_name, setdiff(formal_names, "..."))
+    message <- c(
+      `x` = "Command arguments in {.arg ...} must be unnamed, but {.arg {bad_name}} is named."
+    )
+    if (isTRUE(length(suggestion) > 0L)) {
+      message <- c(message, `i` = "Did you mean {.or {.arg {suggestion}}}?")
+    }
+    condathis_abort(
+      message = message,
+      class = c(error_class, "condathis_error", named_class),
+      call = call
+    )
+  }
+  parts <- lapply(args, function(value) {
+    if (is.null(value)) {
+      return(character(0L))
+    }
+    if (isFALSE(is.atomic(value)) || isTRUE(anyNA(value))) {
+      condathis_abort(
+        message = c(
+          `x` = "Command arguments in {.arg ...} must be non-missing strings or numbers."
+        ),
+        class = error_class,
+        call = call
+      )
+    }
+    if (isTRUE(is.double(value)) && isFALSE(is.object(value))) {
+      return(format_cmd_double(value))
+    }
+    return(as.character(value))
+  })
+  return(unname(as.character(unlist(parts))))
+}
+
+#' Write doubles as command arguments
+#'
+#' Fixed notation, never scientific, with `.` as the decimal mark whatever
+#' `options(OutDec)` says, and with the fewest significant digits (15 to 17)
+#' that read back as the same number: `0.1` stays `"0.1"`, and `0.1 + 0.2`
+#' is `"0.30000000000000004"`, not `"0.3"`.
+#'
+#' `scientific = FALSE` only adds a penalty of 100 characters to the
+#' scientific form, so doubles below about `1e-310` still came out in
+#' scientific notation. The penalty of 1000 characters is larger than the
+#' widest fixed form of any double (about 340 characters).
+#'
+#' @param x Double vector without `NA`.
+#'
+#' @returns Character vector.
+#'
+#' @keywords internal
+#' @noRd
+format_cmd_double <- function(x) {
+  return(vapply(
+    x,
+    function(value) {
+      if (isFALSE(is.finite(value))) {
+        return(as.character(value))
+      }
+      for (digits in 15L:17L) {
+        text <- format(
+          value,
+          digits = digits,
+          scientific = 1000L,
+          trim = TRUE,
+          decimal.mark = ".",
+          big.mark = ""
+        )
+        if (isTRUE(identical(as.numeric(text), value))) {
+          return(text)
+        }
+      }
+      return(text)
+    },
+    character(1L),
+    USE.NAMES = FALSE
+  ))
 }
