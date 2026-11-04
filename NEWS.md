@@ -1,508 +1,492 @@
-## condathis 0.2.0 (Development Version)
+## condathis 0.2.0
 
-Development Changelog: [dev](https://github.com/luciorq/condathis/compare/v0.1.4...HEAD)
+Development Changelog: [0.2.0](https://github.com/luciorq/condathis/compare/v0.1.4...v0.2.0)
 
-This release is being tracked as a minor version bump instead of a patch
-(`0.1.5`) because its centerpiece - the pluggable backend system - is a
-structural, package-wide refactor: every environment-management function
-now dispatches through a backend registry instead of hardcoding the managed
-`micromamba` installation, laying the foundation for future backends (e.g.
-an in-process `rattler` engine) to plug in without further changes to the
-public API. It also carries several other breaking (though narrow) changes
-alongside it - see below.
+condathis 0.2.0 adds pipelines and runs the environment and command
+functions through backends.
+It makes the exported functions consistent (one argument order, one rule for
+missing environments, one set of condition classes).
+It no longer changes the files of other Conda tools in your home directory,
+except `~/.conda/environments.txt` in one case (see Bug fixes).
+Some changes break code written for 0.1.4: they come first, each with what to
+write instead.
 
-### Backend System
+### Breaking changes
 
-* `condathis` now has a pluggable backend system. Internally, every
-  environment-management operation (`create_env()`, `install_packages()`,
-  `remove_env()`, `list_envs()`, `env_exists()`, `list_packages()`,
-  `get_env_dir()`, `get_install_dir()`, and, for the environments it can
-  already execute through, `run()`, `run_bin()`, `run_pipeline()`) now
-  dispatches to a registered *backend* instead of hardcoding the managed
-  `micromamba` installation. `"micromamba"` is the built-in default and,
-  today, the only registered backend - this is the foundation for future
-  backends (e.g. an in-process `rattler` engine, or container-based
-  engines) to plug in later without changing any of the functions above.
-  All of these functions gain a new `method` argument: `"auto"` (the
-  default) resolves automatically - an existing environment's own owning
-  backend, or `getOption("condathis.backend_priority")` order for a new
-  one; `"micromamba"` selects it explicitly. `"native"` (the old default)
-  is now a deprecated alias for `"micromamba"` and warns once per session,
-  but keeps working exactly the same. If you never pass `method`, nothing
-  about your existing code changes.
+* `create_env()` and `install_packages()` take package specs in `...` and
+  every other argument by name, as in
+  `create_env("python=3.13", env_name = "py-env")`.
+  `packages =` still works, with a deprecation warning once per session and
+  function (class `condathis_deprecated_packages_arg`).
 
-* New exported extension API for backend authors: `register_backend()`
-  (the extension point itself - its documentation specifies the full
-  10-function backend contract, the class convention, and the
-  load-order-safe `.onLoad()`/`setHook()` registration pattern),
-  `unregister_backend()` (for a backend package's `.onUnload()`), and
-  `list_registered_backend_names()` (introspection: what's currently
-  plugged in). These are aimed at packages providing alternative
-  execution engines, not at end users - regular `condathis` usage never
-  needs them. This extension API is **experimental**: the backend
-  contract may change in breaking ways between `0.x` releases as the
-  first external backends are wired in (see `register_backend()`'s
-  *Lifecycle* section).
+* Old positional calls no longer work: name every argument after the
+  package specs, as in `install_packages("pkg", env_name = "my-env")`.
+  When the last spec names an existing environment, the call aborts and
+  says so (class `condathis_<function>_positional_env_name`).
+  Any other name is read as one more package spec, and the call fails
+  (`install_packages()` first creates a missing `"condathis-env"`, empty).
+  A spec that ends in `.yml` or `.yaml` asks for `env_file =`.
+  A misspelled argument such as `chanels =` names the closest argument.
 
-* **Breaking (minor):** `get_install_dir()` and `list_envs()` now return a
-  tibble-classed data frame instead of a bare character vector/string, so
-  they can report results across more than one backend. `get_install_dir()`
-  gains `backend`/`path` columns; `list_envs()` gains `backend`/`env_name`/
-  `path` columns. With a single registered backend (today's default),
-  this is always one row per environment (or one row total for
-  `get_install_dir()`), just no longer a bare vector - code checking
-  `is.character(get_install_dir())` or iterating `for (e in list_envs())`
-  needs to switch to `get_install_dir()$path` / `list_envs()$env_name`.
-  `env_exists()` is unaffected - it still returns a plain `TRUE`/`FALSE`.
+* The default `channels` of `create_env()` and `install_packages()` is now
+  `"conda-forge"` (it was `c("conda-forge", "bioconda")`).
+  For bioconda packages, name the channel in the spec (`"bioconda::samtools"`)
+  or pass `channels = c("conda-forge", "bioconda")`.
+  `channels = NULL`, `character(0)`, `NA` and `""` abort with class
+  `condathis_invalid_channels` (in 0.1.4, `NULL` meant the default).
 
-* `list_packages()`'s columns are now documented as backend-dependent:
-  only `name`, `version`, `build_number`, and `channel` are guaranteed
-  present across every backend. The `"micromamba"` backend's other
-  columns (`base_url`, `build_string`, `dist_name`, `platform`, `md5`,
-  `sha256`, `url`) are unchanged, just no longer part of the documented
-  cross-backend guarantee.
+* The default `channel_priority` of `create_env()` and `install_packages()`
+  is now `"strict"` (it was `"disabled"`).
+  Pass `channel_priority = "disabled"` for the old solver behavior.
 
-### Added
+* `create_env(overwrite = FALSE)` never replaces an existing environment.
+  It keeps it, with status 0, when it already has the requested packages or
+  when nothing is requested.
+  Otherwise, and always with `env_file`, it aborts with class
+  `condathis_create_env_exists`: use `install_packages()` to add packages,
+  or `overwrite = TRUE` to rebuild.
+  In 0.1.4, it deleted and rebuilt the environment, which lost the packages
+  added later.
 
-* New `run_pipeline()` function for Unix-style pipeline execution
-  (`cmd1 | cmd2 | cmd3`) based on `processx` 3.9.0 kernel-level pipes.
-  Each command in the pipeline can run in a different Conda environment.
-  Returns an S3 `condathis_pipeline` object with per-process status, stdout
-  (last process only), stderr, and PID.
-  Supports `stdin` file redirection, writable `stdin = "|"` with an `input`
-  value written to the first command, per-command `stdout`/`stderr`
-  overrides in the `cmds` named list spec (`stdout` only on the last
-  command), `error = "cancel"` / `"continue"`, and automatic crash cleanup
-  via `supervise = TRUE`.
+* `create_env()` aborts when package specs and `env_file` are both given
+  (class `condathis_create_env_conflicting_args`).
+  In 0.1.4, it ignored the specs.
+  It also aborts, with `platform` and `overwrite = FALSE`, on an existing
+  environment built for another platform
+  (class `condathis_create_env_platform_mismatch`): pass `overwrite = TRUE`
+  to rebuild it for that platform.
 
-* New arguments that exists in both `run()`, `run_bin()`, `run_pipeline()`:
-  * New `supervise`, `cleanup_tree`, and `linux_pdeathsig` arguments for
-    crash-safe process cleanup
-    . Default to `FALSE`, preserving existing behavior.
-  * New `input` argument: writable `stdin = "|"` support, writing
-    character/raw data directly to the process's standard input - matching
-    `run_pipeline()`'s `input` argument. Previously `stdin` only accepted
-    `NULL` or a file path.
-  * Both now return a `condathis_result` S3 object instead of a plain
-    `processx::run()` list. It remains fully usable as a list (`res$status`,
-    `res$stdout`, etc. are unchanged) and adds `pid`, `cmd`, and `env_name`
-    fields plus `print()`/`format()` methods, mirroring `condathis_pipeline`.
+* Missing environments are no longer created on the fly: create them with
+  `create_env()` first.
+  `install_packages()` into a missing environment,
+  `list_packages()` of a missing `"condathis-env"`, and `run_bin()` in a
+  missing environment (it ran a same-name program from `PATH`) now abort.
+  The error has class `condathis_<function>_env_not_found`
+  (also `condathis_env_not_found`).
+  `run()` and `run_bin()` give status 127 with `error = "continue"`.
+  Only the default `"condathis-env"` is created, empty, by
+  `install_packages()`, `run()`, `run_bin()` and `run_pipeline()`,
+  and only when it is the environment you asked for.
 
-* `run_pipeline()`'s `supervise`, `cleanup_tree` (previously always `TRUE`),
-  and `linux_pdeathsig` (new) are now overridable arguments instead of
-  hardcoded, for full parity with `run()`/`run_bin()`.
+* Environment names must be valid directory names on every OS.
+  Names that are empty, `.` or `..`, start with `-` or end with `.` are
+  invalid.
+  So are names that contain a path separator, `:`, `#`, whitespace or
+  `<>"|?*`, and Windows device names such as `nul`.
+  They abort in every function (class `condathis_invalid_env_name`).
+  `env_path()` still runs commands in an existing environment with such a
+  name (its `path` is in `list_envs()`).
+  To change one, create it again under a valid name and delete the old
+  directory.
 
-* New `binary` argument (defaults to `FALSE`) on `run()`, `run_bin()`, and
-  `run_pipeline()`: captures stdout/stderr as raw vectors instead of
-  decoding them as UTF-8 text, so binary output (images, compressed data,
-  etc.) round-trips correctly. Since a process's stdout and stderr share one
-  encoding, both streams come back raw when `TRUE` - check with `is.raw()`
-  before treating either as text. `format()`/`print()` on the resulting
-  `condathis_result`/`condathis_pipeline` objects, and `parse_output()`, all
-  handle raw streams safely (`parse_output()` errors with class
-  `condathis_parse_output_binary_stream` if asked to parse one). Binary
-  streams are never live-echoed to the console.
+* `run_bin()` now activates the environment, with the new argument
+  `activate = TRUE`.
+  Pass `activate = FALSE` for the 0.1.4 behavior.
 
-* New `timeout` argument on `run()`, `run_bin()`, and `run_pipeline()`:
-  maximum number of seconds to let a command (or, for `run_pipeline()`, the
-  whole pipeline) run before it's killed. Defaults to `Inf` (no limit, the
-  previous behavior). On expiry, the process is killed (`status = -9`) and
-  `timeout` is `TRUE` in the returned result; `error = "cancel"` (the
-  default) aborts with a dedicated class (`condathis_run_timeout_error` /
-  `condathis_pipeline_timeout_error`) instead of the regular
-  status-error class, so you can tell a timeout apart from an ordinary
-  failed command; `error = "continue"` returns the result normally instead
-  of aborting. For `run_pipeline()`, `timeout` applies to the pipeline as a
-  whole (one shared deadline across every command, not per-command); any
-  output a killed stage had already produced is preserved.
+* `run()` starts the command itself instead of through `micromamba run`,
+  so arguments reach it exactly as given.
+  On Windows, `cmd.exe` re-parsed them (`>`, `<`, `|` and `&` became
+  redirections, pipes and command separators, and `^` and `%` were
+  dropped).
+  Shell builtins such as `dir` and `echo` also worked: run a shell
+  explicitly for them (see `?run`).
+  What `activate.d` scripts print is no longer part of the output.
+  `verbose = "cmd"` shows your command, not micromamba's.
+  On Linux and macOS, a failing `activate.d` script aborts
+  with class `condathis_run_resolve_failed` instead of a status error.
 
-* `install_micromamba()` now verifies the downloaded `micromamba` binary
-  against its official checksum. If it doesn't match - or the check can't
-  be run at all, for any reason - you'll see a warning, but the install
-  still completes; this never blocks you. On R 4.5 and newer this needs no
-  extra software at all; on older R it prefers the optional `digest`
-  package if you have it installed, and only as a last resort falls back
-  to a `sha256sum`/`shasum` program on your system, which is verified to
-  actually work correctly before being trusted.
+* `run()` and `run_bin()` reject a `cmd` that is not a single, non-empty
+  string, such as `c("echo", "x")` (class `condathis_invalid_cmd`).
+  Pass the arguments of the command in `...`.
+  `NA` in `...` aborts with class `condathis_<function>_invalid_args`
+  (0.1.4 passed the string `"NA"`).
 
-### Changed
+* `create_env()`, `install_packages()`, `remove_env()`, `clean_cache()`,
+  `run()` and `run_bin()` return a `condathis_result` object, which prints
+  as a short summary.
+  `status`, `stdout`, `stderr` and `timeout` work as before, and `cmd`,
+  `env_name` and `pid` are new (`pid` is `NA` unless `run()` or `run_bin()`
+  gets `stdin = "|"`).
+  A stream that was not captured is now `NA` instead of `NULL` or `""`:
+  test it with `is.na()`.
+  `as.list(res)` gives a plain list.
 
-* `condathis` no longer temporarily mutates the calling R session's
-  environment variables while running commands. Previously, every
-  execution path applied its conda-isolation overrides (`R_HOME = ""`,
-  `TMPDIR`, `CONDA_*`/`MAMBA_*`, and for `run_bin()` also `PATH`) to the
-  *session* for the duration of the child process, and any R code that
-  happened to run during that window - console callbacks, condition
-  handlers, code in an interrupt path - observed the corrupted values
-  (most visibly `R.home()` returning nonsense while `R_HOME` was
-  blanked). Child processes now receive an explicitly constructed
-  environment block instead, and the session is never touched. Behavior
-  of the child processes themselves is unchanged.
+* `get_install_dir()` and `list_envs()` return a data frame (a tibble)
+  instead of a character vector: use `get_install_dir("micromamba")$path`
+  and `list_envs()$env_name`.
 
-* **Breaking (minor):** the default `channels` for `create_env()` and
-  `install_packages()` is now just `"conda-forge"` - `"bioconda"` is no
-  longer included implicitly. Aligns `condathis` with plain `micromamba`
-  behavior and avoids solving against a channel most environments never
-  use. Code that installs bioconda packages needs the channel stated
-  explicitly, in either of two ways: a channel-prefixed package spec -
-  `create_env(packages = "bioconda::samtools")` pulls the package *and*
-  its bioconda dependencies with no other change - or the channel
-  argument, e.g. `channels = c("conda-forge", "bioconda")`. Calls that
-  already passed `channels` explicitly are unaffected.
+* `method` is a new argument right after `env_name` in `env_exists()`,
+  `remove_env()`, `list_packages()` and `get_env_dir()`, and the first
+  argument of `list_envs()` and `get_install_dir()`.
+  Pass `verbose` by name:
+  `list_envs("silent")` and `env_exists("x", "silent")` abort with class
+  `condathis_invalid_method`.
 
-* **Breaking (minor):** the default `channel_priority` for `create_env()`
-  and `install_packages()` is now `"strict"` (previously `"disabled"`),
-  matching `micromamba`'s own recommended default: when multiple channels
-  provide the same package name, only the highest-priority channel's
-  builds are considered, which keeps resolution reproducible and prevents
-  accidental cross-channel mixing. Pass
-  `channel_priority = "disabled"` (or `"flexible"`) to restore the
-  previous behavior for a specific call. Note for existing environments:
-  `install_packages()`'s channel-history warning may now fire for
-  environments created before this change with the old implicit
-  `"bioconda"` default - add the channel it names to `channels` or
-  `additional_channels` to silence it.
+* `remove_env()` now defaults to `verbose = "output"` and reports the
+  removal.
+  `list_packages()` now defaults to `verbose = "silent"` and
+  always returns its tibble visibly.
 
-* `run()` and `run_bin()` gain feature parity with `run_pipeline()`:
-  * New `supervise`, `cleanup_tree`, and `linux_pdeathsig` arguments for
-    crash-safe process cleanup (previously only available, and always on,
-    in `run_pipeline()`). Default to `FALSE`, preserving existing behavior.
-  * New `input` argument: writable `stdin = "|"` support, writing
-    character/raw data directly to the process's standard input - matching
-    `run_pipeline()`'s `input` argument. Previously `stdin` only accepted
-    `NULL` or a file path.
-  * Both now return a `condathis_result` S3 object instead of a plain
-    `processx::run()` list. It remains fully usable as a list (`res$status`,
-    `res$stdout`, etc. are unchanged) and adds `pid`, `cmd`, and `env_name`
-    fields plus `print()`/`format()` methods, mirroring `condathis_pipeline`.
+* `env_exists()` and `get_env_dir()` abort when `env_name` is not a single,
+  valid name, such as `NULL`, `NA`, a number or several names (class
+  `condathis_invalid_env_name`).
+  In 0.1.4, `env_exists()` returned `FALSE`, and `get_env_dir()` returned
+  one path per name.
+  `env_exists()` now defaults to `env_name = "condathis-env"`.
 
-* `run_pipeline()`'s `supervise`, `cleanup_tree` (previously always `TRUE`),
-  and `linux_pdeathsig` (new) are now overridable arguments instead of
-  hardcoded, for full parity with `run()`/`run_bin()`.
+* `install_micromamba()`: `timeout_limit` is renamed `timeout`, in the same
+  position (`timeout_limit` still works, with a warning of class
+  `condathis_deprecated_arg`).
+  An explicit `micromamba_version` now
+  replaces an installed binary of another version, and versions older than
+  2.8.1 abort with class `condathis_install_micromamba_unsupported_version`.
 
-* **Breaking (minor):** `create_env()`, `install_packages()`, `remove_env()`,
-  and `clean_cache()` now return the same kind of result object as `run()`/
-  `run_bin()` (a `condathis_result`), instead of a plain, unlabeled list.
-  If your code only reads `res$status`, `res$stdout`, or `res$stderr`,
-  nothing changes - that keeps working exactly as before. What's new: every
-  result now also includes `res$pid`, `res$cmd`, and `res$env_name`, and
-  simply printing a result (e.g. typing it at the console, or letting it
-  auto-print) now shows a short, readable summary instead of a raw list
-  dump. The one thing that *can* break: code that checks the exact class
-  of the result (for example `is.list(res) && !inherits(res, "condathis_result")`,
-  or anything comparing `class(res)` to `"list"`). If you need a plain list
-  back, `as.list(res)` gives you one.
+* `parse_output()` keeps the text as the command wrote it: pass the new
+  `trim = TRUE` for the 0.1.4 trimming of whitespace and blank lines.
+  Lines end only at `\n`, `\r\n` or `\r`, and empty output gives
+  `character(0)` instead of `""`, also with `trim = TRUE`: test for it with
+  `length(x) == 0L`.
+  `stream = "both"` aborts when neither stream was captured
+  (it returned `""`), and `stream = "plain"` aborts on `NA` (it returned
+  `"NA"`).
 
-* **Breaking (minor):** in `run_pipeline()`'s result, each step in
-  `res$processes` (e.g. `res$processes[[1]]`) is now that same kind of
-  result object too, not a plain list. You can now `print()` or `format()`
-  a single step on its own, not just the whole pipeline result. Each step
-  also gains a `timeout` field, `TRUE` for whichever step(s) were still
-  running when `run_pipeline()`'s own `timeout` expired. As above,
-  `res$status`/`res$stdout`/`res$stderr`/`res$cmd`/`res$env_name`/`res$pid`
-  all still work the same way; only code checking the exact class of an
-  individual step is affected.
+### New features
 
-* `install_packages()` now validates its arguments upfront instead of
-  letting bad input reach `micromamba` (or a plain base-R error): calling
-  it without `packages` (or with `packages = NULL`) now gives a clear,
-  classed error (`condathis_install_packages_missing_packages`) instead of
-  a generic "argument is missing" error; an invalid `env_name` (not a
-  single, non-missing character string) now errors the same way
-  `env_exists()` and `get_env_dir()` do. Its check for whether the target
-  environment already exists now uses `env_exists()` internally (same
-  result, clearer code) instead of `list_envs()` plus a manual `%in%`
-  check.
+* Backends: the environment functions and the run family take `method` and
+  dispatch to a backend.
+  `"micromamba"` is built in, and gets every new
+  environment unless you pass `method` or set the option
+  `condathis.backend_priority`.
+  `"auto"`, the new default of `method`, uses
+  the backend that owns an existing environment.
 
-* `get_env_dir()` now validates `env_name` (a single, non-missing character
-  string) instead of silently building a nonsensical path - for example, a
-  multi-element `env_name` used to silently return a vector of paths.
+* `method = "rattler"` uses the backend of the rattlerthis package, which
+  is not on CRAN.
+  condathis loads it when it is installed, and aborts with
+  class `condathis_backend_not_installed` otherwise.
+  It never downloads micromamba.
+  A backend that does not run the link scripts of packages, such as rattler,
+  makes the call warn with class `condathis_link_scripts_skipped`.
 
-* `install_packages()` now warns when the target environment was previously
-  installed using a channel that is not included in the current call (e.g.
-  creating an environment with `channels = "conda-forge"` and later calling
-  `install_packages()` with `channels = "bioconda"` only). The channel used
-  is recorded per package in the environment's `conda-meta/history` file;
-  dropping a previously-used channel can change how dependencies resolve.
-  The install still proceeds - this is a warning, not an error.
+* Other packages can add a backend with the experimental
+  `register_backend()` (see `?register_backend`) and remove it with
+  `unregister_backend()`.
+  `list_registered_backend_names()` lists the
+  backends, and `backend_root_dir()` gives the data directory of one.
 
-* **Breaking (minor):** `env_exists()` now raises a clear error if
-  `env_name` isn't a single, real environment name (for example `NULL`,
-  `NA`, a number, or a vector of more than one name). Previously, these
-  invalid inputs silently returned `FALSE`, which looked exactly the same
-  as "that environment doesn't exist" - an easy way to hide a mistake in
-  your own code. If you were deliberately relying on `env_exists(NULL)` or
-  `env_exists(NA)` returning `FALSE`, that call now errors instead;
-  everything else (checking a real environment name) is unaffected.
+* New `run_pipeline()` and `run_step()` run a pipeline (`cmd1 | cmd2`)
+  through operating system pipes, each command in its own environment if
+  needed: `run_pipeline(run_step("seq", "1", "3"), run_step("cat"))`.
+  A command that ends because the next one stopped reading, as `seq` in
+  `seq 1 1000000 | head -n 1`, does not count as a failure, also on
+  Windows.
+  `parse_output()` reads the result.
+  Here, `supervise` and `cleanup_tree` default to `TRUE`.
 
-* **Breaking (minor):** `run()` no longer creates any environment when the
-  one you asked for (`env_name`) doesn't exist - it errors instead,
-  telling you to create it first. Previously, if you gave a custom
-  `env_name` that didn't exist, `run()` would silently create an unrelated,
-  empty `"condathis-env"` as a side effect (left over from a workaround for
-  an old `micromamba` limitation that no longer applies) and then still
-  fail anyway, just with a more confusing error. The one thing that keeps
-  working exactly as before: calling `run()` without specifying `env_name`
-  at all still auto-creates the default `"condathis-env"` for you, since
-  that's a deliberate convenience, not the bug being fixed here. With
-  `error = "continue"`, a missing custom environment now gives you back a
-  result with `status = 127` instead of erroring.
+* New `env_path()` refers to an environment created outside condathis by
+  its directory, for `run()`, `run_bin()`, `run_pipeline()` and
+  `run_step()`:
+  `run("python", "--version", env_name = env_path("/opt/envs/py"))`.
+  condathis never changes such an environment.
 
-### Fixed
+* New `validate_env()` checks that an environment exists and has the
+  requested package specs, using the same check as
+  `create_env(overwrite = FALSE)`.
+  It returns `TRUE` invisibly, or aborts with class
+  `condathis_validate_env_unsatisfied` (`condathis_validate_env_env_not_found`
+  for a missing environment).
+  With `error = "continue"`, it returns `FALSE` instead.
 
-* The `~/.mamba/pkgs` workaround for libmamba (#13) is now version-gated
-  and its cleanup no longer deletes an existing `~/.mamba` directory.
-  The underlying libmamba bug (`error libmamba Could not lock non-existing
-  path ~/.mamba/pkgs` when the root prefix lives elsewhere) affects
-  micromamba 2.0.0-2.0.2 only; from 2.0.4 libmamba creates the directory
-  itself. `create_env()` now applies the workaround only when the resolved
-  micromamba is older than 2.0.4, and removes only what it created.
-  Previously, if `~/.mamba` existed without a `pkgs` subdirectory, the
-  whole `~/.mamba` directory (including unrelated user files) was deleted
-  after every `create_env()` call.
+* New arguments of `run()` and `run_bin()`, also in `run_pipeline()`:
+  * `timeout` kills the command after that many seconds (status `-9`,
+    class `condathis_timeout_error`).
+  * `input` writes a character or raw vector to standard input with
+    `stdin = "|"`.
+  * `binary = TRUE` returns stdout and stderr as raw vectors.
+  * `supervise` and, on Linux, `linux_pdeathsig` end the command when R
+    ends, even by a crash. `cleanup_tree` ends the processes that the
+    command started when it finishes. All three default to `FALSE`.
+  * `run_bin()` also gains `method`.
 
-* Fix a failing activation resolution (e.g. a broken `activate.d` hook
-  script) escaping `error = "continue"` in `run_bin()` and
-  `run_pipeline()`: it now behaves like any other per-command failure -
-  a classed abort under `error = "cancel"`, a failed (`status = 127`)
-  result under `error = "continue"`. The command is deliberately *never*
-  run unactivated as a silent fallback.
+* The errors of a failed or timed-out command of `run()`, `run_bin()` and
+  `run_pipeline()` carry the fields `status`, `stdout`, `stderr` and
+  `timeout`.
 
-* Fix `create_env()` silently not applying `env_file` when `packages`
-  were also supplied and the environment already satisfied them: the
-  already-satisfied shortcut skipped the real creation, so the file's
-  contents were never installed while the call reported success. The
-  shortcut now only applies to plain `packages` requests.
+* The micromamba backend records the activation of an environment (its
+  `activate.d` scripts included) the first time a command runs in it in an
+  R session.
+  It reuses that activation, without running the scripts again, until the
+  environment or the environment variables of the session change.
 
-* Fix environment ownership matching claiming any path that merely
-  *contains* the condathis install root somewhere inside it (e.g. a
-  backup copy at `/backup/home/user/.local/share/R/condathis/envs/x`):
-  the root is now matched as an anchored path prefix.
+* `install_micromamba()` checks each download against the SHA256 checksum
+  published with the micromamba release.
+  It tries the next mirror when the checksum does not match (warning class
+  `condathis_install_micromamba_checksum_mismatch`).
+  When no checksum can be read, it installs the binary and warns with class
+  `condathis_install_micromamba_checksum_unavailable` when
+  `verbose = "output"` or `"full"`.
 
-* `run_pipeline()` now reaps every spawned process when an unexpected
-  internal error escapes, instead of leaving already-spawned commands
-  running until R's garbage collector happened to clean them up.
+* Windows on ARM64: a native ARM64 R gets the `win-arm64` micromamba.
+  `create_env()` falls back to `win-64` packages, through x64 emulation,
+  when a request cannot be installed for `win-arm64`.
 
-* Support `micromamba` 2.9.0's changed `list --json` output format
-  (`{"log_history": ..., "packages": ...}` instead of a bare package
-  array), which broke `list_packages()` - and everything downstream of
-  it, like `create_env()`'s already-satisfied detection - when the
-  discovery chain picked up a system-installed 2.9+ binary. Both formats
-  are now parsed.
+* `create_env()`, `install_packages()` and `remove_env()` lock the
+  environment: another R session that changes it waits, and says so after
+  two seconds (message class `condathis_env_lock_waiting`).
+  `clean_cache()` and package installs of other sessions wait for each other.
 
-* Fix `run()`/`run_bin()` potentially returning an unrelated object named
-  `px_res` from the user's workspace as the command result when the
-  underlying execution errored in an unusual way: the internal
-  had-a-result check searched enclosing environments all the way to the
-  global environment instead of only its own frame.
+* New help pages `?condathis-conditions` (condition classes and error
+  fields) and `?condathis-options` (options and environment variables).
 
-* Fix `create_env()` accepting an invalid `channel_priority` without
-  error whenever the target environment already satisfied the request:
-  the validation only ran on the actual-creation path, so the same call
-  errored or passed depending on environment state. It is now validated
-  upfront, unconditionally.
+### Other changes
 
-* Fix `getOption("condathis.backend_priority")` acting as an allowlist
-  instead of an ordering preference: naming only an unregistered backend
-  made `method = "auto"` abort "no backend available" even with a
-  working registered backend present. Registered backends the option
-  does not mention are now appended after the prioritized ones.
+* `method = "native"`, the 0.1.4 default, still works as a deprecated alias
+  for `"micromamba"` (warning class `condathis_deprecated_method_native`).
 
-* Activation-variable resolution no longer runs a `micromamba env list`
-  subprocess (via the public `get_env_dir()`) on every call - including
-  cache hits: the environment directory is computed directly from the
-  micromamba layout, removing a redundant subprocess from every activated
-  `run_bin()` call and pipeline command spawn.
+* Every error has the class `condathis_error` and every warning
+  `condathis_warning`, with classes for the function and the problem (see
+  `?condathis-conditions`).
+  Messages changed too: match classes and error fields, not message text.
+  The 0.1.4 classes are kept as extra classes until 1.0:
+  * `condathis_create_invalid_overwrite_arg` is now
+    `condathis_create_env_invalid_overwrite`.
+  * `condathis_create_missing_env_file` is now
+    `condathis_create_env_missing_env_file`.
+  * `condathis_error_env_remove` is now `condathis_remove_env_env_not_found`.
+  * `condathis_list_packages_missing_env` is now
+    `condathis_list_packages_env_not_found`.
+  * `condathis_cmd_status_error` is now `condathis_micromamba_status_error`,
+    with the fields `status` and `stderr`.
+  * `condathis_install_error_missing_bzip2` (deprecated) is now
+    `condathis_install_micromamba_download_failed`.
+  * `condathis_run_null_cmd` is now `condathis_run_invalid_cmd`.
+  * `condathis_run_stdin_error` is now `condathis_run_invalid_stdin` and
+    `condathis_run_bin_invalid_stdin`.
+  * `condathis_run_status_error` of `run_bin()` is now
+    `condathis_run_bin_status_error`.
+  * `rlib_error_dots_named`, for a named value in `...` of `run()` and
+    `run_bin()`, is now `condathis_run_invalid_args` and
+    `condathis_run_bin_invalid_args`.
+  * `condathis_umamba_*` is now `condathis_micromamba_*`.
 
-* Fix `run_pipeline(stderr = "some-file")` losing every command's stderr
-  except the last one to open the file: each command's process opened
-  (and truncated) the shared path independently, clobbering what earlier
-  commands had written - worst exactly when a middle command failed and
-  its stderr was what the file was meant to keep. Each command now writes
-  to its own temporary file and the requested file is assembled once, in
-  command order, after the pipeline finishes (including when it aborts
-  under `error = "cancel"`).
+* Arguments are checked before anything runs.
+  Invalid values of `verbose`,
+  `error`, `method`, `channel_priority`, `platform` (with a suggestion,
+  such as `"linux-aarch64"` for `"linux-arm64"`) and `env_file`, and
+  package specs such as `NA` or `""`, abort with classed errors that name
+  your call.
+  This happens before micromamba is installed or started.
+  `run()` and `run_bin()` check `stdin`, `stdout` and `stderr` before the
+  command starts.
 
-* Fix a low-level "broken pipe" error escaping when a command exits
-  before consuming its `input` (e.g. a large `input` written to a command
-  that fails immediately): in `run()`/`run_bin()` it was misreported as a
-  status-127 "command not found", masking the real exit status, and in
-  `run_pipeline()` it escaped even under `error = "continue"`. The
-  undeliverable input is now simply abandoned and the command's own exit
-  status is reported, on every platform.
+* Queries never install micromamba or create an environment:
+  `list_envs()`, `env_exists()`, `get_env_dir()`, `get_install_dir()`,
+  `list_packages()` and `validate_env()` (`get_env_dir()` and
+  `get_install_dir()` create only the data directory).
+  Without a usable micromamba, they read the data directory.
 
-* Fix a single stale environment entry (e.g. in
-  `~/.conda/environments.txt`, or an environment removed by another
-  process mid-call) breaking every environment at once: realizing the
-  listed paths errored on the first one that no longer existed, which
-  aborted `list_envs()` entirely and made `env_exists()` report
-  *existing* environments as absent. Vanished paths are now dropped
-  individually and never affect the others.
+* The check that an existing environment has the requested
+  packages (`create_env(overwrite = FALSE)`, `validate_env()`) compares the
+  name without case, the version, the build string, the channel and the
+  platform.
+  It also compares the `version`, `build`, `build_number` and `channel`
+  bracket constraints.
+  0.1.4 compared only the name and the version.
+  Channels compare without credentials or platform subdirectory.
 
-* Fix `run()` and `run_pipeline()` refusing to execute ("environment
-  does not exist") when the environment existence check itself failed
-  (transient lock, corrupt listing metadata, and similar): a failed check
-  is no longer treated as "absent" - execution proceeds, and a genuinely
-  missing environment still fails with the backend's own clear error.
+* A spec that condathis cannot compare as micromamba reads it never counts
+  as satisfied.
+  Examples are a bracket constraint other than these (`[md5=...]`), a regular
+  expression as build string and some uses of `*`.
+  The error names the spec (see `?create_env`).
 
-* Fix an unreadable low-level JSON error when resolving activation for an
-  environment whose `activate.d` hook scripts print to stdout (e.g. a
-  package that echoes a banner on activation): the activation dump is now
-  fenced with markers so hook output cannot corrupt it, and a genuinely
-  broken dump reports a clear, classed error naming the environment.
+* `install_packages()` warns (class
+  `condathis_install_packages_missing_previous_channels`) when the
+  environment has packages from a channel that the call leaves out.
+  This happens, for example, with bioconda packages installed with the 0.1.4
+  default channels.
+  Add that channel to `channels` or `additional_channels`.
 
-* Fix `run_pipeline(activate = FALSE)` still performing the full
-  activation resolution it was asked to skip (two extra subprocess spawns
-  per environment on a cache miss) and still inheriting activation's
-  failure modes - a failing `activate.d` hook aborted the whole pipeline
-  even under `error = "continue"`. The activation-free path now resolves
-  the executable directly and never touches activation.
+* `list_packages()` always has the columns `name`, `version`,
+  `build_number` (integer), `build_string`, `channel` and `platform`.
+  A failed listing aborts with class `condathis_list_packages_failed`.
 
-* Fix `install_micromamba(force = TRUE)` destroying a working
-  `micromamba` installation when the download failed: the standalone-
-  binary download strategy wrote directly onto the live binary path, and
-  its per-mirror cleanup deleted that path after every failed mirror - so
-  a forced reinstall on a machine with unreachable mirrors (e.g.
-  offline) deleted the existing binary and then aborted, leaving nothing.
-  Downloads now go to a temporary path and only replace the existing
-  binary once a complete new one exists; a failed install still aborts
-  (the requested version was not installed), but the previous working
-  binary survives.
+* The password and the token of a URL, such as a channel URL, show as
+  `*****`, as micromamba shows them.
+  This holds in the command line that `verbose = "cmd"` and
+  `"full"` print, in the `cmd` of results, in messages, warnings and errors,
+  and in `list_packages()`.
+  The command still gets them, and `stdout` and `stderr` of results keep
+  them.
 
-* Fix `run_pipeline()` deadlocking permanently once the data flowing
-  between commands exceeded the OS pipe buffers (~64KB): stages' captured
-  streams were drained one stage at a time, leaving the last command's
-  output pipe unread while earlier stages were waited on, and the
-  resulting backpressure froze every process in the pipeline - reproduced
-  with `seq 1 500000 | cat`. All stages' captured streams are now drained
-  concurrently in a single poll loop, on every platform.
+* `with_sandbox_dir()` returns the value of `code`.
+  It also redirects
+  `XDG_CONFIG_HOME`, `XDG_STATE_HOME` and `R_USER_CONFIG_DIR`, and stops the
+  processes that condathis started in it.
+  `.local_envir` is now only the environment that `code` runs in.
 
-* Fix `timeout` being silently unenforced in `run()`/`run_bin()` when
-  both `stdout` and `stderr` are redirected to files (or the child closes
-  its streams but keeps running), and in `run_pipeline()` for commands
-  with no captured streams (e.g. `stderr = NULL`): the final wait on the
-  child was unbounded, so a 2-second timeout could wait out a
-  100-second command. The remaining time budget is now always enforced
-  with a bounded wait, and expiry reports the same `status = -9` /
-  `timeout = TRUE` result as any other timeout.
+* condathis keeps files of its own in its data directory
+  (`condathis-micromamba.yaml` and the directories `cache`, `home`, `locks`
+  and `channels`) and in a `.condathis` directory in each environment that
+  it creates.
 
-* Fix `run_pipeline(activate = FALSE)` building a corrupted `PATH` for
-  its child processes on Windows: the hand-rolled activation used the
-  POSIX `":"` separator and a POSIX-only `bin/` layout. It now uses the
-  platform's real separator and the same Windows-aware environment
-  layout (`Scripts/`, `Library/bin/`, ...) the rest of the package uses.
+* Messages use cli's success and information bullets instead of `!`, and
+  spell "successfully" correctly.
+  `create_env()` says that an existing environment "already has the requested
+  packages" instead of "already exists".
 
-* Fix the cached `micromamba` activation variables freezing the session
-  `PATH` of whichever call first resolved an environment into every later
-  call for it: directories removed from the session `PATH` afterwards
-  were resurrected in child processes, later additions were missing, and
-  one caller's transient `PATH` prefix could leak into unrelated calls.
-  The cache now stores only the directories activation *adds*, and the
-  final `PATH` is composed against the live session `PATH` on every use.
+* micromamba 2.10.0-0 is installed by default (it was 2.8.1-0).
+  Versions from 2.8.1 on still work, and condathis reads the listing format of
+  micromamba 2.9 and later.
 
-* Fix `install_micromamba()` always creating the default `"condathis-env"`
-  as an undocumented side effect of installing the binary, even when
-  triggered incidentally by an unrelated, read-only call (for example
-  `env_exists()`) that happened to need a first-time install because no
-  `micromamba` binary was available anywhere yet. `install_micromamba()`
-  is documented to install the binary only; this leftover, no-longer-needed
-  workaround (the same kind `run()`'s own auto-create logic already dropped)
-  made a fresh install root end up with an unwanted default environment
-  the caller never asked for. `run()`, `run_pipeline()`, and
-  `list_packages()` each already auto-create `"condathis-env"` themselves,
-  correctly scoped to only when it's actually the target - that behavior
-  is unaffected.
+* condathis now imports filelock (>= 1.0.3) and ps (>= 1.9.3).
+  It needs cli (>= 3.4.0), processx (>= 3.9.0) and rlang (>= 1.0.0).
 
-* Fix `run_pipeline()` checking that Conda environments exist before
-  attempting to auto-create the missing default environment, which made the
-  auto-create path unreachable.
+### Bug fixes
 
-* Fix `run_pipeline()` crashing when reading `stdout`/`stderr` for a process
-  whose output was redirected to a file or discarded (`NULL`) instead of
-  captured with `"|"`.
+* condathis no longer changes the files of other Conda tools in your home
+  directory, except `~/.conda/environments.txt` in the case below:
+  * `create_env()` no longer deletes `~/.mamba` (`%APPDATA%\.mamba` on
+    Windows) when it has no `pkgs` subdirectory.
+  * micromamba and the commands of its environments use only the condathis
+    package cache, and `clean_cache()` deletes only the caches of
+    condathis.
+    It deleted the shared `~/.mamba/pkgs` cache and the whole
+    `~/.cache/conda` directory.
+    It no longer installs micromamba when there is no package cache to
+    clean.
+  * micromamba keeps its repodata cache in the condathis data directory,
+    not in `~/.cache/conda`, and `run()` leaves no `mamba/proc` directory in
+    your cache directory.
+  * Listing and removing environments no longer rewrite
+    `~/.conda/environments.txt`, and `create_env()` adds the environment to
+    it only when micromamba needs your home directory (see
+    `?get_install_dir`).
+  * On Windows, packages no longer add Start Menu shortcuts.
+    Shortcuts that 0.1.4 added stay after `remove_env()`.
 
-* Fix `run_pipeline()` letting a raw `processx` error escape uncaught when a
-  command is not found, ignoring the `error` argument entirely. It now
-  matches `run()`: `error = "continue"` reports `status = 127` for that
-  command and keeps running the rest of the pipeline; `error = "cancel"`
-  throws a `condathis_pipeline_status_error` instead of a low-level error.
+* condathis no longer changes the environment variables of the R session
+  while a command runs.
+  In 0.1.4, R code that ran meanwhile, such as a
+  condition handler, saw the `R_HOME`, `TMPDIR`, `CONDA_*` and `MAMBA_*`
+  values of the child process, and for `run_bin()` its `PATH`.
 
-* Fix `run_pipeline()` error messages breaking (or silently corrupting) when
-  a failing command's `stderr` contained curly braces, since
-  `cli::cli_abort()` interprets `{`/`}` as glue syntax. Captured stderr,
-  command strings, and environment names are now escaped before being
-  embedded in the error message.
+* `with_sandbox_dir()` restores the working directory and every
+  environment variable, those that `code` set included, and deletes the
+  sandbox before it returns, also after an error.
+  At top level, as in examples, 0.1.4 kept `HOME` and the data directories
+  redirected for the rest of the session.
+  It also kept the sandbox on disk.
 
-* Fix `run_pipeline()` always throwing on a missing custom environment
-  regardless of `error`. `error = "continue"` now reports `status = 127` for
-  commands targeting that environment instead of aborting the whole
-  pipeline; `error = "cancel"` keeps the previous fail-fast behavior.
+* micromamba now works when its default root prefix
+  (`$XDG_DATA_HOME/mamba`, else `~/.local/share/mamba`) exists but is not a
+  Conda environment.
+  In 0.1.4, no command worked then.
 
-* Fix `run_pipeline()` hanging indefinitely on native Windows for any
-  pipeline of 2 or more commands. Caused by three compounding issues in how
-  inter-process pipes were created and managed: using the non-blocking,
-  R-facing `processx::conn_create_pipepair()` instead of
-  `conn_create_proc_pipepair()` (documented as required for correct
-  child-to-child stdin/stdout behavior on Windows); deferring the parent's
-  own copies of pipe handles from closing until every process in the
-  pipeline had spawned, instead of closing each one immediately after use;
-  and defaulting every process to `supervise = TRUE`, which spawns an extra
-  Windows helper process per stage that can itself hold the piped stdout
-  open, preventing the next stage from ever seeing EOF. `run_pipeline()`
-  now forces `supervise = FALSE` on Windows regardless of the `supervise`
-  argument (unaffected on Linux/macOS, where the hang does not occur).
+* condathis works when the path of its data directory has a `/t/<name>/`
+  part, which micromamba 2.9.0 and later hide as an anaconda.org token.
+  With such a micromamba, 0.1.4 failed there with "Failed to realize".
 
-* Fix `run()`/`run_bin()`'s `stdin = "|"` silently truncating `input`
-  larger than the OS pipe buffer (confirmed: only 8192 of 200000 bytes
-  delivered on macOS, no error) - a single non-blocking `write_input()`
-  call can short-write and discard the undelivered remainder. Also fixes a
-  related deadlock in `run()`, `run_bin()`, and `run_pipeline()`: reading
-  `stdout` and `stderr` sequentially (or calling `wait()` before draining
-  either) can hang once combined output exceeds the OS pipe buffer, because
-  the child blocks writing to whichever stream isn't being read yet. Both
-  fixed by a shared internal helper that writes/polls/drains all of a
-  process's streams concurrently instead of one at a time.
+* Errors of micromamba commands show micromamba's message and the exit
+  status.
+  0.1.4 ran micromamba with `--quiet`, which hid the message below
+  `verbose = "full"`.
 
-* Fix `install_micromamba()` intermittently reporting a freshly
-  downloaded/extracted `micromamba` binary as missing on Windows.
-  Antivirus real-time scanning can briefly hold its own handle on a
-  just-written executable, making a `file.exists()` check performed
-  immediately afterward return `FALSE` even though the file is present -
-  confirmed directly (a `force = TRUE` reinstall failed once, then
-  succeeded on an immediate retry with no code change). The existence
-  check now polls briefly before giving up.
+* A failed or interrupted `create_env()` no longer deletes the environment
+  it replaces: the environment is moved aside first and moved back.
+  A failed create of a new environment no longer leaves an empty environment
+  behind.
 
-* Fix `get_micromamba_activation_envvars()`'s noise-filtering only
-  stripping `processx`'s `PROCESSX_PS2...` tracking variable and not the
-  similarly PID/hash-suffixed `PROCESSX_PS3...` (and potentially further
-  numbered variants), letting it leak into the returned environment
-  variables and making two otherwise-identical resolutions of the same
-  Conda environment compare as different on every call.
+* On Windows, interrupting `create_env()` or `install_packages()` also
+  stops the programs that micromamba started, such as pip.
 
-* Fix `list_envs()` occasionally returning a plain number instead of a
-  character vector of environment names, in the rare case where the
-  underlying command failed in an unusual way. It now always reports that
-  kind of failure as a proper error, so code calling `list_envs()` can
-  rely on always getting back either a vector of names or an informative
-  error - never a bare number.
+* On Windows, a `run()` that is interrupted or runs out of time no longer
+  leaves micromamba's batch files (`mamba_act*.bat`, `mamba_bat_*.bat`) in
+  `%TEMP%`: micromamba writes its temporary files to a directory that
+  condathis deletes when the call returns.
 
-* Fix `list_packages()` crashing with a confusing, low-level R error
-  (`object 'pkgs_df' not found`) in that same kind of rare failure case.
-  It now reports a clear, consistent error instead.
+* `remove_env()` and `create_env()` no longer delete directories outside
+  the environments directory (`env_name = ""` deleted every environment,
+  and `".."` the whole data directory).
+  They delete only a directory that is
+  exactly `<root>/envs/<env_name>`: on Windows and macOS, a name that
+  differed in case could delete another environment.
+  `remove_env()` no longer deletes the leftover directory of a name that
+  micromamba does not list.
 
-* Fix `list_envs()` matching environment paths against the install
-  directory as a pattern instead of literal text, which could in rare
-  cases match a directory that only looked similar (for example, one
-  differing by a single character where the install path happens to
-  contain a `.`). It now compares the literal path.
+* The check that an existing environment has the requested packages no
+  longer hangs on a `*` after an operator (`"zlib>=1.2.*"`).
+  It no longer counts `"zlib=1.3.*.*"`, `"zlib~=1"` or `"zlib>=1.2,"` as
+  satisfied by versions that micromamba does not match.
+  It no longer treats version numbers above 2147483647 as equal to any other.
 
-* Removed the `micro.mamba.pm` mirror from `install_micromamba()`'s
-  download attempts. It no longer serves specific, pinned versions (only
-  the latest release), and `condathis` always requests a pinned version,
-  so every attempt against it was guaranteed to fail before falling
-  through to a working mirror. Removing it makes installs slightly faster
-  when the first mirror is unavailable, with no change in which version
-  gets installed.
+* `install_packages()` installs packages for the platform of the
+  environment, not for the platform of micromamba.
+  An environment created through Rosetta 2, for example, gets `osx-64`
+  packages.
+
+* On Apple Silicon, the Rosetta 2 fallback of `create_env()` checks the
+  whole request, with its dependencies and `env_file`, and its messages
+  follow `verbose`.
+  The first install into an environment with only
+  `noarch` packages, such as a new `"condathis-env"`, gets the same
+  fallback.
+
+* `list_envs()`:
+  * lists an environment named `"condathis"` (it was hidden, and
+    `create_env()` or `remove_env()` with that name deleted it).
+  * no longer fails on a stale entry of `~/.conda/environments.txt`.
+  * matches the data directory as a path prefix instead of a regular
+    expression.
+  * lists an environment reached through a symbolic link once.
+  * no longer prints micromamba's JSON with `verbose = "output"`.
+
+* `list_packages()` lists only the pip packages of the environment, not
+  those of your user site directory or `PYTHONPATH`.
+
+* `run()` and `run_bin()` write numbers in `...` in full:
+  `run("head", "-n", 100000)` passes `"100000"`, not `"1e+05"`.
+
+* On Windows, `run_bin()` finds the programs of an environment in
+  `Library/bin`, `Scripts` and the other directories that activation adds
+  to `PATH`, with the extensions of `PATHEXT`.
+  0.1.4 looked only in `bin`.
+  `run_bin()` no longer resolves the symbolic links of a program found on
+  `PATH`, which changed `argv[0]` of multicall programs such as busybox.
+
+* `install_micromamba()`:
+  * no longer creates `"condathis-env"`.
+  * replaces an installed binary only with a download that runs, reports
+    its version and matches the checksum, also with `force = TRUE`.
+    A bad download, such as an HTML error page or a truncated archive, no
+    longer breaks a working installation or reports success.
+    The next mirror is tried instead.
+  * extracts the archive with R's internal `tar`, so every mirror works
+    without a system `tar` and `bzip2`.
+  * applies `timeout` also with the curl package.
+  * takes `Inf` as no limit (it made every download fail without curl).
+  * lowers a limit above 2147483 seconds (about 24.8 days) to that value.
+  * no longer tries the micro.mamba.pm mirror, which serves only the latest
+    release.
+  * on Windows, no longer reports a new binary that antivirus software
+    still holds as missing.
+
+* micromamba discovery skips a broken candidate, such as a stale
+  `CONDATHIS_MICROMAMBA_PATH`, a directory or a truncated binary, instead
+  of failing.
+
+* A local channel in a directory whose path has a space works with
+  `create_env()` and `install_packages()` (micromamba failed with "Failed
+  to parse URL").
+
+* `run()` and `run_bin()` no longer return an object named `px_res` from
+  your workspace when the command cannot start under `error = "continue"`.
+  `parse_output()` no longer returns a variable named `raw_text` from your
+  workspace.
+  With `stream = "both"`, it no longer joins the last line of stdout
+  with the first line of stderr.
+
+* condathis works on R 4.3: `%||%` is now imported from rlang.
 
 ## condathis 0.1.4
 
@@ -515,9 +499,9 @@ Development Changelog: [0.1.4](https://github.com/luciorq/condathis/compare/v0.1
 * New `channel_priority` argument in `create_env()` and `install_packages()`
   to control channel priority strategy.
 
-* Condathis now support system installed `micromamba` binaries.
+* Condathis now supports system installed `micromamba` binaries.
   For that we added 1 new option and 1 environment variable to control that behavior.
-  `condathis_micromamba_path` and `"CONDATHIS_MICROMAMBA_PATH"` respectively.
+  `condathis.micromamba_path` and `"CONDATHIS_MICROMAMBA_PATH"` respectively.
   The order of discovery is as follows:
   * User override via `getOption("condathis.micromamba_path")`.
   * User override via `CONDATHIS_MICROMAMBA_PATH` environment variable.
@@ -542,7 +526,7 @@ Development Changelog: [0.1.4](https://github.com/luciorq/condathis/compare/v0.1
   of reproducibility.
 
 * `create_env()` now properly parses MatchSpec version constraints strings to
-  define if environment need to be recreated using new internal functions
+  define if environment needs to be recreated using new internal functions
   `parse_match_spec()` and `version_spec_contains()` to parse Conda MatchSpec
   and use VersionSpec to compare versions, following CEP29 and CEP33, respectively.
 
@@ -576,7 +560,7 @@ Development Changelog: [0.1.3](https://github.com/luciorq/condathis/compare/v0.1
   All internal calls to other functions are kept as `"silent"`, unless when
   calling the user-facing function with `verbose = "full"`.
 
-* Argument `verbose = "silent"` now also silence the spinner animation in
+* Argument `verbose = "silent"` now also silences the spinner animation in
   interactive sessions.
 
 ### Fixed
@@ -648,7 +632,7 @@ Development Changelog: [0.1.0](https://github.com/luciorq/condathis/compare/v0.0
 
 ### Breaking changes
 
-* `env_exists()` now error if no argument is supplied.
+* `env_exists()` now errors if no argument is supplied.
 
 * The base directory path used for creating the environments is now controlled
   by `tools::R_user_dir()` and accepts `R_USER_DATA_DIR`, and `XDG_DATA_HOME`,
@@ -743,9 +727,9 @@ Development Changelog: [0.1.0](https://github.com/luciorq/condathis/compare/v0.0
 
 ### New features
 
-* New `get_env_dir()` retrieves path to environment v(0.0.3.9032).
+* New `get_env_dir()` retrieves path to environment (v0.0.3.9032).
 
-* `create_env()` now has `overwrite = FALSE` argument v(0.0.3.9030).
+* `create_env()` now has `overwrite = FALSE` argument (v0.0.3.9030).
 
 * `install_micromamba()` now has `micromamba_version` argument (v0.0.3.9025).
 
@@ -777,7 +761,7 @@ Development Changelog: [0.1.0](https://github.com/luciorq/condathis/compare/v0.0
 * Add `mode = "wb"` to internal `download.file()` for handling binary downloads
 in Windows (v0.0.3.9023).
 
-* `list_envs()` and `list_packages()` uses `--no-rc` internally (v.0.0.3.9022).
+* `list_envs()` and `list_packages()` use `--no-rc` internally (v0.0.3.9022).
 
 * `create_env_*()`, `packages_search_*()`, and `install_packages()` now uses
   `--no-rc` and `--override-channels` (v0.0.3.9020).
