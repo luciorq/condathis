@@ -1,7 +1,7 @@
 ---
-output: gfm
+format: gfm
+from: markdown-smart
 default-image-extension: ""
-always_allow_html: true
 knitr:
   opts_chunk:
     collapse: true
@@ -15,11 +15,10 @@ knitr:
 [![CRAN status](https://www.r-pkg.org/badges/version/condathis)](https://CRAN.R-project.org/package=condathis)
 <!-- badges: end -->
 
-> Run command-line tools in a **reproducible** and **isolated** way, right from R.
+> Run command line tools in a **reproducible** and **isolated** way, right from R.
 
-Tired of `system()` calls that work on your machine but break everywhere else?
-`condathis` is here to help!
-It lets you create self-contained environments for your command-line tools,
+`system()` calls that work on your machine often break on others.
+`condathis` creates self-contained environments for your command line tools,
 so your R code runs reliably for you, your colleagues, and your future self.
 
 ## A Quick Example
@@ -28,6 +27,8 @@ so your R code runs reliably for you, your colleagues, and your future self.
 #| label: clean-envs
 #| eval: true
 #| include: false
+# Keep the rendered README.md in ASCII: cli prints "v" instead of a check mark
+options(cli.unicode = FALSE)
 # Clean up any existing environments from previous runs
 for (env_name in c("rich-cli-env", "cowpy-env", "fastqc-0.12.1", "curl-env")) {
   if (condathis::env_exists(env_name, verbose = "silent")) {
@@ -36,13 +37,12 @@ for (env_name in c("rich-cli-env", "cowpy-env", "fastqc-0.12.1", "curl-env")) {
 }
 ```
 
-Let's have some fun with `cowpy`.
-With just two commands, we can install and run it in its own isolated environment:
+Two commands install `cowpy` in its own isolated environment and run it:
 
 ```{r}
 #| label: cowpy-example
 # 1. Install 'cowpy' into an environment named 'cowpy-env'
-condathis::create_env(packages = "cowpy", env_name = "cowpy-env")
+condathis::create_env("cowpy", env_name = "cowpy-env")
 
 # 2. Run it!
 # Example showing redirection from a file to the Standard Input (STDIN)
@@ -51,25 +51,24 @@ writeLines("{condathis} is awesome!", temp_file)
 condathis::run("cowpy", stdin = temp_file, env_name = "cowpy-env")
 ```
 
-Maybe you want to try something fancier, like `rich-cli` for formatting messages?
+For something fancier, use `rich-cli` to format messages:
 
 ```{r}
 #| label: rich-cli-example
-condathis::create_env(packages = "rich-cli", env_name = "rich-cli-env")
+condathis::create_env("rich-cli", env_name = "rich-cli-env")
 
 condathis::run(
-  "rich", "[b]Condathis[/b] is awesome!", "-p", "-a", "heavy",
+  "rich", "[b]Condathis[/b] is awesome!", "-p", "-a", "ascii",
   env_name = "rich-cli-env"
 )
 ```
 
-That's it!
-You can now package any command-line tool with your R script,
-ensuring it works everywhere, every time.
+You can package any command line tool with your R script,
+and it runs on any machine where its packages are available.
 
-## Get Started
+## Installation
 
-Install the release version of the package from [CRAN](https://cran.r-project.org/package=condathis):
+Install the release version of the package from [CRAN](https://CRAN.R-project.org/package=condathis):
 
 ```{r}
 #| label: install-cran
@@ -87,23 +86,22 @@ install.packages("condathis", repos = c("https://luciorq.r-universe.dev", getOpt
 
 ## Why `condathis`?
 
-R's `system()` and `system2()` are powerful, but they depend on tools being
-installed on the host system.
+R's `system()` and `system2()` depend on tools being installed on the host system.
 This creates a few problems:
 
-* **Reproducibility:** Will your script from last year still work? Will your
-  collaborator be able to run your code if they have a different version of a tool?
+* **Reproducibility:** Will your script from last year still work?
+  Will your collaborator be able to run your code if they have a different version of a tool?
 * **Conflicts:** What if two different tools need two different versions of the
   same dependency?
 
-`{condathis}` solves these issues by creating isolated environments for each tool.
+`condathis` solves these issues by creating isolated environments for each tool.
 
 ### Reproducibility: An Example
 
 Let's say you're using `fastqc` for quality control in a bioinformatics pipeline.
 Different versions of `fastqc` can produce slightly different results.
 
-With `{condathis}`, you can lock in a specific version:
+With `condathis`, you can lock in a specific version:
 
 ```{r}
 #| label: fastqc-example
@@ -112,23 +110,27 @@ temp_out_dir <- file.path(tempdir(), "output")
 fs::dir_create(temp_out_dir)
 
 # Always use fastqc version 0.12.1
-condathis::create_env(packages = "fastqc==0.12.1", channels = c("conda-forge", "bioconda"), env_name = "fastqc-0.12.1")
+condathis::create_env(
+  "fastqc==0.12.1",
+  env_name = "fastqc-0.12.1",
+  channels = c("conda-forge", "bioconda")
+)
 condathis::run("fastqc", fastq_file, "-o", temp_out_dir, env_name = "fastqc-0.12.1")
 ```
 
-Now your analysis will produce the same output files,
-regardless of where or when it's run.
+Now your analysis uses the same `fastqc` version,
+regardless of where or when it runs.
 
 ### Isolation: An Example
 
-Need to use a specific version of a tool like `curl` that's different from your
-system's version? No problem.
+Need a specific version of a tool like `curl` that is different from the one
+your system or R provides?
 
-Your system's `curl`:
+The `libcurl` that R uses:
 
 ```{r}
 #| label: curl-system-example
-libcurlVersion()
+as.character(libcurlVersion())
 ```
 
 A specific `curl` version, isolated with `condathis`:
@@ -136,47 +138,82 @@ A specific `curl` version, isolated with `condathis`:
 ```{r}
 #| label: curl-condathis-example
 condathis::create_env(
-  packages = "curl==8.10.1",
+  "curl==8.10.1",
   env_name = "curl-env"
 )
 
-# Handling output thorough R objects
+# Capture the output as an R object, then read its first line
 out <- condathis::run(
   "curl", "--version",
   env_name = "curl-env",
   verbose = "silent"
 )
 
-message(out$stdout)
+condathis::parse_output(out)[1]
 ```
 
-This allows you to run tools with conflicting dependencies side-by-side without any issues.
+This lets you run tools with conflicting dependencies side by side.
 
 ## How It Works
 
-The package `{condathis}` relies on [**`micromamba`**](https://mamba.readthedocs.io/en/latest/user_guide/micromamba.html) to bring **reproducibility and isolation**.
-`micromamba` is a lightweight, fast, and efficient package manager that
+`condathis` relies on [**`micromamba`**](https://mamba.readthedocs.io/en/latest/user_guide/micromamba.html)
+to bring **reproducibility and isolation**.
+`micromamba` is a package manager that
 "does not need a base environment and does not come with a default version of Python".
+`condathis` downloads `micromamba` when it first needs it and finds no usable copy.
+It keeps `micromamba` and the environments in its own data directory
+(see `condathis::get_install_dir()`).
+Environments stay there until you remove them.
+`condathis::list_envs()` lists them,
+`condathis::get_env_dir("cowpy-env")` returns the directory of one,
+`condathis::remove_env("cowpy-env")` removes it,
+and `condathis::clean_cache()` deletes the downloaded package files.
 
-The integration of `micromamba` into `R` is handled using the `processx` and `withr` packages.
+`micromamba` is the built-in *backend* of `condathis`.
+Other packages can add backends with `register_backend()`.
+New environments use `micromamba` unless you pass `method`
+(for example `method = "rattler"`, which needs the `rattlerthis` package,
+not yet on CRAN)
+or set `options(condathis.backend_priority = ...)`.
+
+Already have an environment created outside `condathis`, for example by `conda`,
+`mamba`, or `micromamba` itself?
+Pass its directory as `env_name = condathis::env_path("/path/to/env")` to `run()`, `run_bin()`,
+`run_pipeline()` or `run_step()` to run commands from it.
+`condathis` never modifies such an environment.
+It runs commands in it with `micromamba` by default.
 
 ## Known Caveats
 
-Special characters in CLI commands are interpreted as literals and not expanded.
+No shell is involved, so shell syntax in an argument is passed literally.
 
-* Shell-style output redirection syntax (e.g. "|" or ">") inside a single
-  command string is interpreted literally, not expanded.
-  * Instead of redirects (e.g. ">"), use the `stdout`/`stderr` arguments
+* Shell builtins, such as `echo` or `dir` on Windows, are not available as
+  commands.
+  To use shell features, run a shell explicitly, for example
+  `condathis::run("bash", "-c", "...")`.
+* Shell operators such as `|` and `>` are not interpreted.
+  * Instead of `>`, use the `stdout`/`stderr` arguments
     (a file path redirects to that file).
-  * Instead of shell pipes (e.g. "cmd1 | cmd2"), use `condathis::run_pipeline()`
-    to connect commands (optionally each in its own Conda environment) via
-    kernel-level pipes, or run multiple calls to `condathis::run()` using
-    `stdout`/`stdin` file arguments to pass data between them.
-  * `stdin` accepts a file path, or `"|"` together with the `input`
-    argument to write in-memory data (character or raw vector) directly to
-    a command's standard input — supported by `run()`, `run_bin()`, and
-    `run_pipeline()`.
+  * Instead of `cmd1 | cmd2`, use `condathis::run_pipeline()`
+    with one `condathis::run_step()` per command, as in
+    `run_pipeline(run_step("cmd1"), run_step("cmd2", env_name = "other-env"))`.
+    It connects the commands (optionally each in its own Conda environment) via
+    kernel-level pipes.
+    Alternatively, call `condathis::run()` several times and use the
+    `stdout`/`stdin` file arguments to pass data between the calls.
+  * `stdin` accepts a file path.
+    Set it to `"|"` together with the `input` argument to write in-memory data
+    (character or raw vector) directly to a command's standard input.
+    This works with `run()`, `run_bin()`, and `run_pipeline()`.
+* A `~` in a command argument is not expanded.
+  * Expand such paths in R, for example with `path.expand()`
+    or `fs::path_expand()`.
+  * Relative paths, such as `"data/sample.fastq"` or `"../sample.fastq"`,
+    work: they are relative to the working directory of R.
 
-* File paths should not use special characters for relative paths, e.g. "~", ".", "..".
-  * Expand file paths directly in R, using `base` functions
-    or functions from the `fs` package.
+## Learn More
+
+* `vignette("condathis")` walks through a complete example.
+* The [articles](https://luciorq.github.io/condathis/articles/) on the package
+  website show how to use Python with `reticulate`, and how to stream binary
+  data through pipelines.
