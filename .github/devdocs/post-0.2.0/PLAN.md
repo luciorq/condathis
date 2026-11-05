@@ -26,9 +26,9 @@ there with a pointer to this file.
 |---|------|--------|-------|-------------------|
 | 0 | 0.1.4 GitHub release + two uncommitted CRAN tarball edits | CRAN tarball audit | tag exists, release and edits missing | no |
 | 1 | `run()` convergence onto resolve-once + direct spawn | feat-pipeline, feat-strict-defaults | designed, not started | yes: hook semantics |
-| 2 | `rattlerthis` end-to-end smoke test via `condathis` | feat-backend-abstraction, rattlerthis | partially verified | no |
+| 2 | `rattlerthis` end-to-end smoke test via `condathis` | feat-backend-abstraction, rattlerthis | verified by hand 2026-11-05, test not written | no |
 | 3 | `list_packages()` cross-backend column schema | rattlerthis "flag upward" | decided (minimal subset), unflagged | maybe: coercion |
-| 4 | README cross-links between the two packages | both | not started | no |
+| 4 | README cross-links between the two packages | both | link to the backends article (PR #38) | no |
 | 5 | Package-wide supervisor escape hatch | feat-pipeline | not decided | yes: option vs env var |
 | 6 | Nested-activation artifacts in `get_micromamba_activation_envvars()` | feat-pipeline | known limitation | no, needs investigation |
 | 7 | Windows MinGW runtime pins in tests | HANDOFF | waiting on conda-forge | no |
@@ -37,6 +37,10 @@ there with a pointer to this file.
 | 10 | `backend_status()` diagnostics | feat-backend-abstraction "later ideas" | idea | no |
 | 11 | Container backend package | feat-backend-abstraction "later ideas" | idea | yes: whether at all |
 | 12 | `verbose` on `run_pipeline()` | feat-pipeline "intentional divergences" | explicitly not planned | no |
+| 13 | Issue #12 (inner double quotes on Windows) | GitHub issue | fixed in 0.2.0, issue still open | no |
+| 14 | Tests that need a UTF-8 locale or direct DNS | local run 2026-11-05 | open | no |
+| 15 | r-universe: condathis, rattlerthis and `Additional_repositories` | r-universe research 2026-11-05 | open | no |
+| 16 | condathis on WebAssembly (webR) | r-universe research 2026-11-05 | idea | yes: whether to abort early |
 
 ## 0. Before 0.2.0: the 0.1.4 release was never recorded on GitHub
 
@@ -183,6 +187,18 @@ path was verified against a hand-built rattlerthis prefix (activation vars
 reach the child, timeout, error modes, writable stdin). What is still
 unexercised is the `create_env(method = "rattler")` half: a real solve and
 install through condathis's public API, followed by `run()`.
+
+Verified by hand on 2026-11-05, on Linux with rattlerthis built from
+source, by knitting `vignettes/articles/backends.qmd` (PR #38) and in
+`with_sandbox_dir()`: `create_env(method = "rattler")` from conda-forge,
+`run()` without `method`, a `run_pipeline()` across a rattler and a
+micromamba environment, `install_packages(method = "micromamba")` on a
+rattler environment aborting with `condathis_backend_mismatch`, a read with
+the wrong `method` warning with `condathis_backend_mismatch_warning`,
+`create_env()` refusing a name the other backend owns,
+`condathis_backend_ambiguous_env` for copies under both backends,
+`clean_cache()` emptying rattler's package cache, and `remove_env()`. The
+plan below still stands: none of it is a test in either suite yet.
 
 **Implementation plan.**
 
@@ -400,6 +416,101 @@ gap. If it is ever wanted, `pump_pipeline_io()` is now the single place
 that already polls every stage, so a `verbose = "output"` that echoes
 stdout chunks as they arrive would be the minimal version.
 
+## 13. Issue #12: inner double quotes in `run()` arguments on Windows
+
+**Origin.** GitHub issue #12 (2024-10-06), the only open issue on
+2026-11-05.
+
+**Where things stand.** Fixed in 0.2.0, checked 2026-11-05. Before 0.2.0,
+`run()` went through `micromamba run`, which on Windows wraps the command
+in a `.bat` script, so `cmd.exe` re-parsed every argument and dropped the
+inner `"` of `'print(Sys.getenv("MY_VAR_1"))'`. Since the backend work,
+`run()` starts the command itself through processx, and
+`R/run_internal_native.R` is gone (NEWS 0.2.0, *Breaking changes*).
+`tests/testthat/test-argument_fidelity.R` passes 27 arguments (among them
+`a"b`, `"a b"`, `%PATH%`, `^`, `|`, `&`, newlines and Unicode) through
+`run()` and `run_bin()` to a C probe that reports each one as hex, read
+with `CommandLineToArgvW()` on Windows. It passes on `windows-latest` and
+`windows-11-arm` (merge of PR #37, run 41951505379); the failed runs of the
+same day list every skipped test, and these were not among them.
+
+**Implementation plan.** Close the issue with a comment that points to the
+test (the maintainer posts it). Optional: add the issue's exact example
+(R's own `R -e` with double quotes) as a second assertion in the
+environment-variable test of `test-create_env.R`, which uses only single
+quotes. The probe proves condathis's side; that assertion would also cover
+R's launcher on Windows.
+
+## 14. Tests that need a UTF-8 locale or direct DNS
+
+**Origin.** Running the suite in a container on 2026-11-05.
+
+**Where things stand.**
+
+- Under R's `C` locale, the pip test of `test-list_packages_pypi.R` errors
+  in `jsonlite::fromJSON()` ("premature EOF") on the output of
+  `pip inspect`: a maintainer name of a conda-forge package (with an o-umlaut) is
+  not ASCII. `run()` returns the right UTF-8 text; jsonlite cannot read it
+  in a non-UTF-8 session. Under `C.UTF-8`, as on CI, all 6 tests of the
+  file pass.
+- `testthat::skip_if_offline()` checks a direct DNS lookup. Behind an HTTP
+  proxy that resolves names itself, it skips the network tests ("offline")
+  although downloads work: the two uv/pip parity tests of the same file
+  were skipped until the check was stubbed out.
+
+**Implementation plan.** Skip the JSON parse of that test when
+`l10n_info()[["UTF-8"]]` is `FALSE` (or read `stdout` with its encoding
+marked), and note both in `.github/CONTRIBUTING.md`: run the suite in a
+UTF-8 locale, and expect network tests to skip behind a proxy unless the
+DNS check works there.
+
+## 15. r-universe: condathis, rattlerthis and `Additional_repositories`
+
+**Origin.** Research on 2026-11-05 (see rattlerthis's `PLAN.md`,
+"r-universe and WebAssembly", for r-universe's build matrix and tooling).
+
+**Where things stand.**
+
+- `luciorq.r-universe.dev` lists condathis and isoformic. It builds
+  condathis from the default branch; on 2026-11-05 it still served 0.1.4,
+  built 2026-10-17 from the old `main`, and it checks for changes every
+  hour. condathis has no compiled code, so it gets one binary per OS
+  (also used on Windows on ARM64) and a WebAssembly one.
+- rattlerthis is not registered. Registering it would give binaries for
+  Linux, macOS, Windows x64 and Windows on ARM64, so its users would not
+  need Rust.
+- The pkgdown workflow builds rattlerthis from source for the backends
+  article (about 2.5 minutes of Rust on the runner, PR #38).
+- rattlerthis's open item "condathis declares `Enhances: rattlerthis` plus
+  `Additional_repositories`" (spec decision Q22) needs a repository URL;
+  the universe is that URL.
+
+**Implementation plan.** Register rattlerthis in the
+`luciorq/luciorq.r-universe.dev` registry and watch its first builds.
+Then: install the rattlerthis binary from the universe in the pkgdown
+workflow (with `dependencies = FALSE`, so the local condathis stays), show
+the universe in the article's install section, and use its URL for
+`Additional_repositories` before the next CRAN release.
+
+## 16. condathis on WebAssembly (webR)
+
+**Origin.** Research on 2026-11-05.
+
+**Where things stand.** condathis builds for WebAssembly (pure R:
+r-universe's 0.1.4 WebAssembly binary built successfully), but webR cannot
+start processes, so no backend can create or run an environment there.
+What a user gets is whatever error processx or the micromamba download
+gives first. rattlerthis already fails gracefully on webR: it installs
+without its Rust library and aborts with `rattlerthis_rust_unavailable`
+(also `condathis_backend_unsupported`).
+
+**Implementation plan.** Decide whether condathis should say so itself:
+`micromamba_backend_available()` returning `FALSE`, and one classed abort
+(for example `condathis_platform_unsupported`) from the functions that
+start a process, when `R.version$platform` is
+`wasm32-unknown-emscripten`. The queries (`list_envs()`, `env_exists()`)
+would keep working.
+
 ## Suggested ordering after the 0.2.0 release
 
 1. Item 8 + 9b + 9c (lint cleanup, mechanical, low risk) as one small PR.
@@ -411,3 +522,5 @@ stdout chunks as they arrive would be the minimal version.
    next minor release.
 6. Item 9a (env_file + packages) can slot in anywhere. It touches
    `create_env()` docs and tests only.
+7. Items 13 and 14 are small and independent. Item 15 starts with the
+   r-universe registration, item 16 with a decision.
