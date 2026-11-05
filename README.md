@@ -169,7 +169,9 @@ remove them. `condathis::list_envs()` lists them,
 can add backends with `register_backend()`. New environments use
 `micromamba` unless you pass `method` (for example `method = "rattler"`,
 which needs the `rattlerthis` package, not yet on CRAN) or set
-`options(condathis.backend_priority = ...)`.
+`options(condathis.backend_priority = ...)`. The [backends
+article](https://luciorq.github.io/condathis/articles/backends.html)
+shows how to install `rattlerthis` and use both backends together.
 
 Already have an environment created outside `condathis`, for example by
 `conda`, `mamba`, or `micromamba` itself? Pass its directory as
@@ -211,5 +213,5 @@ literally.
 
 - `vignette("condathis")` walks through a complete example.
 - The [articles](https://luciorq.github.io/condathis/articles/) on the
-  package website show how to use Python with `reticulate`, and how to
-  stream binary data through pipelines.
+  package website show how to use Python with `reticulate`, how to
+  stream binary data through pipelines, and how to choose a backend.

@@ -51,6 +51,20 @@ jobs:
           extra-packages: any::pkgdown, local::.
           needs: website
 
+      # The rattler examples of the backends article run only when
+      # rattlerthis is installed. It builds from source with the Rust
+      # toolchain of the runner. `R CMD INSTALL` keeps the local condathis:
+      # pak would follow the `Remotes` field of rattlerthis to condathis's
+      # main branch instead. A failed build leaves those examples without
+      # output and does not stop the site.
+      - name: Install rattlerthis for the backends article
+        continue-on-error: true
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libssl-dev pkg-config
+          git clone --depth 1 https://github.com/luciorq/rattlerthis "$RUNNER_TEMP/rattlerthis"
+          R CMD INSTALL "$RUNNER_TEMP/rattlerthis"
+
       # pkgdown renders every Markdown file at the top of the repository and
       # of .github/; these are development notes, not documentation.
       - name: Leave development notes out of the site

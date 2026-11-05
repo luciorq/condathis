@@ -59,6 +59,10 @@ articles:
     contents:
       - articles/python-and-reticulate
       - articles/whole-slide-images
+  - title: Backends
+    navbar: ~
+    contents:
+      - articles/backends
 
 redirects:
   - ["articles/condathis-intro.html", "articles/condathis.html"]
