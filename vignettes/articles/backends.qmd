@@ -160,11 +160,13 @@ A call that names another backend for it does not move it:
 install_packages("jq", env_name = "rg-env", method = "micromamba")
 ```
 
-To move an environment to another backend, create it again with that
-backend, and remove the old one.
-Each backend keeps its environments in its own directory, so the same name
-can exist under both.
-Then `"auto"` cannot choose, and the call aborts with class
+`create_env()` refuses the name under another backend too, so a name
+belongs to one backend at a time.
+To move an environment to another backend, remove it, then create it again
+with that backend.
+Each backend keeps its environments in its own directory.
+If the same name still ends up under both, for example in a directory
+copied by hand, `"auto"` cannot choose, and the call aborts with class
 `condathis_backend_ambiguous_env` until `method` names one of them.
 
 ## Making rattler the Default
