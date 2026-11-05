@@ -1,27 +1,32 @@
 # Run a pipeline of commands connected with pipes
 
-Executes a sequence of commands where each command's standard output is
-piped as standard input to the next command (like a Unix shell
-pipeline). Data flows directly between child processes via kernel-level
-pipes, the parent R process only sees the output of the final command.
+Runs commands connected with pipes, as `cmd1 | cmd2` in a shell. The
+standard output of each command is the standard input of the next one.
+The data flows between the processes through operating system pipes, not
+through R. R gets the standard output of the last command and the
+standard error of every command.
 
-Each command in the pipeline can run in a **different** Conda
-environment. Commands that do not specify an environment use the default
-`env_name`.
+Describe each command with
+[`run_step()`](https://luciorq.github.io/condathis/reference/run_step.md),
+which takes the same command, arguments and `env_name` as
+[`run()`](https://luciorq.github.io/condathis/reference/run.md). Each
+command can run in a **different** Conda environment. Commands that do
+not set an environment use the `env_name` of `run_pipeline()`.
 
 ## Usage
 
 ``` r
 run_pipeline(
-  cmds,
+  ...,
+  env_name = "condathis-env",
+  method = "auto",
+  verbose = c("output", "silent", "cmd", "spinner", "full"),
+  error = c("cancel", "continue"),
   stdout = "|",
   stderr = "|",
   stdin = NULL,
   input = NULL,
   binary = FALSE,
-  error = c("cancel", "continue"),
-  env_name = "condathis-env",
-  method = "auto",
   supervise = TRUE,
   cleanup_tree = TRUE,
   linux_pdeathsig = FALSE,
@@ -32,183 +37,318 @@ run_pipeline(
 
 ## Arguments
 
-- cmds:
+- ...:
 
-  A list of command specifications. Each element is either:
-
-  - A character vector: `c("cmd", "arg1", ...)`. Runs in the default
-    `env_name`.
-
-  - A named list with `cmd` (character vector) and, optionally,
-    `env_name` (character string) to specify a per-command environment,
-    `method` (character string) to specify a per-command backend (see
-    `method` below - only the `"micromamba"` backend can actually
-    execute a command today, regardless of which backend owns its
-    environment), `stderr` to override the top-level `stderr` target for
-    this command, and `stdout` to override the top-level `stdout`
-    target, only allowed on the **last** command, since every other
-    command's standard output is always piped to the next command.
-
-- stdout:
-
-  Standard output target for the **last** process. `"|"` (default)
-  captures output in the result. Use a file path to redirect to a file,
-  or `NULL` to discard. Can be overridden per-command for the last
-  command only (see `cmds`).
-
-- stderr:
-
-  Standard error target for **all** processes. `"|"` (default) captures
-  stderr per-process. Use a file path to redirect all stderr to a file,
-  or `NULL` to discard. Can be overridden per-command (see `cmds`).
-
-- stdin:
-
-  Standard input source for the **first** process. `NULL` (default)
-  discards input. Provide a file path to redirect file contents as
-  stdin, or `"|"` to write `input` to the first process.
-
-- input:
-
-  Character or raw vector written to the first process's standard input
-  when `stdin = "|"`. Defaults to `NULL`. Ignored (and must not be set)
-  when `stdin` is not `"|"`.
-
-- binary:
-
-  Logical. Whether to capture every process's stderr, and the last
-  process's stdout, as raw vectors instead of decoding them as UTF-8
-  text. Defaults to `FALSE`. Applies to the whole pipeline; there is no
-  per-command override.
-
-- error:
-
-  Character string controlling error behavior. Supported values are
-  `"cancel"` and `"continue"`. Defaults to `"cancel"`.
+  Two or more pipeline steps, built with
+  [`run_step()`](https://luciorq.github.io/condathis/reference/run_step.md),
+  in pipeline order. Splice in a list of steps, built with
+  [`list()`](https://rdrr.io/r/base/list.html) or
+  [`c()`](https://rdrr.io/r/base/c.html), with `!!!`, as in
+  `run_pipeline(!!!steps)`. [`c()`](https://rdrr.io/r/base/c.html) on
+  steps gives a list of steps that later
+  [`c()`](https://rdrr.io/r/base/c.html) calls extend, as in
+  `c(c(step_1, step_2), step_3)`. To add a step to a plain list or to
+  `NULL`, wrap it in [`list()`](https://rdrr.io/r/base/list.html), as in
+  `c(steps, list(step))`. [`c()`](https://rdrr.io/r/base/c.html) with a
+  plain list or `NULL` first splits a step into its fields. Any other
+  value aborts with class `condathis_run_pipeline_invalid_step`, so name
+  every option below in full. Fewer than two steps abort with class
+  `condathis_run_pipeline_too_few_commands`.
 
 - env_name:
 
-  Character string with the default Conda environment name for commands
-  that do not specify their own. Defaults to `"condathis-env"`.
+  Character string with the default environment of the steps that do not
+  set their own, or an environment given by
+  [`env_path()`](https://luciorq.github.io/condathis/reference/env_path.md).
+  Defaults to `"condathis-env"`, which `run_pipeline()` creates (empty,
+  with the backend that `method` selects) when it does not exist.
+  `run_pipeline()` never creates any other missing environment and fails
+  per `error`. A name must follow the rules of the `env_name` argument
+  of [`run()`](https://luciorq.github.io/condathis/reference/run.md).
+  Invalid values abort with class `condathis_invalid_env_name`.
 
 - method:
 
-  Character string naming the default backend for commands that do not
-  specify their own `method` (see `cmds`). Defaults to `"auto"` (resolve
-  automatically: each command's environment's own owning backend).
-  `"micromamba"` is the only backend registered today - and the only one
-  that can actually execute a command so far. `"native"` is a deprecated
-  alias for `"micromamba"` (warns once per session).
+  Character string naming the default backend of the steps that do not
+  set their own `method` (see
+  [`run_step()`](https://luciorq.github.io/condathis/reference/run_step.md)).
+  `"auto"` (the default) uses the backend that owns each environment,
+  and otherwise the first available backend in
+  `getOption("condathis.backend_priority")` order (see
+  [condathis-options](https://luciorq.github.io/condathis/reference/condathis-options.md)).
+  Any name from
+  [`list_registered_backend_names()`](https://luciorq.github.io/condathis/reference/list_registered_backend_names.md)
+  selects that backend. `"micromamba"` is built in. The name of a
+  backend whose package condathis knows also selects it, such as
+  `"rattler"` of the `rattlerthis` package. condathis loads that
+  package, and aborts with class `condathis_backend_not_installed` when
+  it is not installed. `"native"` is a deprecated alias for
+  `"micromamba"` (it warns once per session). If you name a backend
+  other than the owner of an environment, condathis warns
+  (`condathis_backend_mismatch_warning`) and uses the owner. An
+  environment found under several backends aborts with class
+  `condathis_backend_ambiguous_env`, unless `method` names one of them.
+  With `error = "continue"`, its steps get status 127. Steps that share
+  an environment must agree on the backend. Otherwise `run_pipeline()`
+  aborts with class `condathis_run_pipeline_conflicting_method`. Invalid
+  values abort with class `condathis_invalid_method`.
+
+- verbose:
+
+  Character string that controls the console output. One of `"output"`,
+  `"silent"`, `"cmd"`, `"spinner"` and `"full"`. Usage shows the
+  default. `"output"` prints, while the pipeline runs, what it captures:
+  the last command's standard output and every command's standard error,
+  when their target is `"|"`. `"cmd"` prints the whole pipeline first.
+  `"full"` does both. `"spinner"` shows only a spinner, and `"silent"`
+  shows nothing. `TRUE` means `"output"` and `FALSE` means `"silent"`.
+  Every level except `"silent"` shows a spinner in interactive sessions.
+  Invalid values abort with class `condathis_invalid_verbose`.
+
+- error:
+
+  Character string that controls what happens when a command fails. With
+  `"cancel"` (the default), `run_pipeline()` aborts:
+
+  - a command that exits with a non-zero status: class
+    `condathis_run_pipeline_status_error` (also
+    `condathis_status_error`). A broken pipe can end a command that is
+    not the last one: that does not count (see *Broken pipes*).
+
+  - a timeout: class `condathis_run_pipeline_timeout_error` (also
+    `condathis_timeout_error`).
+
+  - a step environment that does not exist: class
+    `condathis_run_pipeline_env_not_found` (also
+    `condathis_env_not_found`). For an
+    [`env_path()`](https://luciorq.github.io/condathis/reference/env_path.md),
+    the error also has `condathis_env_path_not_found` or
+    `condathis_env_path_not_conda_env`.
+
+  - a step environment found under several backends: class
+    `condathis_backend_ambiguous_env` (see `method`).
+
+  - a command that the backend fails to resolve, for example because an
+    `activate.d` script of the environment fails: class
+    `condathis_run_pipeline_resolve_failed` (also
+    `condathis_backend_error`). The error keeps the condathis classes of
+    the backend's error, for example
+    `condathis_micromamba_status_error`, and has that error as its
+    parent.
+
+  - an invalid command description from a backend package (a bug in that
+    package): class `condathis_backend_resolve_run_invalid`.
+
+  The status and timeout errors carry the fields `status`, `stdout`,
+  `stderr` and `timeout`, as the errors of
+  [`run()`](https://luciorq.github.io/condathis/reference/run.md) do.
+  They also carry `result` (the `condathis_pipeline` object that
+  `error = "continue"` returns) and `statuses`. With `"continue"`,
+  `run_pipeline()` returns the result instead. Every step in an
+  environment that does not exist or is found under several backends
+  gets status 127, with the reason in its `stderr`. So does every
+  command that cannot be resolved or started. The other steps still run.
+  A timeout gives status -9. Invalid values abort with class
+  `condathis_invalid_error`. See
+  [condathis-conditions](https://luciorq.github.io/condathis/reference/condathis-conditions.md)
+  for all classes.
+
+- stdout:
+
+  Standard output target of the **last** command: `"|"` (the default)
+  captures it in the result, a file path writes it to that file, and
+  `NULL` discards it. The standard output of every other command goes to
+  the next command.
+
+- stderr:
+
+  Standard error target for **all** processes. `"|"` (the default)
+  captures each command's standard error in its result. A file path
+  writes them all to that file, in command order once the pipeline
+  finishes. `NULL` discards them. The `stderr` argument of
+  [`run_step()`](https://luciorq.github.io/condathis/reference/run_step.md)
+  replaces it for one command.
+
+- stdin:
+
+  Standard input source of the **first** command: `NULL` (the default)
+  for no input, the path of an existing file to read, or `"|"` to write
+  `input` to it.
+
+- input:
+
+  Character or raw vector written to the standard input of the first
+  command, as in
+  [`run()`](https://luciorq.github.io/condathis/reference/run.md). Must
+  be `NULL` (the default) unless `stdin = "|"`. Other values abort with
+  class `condathis_invalid_input`.
+
+- binary:
+
+  Logical. Whether to return raw vectors, not UTF-8 text, for the
+  standard error of every command and the standard output of the last
+  one. Defaults to `FALSE`. It applies to the whole pipeline. There is
+  no per-command setting.
 
 - supervise:
 
-  Logical. Whether each process should be supervised by the `processx`
-  supervisor for crash-safe cleanup. Defaults to `TRUE` (unlike
-  [`run()`](https://luciorq.github.io/condathis/reference/run.md)/[`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md),
-  which default to `FALSE`) since a pipeline manages multiple
-  concurrently connected processes.
+  Logical. Whether the `processx` supervisor watches each process: when
+  the R session ends, even by a crash, the supervisor kills it. Defaults
+  to `TRUE`, unlike in
+  [`run()`](https://luciorq.github.io/condathis/reference/run.md) and
+  [`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md),
+  since a pipeline starts several connected processes. Ignored on
+  Windows, where supervised pipelines hang.
 
 - cleanup_tree:
 
-  Logical. Whether to clean up each process's child tree on
-  crash/interrupt. Defaults to `TRUE`.
+  Logical. Whether to kill the process tree of each command, processes
+  that it started in the background included. R kills the tree when it
+  frees the process object of the command, at a garbage collection after
+  the pipeline finishes. Defaults to `TRUE`, so that no command outlives
+  the pipeline, unlike in
+  [`run()`](https://luciorq.github.io/condathis/reference/run.md) and
+  [`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md),
+  where a daemon that a command starts keeps running.
 
 - linux_pdeathsig:
 
-  Logical. On Linux, whether to send `SIGKILL` to each child process if
-  the parent R process dies. Has no effect on other platforms. Defaults
-  to `FALSE`.
+  Logical. On Linux, whether each command gets `SIGTERM` when the R
+  session ends, even by a crash. Ignored on other platforms. Defaults to
+  `FALSE`.
 
 - activate:
 
-  Logical. Whether to resolve each command's environment through a real
-  `micromamba run` activation (including package `activate.d` hook
-  scripts), cached per `env_name`. Defaults to `TRUE`. Set to `FALSE` to
-  use the original, faster hand-rolled activation (a fixed set of
-  `CONDA_*`/`MAMBA_*` variables, no `activate.d` execution). The first
-  pipeline call touching a given `env_name` with `activate = TRUE` pays
-  for two extra subprocess spawns to resolve it; repeat calls for the
-  same, unchanged environment hit the cache.
+  Logical. `TRUE` (the default) runs each command with the activation of
+  its environment, as
+  [`run()`](https://luciorq.github.io/condathis/reference/run.md) does.
+  `FALSE` sets a fixed set of variables instead, without `activate.d`
+  scripts (see
+  [condathis-options](https://luciorq.github.io/condathis/reference/condathis-options.md)).
+  Each command runs in the working directory of the R session, unless
+  the activation of a backend gives another one.
 
 - timeout:
 
-  Numeric. Maximum number of seconds to let the whole pipeline run
-  before every process in it is killed. Defaults to `Inf` (no limit, the
-  previous behavior). Applies to the pipeline as a whole (a single
-  shared deadline across every command), not per-command. On expiry,
-  every still-running process is killed (`status = -9`, matching
-  [`processx::run()`](http://processx.r-lib.org/reference/run.md)'s own
-  convention) and, gated by `error` exactly like a non-zero exit status,
-  `error = "cancel"` aborts with class
-  `condathis_pipeline_timeout_error` while `error = "continue"` returns
-  normally with `result$timeout` (and each killed process's own
-  `timeout`) set to `TRUE`.
+  Number of seconds the whole pipeline may take, the activations of the
+  environments included: one deadline for all commands, not one per
+  command. Defaults to `Inf` (no limit). `run_pipeline()` lowers a
+  finite value above 2147483 (about 24.8 days) to that value. When the
+  time is up, `run_pipeline()` kills every command still running (status
+  -9 and `timeout = TRUE` in its result). It does not start a command
+  whose activation took the rest of the time, and counts it as killed.
+  `error = "cancel"` then aborts with class
+  `condathis_run_pipeline_timeout_error`, and `error = "continue"`
+  returns the result, with `timeout = TRUE`. Values that are not a
+  single, non-negative number abort with class
+  `condathis_invalid_timeout`.
 
 ## Value
 
-A `condathis_pipeline` S3 object with per-process results:
+A `condathis_pipeline` object, invisibly, which prints as a short
+summary and which
+[`parse_output()`](https://luciorq.github.io/condathis/reference/parse_output.md)
+reads. It is a classed list with:
+
+- status:
+
+  Integer. The status of the pipeline: -9 when it timed out, otherwise
+  the status of the first command that failed, or 0. A broken pipe can
+  end a command that is not the last one: that does not count (see
+  *Broken pipes*).
 
 - statuses:
 
-  Integer vector of exit statuses, one per command.
+  Integer vector, the exit status of each command. A command that a
+  signal ends has the negative signal number, such as -13 for `SIGPIPE`.
 
 - processes:
 
-  List of per-process `condathis_result` objects (the same class
-  [`run()`](https://luciorq.github.io/condathis/reference/run.md)/[`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md)
-  return), each with `cmd`, `env_name`, `status`, `stdout` (`NA` for
-  non-last processes), `stderr`, `pid`, and `timeout` (`TRUE` for
-  whichever process(es) were still running when the pipeline's `timeout`
-  expired, `FALSE` otherwise).
-  [`format()`](https://rdrr.io/r/base/format.html)/[`print()`](https://rdrr.io/r/base/print.html)
-  work directly on an individual `processes[[i]]`, not just on the whole
-  pipeline result.
+  List of `condathis_result` objects, one per command, with the fields
+  of a [`run()`](https://luciorq.github.io/condathis/reference/run.md)
+  result: `stdout` is `NA` for every command but the last, `env_name` is
+  the environment name or the directory of an
+  [`env_path()`](https://luciorq.github.io/condathis/reference/env_path.md),
+  and `timeout` is `TRUE` for the commands that the timeout killed.
 
 - timeout:
 
   Logical. Whether the pipeline timed out.
 
+- cmd:
+
+  Character string. The command lines of the commands, each part quoted,
+  joined with `" | "`.
+
+## Broken pipes
+
+A command that is not the last one ends as it would in a shell when it
+writes again after the next command has exited. On Linux and macOS,
+`SIGPIPE` kills it. Windows has no such signal. There, `run_pipeline()`
+reads the pipe in place of the command that exited. It kills the writer
+when more output comes after the pipe was empty for about one second in
+total. It also kills the writer when more than 64 KiB comes, which is
+what a Linux pipe holds. Output that was already in the pipe does not
+count. Either way, the status of the writer is -13, and that is not a
+failure. It does not make `error = "cancel"` abort, and it is not the
+`status` of the result. So `seq 1 1000000 | head -n 1` has status 0.
+Programs that handle `SIGPIPE` themselves, such as R and Python, exit
+with their own status (R with 1, Python usually with 120), which counts
+as a failure. A command that writes nothing more keeps running, on every
+platform, and keeps its own status. On Windows, the reader that takes
+the place of the exited command is a small `Rscript` process. When it
+cannot start, the writer gets one second to exit on its own, and
+`run_pipeline()` then kills it.
+
 ## See also
 
-[`run`](https://luciorq.github.io/condathis/reference/run.md) for
-single-command execution,
-[`run_bin`](https://luciorq.github.io/condathis/reference/run_bin.md)
-for direct binary execution.
+[`env_path()`](https://luciorq.github.io/condathis/reference/env_path.md)
+for an environment created outside `condathis`, and
+[condathis-conditions](https://luciorq.github.io/condathis/reference/condathis-conditions.md)
+for the condition classes.
+
+Other commands:
+[`parse_output()`](https://luciorq.github.io/condathis/reference/parse_output.md),
+[`run()`](https://luciorq.github.io/condathis/reference/run.md),
+[`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md),
+[`run_step()`](https://luciorq.github.io/condathis/reference/run_step.md)
 
 ## Examples
 
 ``` r
 if (FALSE) { # \dontrun{
 condathis::with_sandbox_dir({
-  # `ripgrep` (the `rg` binary) is used here instead of GNU `grep`: a
-  # single package name that installs and runs the same way on every
-  # platform `condathis` supports, unlike `grep`, which on Windows only
-  # exists under the "m2-" (MSYS2) prefix on conda-forge.
-  #
-  # `samtools` (bioconda) has no Windows build on any channel, so this
-  # specific example only runs on Linux/macOS regardless - there's no
-  # portable substitute that still demonstrates a real bioinformatics
-  # CLI operating on the packaged BAM file below.
-  create_env("bioconda::samtools", env_name = "samtools-env")
+  # `pigz` and `ripgrep` (the `rg` binary) come from conda-forge, which
+  # builds both for Linux, macOS and Windows. `rg` is used here instead
+  # of GNU `grep`, which conda-forge has for Windows only as an MSYS2
+  # package (with the "m2-" prefix).
+  create_env("conda-forge::pigz", env_name = "pigz-env")
   create_env("conda-forge::ripgrep", env_name = "ripgrep-env")
 
-  # Pipeline with per-command environments
-  res <- run_pipeline(
-    list(
-      list(
-        cmd = c(
-          "samtools", "view", "-H",
-          fs::path_package("condathis", "extdata", "example.bam")
-        ),
-        env_name = "samtools-env"
-      ),
-      list(
-        cmd = c("rg", "@SQ"),
-        env_name = "ripgrep-env"
-      )
-    )
+  # Pipeline with per-command environments: count the reads of a FASTQ
+  # file shipped with condathis. In this file, the header line of each
+  # read starts with "@read".
+  fastq_file <- fs::path_package(
+    "condathis", "extdata", "sample1_L001_R1_001.fastq.gz"
   )
-  print(res)
+  res <- run_pipeline(
+    run_step(
+      "pigz", "--decompress", "--stdout", fastq_file,
+      env_name = "pigz-env"
+    ),
+    run_step("rg", "--count", "^@read", env_name = "ripgrep-env"),
+    verbose = "silent"
+  )
+  print(parse_output(res))
+  #> [1] "1086"
+
+  # Steps are values: build a list of them, then splice it in with `!!!`
+  steps <- list(
+    run_step("rg", "--version", env_name = "ripgrep-env"),
+    run_step("rg", "ripgrep", env_name = "ripgrep-env")
+  )
+  print(parse_output(run_pipeline(!!!steps, verbose = "silent")))
+  #> [1] "ripgrep 15.2.0 (rev 78115297cd)"
 })
 } # }
 ```

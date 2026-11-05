@@ -1,60 +1,177 @@
 # List packages in a Conda environment
 
-Returns package metadata for a Conda environment as a tibble.
+Returns the packages installed in a Conda environment, as a data frame.
 
 ## Usage
 
 ``` r
-list_packages(
-  env_name = "condathis-env",
-  method = "auto",
-  verbose = c("output", "silent", "cmd", "spinner", "full")
-)
+list_packages(env_name = "condathis-env", method = "auto", verbose = "silent")
 ```
 
 ## Arguments
 
 - env_name:
 
-  Character string with the target environment name. Defaults to
-  `"condathis-env"`.
+  Character string with the environment name. It must be a plain
+  directory name that is valid on Linux, macOS and Windows:
+
+  - Not empty, and not `.` or `..`.
+
+  - Not starting with `-`, and not ending with `.`.
+
+  - Without path separators, `:`, `#`, whitespace, control characters or
+    `<>"|?*`.
+
+  - Not a Windows device name, such as `NUL` or `COM1` (see *Environment
+    names* in
+    [`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md)).
+
+  Invalid values abort with class `condathis_invalid_env_name`.
+  Functions that take only names reject an
+  [`env_path()`](https://luciorq.github.io/condathis/reference/env_path.md)
+  value with class `condathis_env_path_read_only`.
+  [`run()`](https://luciorq.github.io/condathis/reference/run.md),
+  [`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md),
+  [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md)
+  and
+  [`run_step()`](https://luciorq.github.io/condathis/reference/run_step.md)
+  accept one.
 
 - method:
 
-  Character string naming the backend to use. Defaults to `"auto"`
-  (resolve automatically: the environment's own owning backend).
-  `"micromamba"` is the only backend registered today. `"native"` is a
-  deprecated alias for `"micromamba"` (warns once per session).
+  Character string naming the backend. `"auto"` (the default) uses the
+  backend that owns `env_name` when it exists, and otherwise the first
+  available backend in `getOption("condathis.backend_priority")` order
+  (see
+  [condathis-options](https://luciorq.github.io/condathis/reference/condathis-options.md)).
+  Any name from
+  [`list_registered_backend_names()`](https://luciorq.github.io/condathis/reference/list_registered_backend_names.md)
+  selects that backend, and `"micromamba"` is built in. The name of a
+  backend whose package `condathis` knows, such as `"rattler"` of the
+  `rattlerthis` package, also selects it. `condathis` loads the package
+  on first use. It aborts with class `condathis_backend_not_installed`
+  when the package is not installed. `"native"` is a deprecated alias
+  for `"micromamba"` (warns once per session). If you name a backend
+  other than the owner, functions that change the environment abort with
+  class `condathis_backend_mismatch`. The others warn
+  (`condathis_backend_mismatch_warning`) and use the owner. An
+  environment found under several backends aborts with
+  `condathis_backend_ambiguous_env` unless `method` names one of them.
+  Invalid values abort with class `condathis_invalid_method`.
 
 - verbose:
 
-  Character string controlling console output. Supported values are
-  `"output"`, `"silent"`, `"cmd"`, `"spinner"`, and `"full"`. Defaults
-  to `"output"`.
+  Character string that controls the console output. One of:
+
+  - `"output"`: show the output of the command and the messages of
+    condathis.
+
+  - `"silent"`: show nothing.
+
+  - `"cmd"`: show the command line.
+
+  - `"spinner"`: show only a spinner.
+
+  - `"full"`: show the command line, the output, and the backend's own
+    log.
+
+  `TRUE` means `"output"` and `FALSE` means `"silent"`. Every level
+  except `"silent"` shows a spinner in interactive sessions. Invalid
+  values abort with class `condathis_invalid_verbose` (see
+  [condathis-conditions](https://luciorq.github.io/condathis/reference/condathis-conditions.md)).
+  The default is shown in Usage.
+
+  The command line shown, the `cmd` of a result and the messages of
+  `condathis` show the password and the token of a URL as `*****`.
+  `micromamba` does the same (`https://user:*****@host/channel`,
+  `https://host/t/*****/channel`). The command still gets them.
 
 ## Value
 
-A data frame (`tibble`) with installed packages. Only four columns are
-guaranteed present regardless of backend: **name**, **version**,
-**build_number**, and **channel**. Additional columns vary by backend
-and shouldn't be relied on in cross-backend code - the `"micromamba"`
-backend today also includes `base_url`, `build_string`, `dist_name`,
-`platform`, `md5`, `sha256`, and `url`.
+A data frame (a tibble) with one row per installed package, returned
+visibly. Six columns are guaranteed on every backend:
+
+- `name` (chr): the package name.
+
+- `version` (chr): the package version.
+
+- `build_number` (int): the build number.
+
+- `build_string` (chr): the build string.
+
+- `channel` (chr): a channel name or URL.
+
+- `platform` (chr): the platform subdirectory, such as `"linux-64"` or
+  `"noarch"`.
+
+The list includes the packages that pip or uv installed into the
+environment, with every backend. It shows them as micromamba does:
+channel `"pypi"`, build string `"pypi_0"`, build number 0, and the
+platform as pip reports it, such as `"linux-x86_64"`. Only the
+environment's own `site-packages` counts, not the user's site directory
+or `PYTHONPATH`.
+
+Other columns vary by backend. Do not rely on them in code that must
+work with every backend. The `"micromamba"` backend today also includes
+`base_url`, `dist_name`, `md5`, `sha256` and `url`.
+
+`list_packages()` shows the password and the token of a channel URL as
+`*****`, as micromamba does (`https://user:*****@host/channel`,
+`https://host/t/*****/channel`).
+
+A missing environment aborts with class
+`condathis_list_packages_env_not_found` (also
+`condathis_env_not_found`). A failed listing aborts with class
+`condathis_list_packages_failed` (also `condathis_backend_error`). A
+listing without the six columns also has the class
+`condathis_backend_invalid_return`.
+
+## Details
+
+`list_packages()` is a query: it never creates an environment, also not
+the default `"condathis-env"`. A missing environment aborts. When the
+environment has no directory, as on a new data directory,
+`list_packages()` does not start or install micromamba. When no
+micromamba binary is installed, the micromamba backend reads the `envs`
+directory of its data directory and the package records in `conda-meta/`
+instead. It never installs micromamba.
+
+## See also
+
+[condathis-conditions](https://luciorq.github.io/condathis/reference/condathis-conditions.md)
+for every condition class.
+
+Other environments:
+[`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md),
+[`env_exists()`](https://luciorq.github.io/condathis/reference/env_exists.md),
+[`env_path()`](https://luciorq.github.io/condathis/reference/env_path.md),
+[`get_env_dir()`](https://luciorq.github.io/condathis/reference/get_env_dir.md),
+[`install_packages()`](https://luciorq.github.io/condathis/reference/install_packages.md),
+[`list_envs()`](https://luciorq.github.io/condathis/reference/list_envs.md),
+[`remove_env()`](https://luciorq.github.io/condathis/reference/remove_env.md),
+[`validate_env()`](https://luciorq.github.io/condathis/reference/validate_env.md)
 
 ## Examples
 
 ``` r
 if (FALSE) { # \dontrun{
 condathis::with_sandbox_dir({
-  # Creates a Conda environment with the CLI `fastqc`
-  condathis::create_env(
-    packages = "bioconda::fastqc",
-    env_name = "fastqc-env"
+  # A local channel shipped with condathis, with `polyglot`: a
+  # dependency-free script that runs on Linux, macOS and Windows.
+  channel <- system.file(
+    "extdata", "polyglot-channel",
+    package = "condathis"
   )
-  # Lists the packages in env `fastqc-env`
-  dat <- condathis::list_packages("fastqc-env")
-  dim(dat)
-  #> [1] 66 11
+
+  # Creates a Conda environment with `polyglot`
+  condathis::create_env(
+    "polyglot",
+    env_name = "polyglot-env",
+    channels = channel
+  )
+  # Lists the packages in env `polyglot-env`
+  dat <- condathis::list_packages("polyglot-env")
+  print(dat[, c("name", "version", "channel")])
 })
 } # }
 ```

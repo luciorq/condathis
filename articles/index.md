@@ -1,9 +1,15 @@
 # Articles
 
-### All vignettes
+### Worked examples
 
-- [condathis-intro](https://luciorq.github.io/condathis/articles/condathis-intro.md):
-- [Introduction to
-  condathis](https://luciorq.github.io/condathis/articles/condathis.md):
+- [Running Python Code with condathis and
+  reticulate](https://luciorq.github.io/condathis/articles/python-and-reticulate.md):
+
+  Run Python as a command line tool, or embed it in R with reticulate,
+  from one Conda environment.
+
 - [Whole-Slide Pathology Images: Binary Pipelines Across
   Environments](https://luciorq.github.io/condathis/articles/whole-slide-images.md):
+
+  Stream binary image data through a pipeline whose commands run in
+  different environments.

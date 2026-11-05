@@ -1,23 +1,26 @@
 <urlset xmlns = 'http://www.sitemaps.org/schemas/sitemap/0.9'>
 <url><loc>https://luciorq.github.io/condathis/404.html</loc></url>
-<url><loc>https://luciorq.github.io/condathis/AGENTS.html</loc></url>
 <url><loc>https://luciorq.github.io/condathis/CODE_OF_CONDUCT.html</loc></url>
 <url><loc>https://luciorq.github.io/condathis/CONTRIBUTING.html</loc></url>
 <url><loc>https://luciorq.github.io/condathis/LICENSE-text.html</loc></url>
 <url><loc>https://luciorq.github.io/condathis/LICENSE.html</loc></url>
-<url><loc>https://luciorq.github.io/condathis/PLAN.html</loc></url>
-<url><loc>https://luciorq.github.io/condathis/TODO.html</loc></url>
-<url><loc>https://luciorq.github.io/condathis/articles/condathis-intro.html</loc></url>
 <url><loc>https://luciorq.github.io/condathis/articles/condathis.html</loc></url>
 <url><loc>https://luciorq.github.io/condathis/articles/index.html</loc></url>
+<url><loc>https://luciorq.github.io/condathis/articles/python-and-reticulate.html</loc></url>
 <url><loc>https://luciorq.github.io/condathis/articles/whole-slide-images.html</loc></url>
 <url><loc>https://luciorq.github.io/condathis/authors.html</loc></url>
 <url><loc>https://luciorq.github.io/condathis/index.html</loc></url>
 <url><loc>https://luciorq.github.io/condathis/news/index.html</loc></url>
+<url><loc>https://luciorq.github.io/condathis/reference/backend_root_dir.html</loc></url>
+<url><loc>https://luciorq.github.io/condathis/reference/c.condathis_run_step.html</loc></url>
 <url><loc>https://luciorq.github.io/condathis/reference/clean_cache.html</loc></url>
+<url><loc>https://luciorq.github.io/condathis/reference/condathis-conditions.html</loc></url>
+<url><loc>https://luciorq.github.io/condathis/reference/condathis-options.html</loc></url>
 <url><loc>https://luciorq.github.io/condathis/reference/condathis-package.html</loc></url>
+<url><loc>https://luciorq.github.io/condathis/reference/condathis-params.html</loc></url>
 <url><loc>https://luciorq.github.io/condathis/reference/create_env.html</loc></url>
 <url><loc>https://luciorq.github.io/condathis/reference/env_exists.html</loc></url>
+<url><loc>https://luciorq.github.io/condathis/reference/env_path.html</loc></url>
 <url><loc>https://luciorq.github.io/condathis/reference/get_env_dir.html</loc></url>
 <url><loc>https://luciorq.github.io/condathis/reference/get_install_dir.html</loc></url>
 <url><loc>https://luciorq.github.io/condathis/reference/get_sys_arch.html</loc></url>
@@ -34,7 +37,9 @@
 <url><loc>https://luciorq.github.io/condathis/reference/run.html</loc></url>
 <url><loc>https://luciorq.github.io/condathis/reference/run_bin.html</loc></url>
 <url><loc>https://luciorq.github.io/condathis/reference/run_pipeline.html</loc></url>
+<url><loc>https://luciorq.github.io/condathis/reference/run_step.html</loc></url>
 <url><loc>https://luciorq.github.io/condathis/reference/unregister_backend.html</loc></url>
+<url><loc>https://luciorq.github.io/condathis/reference/validate_env.html</loc></url>
 <url><loc>https://luciorq.github.io/condathis/reference/with_sandbox_dir.html</loc></url>
 </urlset>
 

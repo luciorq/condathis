@@ -1,7 +1,13 @@
-# Get the managed `micromamba` binary path
+# Get the path of the managed micromamba binary
 
-Returns the expected path to the `micromamba` executable managed by
-`condathis` for the current operating system.
+Returns the path of the `micromamba` executable that
+[`install_micromamba()`](https://luciorq.github.io/condathis/reference/install_micromamba.md)
+installs, in the condathis data directory (see
+[`get_install_dir()`](https://luciorq.github.io/condathis/reference/get_install_dir.md)).
+It is the third candidate of *micromamba discovery* in
+[condathis-options](https://luciorq.github.io/condathis/reference/condathis-options.md),
+after the `condathis.micromamba_path` option and the
+`CONDATHIS_MICROMAMBA_PATH` variable.
 
 ## Usage
 
@@ -11,24 +17,32 @@ micromamba_bin_path()
 
 ## Value
 
-A character string with the full executable path. On Windows this points
-to `micromamba.exe` under `Library/bin`. On other platforms this points
-to `micromamba` under `bin`. This is purely a computed, expected path -
-it does not check whether a file actually exists there yet (unlike
+An `fs_path`, the full path of the executable:
+`micromamba/bin/micromamba` in the condathis data directory, or
+`micromamba/Library/bin/micromamba.exe` on Windows. It does not check
+that a file exists there. Like
 [`get_install_dir()`](https://luciorq.github.io/condathis/reference/get_install_dir.md),
-which creates its directory before returning). Use
+it creates the condathis data directory when it is missing. Use
 [`fs::file_exists()`](https://fs.r-lib.org/reference/file_access.html)
-on the result, or
+on the result to check that the binary is present, or
+[`install_micromamba()`](https://luciorq.github.io/condathis/reference/install_micromamba.md)
+to install it.
+
+## See also
+
+Other setup:
+[`clean_cache()`](https://luciorq.github.io/condathis/reference/clean_cache.md),
+[`get_install_dir()`](https://luciorq.github.io/condathis/reference/get_install_dir.md),
+[`get_sys_arch()`](https://luciorq.github.io/condathis/reference/get_sys_arch.md),
 [`install_micromamba()`](https://luciorq.github.io/condathis/reference/install_micromamba.md),
-if you need the binary to actually be present.
+[`with_sandbox_dir()`](https://luciorq.github.io/condathis/reference/with_sandbox_dir.md)
 
 ## Examples
 
 ``` r
 condathis::with_sandbox_dir({
-  # Retrieve the path used by condathis for micromamba
-  micromamba_path <- condathis::micromamba_bin_path()
-  print(micromamba_path)
+  # The path where condathis installs micromamba
+  print(condathis::micromamba_bin_path())
 })
-#> /tmp/Rtmp7nn3rS/tmp-data1a231545c8e8/R/condathis/micromamba/bin/micromamba
+#> /tmp/RtmpdmGzuA/condathis-sandbox-1a10148a32fc/data/R/condathis/micromamba/bin/micromamba
 ```

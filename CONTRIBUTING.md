@@ -35,6 +35,10 @@ advice.
   `devtools::install_dev_deps()`, and then make sure the package passes
   R CMD check by running `devtools::check()`. If R CMD check doesn’t
   pass cleanly, it’s a good idea to ask for help before continuing.
+  `devtools::check()` and `devtools::test()` set `NOT_CRAN=true`, so
+  they run the full test suite: it needs the internet to download
+  micromamba and Conda packages, and it runs in temporary sandboxes.
+  Without `NOT_CRAN=true`, only the tests that CRAN runs are run.
 
 - Create a Git branch for your pull request (PR). We recommend using
   `usethis::pr_init("brief-description-of-change")`.
@@ -44,30 +48,30 @@ advice.
   title of your PR should briefly describe the change. The body of your
   PR should contain `Fixes #issue-number`.
 
-- For user-facing changes, add a bullet to the top of `NEWS.md`
-  (i.e. just below the first header). Follow the style described in
+- For user-facing changes, add a bullet under the development version
+  heading at the top of `NEWS.md`, in the section that fits (such as
+  Breaking changes). Follow the style described in
   <https://style.tidyverse.org/news.html>.
 
 ### Code style
 
 - New code should follow the tidyverse [style
-  guide](https://style.tidyverse.org). You can use the
-  [styler](https://CRAN.R-project.org/package=styler) package to apply
-  these styles, but please don’t restyle code that has nothing to do
-  with your PR.
+  guide](https://style.tidyverse.org). Format R code with
+  [Air](https://posit-dev.github.io/air/) (`air format <file>`), and
+  please don’t reformat code that has nothing to do with your PR.
 
-- We use [roxygen2](https://cran.r-project.org/package=roxygen2), with
+- We use [roxygen2](https://CRAN.R-project.org/package=roxygen2), with
   [Markdown
-  syntax](https://cran.r-project.org/web/packages/roxygen2/vignettes/rd-formatting.html),
-  for documentation.
+  syntax](https://roxygen2.r-lib.org/articles/rd-formatting.html), for
+  documentation.
 
-- We use [testthat](https://cran.r-project.org/package=testthat) for
+- We use [testthat](https://CRAN.R-project.org/package=testthat) for
   unit tests. Contributions with test cases included are easier to
   accept.
 
 ## Code of Conduct
 
-Please note that the Condathis project is released with a [Contributor
+Please note that the condathis project is released with a [Contributor
 Code of Conduct](https://luciorq.github.io/condathis/CODE_OF_CONDUCT.md)
 derived from the [Contributor
 Covenant](https://www.contributor-covenant.org/) v2.1. By contributing

@@ -6,28 +6,28 @@ Whole-slide images (WSI) used in digital pathology, files like Aperio
 `.svs`, Hamamatsu `.ndpi`, or MIRAX `.mrxs`, are not ordinary images. A
 single slide is a multi-resolution pyramid of tiled, compressed pixels
 that can be tens of gigapixels in size. Reading them requires the
-OpenSlide C library, and in practice the only convenient, scriptable way
-to pull a region out of a slide is through a tool built on top of it,
-most commonly a Python environment (`openslide-python`) or `libvips`
-compiled with OpenSlide support.
+OpenSlide C library. In practice the only convenient, scriptable way to
+pull a region out of a slide is a tool built on top of it. The most
+common choices are a Python environment (`openslide-python`) or
+`libvips` compiled with OpenSlide support.
 
 That creates a real dependency problem for an R user:
 
 - Installing a Python/OpenSlide stack just to read one file format
   pollutes (or conflicts with) whatever environment your actual analysis
   lives in.
-- The tool you’d use to *look at* the extracted region, an image
-  processing library like ImageMagick, often needs its own, different
-  set of compiled dependencies (its own `libjpeg`, `libpng`,
-  `libtiff`…), which can clash with the versions OpenSlide/`libvips`
+- The tool you’d use to *look at* the extracted region needs its own
+  libraries. An image processing library like ImageMagick often needs a
+  different set of compiled dependencies (its own `libjpeg`, `libpng`
+  and `libtiff`). These can clash with the versions OpenSlide/`libvips`
   need.
 - None of this is reproducible unless the exact environments are pinned
   somewhere.
 
-This article uses `condathis` to solve all three: two CLI tools, each
-completely isolated in its own Conda environment, connected by a real
-Unix pipe, streaming binary image data from one environment straight
-into the other, and finally back into R for plotting. Nothing is
+This article uses `condathis` to solve all three. Two CLI tools, each
+isolated in its own Conda environment, are connected by an operating
+system pipe. Binary image data streams from one environment straight
+into the other and finally back into R for plotting. Nothing is
 installed system-wide and nothing leaks between environments.
 
 ## The Slide
@@ -69,16 +69,16 @@ We need two tools that have no business sharing a Conda environment:
 ``` r
 
 create_env(
-  packages = "conda-forge::libvips",
-  channels = "conda-forge",
+  "conda-forge::libvips",
   env_name = "wsi-vips-env",
+  channels = "conda-forge",
   verbose = "silent"
 )
 
 create_env(
-  packages = "conda-forge::imagemagick",
-  channels = "conda-forge",
+  "conda-forge::imagemagick",
   env_name = "wsi-magick-env",
+  channels = "conda-forge",
   verbose = "silent"
 )
 ```
@@ -86,15 +86,15 @@ create_env(
 Each
 [`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md)
 call resolves and installs its own dependency graph. `libvips` pulls in
-OpenSlide, `openjpeg`, and friends; ImageMagick pulls in its own
-delegate libraries. They never see each other.
+OpenSlide and `openjpeg`. ImageMagick pulls in its own delegate
+libraries. They never see each other.
 
 ## Orienting Ourselves: a Thumbnail
 
 Before extracting a region, let’s generate a small overview of the whole
 slide with a single
-[`run()`](https://luciorq.github.io/condathis/reference/run.md) call,
-`vips thumbnail` scales the pyramid down directly, it never decodes
+[`run()`](https://luciorq.github.io/condathis/reference/run.md) call.
+`vips thumbnail` scales the pyramid down directly and never decodes
 full-resolution pixels.
 
 ``` r
@@ -114,12 +114,19 @@ dim(thumb_img)
 
 ## Building the Pipeline
 
-Now the actual pipeline:
 [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md)
 chains two commands, in two different Conda environments, connected by a
 kernel-level pipe managed entirely by the child processes. The PNG bytes
-produced by `vips crop` never pass through R, they go straight into
+produced by `vips crop` never pass through R. They go straight into
 ImageMagick’s stdin.
+
+Each command is described with
+[`run_step()`](https://luciorq.github.io/condathis/reference/run_step.md).
+It takes the same command, arguments and `env_name` as
+[`run()`](https://luciorq.github.io/condathis/reference/run.md), but it
+does not run anything by itself. It only records the command, and
+[`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md)
+then starts every step together and connects them.
 
 ``` r
 
@@ -129,26 +136,24 @@ region_png <- fs::file_temp(ext = "png")
 crop_box <- c(800, 1600, 800, 800)
 
 pipeline_res <- run_pipeline(
-  cmds = list(
-    list(
-      cmd = c("vips", "crop", svs_path, ".png", as.character(crop_box)),
-      env_name = "wsi-vips-env"
-    ),
-    list(
-      cmd = c(
-        "magick", "-",
-        "-modulate", "100,150,100", # boost saturation
-        "-sharpen", "0x1",
-        "png:-"
-      ),
-      env_name = "wsi-magick-env",
-      stdout = region_png
-    )
-  )
+  run_step(
+    "vips", "crop", svs_path, ".png", as.character(crop_box),
+    env_name = "wsi-vips-env"
+  ),
+  run_step(
+    "magick", "-",
+    "-modulate", "100,150,100", # boost saturation
+    "-sharpen", "0x1",
+    "png:-",
+    env_name = "wsi-magick-env"
+  ),
+  stdout = region_png,
+  verbose = "silent"
 )
 
 pipeline_res
 #> <condathis_pipeline (2 commands)>
+#>   status: OK
 #> 
 #>   [1] 'vips' 'crop' 'data-raw/CMU-1-Small-Region.svs' '.png' '800' '1600' '800' '800' (wsi-vips-env)
 #>        status: OK
@@ -159,16 +164,22 @@ pipeline_res
 Two details are load-bearing here:
 
 - **`stdin`/`-`/`png:-`**: the middle of the pipe is fully binary and
-  never touches R, `processx` connects the two child processes’ file
-  descriptors directly. Only the *first* command’s stdin and the *last*
-  command’s stdout are ever visible to R, everything in between is a raw
-  byte stream.
-- **`stdout = region_png`** on the last command:
-  [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md)’s
-  default `stdout = "|"` capture decodes output as UTF-8 text, which
-  would corrupt binary PNG bytes. Since the final artifact here is a
-  binary image, we redirect it straight to a file instead of capturing
-  it as a character string.
+  never touches R. `processx` connects the two child processes’ file
+  descriptors directly. R handles only the *first* command’s stdin, the
+  *last* command’s stdout, and each command’s stderr. Everything in
+  between is a raw byte stream.
+- **`stdout = region_png`** on
+  [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md):
+  it sends the *last* command’s stdout to a file. The default
+  `stdout = "|"` capture decodes output as UTF-8 text, which would
+  corrupt binary PNG bytes. Since the final artifact here is a binary
+  image, we redirect it straight to a file instead of capturing it as a
+  character string. To keep the bytes in memory instead, pass
+  `binary = TRUE` to
+  [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md).
+  The last command’s stdout then comes back as a raw vector, which
+  [`png::readPNG()`](https://rdrr.io/pkg/png/man/readPNG.html) also
+  reads.
 
 ## Plotting the Result
 
@@ -181,6 +192,7 @@ region_img <- png::readPNG(region_png)
 
 th <- dim(thumb_img)[1]
 tw <- dim(thumb_img)[2]
+# full-resolution width and height of the slide, in pixels
 scale_x <- tw / 2220
 scale_y <- th / 2967
 rx0 <- crop_box[1] * scale_x
@@ -209,9 +221,9 @@ rasterImage(region_img, 0, 0, crop_box[3], crop_box[4])
 ![](whole-slide-images_files/figure-html/plot-result-1.png)
 
 The red box on the thumbnail marks exactly the region `libvips` cropped
-out of the pyramid, ImageMagick then boosted its saturation and
-sharpened it, all without R ever holding a raw pixel buffer for anything
-but the final, already-small PNG.
+out of the pyramid. ImageMagick then boosted its saturation and
+sharpened it. R never holds a raw pixel buffer for anything but the
+final, already-small PNG.
 
 ## Binary Data In: Raw Bytes as stdin
 
@@ -219,9 +231,9 @@ The pipeline above only needed a *file* as its output.
 [`run()`](https://luciorq.github.io/condathis/reference/run.md) and
 [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md)
 also accept raw binary data as *input*, written directly to a process’s
-stdin. To show it, let’s read the region PNG we just produced back into
-R as a raw vector and pipe those bytes into ImageMagick’s `identify`
-without writing anything new to disk:
+stdin. To show it, read the region PNG we just produced back into R as a
+raw vector. Then pipe those bytes into ImageMagick’s `identify` without
+writing anything new to disk:
 
 ``` r
 
@@ -230,7 +242,7 @@ length(png_bytes)
 #> [1] 1734194
 
 identify_res <- run(
-  "magick", "identify", "-",
+  "magick", "identify", "-format", "%m %wx%h %z-bit %[colorspace]\\n", "-",
   env_name = "wsi-magick-env",
   stdin = "|",
   input = png_bytes,
@@ -238,19 +250,22 @@ identify_res <- run(
 )
 
 parse_output(identify_res)
-#> [1] "-=>/tmp/RtmpvnzKWL/mamba-tmp1cd51070822b/magick-eopztHHzTMkMT8yT4f1Lfs0Vn8ZfFUmZ PNG 800x800 800x800+0+0 8-bit sRGB 1.65386MiB 0.000u 0:00.000"
+#> [1] "PNG 800x800 8-bit sRGB"
 ```
 
-`input` accepts a character or raw vector, here we pass the raw PNG
-bytes already sitting in R’s memory straight into the child process, no
-temporary file involved.
+`-format` limits the report to the format, size, bit depth and color
+space of the image. `input` accepts a character or raw vector. Here we
+pass the raw PNG bytes already sitting in R’s memory straight into the
+child process, with no temporary file involved.
 
 ## Cleaning Up
 
 ``` r
 
-remove_env("wsi-vips-env")
-remove_env("wsi-magick-env")
+remove_env(env_name = "wsi-vips-env")
+#> ✔ Environment wsi-vips-env successfully removed.
+remove_env(env_name = "wsi-magick-env")
+#> ✔ Environment wsi-magick-env successfully removed.
 ```
 
 ## Why This Matters
@@ -259,9 +274,12 @@ remove_env("wsi-magick-env")
   dependency graph, so there’s no solver conflict to fight and each can
   be upgraded independently.
 - **True binary pipes**: data moves between the two Conda environments
-  as raw bytes over a kernel pipe, exactly like a shell `|`, R is only
-  on the hook for the first command’s stdin and the last command’s
-  stdout.
+  as raw bytes over a kernel pipe, exactly like a shell `|`. R handles
+  only the first command’s stdin, the last command’s stdout, and each
+  command’s stderr.
 - **Reproducibility**: the whole toolchain, from slide to plotted
-  region, is defined in this article. Anyone who runs it gets the same
-  environments and the same pixels.
+  region, is defined in this article. Anyone who runs it gets
+  environments built from the same package specs. Pin the versions of
+  `libvips` and `imagemagick` in the
+  [`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md)
+  calls to get the same tools, and the same pixels, on every run.
