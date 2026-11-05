@@ -9,7 +9,7 @@ from package specs or from an environment file."><meta property="og:image" conte
 
     <a class="navbar-brand me-2" href="../index.html">condathis</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.4</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.4.9004</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -22,6 +22,7 @@ from package specs or from an environment file."><meta property="og:image" conte
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/condathis-intro.html">condathis-intro</a></li>
+    <li><a class="dropdown-item" href="../articles/whole-slide-images.html">Whole-Slide Pathology Images: Binary Pipelines Across Environments</a></li>
   </ul></li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
@@ -41,7 +42,7 @@ from package specs or from an environment file."><meta property="og:image" conte
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
       <img src="../logo.svg" class="logo" alt=""><h1>Create a Conda environment</h1>
-      <small class="dont-index">Source: <a href="https://github.com/luciorq/condathis/blob/v0.1.4/R/create_env.R" class="external-link"><code>R/create_env.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/luciorq/condathis/blob/main/R/create_env.R" class="external-link"><code>R/create_env.R</code></a></small>
       <div class="d-none name"><code>create_env.Rd</code></div>
     </div>
 
@@ -96,7 +97,9 @@ resolution. Defaults to <code>c("conda-forge", "bioconda")</code>.</p></dd>
 <dd><p>Character string with the backend execution strategy.
 Supported values are <code>"native"</code> and <code>"auto"</code>.
 Defaults to <code>"native"</code>.
-This argument is soft-deprecated and currently does not change behavior.</p></dd>
+Currently does not change behavior — reserved for upcoming pluggable
+backend support (e.g. running through <code>rattler</code> or a container engine
+instead of a managed <code>micromamba</code> install). Not deprecated.</p></dd>
 
 
 <dt id="arg-channel-priority">channel_priority<a class="anchor" aria-label="anchor" href="#arg-channel-priority"></a></dt>
@@ -133,8 +136,9 @@ should always be recreated. Defaults to <code>FALSE</code>.</p></dd>
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A process result list (from <code><a href="http://processx.r-lib.org/reference/run.html" class="external-link">processx::run()</a></code>) with command output,
-error output, exit status, and timeout information.</p>
+    <p>A <code>condathis_result</code> S3 object (a classed list, still usable as
+a plain list) with <code>status</code>, <code>stdout</code>, <code>stderr</code>, <code>timeout</code>, <code>pid</code>,
+<code>cmd</code>, and <code>env_name</code>.</p>
     </div>
 
     <div class="section level2">

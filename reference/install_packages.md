@@ -20,7 +20,10 @@ install_packages(
 
 - packages:
 
-  Character vector of package MatchSpec strings to install.
+  Character vector of package MatchSpec strings to install. Required;
+  must not be `NULL` (use
+  [`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md)
+  to create an empty environment instead).
 
 - env_name:
 
@@ -50,9 +53,9 @@ install_packages(
 
 ## Value
 
-A process result list (from
-[`processx::run()`](http://processx.r-lib.org/reference/run.md)) with
-command output, error output, exit status, and timeout information.
+A `condathis_result` S3 object (a classed list, still usable as a plain
+list) with `status`, `stdout`, `stderr`, `timeout`, `pid`, `cmd`, and
+`env_name`.
 
 ## Examples
 

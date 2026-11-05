@@ -11,7 +11,7 @@ This is a lower-level execution mode than run()."><meta property="og:image" cont
 
     <a class="navbar-brand me-2" href="../index.html">condathis</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.4</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.4.9004</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -24,6 +24,7 @@ This is a lower-level execution mode than run()."><meta property="og:image" cont
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/condathis-intro.html">condathis-intro</a></li>
+    <li><a class="dropdown-item" href="../articles/whole-slide-images.html">Whole-Slide Pathology Images: Binary Pipelines Across Environments</a></li>
   </ul></li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
@@ -43,7 +44,7 @@ This is a lower-level execution mode than run()."><meta property="og:image" cont
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
       <img src="../logo.svg" class="logo" alt=""><h1>Run a binary without environment activation</h1>
-      <small class="dont-index">Source: <a href="https://github.com/luciorq/condathis/blob/v0.1.4/R/run_bin.R" class="external-link"><code>R/run_bin.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/luciorq/condathis/blob/main/R/run_bin.R" class="external-link"><code>R/run_bin.R</code></a></small>
       <div class="d-none name"><code>run_bin.Rd</code></div>
     </div>
 
@@ -63,7 +64,14 @@ This is a lower-level execution mode than <code><a href="run.html">run()</a></co
 <span>  error <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"cancel"</span>, <span class="st">"continue"</span><span class="op">)</span>,</span>
 <span>  stdout <span class="op">=</span> <span class="st">"|"</span>,</span>
 <span>  stderr <span class="op">=</span> <span class="st">"|"</span>,</span>
-<span>  stdin <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  stdin <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  input <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  binary <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  supervise <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  cleanup_tree <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  linux_pdeathsig <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  activate <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  timeout <span class="op">=</span> <span class="cn">Inf</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -111,28 +119,99 @@ Provide a file path to redirect stderr to a file.</p></dd>
 <dt id="arg-stdin">stdin<a class="anchor" aria-label="anchor" href="#arg-stdin"></a></dt>
 <dd><p>Standard input source.
 Defaults to <code>NULL</code> (no stdin stream).
-Provide a file path to use file contents as stdin.</p></dd>
+Provide a file path to use file contents as stdin, or <code>"|"</code> to write
+<code>input</code> to the process.</p></dd>
+
+
+<dt id="arg-input">input<a class="anchor" aria-label="anchor" href="#arg-input"></a></dt>
+<dd><p>Character or raw vector written to the process's standard
+input when <code>stdin = "|"</code>. Defaults to <code>NULL</code>. Ignored (and must not be
+set) when <code>stdin</code> is not <code>"|"</code>. Note: live (real-time) stdout/stderr
+streaming and the spinner are not available when <code>input</code> triggers the
+writable-stdin code path; <code>timeout</code> still works.</p></dd>
+
+
+<dt id="arg-binary">binary<a class="anchor" aria-label="anchor" href="#arg-binary"></a></dt>
+<dd><p>Logical. Whether to capture stdout/stderr as raw vectors
+instead of decoding them as UTF-8 text. Defaults to <code>FALSE</code>. Since a
+process's stdout and stderr share a single encoding, both streams are
+returned raw when <code>TRUE</code>, even if only one of them actually carries
+binary data — check with <code><a href="https://rdrr.io/r/base/raw.html" class="external-link">is.raw()</a></code> before treating either as text.
+Binary streams are never live-echoed to the console, regardless of
+<code>verbose</code>.</p></dd>
+
+
+<dt id="arg-supervise">supervise<a class="anchor" aria-label="anchor" href="#arg-supervise"></a></dt>
+<dd><p>Logical. Whether the process should be supervised by the
+<code>processx</code> supervisor for crash-safe cleanup. Defaults to <code>FALSE</code>.</p></dd>
+
+
+<dt id="arg-cleanup-tree">cleanup_tree<a class="anchor" aria-label="anchor" href="#arg-cleanup-tree"></a></dt>
+<dd><p>Logical. Whether to clean up the child process tree
+on crash/interrupt. Defaults to <code>FALSE</code>.</p></dd>
+
+
+<dt id="arg-linux-pdeathsig">linux_pdeathsig<a class="anchor" aria-label="anchor" href="#arg-linux-pdeathsig"></a></dt>
+<dd><p>Logical. On Linux, whether to send <code>SIGKILL</code> to the
+child process if the parent R process dies. Has no effect on other
+platforms. Defaults to <code>FALSE</code>.</p></dd>
+
+
+<dt id="arg-activate">activate<a class="anchor" aria-label="anchor" href="#arg-activate"></a></dt>
+<dd><p>Logical. Whether to resolve and apply <code>env_name</code>'s real
+<code>micromamba run</code> activation (via <code>get_micromamba_activation_envvars()</code>,
+including any package <code>activate.d</code> hook scripts) as an environment
+overlay before running <code>cmd</code>. Defaults to <code>TRUE</code>. Silently skipped
+(<code>cmd</code> still runs, unactivated) when <code>env_name</code> does not exist, so
+<code>error = "continue"</code>-style fallback to a binary outside any managed
+environment keeps working. Set to <code>FALSE</code> to restore the original,
+activation-free <code>run_bin()</code> behavior — <code>cmd</code> still resolves against
+<code>env_name</code>'s <code>bin/</code> directory (falling back to <code>PATH</code>), but the child
+process otherwise inherits the caller's environment unmodified. This
+is the mechanism that makes <code>run_bin(activate = TRUE)</code> behave like
+<code><a href="run.html">run()</a></code>, minus the different binary-resolution strategy: <code><a href="run.html">run()</a></code>
+resolves <code>cmd</code> via the activated <code>PATH</code> inside a <code>micromamba run</code>
+wrapper, while <code>run_bin()</code> always resolves <code>cmd</code> itself beforehand.</p></dd>
+
+
+<dt id="arg-timeout">timeout<a class="anchor" aria-label="anchor" href="#arg-timeout"></a></dt>
+<dd><p>Numeric. Maximum number of seconds to let the command run
+before it's killed. Defaults to <code>Inf</code> (no limit, the previous
+behavior). On expiry, the process is killed, <code>timeout</code> is <code>TRUE</code> in the
+returned result, and <code>error = "cancel"</code> aborts with class
+<code>condathis_run_timeout_error</code> (<code>error = "continue"</code> returns normally
+with <code>status = -9</code>).</p></dd>
 
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A process result list (from <code><a href="http://processx.r-lib.org/reference/run.html" class="external-link">processx::run()</a></code>) with command output,
-error output, exit status, and timeout information.</p>
+    <p>A <code>condathis_result</code> S3 object (a classed list, still usable as
+a plain list) with <code>status</code>, <code>stdout</code>, <code>stderr</code>, <code>timeout</code>, <code>pid</code>,
+<code>cmd</code>, and <code>env_name</code>.</p>
     </div>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
 <span class="r-in"><span><span class="fu">condathis</span><span class="fu">::</span><span class="fu"><a href="with_sandbox_dir.html">with_sandbox_dir</a></span><span class="op">(</span><span class="op">{</span></span></span>
-<span class="r-in"><span>  <span class="co"># Example assumes that 'my-env' exists and contains 'python'</span></span></span>
+<span class="r-in"><span>  <span class="co"># Create an environment with 'python' and 'ripgrep'. `coreutils`</span></span></span>
+<span class="r-in"><span>  <span class="co"># (and other GNU tools like `grep`) aren't available for Windows on</span></span></span>
+<span class="r-in"><span>  <span class="co"># conda-forge, so `ripgrep` is used here instead of e.g. `ls`/`grep` —</span></span></span>
+<span class="r-in"><span>  <span class="co"># a single package name that installs and runs the same way on every</span></span></span>
+<span class="r-in"><span>  <span class="co"># platform `condathis` supports.</span></span></span>
+<span class="r-in"><span>  <span class="fu">condathis</span><span class="fu">::</span><span class="fu"><a href="create_env.html">create_env</a></span><span class="op">(</span></span></span>
+<span class="r-in"><span>    <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"conda-forge::python"</span>, <span class="st">"conda-forge::ripgrep"</span><span class="op">)</span>,</span></span>
+<span class="r-in"><span>    env_name <span class="op">=</span> <span class="st">"my-env"</span></span></span>
+<span class="r-in"><span>  <span class="op">)</span></span></span>
+<span class="r-in"><span></span></span>
 <span class="r-in"><span>  <span class="co"># Run 'python' with a script in 'my-env' environment</span></span></span>
 <span class="r-in"><span>  <span class="fu">condathis</span><span class="fu">::</span><span class="fu">run_bin</span><span class="op">(</span></span></span>
 <span class="r-in"><span>    <span class="st">"python"</span>, <span class="st">"-c"</span>, <span class="st">"import sys; print(sys.version)"</span>,</span></span>
 <span class="r-in"><span>    env_name <span class="op">=</span> <span class="st">"my-env"</span></span></span>
 <span class="r-in"><span>  <span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span>  <span class="co"># Run 'ls' command with additional arguments</span></span></span>
-<span class="r-in"><span>  <span class="fu">condathis</span><span class="fu">::</span><span class="fu">run_bin</span><span class="op">(</span><span class="st">"ls"</span>, <span class="st">"-la"</span>, env_name <span class="op">=</span> <span class="st">"my-env"</span><span class="op">)</span></span></span>
+<span class="r-in"><span>  <span class="co"># Run the 'rg' (ripgrep) binary with additional arguments</span></span></span>
+<span class="r-in"><span>  <span class="fu">condathis</span><span class="fu">::</span><span class="fu">run_bin</span><span class="op">(</span><span class="st">"rg"</span>, <span class="st">"--version"</span>, env_name <span class="op">=</span> <span class="st">"my-env"</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">}</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>

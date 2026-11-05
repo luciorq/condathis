@@ -27,8 +27,8 @@ with_sandbox_dir(code, .local_envir = base::parent.frame())
 ## Examples
 
 ``` r
-if (FALSE) { # \dontrun{
 condathis::with_sandbox_dir(print(fs::path_home()))
+#> /tmp/RtmpwVEJJf/tmp-home1a13735df67e
 condathis::with_sandbox_dir(print(tools::R_user_dir("condathis")))
-} # }
+#> [1] "/tmp/RtmpwVEJJf/tmp-data1a13bd3ac2c/R/condathis"
 ```

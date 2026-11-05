@@ -51,5 +51,8 @@
 - [`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md)
   : Run a binary without environment activation
 
+- [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md)
+  : Run a pipeline of commands connected with pipes
+
 - [`with_sandbox_dir()`](https://luciorq.github.io/condathis/reference/with_sandbox_dir.md)
   : Execute code in an isolated temporary environment

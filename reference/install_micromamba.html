@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">condathis</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.4</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.4.9004</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -20,6 +20,7 @@
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/condathis-intro.html">condathis-intro</a></li>
+    <li><a class="dropdown-item" href="../articles/whole-slide-images.html">Whole-Slide Pathology Images: Binary Pipelines Across Environments</a></li>
   </ul></li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
@@ -39,7 +40,7 @@
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
       <img src="../logo.svg" class="logo" alt=""><h1>Install micromamba binaries in the managed condathis path</h1>
-      <small class="dont-index">Source: <a href="https://github.com/luciorq/condathis/blob/v0.1.4/R/install_micromamba.R" class="external-link"><code>R/install_micromamba.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/luciorq/condathis/blob/main/R/install_micromamba.R" class="external-link"><code>R/install_micromamba.R</code></a></small>
       <div class="d-none name"><code>install_micromamba.Rd</code></div>
     </div>
 
@@ -90,7 +91,18 @@ and <code>"full"</code>. Defaults to <code>"output"</code>.</p></dd>
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>The installed micromamba binary path, invisibly.</p>
+    <p>The installed micromamba binary path (a <code>fs_path</code>/character
+string), invisibly — not a <code>condathis_result</code> object like <code><a href="run.html">run()</a></code>,
+<code><a href="run_bin.html">run_bin()</a></code>, <code><a href="create_env.html">create_env()</a></code>, <code><a href="install_packages.html">install_packages()</a></code>, <code><a href="remove_env.html">remove_env()</a></code>, and
+<code><a href="clean_cache.html">clean_cache()</a></code> return. This is intentional, not an oversight: those
+functions each wrap a single <code>micromamba</code> subprocess call, so a real
+status/stdout/stderr/pid is available to report. <code>install_micromamba()</code>
+downloads and extracts a binary directly (no <code>micromamba</code> subprocess
+involved at all), so there is no real process result to expose — the
+installed path is the only meaningful thing to return, exactly like
+<code><a href="get_env_dir.html">get_env_dir()</a></code>/<code><a href="get_install_dir.html">get_install_dir()</a></code>/<code><a href="micromamba_bin_path.html">micromamba_bin_path()</a></code>. On
+failure, this function always raises an error rather than returning a
+partial or invalid path.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>

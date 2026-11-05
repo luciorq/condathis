@@ -17,8 +17,7 @@ list_envs(verbose = "silent")
 
 ## Value
 
-A character vector of environment names. If the command fails, returns
-the process exit status as a numeric value.
+A character vector of environment names.
 
 ## Examples
 

@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">condathis</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.4</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.4.9004</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -20,6 +20,7 @@
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/condathis-intro.html">condathis-intro</a></li>
+    <li><a class="dropdown-item" href="../articles/whole-slide-images.html">Whole-Slide Pathology Images: Binary Pipelines Across Environments</a></li>
   </ul></li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
@@ -39,7 +40,7 @@
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
       <img src="../logo.svg" class="logo" alt=""><h1>Parse command output text</h1>
-      <small class="dont-index">Source: <a href="https://github.com/luciorq/condathis/blob/v0.1.4/R/parse_output.R" class="external-link"><code>R/parse_output.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/luciorq/condathis/blob/main/R/parse_output.R" class="external-link"><code>R/parse_output.R</code></a></small>
       <div class="d-none name"><code>parse_output.Rd</code></div>
     </div>
 
@@ -58,7 +59,10 @@
 
 <dl><dt id="arg-res">res<a class="anchor" aria-label="anchor" href="#arg-res"></a></dt>
 <dd><p>Either a process result list (with <code>stdout</code> and/or <code>stderr</code>) or a
-character vector when <code>stream = "plain"</code>.</p></dd>
+character vector when <code>stream = "plain"</code>. Errors if the requested
+stream(s) hold raw binary data (from <code><a href="run.html">run()</a></code>/<code><a href="run_bin.html">run_bin()</a></code>/
+<code><a href="run_pipeline.html">run_pipeline()</a></code> called with <code>binary = TRUE</code>) — read those directly
+instead, e.g. with <code><a href="https://rdrr.io/r/base/readBin.html" class="external-link">writeBin()</a></code>.</p></dd>
 
 
 <dt id="arg-stream">stream<a class="anchor" aria-label="anchor" href="#arg-stream"></a></dt>

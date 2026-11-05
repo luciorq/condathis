@@ -13,7 +13,8 @@ env_exists(env_name, verbose = "silent")
 
 - env_name:
 
-  Character string with the environment name to check.
+  Character string with the environment name to check. Must be a single,
+  non-missing character string.
 
 - verbose:
 

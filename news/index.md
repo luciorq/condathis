@@ -1,5 +1,377 @@
 # Changelog
 
+## condathis 0.1.5 (Development Version)
+
+Development Changelog:
+[dev](https://github.com/luciorq/condathis/compare/v0.1.4...HEAD)
+
+### Added
+
+- New
+  [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md)
+  function for Unix-style pipeline execution (`cmd1 | cmd2 | cmd3`)
+  based on `processx` 3.9.0 kernel-level pipes. Each command in the
+  pipeline can run in a different Conda environment. Returns an S3
+  `condathis_pipeline` object with per-process status, stdout (last
+  process only), stderr, and PID. Supports `stdin` file redirection,
+  writable `stdin = "|"` with an `input` value written to the first
+  command, per-command `stdout`/`stderr` overrides in the `cmds` named
+  list spec (`stdout` only on the last command), `error = "cancel"` /
+  `"continue"`, and automatic crash cleanup via `supervise = TRUE`.
+
+- New arguments that exists in both
+  [`run()`](https://luciorq.github.io/condathis/reference/run.md),
+  [`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md),
+  [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md):
+
+  - New `supervise`, `cleanup_tree`, and `linux_pdeathsig` arguments for
+    crash-safe process cleanup . Default to `FALSE`, preserving existing
+    behavior.
+  - New `input` argument: writable `stdin = "|"` support, writing
+    character/raw data directly to the process’s standard input —
+    matching
+    [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md)’s
+    `input` argument. Previously `stdin` only accepted `NULL` or a file
+    path.
+  - Both now return a `condathis_result` S3 object instead of a plain
+    [`processx::run()`](http://processx.r-lib.org/reference/run.md)
+    list. It remains fully usable as a list (`res$status`, `res$stdout`,
+    etc. are unchanged) and adds `pid`, `cmd`, and `env_name` fields
+    plus
+    [`print()`](https://rdrr.io/r/base/print.html)/[`format()`](https://rdrr.io/r/base/format.html)
+    methods, mirroring `condathis_pipeline`.
+
+- [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md)’s
+  `supervise`, `cleanup_tree` (previously always `TRUE`), and
+  `linux_pdeathsig` (new) are now overridable arguments instead of
+  hardcoded, for full parity with
+  [`run()`](https://luciorq.github.io/condathis/reference/run.md)/[`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md).
+
+- New `binary` argument (defaults to `FALSE`) on
+  [`run()`](https://luciorq.github.io/condathis/reference/run.md),
+  [`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md),
+  and
+  [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md):
+  captures stdout/stderr as raw vectors instead of decoding them as
+  UTF-8 text, so binary output (images, compressed data, etc.)
+  round-trips correctly. Since a process’s stdout and stderr share one
+  encoding, both streams come back raw when `TRUE` — check with
+  [`is.raw()`](https://rdrr.io/r/base/raw.html) before treating either
+  as text.
+  [`format()`](https://rdrr.io/r/base/format.html)/[`print()`](https://rdrr.io/r/base/print.html)
+  on the resulting `condathis_result`/`condathis_pipeline` objects, and
+  [`parse_output()`](https://luciorq.github.io/condathis/reference/parse_output.md),
+  all handle raw streams safely
+  ([`parse_output()`](https://luciorq.github.io/condathis/reference/parse_output.md)
+  errors with class `condathis_parse_output_binary_stream` if asked to
+  parse one). Binary streams are never live-echoed to the console.
+
+- New `timeout` argument on
+  [`run()`](https://luciorq.github.io/condathis/reference/run.md),
+  [`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md),
+  and
+  [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md):
+  maximum number of seconds to let a command (or, for
+  [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md),
+  the whole pipeline) run before it’s killed. Defaults to `Inf` (no
+  limit, the previous behavior). On expiry, the process is killed
+  (`status = -9`) and `timeout` is `TRUE` in the returned result;
+  `error = "cancel"` (the default) aborts with a dedicated class
+  (`condathis_run_timeout_error` / `condathis_pipeline_timeout_error`)
+  instead of the regular status-error class, so you can tell a timeout
+  apart from an ordinary failed command; `error = "continue"` returns
+  the result normally instead of aborting. For
+  [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md),
+  `timeout` applies to the pipeline as a whole (one shared deadline
+  across every command, not per-command); any output a killed stage had
+  already produced is preserved.
+
+- [`install_micromamba()`](https://luciorq.github.io/condathis/reference/install_micromamba.md)
+  now verifies the downloaded `micromamba` binary against its official
+  checksum. If it doesn’t match — or the check can’t be run at all, for
+  any reason — you’ll see a warning, but the install still completes;
+  this never blocks you. On R 4.5 and newer this needs no extra software
+  at all; on older R it prefers the optional `digest` package if you
+  have it installed, and only as a last resort falls back to a
+  `sha256sum`/`shasum` program on your system, which is verified to
+  actually work correctly before being trusted.
+
+### Changed
+
+- [`run()`](https://luciorq.github.io/condathis/reference/run.md) and
+  [`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md)
+  gain feature parity with
+  [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md):
+
+  - New `supervise`, `cleanup_tree`, and `linux_pdeathsig` arguments for
+    crash-safe process cleanup (previously only available, and always
+    on, in
+    [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md)).
+    Default to `FALSE`, preserving existing behavior.
+  - New `input` argument: writable `stdin = "|"` support, writing
+    character/raw data directly to the process’s standard input —
+    matching
+    [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md)’s
+    `input` argument. Previously `stdin` only accepted `NULL` or a file
+    path.
+  - Both now return a `condathis_result` S3 object instead of a plain
+    [`processx::run()`](http://processx.r-lib.org/reference/run.md)
+    list. It remains fully usable as a list (`res$status`, `res$stdout`,
+    etc. are unchanged) and adds `pid`, `cmd`, and `env_name` fields
+    plus
+    [`print()`](https://rdrr.io/r/base/print.html)/[`format()`](https://rdrr.io/r/base/format.html)
+    methods, mirroring `condathis_pipeline`.
+
+- [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md)’s
+  `supervise`, `cleanup_tree` (previously always `TRUE`), and
+  `linux_pdeathsig` (new) are now overridable arguments instead of
+  hardcoded, for full parity with
+  [`run()`](https://luciorq.github.io/condathis/reference/run.md)/[`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md).
+
+- **Breaking (minor):**
+  [`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md),
+  [`install_packages()`](https://luciorq.github.io/condathis/reference/install_packages.md),
+  [`remove_env()`](https://luciorq.github.io/condathis/reference/remove_env.md),
+  and
+  [`clean_cache()`](https://luciorq.github.io/condathis/reference/clean_cache.md)
+  now return the same kind of result object as
+  [`run()`](https://luciorq.github.io/condathis/reference/run.md)/
+  [`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md)
+  (a `condathis_result`), instead of a plain, unlabeled list. If your
+  code only reads `res$status`, `res$stdout`, or `res$stderr`, nothing
+  changes — that keeps working exactly as before. What’s new: every
+  result now also includes `res$pid`, `res$cmd`, and `res$env_name`, and
+  simply printing a result (e.g. typing it at the console, or letting it
+  auto-print) now shows a short, readable summary instead of a raw list
+  dump. The one thing that *can* break: code that checks the exact class
+  of the result (for example
+  `is.list(res) && !inherits(res, "condathis_result")`, or anything
+  comparing `class(res)` to `"list"`). If you need a plain list back,
+  `as.list(res)` gives you one.
+
+- **Breaking (minor):** in
+  [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md)’s
+  result, each step in `res$processes` (e.g. `res$processes[[1]]`) is
+  now that same kind of result object too, not a plain list. You can now
+  [`print()`](https://rdrr.io/r/base/print.html) or
+  [`format()`](https://rdrr.io/r/base/format.html) a single step on its
+  own, not just the whole pipeline result. Each step also gains a
+  `timeout` field, `TRUE` for whichever step(s) were still running when
+  [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md)’s
+  own `timeout` expired. As above,
+  `res$status`/`res$stdout`/`res$stderr`/`res$cmd`/`res$env_name`/`res$pid`
+  all still work the same way; only code checking the exact class of an
+  individual step is affected.
+
+- [`install_packages()`](https://luciorq.github.io/condathis/reference/install_packages.md)
+  now validates its arguments upfront instead of letting bad input reach
+  `micromamba` (or a plain base-R error): calling it without `packages`
+  (or with `packages = NULL`) now gives a clear, classed error
+  (`condathis_install_packages_missing_packages`) instead of a generic
+  “argument is missing” error; an invalid `env_name` (not a single,
+  non-missing character string) now errors the same way
+  [`env_exists()`](https://luciorq.github.io/condathis/reference/env_exists.md)
+  and
+  [`get_env_dir()`](https://luciorq.github.io/condathis/reference/get_env_dir.md)
+  do. Its check for whether the target environment already exists now
+  uses
+  [`env_exists()`](https://luciorq.github.io/condathis/reference/env_exists.md)
+  internally (same result, clearer code) instead of
+  [`list_envs()`](https://luciorq.github.io/condathis/reference/list_envs.md)
+  plus a manual `%in%` check.
+
+- [`get_env_dir()`](https://luciorq.github.io/condathis/reference/get_env_dir.md)
+  now validates `env_name` (a single, non-missing character string)
+  instead of silently building a nonsensical path — for example, a
+  multi-element `env_name` used to silently return a vector of paths.
+
+- [`install_packages()`](https://luciorq.github.io/condathis/reference/install_packages.md)
+  now warns when the target environment was previously installed using a
+  channel that is not included in the current call (e.g. creating an
+  environment with `channels = "conda-forge"` and later calling
+  [`install_packages()`](https://luciorq.github.io/condathis/reference/install_packages.md)
+  with `channels = "bioconda"` only). The channel used is recorded per
+  package in the environment’s `conda-meta/history` file; dropping a
+  previously-used channel can change how dependencies resolve. The
+  install still proceeds — this is a warning, not an error.
+
+- **Breaking (minor):**
+  [`env_exists()`](https://luciorq.github.io/condathis/reference/env_exists.md)
+  now raises a clear error if `env_name` isn’t a single, real
+  environment name (for example `NULL`, `NA`, a number, or a vector of
+  more than one name). Previously, these invalid inputs silently
+  returned `FALSE`, which looked exactly the same as “that environment
+  doesn’t exist” — an easy way to hide a mistake in your own code. If
+  you were deliberately relying on `env_exists(NULL)` or
+  `env_exists(NA)` returning `FALSE`, that call now errors instead;
+  everything else (checking a real environment name) is unaffected.
+
+- **Breaking (minor):**
+  [`run()`](https://luciorq.github.io/condathis/reference/run.md) no
+  longer creates any environment when the one you asked for (`env_name`)
+  doesn’t exist — it errors instead, telling you to create it first.
+  Previously, if you gave a custom `env_name` that didn’t exist,
+  [`run()`](https://luciorq.github.io/condathis/reference/run.md) would
+  silently create an unrelated, empty `"condathis-env"` as a side effect
+  (left over from a workaround for an old `micromamba` limitation that
+  no longer applies) and then still fail anyway, just with a more
+  confusing error. The one thing that keeps working exactly as before:
+  calling
+  [`run()`](https://luciorq.github.io/condathis/reference/run.md)
+  without specifying `env_name` at all still auto-creates the default
+  `"condathis-env"` for you, since that’s a deliberate convenience, not
+  the bug being fixed here. With `error = "continue"`, a missing custom
+  environment now gives you back a result with `status = 127` instead of
+  erroring.
+
+### Fixed
+
+- Fix
+  [`install_micromamba()`](https://luciorq.github.io/condathis/reference/install_micromamba.md)
+  always creating the default `"condathis-env"` as an undocumented side
+  effect of installing the binary, even when triggered incidentally by
+  an unrelated, read-only call (for example
+  [`env_exists()`](https://luciorq.github.io/condathis/reference/env_exists.md))
+  that happened to need a first-time install because no `micromamba`
+  binary was available anywhere yet.
+  [`install_micromamba()`](https://luciorq.github.io/condathis/reference/install_micromamba.md)
+  is documented to install the binary only; this leftover,
+  no-longer-needed workaround (the same kind
+  [`run()`](https://luciorq.github.io/condathis/reference/run.md)’s own
+  auto-create logic already dropped) made a fresh install root end up
+  with an unwanted default environment the caller never asked for.
+  [`run()`](https://luciorq.github.io/condathis/reference/run.md),
+  [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md),
+  and
+  [`list_packages()`](https://luciorq.github.io/condathis/reference/list_packages.md)
+  each already auto-create `"condathis-env"` themselves, correctly
+  scoped to only when it’s actually the target — that behavior is
+  unaffected.
+
+- Fix
+  [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md)
+  checking that Conda environments exist before attempting to
+  auto-create the missing default environment, which made the
+  auto-create path unreachable.
+
+- Fix
+  [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md)
+  crashing when reading `stdout`/`stderr` for a process whose output was
+  redirected to a file or discarded (`NULL`) instead of captured with
+  `"|"`.
+
+- Fix
+  [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md)
+  letting a raw `processx` error escape uncaught when a command is not
+  found, ignoring the `error` argument entirely. It now matches
+  [`run()`](https://luciorq.github.io/condathis/reference/run.md):
+  `error = "continue"` reports `status = 127` for that command and keeps
+  running the rest of the pipeline; `error = "cancel"` throws a
+  `condathis_pipeline_status_error` instead of a low-level error.
+
+- Fix
+  [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md)
+  error messages breaking (or silently corrupting) when a failing
+  command’s `stderr` contained curly braces, since
+  [`cli::cli_abort()`](https://cli.r-lib.org/reference/cli_abort.html)
+  interprets `{`/`}` as glue syntax. Captured stderr, command strings,
+  and environment names are now escaped before being embedded in the
+  error message.
+
+- Fix
+  [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md)
+  always throwing on a missing custom environment regardless of `error`.
+  `error = "continue"` now reports `status = 127` for commands targeting
+  that environment instead of aborting the whole pipeline;
+  `error = "cancel"` keeps the previous fail-fast behavior.
+
+- Fix
+  [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md)
+  hanging indefinitely on native Windows for any pipeline of 2 or more
+  commands. Caused by three compounding issues in how inter-process
+  pipes were created and managed: using the non-blocking, R-facing
+  [`processx::conn_create_pipepair()`](http://processx.r-lib.org/reference/processx_connections.md)
+  instead of `conn_create_proc_pipepair()` (documented as required for
+  correct child-to-child stdin/stdout behavior on Windows); deferring
+  the parent’s own copies of pipe handles from closing until every
+  process in the pipeline had spawned, instead of closing each one
+  immediately after use; and defaulting every process to
+  `supervise = TRUE`, which spawns an extra Windows helper process per
+  stage that can itself hold the piped stdout open, preventing the next
+  stage from ever seeing EOF.
+  [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md)
+  now forces `supervise = FALSE` on Windows regardless of the
+  `supervise` argument (unaffected on Linux/macOS, where the hang does
+  not occur).
+
+- Fix
+  [`run()`](https://luciorq.github.io/condathis/reference/run.md)/[`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md)’s
+  `stdin = "|"` silently truncating `input` larger than the OS pipe
+  buffer (confirmed: only 8192 of 200000 bytes delivered on macOS, no
+  error) — a single non-blocking `write_input()` call can short-write
+  and discard the undelivered remainder. Also fixes a related deadlock
+  in [`run()`](https://luciorq.github.io/condathis/reference/run.md),
+  [`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md),
+  and
+  [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md):
+  reading `stdout` and `stderr` sequentially (or calling `wait()` before
+  draining either) can hang once combined output exceeds the OS pipe
+  buffer, because the child blocks writing to whichever stream isn’t
+  being read yet. Both fixed by a shared internal helper that
+  writes/polls/drains all of a process’s streams concurrently instead of
+  one at a time.
+
+- Fix
+  [`install_micromamba()`](https://luciorq.github.io/condathis/reference/install_micromamba.md)
+  intermittently reporting a freshly downloaded/extracted `micromamba`
+  binary as missing on Windows. Antivirus real-time scanning can briefly
+  hold its own handle on a just-written executable, making a
+  [`file.exists()`](https://rdrr.io/r/base/files.html) check performed
+  immediately afterward return `FALSE` even though the file is present —
+  confirmed directly (a `force = TRUE` reinstall failed once, then
+  succeeded on an immediate retry with no code change). The existence
+  check now polls briefly before giving up.
+
+- Fix `get_micromamba_activation_envvars()`’s noise-filtering only
+  stripping `processx`’s `PROCESSX_PS2...` tracking variable and not the
+  similarly PID/hash-suffixed `PROCESSX_PS3...` (and potentially further
+  numbered variants), letting it leak into the returned environment
+  variables and making two otherwise-identical resolutions of the same
+  Conda environment compare as different on every call.
+
+- Fix
+  [`list_envs()`](https://luciorq.github.io/condathis/reference/list_envs.md)
+  occasionally returning a plain number instead of a character vector of
+  environment names, in the rare case where the underlying command
+  failed in an unusual way. It now always reports that kind of failure
+  as a proper error, so code calling
+  [`list_envs()`](https://luciorq.github.io/condathis/reference/list_envs.md)
+  can rely on always getting back either a vector of names or an
+  informative error — never a bare number.
+
+- Fix
+  [`list_packages()`](https://luciorq.github.io/condathis/reference/list_packages.md)
+  crashing with a confusing, low-level R error
+  (`object 'pkgs_df' not found`) in that same kind of rare failure case.
+  It now reports a clear, consistent error instead.
+
+- Fix
+  [`list_envs()`](https://luciorq.github.io/condathis/reference/list_envs.md)
+  matching environment paths against the install directory as a pattern
+  instead of literal text, which could in rare cases match a directory
+  that only looked similar (for example, one differing by a single
+  character where the install path happens to contain a `.`). It now
+  compares the literal path.
+
+- Removed the `micro.mamba.pm` mirror from
+  [`install_micromamba()`](https://luciorq.github.io/condathis/reference/install_micromamba.md)’s
+  download attempts. It no longer serves specific, pinned versions (only
+  the latest release), and `condathis` always requests a pinned version,
+  so every attempt against it was guaranteed to fail before falling
+  through to a working mirror. Removing it makes installs slightly
+  faster when the first mirror is unavailable, with no change in which
+  version gets installed.
+
 ## condathis 0.1.4
 
 CRAN release: 2026-06-19

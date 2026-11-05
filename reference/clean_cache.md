@@ -20,9 +20,10 @@ clean_cache(verbose = c("output", "silent", "cmd", "spinner", "full"))
 
 ## Value
 
-A process result list (from
-[`processx::run()`](http://processx.r-lib.org/reference/run.md)) with
-command output, error output, exit status, and timeout information.
+A `condathis_result` S3 object (a classed list, still usable as a plain
+list) with `status`, `stdout`, `stderr`, `timeout`, `pid`, `cmd`, and
+`env_name`. `env_name` is always `NA` since cache cleanup is not tied to
+a specific environment.
 
 ## Details
 

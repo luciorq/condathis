@@ -5,9 +5,12 @@
 <url><loc>https://luciorq.github.io/condathis/CONTRIBUTING.html</loc></url>
 <url><loc>https://luciorq.github.io/condathis/LICENSE-text.html</loc></url>
 <url><loc>https://luciorq.github.io/condathis/LICENSE.html</loc></url>
+<url><loc>https://luciorq.github.io/condathis/PLAN.html</loc></url>
+<url><loc>https://luciorq.github.io/condathis/TODO.html</loc></url>
 <url><loc>https://luciorq.github.io/condathis/articles/condathis-intro.html</loc></url>
 <url><loc>https://luciorq.github.io/condathis/articles/condathis.html</loc></url>
 <url><loc>https://luciorq.github.io/condathis/articles/index.html</loc></url>
+<url><loc>https://luciorq.github.io/condathis/articles/whole-slide-images.html</loc></url>
 <url><loc>https://luciorq.github.io/condathis/authors.html</loc></url>
 <url><loc>https://luciorq.github.io/condathis/index.html</loc></url>
 <url><loc>https://luciorq.github.io/condathis/news/index.html</loc></url>
@@ -28,6 +31,7 @@
 <url><loc>https://luciorq.github.io/condathis/reference/remove_env.html</loc></url>
 <url><loc>https://luciorq.github.io/condathis/reference/run.html</loc></url>
 <url><loc>https://luciorq.github.io/condathis/reference/run_bin.html</loc></url>
+<url><loc>https://luciorq.github.io/condathis/reference/run_pipeline.html</loc></url>
 <url><loc>https://luciorq.github.io/condathis/reference/with_sandbox_dir.html</loc></url>
 </urlset>
 

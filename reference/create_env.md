@@ -45,8 +45,10 @@ create_env(
 - method:
 
   Character string with the backend execution strategy. Supported values
-  are `"native"` and `"auto"`. Defaults to `"native"`. This argument is
-  soft-deprecated and currently does not change behavior.
+  are `"native"` and `"auto"`. Defaults to `"native"`. Currently does
+  not change behavior — reserved for upcoming pluggable backend support
+  (e.g. running through `rattler` or a container engine instead of a
+  managed `micromamba` install). Not deprecated.
 
 - channel_priority:
 
@@ -80,9 +82,9 @@ create_env(
 
 ## Value
 
-A process result list (from
-[`processx::run()`](http://processx.r-lib.org/reference/run.md)) with
-command output, error output, exit status, and timeout information.
+A `condathis_result` S3 object (a classed list, still usable as a plain
+list) with `status`, `stdout`, `stderr`, `timeout`, `pid`, `cmd`, and
+`env_name`.
 
 ## Examples
 
