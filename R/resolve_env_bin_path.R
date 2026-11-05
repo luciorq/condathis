@@ -48,6 +48,18 @@ env_bin_search_dirs <- function(env_dir, on_windows = is_windows()) {
 #' @noRd
 resolve_env_bin_path <- function(env_dir, cmd) {
   candidate_names <- command_candidate_names(cmd)
+  # An absolute path is not looked up in the environment: joining it to
+  # `env_dir` names no file there, and on Windows the joined path can exceed
+  # `PATH_MAX` (260), which makes `fs::path()` abort. Only the extensions of
+  # `PATHEXT` are tried.
+  if (isTRUE(fs::is_absolute_path(cmd))) {
+    for (candidate in candidate_names) {
+      if (isTRUE(fs::file_exists(candidate))) {
+        return(fs::path(candidate))
+      }
+    }
+    return(NULL)
+  }
   for (dir in env_bin_search_dirs(env_dir)) {
     for (name in candidate_names) {
       candidate <- fs::path(dir, name)
