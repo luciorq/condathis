@@ -26,6 +26,30 @@ testthat::test_that("install_packages validates env_name", {
   )
 })
 
+testthat::test_that("install_packages forwards verbose to its own env-existence check", {
+  # `get_env_history_channels()` (called later, for the channel-mismatch
+  # warning) independently re-resolves via the public `get_env_dir()` and
+  # triggers its own `backend_has_env()` call at the default `verbose =
+  # FALSE` - unrelated to this fix, so every captured value is checked
+  # instead of asserting on call order/position.
+  captured_verbose <- list()
+  testthat::local_mocked_bindings(
+    backend_has_env = function(backend, env_name, verbose = FALSE) {
+      captured_verbose[[length(captured_verbose) + 1L]] <<- verbose
+      TRUE
+    },
+    backend_install = function(...) {
+      list(status = 0L, stdout = "", stderr = "", pid = NA_integer_)
+    }
+  )
+  install_packages(
+    "zlib",
+    env_name = "condathis-verbose-forward-mock-env",
+    verbose = "full"
+  )
+  testthat::expect_true("full" %in% unlist(captured_verbose))
+})
+
 testthat::test_that("install_packages warns when previous channels are dropped", {
   testthat::skip_if_offline()
   testthat::skip_on_cran()
@@ -33,7 +57,7 @@ testthat::test_that("install_packages warns when previous channels are dropped",
   # `noarch` (confirmed against bioconda's own repodata: no `win-64` build
   # at all, and the `noarch` build's own dependencies, e.g. `openjdk`,
   # `font-ttf-dejavu-sans-mono`, are themselves unavailable for `win-64`/
-  # `osx-arm64`) — bioconda has never supported Windows and does not ship
+  # `osx-arm64`) - bioconda has never supported Windows and does not ship
   # native Apple Silicon builds, so this environment cannot solve on
   # Windows or on modern (arm64) macOS runners regardless of anything
   # `condathis` does. See the cross-platform equivalent below, which
@@ -104,7 +128,7 @@ testthat::test_that("install_packages warns when previous channels are dropped (
     # actually resolving from it. `conda-forge/label/main` hosts the same
     # packages as plain `conda-forge`, so which one a real solve records
     # for a trivially-available package like `zlib` is solver
-    # tie-breaking, not something this test controls — confirmed flaky
+    # tie-breaking, not something this test controls - confirmed flaky
     # (~1 in 3 runs) when this relied on that instead. Writing the history
     # line directly makes the "previously used channel" set deterministic;
     # `get_env_history_channels()`'s own parsing of exactly this line

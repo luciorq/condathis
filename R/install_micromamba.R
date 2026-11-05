@@ -15,13 +15,13 @@
 #'   and `"full"`. Defaults to `"output"`.
 #'
 #' @returns The installed micromamba binary path (a `fs_path`/character
-#'   string), invisibly — not a `condathis_result` object like `run()`,
+#'   string), invisibly - not a `condathis_result` object like `run()`,
 #'   `run_bin()`, `create_env()`, `install_packages()`, `remove_env()`, and
 #'   `clean_cache()` return. This is intentional, not an oversight: those
 #'   functions each wrap a single `micromamba` subprocess call, so a real
 #'   status/stdout/stderr/pid is available to report. `install_micromamba()`
 #'   downloads and extracts a binary directly (no `micromamba` subprocess
-#'   involved at all), so there is no real process result to expose — the
+#'   involved at all), so there is no real process result to expose - the
 #'   installed path is the only meaningful thing to return, exactly like
 #'   `get_env_dir()`/`get_install_dir()`/`micromamba_bin_path()`. On
 #'   failure, this function always raises an error rather than returning a
@@ -85,7 +85,7 @@ install_micromamba <- function(
     micromamba_version = micromamba_version
   )
 
-  output_dir <- fs::path_abs(get_install_dir())
+  output_dir <- fs::path_abs(install_dir_for_backend(micromamba_backend()))
   if (isFALSE(fs::dir_exists(output_dir))) {
     fs::dir_create(output_dir)
   }
@@ -166,7 +166,7 @@ install_micromamba <- function(
 #' Strategy 1 of `install_micromamba()`'s two download strategies: fetch the
 #' `.tar.bz2` archive from the given mirrors and extract it with the system
 #' `tar`/`bzip2` tools. A no-op (returns `FALSE` immediately) when those
-#' tools aren't available — `install_micromamba()` falls back to
+#' tools aren't available - `install_micromamba()` falls back to
 #' `download_uncompressed_binary()` in that case.
 #'
 #' @param compressed_urls Character vector of `.tar.bz2` mirror endpoints.
@@ -404,7 +404,7 @@ verify_micromamba_checksum <- function(
 #' Added to base R in version 4.5.0 (confirmed against R's own `NEWS`:
 #' "Added function sha256sum() in package tools analogous to md5sum()",
 #' under "CHANGES IN R 4.5.0"). Checks both the R version and the
-#' function's actual presence in the `tools` namespace — belt and
+#' function's actual presence in the `tools` namespace - belt and
 #' suspenders, since `condathis` only requires R >= 4.3 and must not
 #' assume a newer `tools` is present just because the running R claims a
 #' high enough version (e.g. a patched/vendored R build).
@@ -427,7 +427,7 @@ has_tools_sha256sum <- function() {
 #' Known-answer test for a system SHA256 command
 #'
 #' Shelling out to an external `sha256sum`/`shasum` binary means trusting
-#' whatever happens to be on `PATH` under that name — it could be a
+#' whatever happens to be on `PATH` under that name - it could be a
 #' different tool entirely, a broken build, or something else shadowing
 #' the real one, and behavior has been observed to differ across mirrors,
 #' download strategies, and operating systems during development. Rather
@@ -468,7 +468,7 @@ sha256_command_is_trustworthy <- function(sha_cmd) {
 #' @param file_path Character string. Path to the file to hash.
 #'
 #' @returns Character string with the lowercase hex SHA256 hash, or
-#'   `NA_character_` on any failure — including output that doesn't look
+#'   `NA_character_` on any failure - including output that doesn't look
 #'   like a real SHA-256 digest (exactly 64 hex characters), which is
 #'   rejected outright rather than passed along as a "hash".
 #'
@@ -493,7 +493,7 @@ run_sha256_command <- function(sha_cmd, file_path) {
   }
   # Output format: "hash  filename\n", or "\hash  filename\n" (a leading
   # backslash directly prefixing the hash, no space) when the filename
-  # contains a backslash or newline — GNU coreutils' sha256sum/md5sum
+  # contains a backslash or newline - GNU coreutils' sha256sum/md5sum
   # escaping convention, flagging that the filename part has embedded
   # "\\"/"\n" escapes. Essentially guaranteed on Windows, where every
   # absolute path contains backslashes (confirmed on real Windows CI: the
@@ -512,11 +512,11 @@ run_sha256_command <- function(sha_cmd, file_path) {
 #'
 #' Computes the SHA256 hash of a file using the best available method, in
 #' order:
-#' 1. `tools::sha256sum()` — base R (since R 4.5.0, see
+#' 1. `tools::sha256sum()` - base R (since R 4.5.0, see
 #'    `has_tools_sha256sum()`), no subprocess, no system dependency.
-#' 2. `digest::digest()` — a `Suggests` dependency, also pure R, no
+#' 2. `digest::digest()` - a `Suggests` dependency, also pure R, no
 #'    subprocess.
-#' 3. A system `sha256sum` (Linux) or `shasum -a 256` (macOS) command —
+#' 3. A system `sha256sum` (Linux) or `shasum -a 256` (macOS) command -
 #'    the least reliable option, since it shells out to whatever binary
 #'    happens to be on `PATH`, so it's tried last and only trusted after
 #'    passing `sha256_command_is_trustworthy()`'s known-answer test.
@@ -524,7 +524,7 @@ run_sha256_command <- function(sha_cmd, file_path) {
 #' Never errors: any failure at any step falls through to the next, and
 #' returns `NA_character_` if every method is unavailable or untrustworthy.
 #' Checksum verification is warn-and-continue by design (see
-#' `verify_micromamba_checksum()`) — a missing or broken hashing tool must
+#' `verify_micromamba_checksum()`) - a missing or broken hashing tool must
 #' never block an install.
 #'
 #' @param file_path Character string. Path to the file to hash.
@@ -572,7 +572,7 @@ compute_sha256 <- function(file_path) {
 #' On Windows, antivirus real-time scanning can briefly hold its own handle
 #' on a just-extracted or just-downloaded executable, making
 #' `fs::file_exists()` return `FALSE` for a few hundred milliseconds even
-#' though extraction/download already succeeded — observed directly as an
+#' though extraction/download already succeeded - observed directly as an
 #' intermittent `install_micromamba()` failure on a real Windows machine
 #' (`force = TRUE` failed once, then succeeded on immediate retry with no
 #' code change in between). A short poll absorbs that race without masking

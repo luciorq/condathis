@@ -7,7 +7,7 @@ abc_sha256 <- "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
 abc_test_file <- function() {
   # Deliberately not withr::local_tempfile(): its default .local_envir is
   # this helper's own frame, which exits (deleting the file) the instant
-  # this function returns — before any caller like compute_sha256() ever
+  # this function returns - before any caller like compute_sha256() ever
   # gets to read it. A plain tempfile() is cleaned up when the R session
   # ends, which is fine for a few tiny scratch files.
   tmp <- base::tempfile()
@@ -38,7 +38,7 @@ testthat::test_that("sha256_command_is_trustworthy rejects a nonexistent command
 })
 
 testthat::test_that("sha256_command_is_trustworthy rejects a tool that reports the wrong hash", {
-  # Simulates a broken/wrong/aliased binary on PATH under the expected name —
+  # Simulates a broken/wrong/aliased binary on PATH under the expected name -
   # confirmed as a live risk during development, not a hypothetical.
   testthat::local_mocked_bindings(
     run = function(...) {
@@ -55,7 +55,7 @@ testthat::test_that("sha256_command_is_trustworthy rejects a tool that reports t
 testthat::test_that("run_sha256_command strips the GNU coreutils backslash-escape prefix", {
   # GNU coreutils' sha256sum prepends a literal "\" directly before the
   # hash (no space) whenever the filename contains a backslash or newline
-  # — its documented escaping convention. Essentially guaranteed on
+  # - its documented escaping convention. Essentially guaranteed on
   # Windows, where every absolute path contains backslashes; confirmed on
   # real Windows CI as the root cause of a perfectly valid hash being
   # rejected by the 64-hex-char check below.

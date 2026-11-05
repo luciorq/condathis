@@ -22,8 +22,16 @@ testthat::test_that("Install micromamba from scratch", {
   testthat::skip_if_offline()
   testthat::skip_on_cran()
 
-  if (isTRUE(fs::dir_exists(fs::path(get_install_dir(), "micromamba")))) {
-    fs::dir_delete(fs::path(get_install_dir(), "micromamba"))
+  if (
+    isTRUE(fs::dir_exists(fs::path(
+      get_install_dir(method = "micromamba")$path,
+      "micromamba"
+    )))
+  ) {
+    fs::dir_delete(fs::path(
+      get_install_dir(method = "micromamba")$path,
+      "micromamba"
+    ))
   }
 
   captured_output <- testthat::capture_output(code = {
@@ -79,8 +87,16 @@ testthat::test_that("Fallback to uncompressed when tar/bzip2 unavailable", {
   # Mock can_extract_tar_bz2 to return FALSE, simulating missing tar/bzip2
   testthat::local_mocked_bindings(can_extract_tar_bz2 = function() FALSE)
 
-  if (isTRUE(fs::dir_exists(fs::path(get_install_dir(), "micromamba")))) {
-    fs::dir_delete(fs::path(get_install_dir(), "micromamba"))
+  if (
+    isTRUE(fs::dir_exists(fs::path(
+      get_install_dir(method = "micromamba")$path,
+      "micromamba"
+    )))
+  ) {
+    fs::dir_delete(fs::path(
+      get_install_dir(method = "micromamba")$path,
+      "micromamba"
+    ))
   }
 
   captured_output <- suppressMessages(
@@ -144,20 +160,20 @@ testthat::test_that("get_micromamba_urls returns correct structure", {
   # micro.mamba.pm is deliberately not included: confirmed (2026-07-24) that
   # its API no longer serves pinned versions at all (only "latest"), and
   # condathis always requests a pinned version, so it would fail on every
-  # single install — not a transient outage, permanently dead for this
+  # single install - not a transient outage, permanently dead for this
   # package's use case.
   testthat::expect_length(urls$compressed, 3L)
-  testthat::expect_true(grepl("github.com", urls$compressed[1L]))
-  testthat::expect_true(grepl("anaconda.org", urls$compressed[2L]))
-  testthat::expect_true(grepl("prefix.dev", urls$compressed[3L]))
+  testthat::expect_match(urls$compressed[1L], "github.com")
+  testthat::expect_match(urls$compressed[2L], "anaconda.org")
+  testthat::expect_match(urls$compressed[3L], "prefix.dev")
   testthat::expect_false(any(grepl("micro.mamba.pm", urls$compressed)))
 
   # Uncompressed URL should be from GitHub only
   testthat::expect_length(urls$uncompressed, 1L)
-  testthat::expect_true(grepl("github.com", urls$uncompressed[1L]))
+  testthat::expect_match(urls$uncompressed[1L], "github.com")
 
   # SHA256 URL should be from GitHub
-  testthat::expect_true(grepl("\\.sha256$", urls$sha256[1L]))
+  testthat::expect_match(urls$sha256[1L], "\\.sha256$")
 })
 
 testthat::test_that("has_system_tar and has_system_bzip2 return logical", {
@@ -173,8 +189,16 @@ testthat::test_that("No warnings when tar is unavailable", {
   # Mock can_extract_tar_bz2 to return FALSE
   testthat::local_mocked_bindings(can_extract_tar_bz2 = function() FALSE)
 
-  if (isTRUE(fs::dir_exists(fs::path(get_install_dir(), "micromamba")))) {
-    fs::dir_delete(fs::path(get_install_dir(), "micromamba"))
+  if (
+    isTRUE(fs::dir_exists(fs::path(
+      get_install_dir(method = "micromamba")$path,
+      "micromamba"
+    )))
+  ) {
+    fs::dir_delete(fs::path(
+      get_install_dir(method = "micromamba")$path,
+      "micromamba"
+    ))
   }
 
   # This should NOT produce any warnings about tar or bzip2

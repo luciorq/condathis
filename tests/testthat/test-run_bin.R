@@ -145,7 +145,7 @@ test_that("run_bin() with binary = TRUE round-trips raw bytes from a file", {
     binary = TRUE,
     verbose = "silent"
   )
-  testthat::expect_true(is.raw(res$stdout))
+  testthat::expect_type(res$stdout, "raw")
   testthat::expect_identical(res$stdout, raw_bytes)
 })
 
@@ -303,7 +303,7 @@ test_that("run_bin(activate = TRUE) sets an activated PATH like run()", {
   # `fs::path()` always returns a leading drive letter (`C:/...`) on
   # Windows, but the actual PATH string is reported in whatever
   # msys/cygwin mount convention the reading subprocess uses (`/c/...` via
-  # a direct native exe, `/cygdrive/c/...` via Rtools' own bash) — neither
+  # a direct native exe, `/cygdrive/c/...` via Rtools' own bash) - neither
   # of which matches `C:/...` verbatim. Everything after the drive letter
   # is unaffected by that translation, so match on that portion only.
   env_marker <- sub("^[A-Za-z]:", "", env_marker_dir)

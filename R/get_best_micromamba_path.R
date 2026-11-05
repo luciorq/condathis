@@ -71,9 +71,15 @@ get_best_micromamba_path <- function() {
   # --- Priority 6: condathis managed micromamba-env ---
   paths_to_check <- c(
     paths_to_check,
-    fs::path(get_install_dir(), "envs", "micromamba-env", "bin", "micromamba"),
     fs::path(
-      get_install_dir(),
+      install_dir_for_backend(micromamba_backend()),
+      "envs",
+      "micromamba-env",
+      "bin",
+      "micromamba"
+    ),
+    fs::path(
+      install_dir_for_backend(micromamba_backend()),
       "envs",
       "micromamba-env",
       "Library",

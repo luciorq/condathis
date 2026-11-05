@@ -254,7 +254,7 @@ test_that("Run with binary = TRUE round-trips raw bytes from a file", {
     binary = TRUE,
     verbose = "silent"
   )
-  testthat::expect_true(is.raw(res$stdout))
+  testthat::expect_type(res$stdout, "raw")
   testthat::expect_identical(res$stdout, raw_bytes)
 })
 
@@ -295,7 +295,7 @@ test_that("Run with binary = FALSE (default) still captures text", {
     env_name = "run-cli-tools-env",
     verbose = "silent"
   )
-  testthat::expect_true(is.character(res$stdout))
+  testthat::expect_type(res$stdout, "character")
 
   formatted <- format(res)
   testthat::expect_type(formatted, "character")
@@ -314,18 +314,18 @@ test_that("Run with stdin = '|' does not deadlock when stdout and stderr are bot
 
   # Regression test: run_process_with_input() used to call wait() before
   # draining either stream, which deadlocks once combined output exceeds
-  # the OS pipe buffer (64KB on Linux, smaller on macOS/Windows) — the
+  # the OS pipe buffer (64KB on Linux, smaller on macOS/Windows) - the
   # child blocks on write() to whichever stream isn't read yet, so it never
   # exits, so wait() never returns.
   #
   # Byte generation uses `head -c N /dev/zero | tr '\0' 'X'`, not
-  # `printf '%*s' N ''` — `run()` always spawns `bash` via `micromamba run`
+  # `printf '%*s' N ''` - `run()` always spawns `bash` via `micromamba run`
   # (through `native_cmd()`), and confirmed directly on Windows: literal
   # `%` characters are silently stripped somewhere in `micromamba run`'s
   # own Windows argument handling (even a bare `echo '100% done'` comes
   # back as `100 done`), corrupting `printf`'s format string and any
   # command containing one. `head`/`tr` invoked directly (bypassing
-  # `micromamba run`, e.g. from `run_pipeline()`) are unaffected — this is
+  # `micromamba run`, e.g. from `run_pipeline()`) are unaffected - this is
   # specific to arguments that cross that wrapper, not a `condathis` bug.
   create_env(
     c(test_os_pkg("coreutils"), test_os_pkg("bash")),
@@ -350,7 +350,7 @@ test_that("Run with stdin = '|' does not truncate large input", {
   testthat::skip_if_offline()
 
   # Regression test: write_input() once, then close immediately, silently
-  # truncates `input` past the OS pipe buffer — confirmed empirically: only
+  # truncates `input` past the OS pipe buffer - confirmed empirically: only
   # 8192 of 200000 bytes delivered on macOS, no error. `wc -c` independently
   # counts exactly how many bytes the child received on stdin.
   create_env(

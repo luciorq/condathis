@@ -263,7 +263,7 @@ vs_cmp_atoms <- function(a, b) {
     return(1L)
   }
 
-  # Same priority class — if both are regular strings (priority 0),
+  # Same priority class - if both are regular strings (priority 0),
   # compare lexicographically
   if (identical(pa, 0L)) {
     if (isTRUE(a$lit < b$lit)) {
@@ -422,7 +422,7 @@ vs_parts_starts_with <- function(candidate_parts, prefix_parts) {
   }
 
   # The candidate must have at least as many segments as the prefix
-  # (No — actually in libmamba, if candidate has fewer segments, the missing
+  # (No - actually in libmamba, if candidate has fewer segments, the missing
 
   # ones are padded with default (0,""). The prefix segments must match.)
   # But for starts_with, the behavior is: prefix segments are checked against
@@ -714,7 +714,7 @@ vs_parse_or_expr <- function(env) {
 #' @noRd
 vs_parse_primary_expr <- function(env) {
   if (isTRUE(env$pos > length(env$tokens))) {
-    # Unexpected end — return a free predicate
+    # Unexpected end - return a free predicate
     return(list(type = "predicate", op = "free", ver = NULL))
   }
 
@@ -934,7 +934,7 @@ vs_eval_spec <- function(node, parsed_ver) {
     return(FALSE)
   }
 
-  # Unknown node type — should not happen
+  # Unknown node type - should not happen
   return(FALSE)
 }
 

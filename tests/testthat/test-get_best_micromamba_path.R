@@ -56,7 +56,7 @@ testthat::test_that("no error when CONDA_PREFIX is unset", {
   testthat::local_mocked_bindings(
     is_umamba_version_available = function(...) FALSE
   )
-  # Should not error — the old "fake_path" sentinel is gone
+  # Should not error - the old "fake_path" sentinel is gone
   testthat::expect_no_error(get_best_micromamba_path())
 })
 

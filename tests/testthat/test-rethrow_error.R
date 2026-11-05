@@ -2,8 +2,14 @@ testthat::test_that("Do not execute code in curly braces", {
   testthat::skip_if_offline()
   testthat::skip_on_cran()
 
+  # `test_r_base_pkgs()` (helper-cli-tools.R) pins the broken conda-forge
+  # MinGW runtime on Windows - see the helper for the full root-cause
+  # analysis. Note this test only passed with the broken runtime by
+  # accident (a crashing R also "errors"), but it needs a *working* R to
+  # actually exercise the curly-brace escaping in real R error messages
+  # it's about.
   px_res <- create_env(
-    packages = c("r-base>=4.1,<5.0"),
+    packages = test_r_base_pkgs(),
     env_name = "condathis-rethrow-test-env",
     verbose = "silent"
   )
@@ -71,7 +77,7 @@ testthat::test_that("stdin is a file", {
     },
     env = parent.frame()
   )
-  testthat::expect_true(is.null(stdin))
+  testthat::expect_null(stdin)
   # testthat::expect_equal(px_res$status, 0L)
 
   rm(px_res)

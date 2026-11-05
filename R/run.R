@@ -8,14 +8,14 @@
 #' @param env_name Character string with the target environment name.
 #'   Defaults to `"condathis-env"`.
 #'   If the default environment does not exist, it is created automatically.
-#'   A missing *custom* `env_name` is never created automatically — it
+#'   A missing *custom* `env_name` is never created automatically - it
 #'   fails instead, per `error` below.
-#' @param method Character string with the backend execution strategy.
-#'   Supported values are `"native"` and `"auto"`.
-#'   Defaults to `"native"`.
-#'   Currently does not change behavior — reserved for upcoming pluggable
-#'   backend support (e.g. running through `rattler` or a container engine
-#'   instead of a managed `micromamba` install). Not deprecated.
+#' @param method Character string naming the backend to use. Defaults to
+#'   `"auto"` (resolve automatically: the environment's own owning backend
+#'   if it already exists). `"micromamba"` is the only backend registered
+#'   today - and the only one `run()` can actually execute through so far.
+#'   `"native"` is a deprecated alias for `"micromamba"` (warns once per
+#'   session).
 #' @param verbose Character string controlling console output.
 #'   Supported values are `"output"`, `"silent"`, `"cmd"`, `"spinner"`,
 #'   and `"full"`. Defaults to `"output"`.
@@ -46,11 +46,11 @@
 #'   instead of decoding them as UTF-8 text. Defaults to `FALSE`. Since a
 #'   process's stdout and stderr share a single encoding, both streams are
 #'   returned raw when `TRUE`, even if only one of them actually carries
-#'   binary data — check with `is.raw()` before treating either as text.
+#'   binary data - check with `is.raw()` before treating either as text.
 #'   Binary streams are never live-echoed to the console, regardless of
 #'   `verbose`.
 #' @param supervise Logical. Whether the process should be supervised by the
-#'   `processx` supervisor for crash-safe cleanup — the process (and its
+#'   `processx` supervisor for crash-safe cleanup - the process (and its
 #'   descendants, with `cleanup_tree = TRUE`) is killed if the R session
 #'   crashes. Defaults to `FALSE`.
 #' @param cleanup_tree Logical. Whether to clean up the child process tree
@@ -79,7 +79,7 @@
 #' condathis::with_sandbox_dir({
 #'   ## Create env
 #'   ## `samtools` (bioconda) has no Windows build on any channel, so this
-#'   ## specific example only runs on Linux/macOS — unlike most `condathis`
+#'   ## specific example only runs on Linux/macOS - unlike most `condathis`
 #'   ## examples, there's no portable substitute that still demonstrates a
 #'   ## real bioinformatics CLI operating on the packaged BAM file below.
 #'   create_env("bioconda::samtools", env_name = "samtools-env")
@@ -104,10 +104,7 @@ run <- function(
   cmd,
   ...,
   env_name = "condathis-env",
-  method = c(
-    "native",
-    "auto"
-  ),
+  method = "auto",
   verbose = c(
     "output",
     "silent",
@@ -152,7 +149,7 @@ run <- function(
       class = "condathis_run_invalid_binary_arg"
     )
   }
-  method <- rlang::arg_match(method)
+  validate_env_name(env_name, class = "condathis_run_invalid_env_name")
   error <- rlang::arg_match(error)
 
   verbose_list <- parse_strategy_verbose(verbose = verbose)
@@ -165,79 +162,122 @@ run <- function(
     error_var <- FALSE
   }
 
-  method_to_use <- method
+  resolved <- resolve_backend(
+    env_name = env_name,
+    method = method,
+    mutating = FALSE
+  )
 
-  if (isTRUE(method_to_use %in% c("native", "auto"))) {
-    # Only the default environment is auto-created when missing (a
-    # deliberate, documented convenience). A missing *custom* `env_name`
-    # used to be silently papered over here too: this check only ever
-    # tested for `"condathis-env"` specifically, regardless of the actual
-    # `env_name` argument, so calling `run(cmd, env_name = "my-env")` when
-    # `"my-env"` didn't exist would create an unrelated, empty
-    # `"condathis-env"` as a side effect and then still fail — the
-    # auto-create never actually helped the real target. (This
-    # side-effect-creation existed to work around an old `micromamba`
-    # requirement that the root prefix have *some* environment before
-    # `micromamba run` would work at all; confirmed empirically that a
-    # fresh install root with only a custom-named environment — never
-    # touching `"condathis-env"` — runs commands in it correctly with the
-    # current pinned `micromamba` version, so that workaround is no longer
-    # needed.) A missing custom `env_name` now fails clearly instead:
-    # aborts under `error = "cancel"`, matching `run_pipeline()`'s
-    # `condathis_pipeline_env_not_found` behavior for the same situation;
-    # reports a `status = 127` result under `error = "continue"`, without
-    # ever creating anything.
-    env_name_exists <- env_exists(
+  # Only the default environment is auto-created when missing (a
+  # deliberate, documented convenience). A missing *custom* `env_name`
+  # used to be silently papered over here too: this check only ever
+  # tested for `"condathis-env"` specifically, regardless of the actual
+  # `env_name` argument, so calling `run(cmd, env_name = "my-env")` when
+  # `"my-env"` didn't exist would create an unrelated, empty
+  # `"condathis-env"` as a side effect and then still fail - the
+  # auto-create never actually helped the real target. (This
+  # side-effect-creation existed to work around an old `micromamba`
+  # requirement that the root prefix have *some* environment before
+  # `micromamba run` would work at all; confirmed empirically that a
+  # fresh install root with only a custom-named environment - never
+  # touching `"condathis-env"` - runs commands in it correctly with the
+  # current pinned `micromamba` version, so that workaround is no longer
+  # needed.) A missing custom `env_name` now fails clearly instead:
+  # aborts under `error = "cancel"`, matching `run_pipeline()`'s
+  # `condathis_pipeline_env_not_found` behavior for the same situation;
+  # reports a `status = 127` result under `error = "continue"`, without
+  # ever creating anything.
+  env_name_exists <- backend_has_env(
+    resolved$backend,
+    env_name,
+    verbose = verbose_list$internal_verbose
+  )
+
+  if (isFALSE(env_name_exists) && identical(env_name, "condathis-env")) {
+    create_base_env(verbose = verbose_list$internal_verbose)
+    # Re-resolve rather than reusing the pre-creation `resolved`:
+    # `create_base_env()` -> `create_env()` independently resolves its own
+    # backend via `method = "auto"`, which can differ from what was
+    # resolved above (e.g. a higher-priority backend than the one
+    # originally checked). `resolved$name` is used below to decide the
+    # execution path, so a stale value here could pick the wrong one.
+    # Mirrors `run_pipeline()`'s `precreate_envs()`, which re-resolves for
+    # the same reason after its own `create_base_env()` call.
+    resolved <- resolve_backend(
       env_name = env_name,
-      verbose = verbose_list$internal_verbose
+      method = method,
+      mutating = FALSE
     )
+    env_name_exists <- TRUE
+  }
 
-    if (isFALSE(env_name_exists) && identical(env_name, "condathis-env")) {
-      create_base_env(verbose = verbose_list$internal_verbose)
-      env_name_exists <- TRUE
+  if (isFALSE(env_name_exists)) {
+    if (isTRUE(error_var)) {
+      cli::cli_abort(
+        message = c(
+          `x` = "Environment {.field {env_name}} does not exist.",
+          `!` = "Create it with {.fn create_env} first."
+        ),
+        class = "condathis_run_env_not_found"
+      )
     }
-
-    if (isFALSE(env_name_exists)) {
-      if (isTRUE(error_var)) {
-        cli::cli_abort(
-          message = c(
-            `x` = "Environment {.field {env_name}} does not exist.",
-            `!` = "Create it with {.fn create_env} first."
-          ),
-          class = "condathis_run_env_not_found"
+    px_res <- list(
+      status = 127L,
+      stdout = "",
+      stderr = sprintf(
+        "Conda environment '%s' does not exist.\n",
+        env_name
+      ),
+      timeout = FALSE
+    )
+  } else if (isFALSE(identical(resolved$name, "micromamba"))) {
+    # Non-micromamba backends describe the invocation via
+    # `backend_resolve_run()` and it is spawned directly, rather than
+    # delegating activation to a `micromamba run` subprocess. Both paths
+    # converge on `execute_command()`, so streaming, spinner, timeout and
+    # supervise/cleanup_tree/linux_pdeathsig behave identically either way.
+    px_res <- rethrow_error_run(
+      expr = {
+        run_internal_backend(
+          resolved$backend,
+          cmd = cmd,
+          ...,
+          env_name = env_name,
+          verbose = verbose_list,
+          error = error,
+          stdout = stdout,
+          stderr = stderr,
+          stdin = stdin,
+          input = input,
+          binary = binary,
+          supervise = supervise,
+          cleanup_tree = cleanup_tree,
+          linux_pdeathsig = linux_pdeathsig,
+          timeout = timeout
         )
       }
-      px_res <- list(
-        status = 127L,
-        stdout = "",
-        stderr = sprintf(
-          "Conda environment '%s' does not exist.\n",
-          env_name
-        ),
-        timeout = FALSE
-      )
-    } else {
-      px_res <- rethrow_error_run(
-        expr = {
-          run_internal_native(
-            cmd = cmd,
-            ...,
-            env_name = env_name,
-            verbose = verbose_list,
-            error = error,
-            stdout = stdout,
-            stderr = stderr,
-            stdin = stdin,
-            input = input,
-            binary = binary,
-            supervise = supervise,
-            cleanup_tree = cleanup_tree,
-            linux_pdeathsig = linux_pdeathsig,
-            timeout = timeout
-          )
-        }
-      )
-    }
+    )
+  } else {
+    px_res <- rethrow_error_run(
+      expr = {
+        run_internal_native(
+          cmd = cmd,
+          ...,
+          env_name = env_name,
+          verbose = verbose_list,
+          error = error,
+          stdout = stdout,
+          stderr = stderr,
+          stdin = stdin,
+          input = input,
+          binary = binary,
+          supervise = supervise,
+          cleanup_tree = cleanup_tree,
+          linux_pdeathsig = linux_pdeathsig,
+          timeout = timeout
+        )
+      }
+    )
   }
 
   cmd_string <- paste(

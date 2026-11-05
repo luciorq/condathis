@@ -40,6 +40,69 @@ testthat::test_that("create_env rejects a missing env_file", {
   )
 })
 
+testthat::test_that("create_env's cmd_string reflects -f, not packages, when env_file is supplied", {
+  # `resolve_create_env_packages_arg()` (R/backend-micromamba.R) ignores
+  # `packages` entirely and sends `c("-f", env_file)` whenever `env_file`
+  # is set - `cmd_string` must match that actual invocation, not list both.
+  testthat::local_mocked_bindings(
+    backend_has_env = function(...) FALSE,
+    backend_create_env = function(...) {
+      list(status = 0L, stdout = "", stderr = "", pid = NA_integer_)
+    },
+    write_backend_marker = function(...) invisible(NULL)
+  )
+  tmp_env_file <- withr::local_tempfile(
+    fileext = ".yml",
+    lines = "dependencies: []"
+  )
+  px_res <- create_env(
+    packages = "python=3.12",
+    env_file = tmp_env_file,
+    env_name = "condathis-cmd-string-mock-env",
+    verbose = "silent"
+  )
+  testthat::expect_match(px_res$cmd, "-f", fixed = TRUE)
+  testthat::expect_match(px_res$cmd, tmp_env_file, fixed = TRUE)
+  testthat::expect_no_match(px_res$cmd, "python=3.12", fixed = TRUE)
+})
+
+testthat::test_that("create_env aborts instead of silently deleting a directory when the existence check itself fails", {
+  # `micromamba_backend_create_env()`'s stale-directory workaround must use
+  # the raw `backend_env_exists()` generic (letting a check failure abort
+  # loudly), not `backend_has_env()` (which swallows errors into FALSE,
+  # indistinguishable from "genuinely absent, safe to delete").
+  install_dir <- install_dir_for_backend(micromamba_backend())
+  fake_env_dir <- fs::path(
+    install_dir,
+    "envs",
+    "condathis-swallow-guard-test-env"
+  )
+  fs::dir_create(fake_env_dir)
+  withr::defer(fs::dir_delete(fake_env_dir))
+  marker_file <- fs::path(fake_env_dir, "marker.txt")
+  fs::file_create(marker_file)
+
+  testthat::local_mocked_bindings(
+    backend_env_exists = function(backend, env_name, verbose = "silent") {
+      cli::cli_abort(
+        message = "Simulated transient existence-check failure.",
+        class = "condathis_cmd_status_error"
+      )
+    }
+  )
+
+  cnd <- rlang::catch_cnd(
+    create_env(
+      packages = "python",
+      env_name = "condathis-swallow-guard-test-env",
+      method = "micromamba",
+      verbose = "silent"
+    )
+  )
+  testthat::expect_s3_class(cnd, "condathis_cmd_status_error")
+  testthat::expect_true(fs::file_exists(marker_file))
+})
+
 testthat::test_that("create_env returns a condathis_result when dependencies are already satisfied", {
   testthat::skip_if_offline()
   testthat::skip_on_cran()
@@ -65,6 +128,24 @@ testthat::test_that("create_env returns a condathis_result when dependencies are
   testthat::expect_equal(
     px_res$env_name,
     "condathis-already-satisfied-test-env"
+  )
+
+  # A missing `env_file` must still abort even when `packages` alone would
+  # have taken the "already satisfied" early-return path - that path used
+  # to skip the `env_file` existence check entirely (only reached via
+  # `resolve_create_env_packages_arg()`, called from `backend_create_env()`,
+  # which the early return never gets to).
+  testthat::expect_error(
+    object = {
+      create_env(
+        packages = "zlib",
+        env_file = "definitely-does-not-exist.yml",
+        env_name = "condathis-already-satisfied-test-env",
+        channels = "conda-forge",
+        verbose = "silent"
+      )
+    },
+    class = "condathis_create_missing_env_file"
   )
 
   remove_env(
@@ -98,8 +179,11 @@ testthat::test_that("conda env is created", {
   testthat::skip_if_offline()
   testthat::skip_on_cran()
 
+  # `test_r_base_pkgs()` (helper-cli-tools.R) pins the broken conda-forge
+  # MinGW runtime on Windows - see the helper for the full root-cause
+  # analysis. r-base itself is unpinned.
   px_res <- create_env(
-    packages = c("r-base>=4.1,<5.0"),
+    packages = test_r_base_pkgs(),
     env_name = "condathis-create-test-env",
     verbose = "silent"
   )
@@ -248,7 +332,7 @@ testthat::test_that("conda env is created", {
 
   testthat::expect_equal(px_res$status, 0L)
   testthat::expect_false(env_exists(env_name = "condathis-create-test-env"))
-  testthat::expect_false("condathis-create-test-env" %in% list_envs())
+  testthat::expect_false("condathis-create-test-env" %in% list_envs()$env_name)
 })
 
 testthat::test_that("Create conda env from file", {
@@ -257,7 +341,7 @@ testthat::test_that("Create conda env from file", {
 
   px_res <- create_env(
     env_file = fs::path_package("condathis", "extdata", "stat-env.yml"),
-    method = "native",
+    method = "micromamba",
     env_name = "condathis-create-file-test-env",
     verbose = "silent"
   )
@@ -265,7 +349,7 @@ testthat::test_that("Create conda env from file", {
 
   current_envs <- list_envs()
 
-  expect_true("condathis-create-file-test-env" %in% current_envs)
+  expect_true("condathis-create-file-test-env" %in% current_envs$env_name)
 
   expect_true(env_exists(env_name = "condathis-create-file-test-env"))
 
@@ -278,7 +362,9 @@ testthat::test_that("Create conda env from file", {
 
   current_envs <- list_envs()
 
-  testthat::expect_false("condathis-create-file-test-env" %in% current_envs)
+  testthat::expect_false(
+    "condathis-create-file-test-env" %in% current_envs$env_name
+  )
 
   testthat::expect_false(env_exists(
     env_name = "condathis-create-file-test-env"

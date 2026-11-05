@@ -30,7 +30,7 @@ test_that("create nested environment", {
     "--quiet",
     "--yes",
     "-r",
-    get_install_dir(),
+    get_install_dir(method = "micromamba")$path,
     "-n",
     "test-inside-env",
     env_name = "test-nested-env",
@@ -41,6 +41,6 @@ test_that("create nested environment", {
   remove_env("test-inside-env", verbose = FALSE)
 
   testthat::expect_false(any(
-    c("test-nested-env", "test-inside-env") %in% list_envs()
+    c("test-nested-env", "test-inside-env") %in% list_envs()$env_name
   ))
 })

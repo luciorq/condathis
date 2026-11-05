@@ -18,12 +18,12 @@
 #'   Defaults to `"disabled"`.
 #' @param additional_channels Character vector of additional channels appended
 #'   to `channels`. Defaults to `NULL`.
-#' @param method Character string with the backend execution strategy.
-#'   Supported values are `"native"` and `"auto"`.
-#'   Defaults to `"native"`.
-#'   Currently does not change behavior — reserved for upcoming pluggable
-#'   backend support (e.g. running through `rattler` or a container engine
-#'   instead of a managed `micromamba` install). Not deprecated.
+#' @param method Character string naming the backend to use. Defaults to
+#'   `"auto"` (resolve automatically: the environment's own owning backend
+#'   if it already exists, otherwise `getOption("condathis.backend_priority")`
+#'   order). `"micromamba"` is the only backend registered today.
+#'   `"native"` is a deprecated alias for `"micromamba"` (warns once per
+#'   session).
 #' @param platform Character string with the platform used for dependency
 #'   solving (for example, `"linux-64"`, `"osx-64"`, `"osx-arm64"`,
 #'   `"win-64"`, `"noarch"`). Defaults to `NULL`.
@@ -58,10 +58,7 @@ create_env <- function(
     "conda-forge",
     "bioconda"
   ),
-  method = c(
-    "native",
-    "auto"
-  ),
+  method = "auto",
   channel_priority = c(
     "disabled",
     "strict",
@@ -78,7 +75,7 @@ create_env <- function(
   ),
   overwrite = FALSE
 ) {
-  ensure_libmamba_pkgs_dir_workaround()
+  validate_env_name(env_name, class = "condathis_create_invalid_env_name")
 
   if (isFALSE(rlang::is_bool(overwrite))) {
     cli::cli_abort(
@@ -89,84 +86,77 @@ create_env <- function(
     )
   }
 
-  channel_priority_args <- parse_strategy_channel_priority(
-    channel_priority = channel_priority
+  # Checked upfront, unconditionally, rather than only inside
+  # `resolve_create_env_packages_arg()` (called from `backend_create_env()`)
+  # - that call site is skipped entirely on the `env_already_satisfies_request()`
+  # early-return path below, which would otherwise let a nonexistent/mistyped
+  # `env_file` silently pass as a no-op success instead of aborting.
+  if (isFALSE(rlang::is_null(env_file)) && isFALSE(fs::file_exists(env_file))) {
+    cli::cli_abort(
+      message = c(
+        `x` = "The file {.code \"env_file\"} does not exist."
+      ),
+      class = "condathis_create_missing_env_file"
+    )
+  }
+
+  resolved <- resolve_backend(
+    env_name = env_name,
+    method = method,
+    mutating = TRUE
   )
-  method <- rlang::arg_match(method)
 
   verbose_list <- parse_strategy_verbose(verbose = verbose)
 
   # TODO: @luciorq As of v0.1.3-dev mixing file and packages is allowed,
   # + As this is allowed in conda.
   # + Need to include tests and update docs.
-  packages_arg <- resolve_create_env_packages_arg(
-    packages = packages,
-    env_file = env_file
-  )
-
-  channels_arg <- format_channels_args(
-    channels,
-    additional_channels
-  )
-
+  # `env_file`, when set, takes priority over `packages` (matches
+  # `resolve_create_env_packages_arg()`'s actual behavior in
+  # `R/backend-micromamba.R`: it returns `c("-f", env_file)` and ignores
+  # `packages` entirely whenever `env_file` is supplied), so this must
+  # mirror that instead of listing both, which produced a `cmd_string` that
+  # never matched the real invocation.
   cmd_string <- paste(
-    c("micromamba", "create", "-n", env_name, packages_arg),
+    c(
+      resolved$name,
+      "create",
+      "-n",
+      env_name,
+      if (isFALSE(rlang::is_null(env_file))) c("-f", env_file) else packages
+    ),
     collapse = " "
   )
 
-  platform_args <- resolve_create_env_platform_args(
+  early_result <- env_already_satisfies_request(
+    backend = resolved$backend,
+    env_name = env_name,
     packages = packages,
-    platform = platform,
+    overwrite = overwrite,
+    cmd_string = cmd_string,
+    verbose_list = verbose_list
+  )
+  if (isFALSE(is.null(early_result))) {
+    return(invisible(early_result))
+  }
+
+  px_res <- backend_create_env(
+    resolved$backend,
+    packages = packages,
+    env_file = env_file,
+    env_name = env_name,
     channels = channels,
     channel_priority = channel_priority,
-    additional_channels = additional_channels
+    additional_channels = additional_channels,
+    platform = platform,
+    overwrite = overwrite,
+    verbose = verbose
   )
 
-  if (isTRUE(method %in% c("native", "auto"))) {
-    # Check if required versions are satisfied even when `overwrite` is
-    # false.
-    early_result <- env_already_satisfies_request(
-      env_name = env_name,
-      packages = packages,
-      overwrite = overwrite,
-      cmd_string = cmd_string,
-      verbose_list = verbose_list
-    )
-    if (isFALSE(is.null(early_result))) {
-      return(invisible(early_result))
-    }
-
-    # Workaround for when directory already exists by other reasons.
-    # + When micromamba fail to create an environment with a different platform
-    # + than the native one, it leaves the directory there and do not overwrite.
-    if (
-      isFALSE(env_exists(env_name)) &&
-        isTRUE(fs::dir_exists(get_env_dir(env_name = env_name)))
-    ) {
-      fs::dir_delete(get_env_dir(env_name = env_name))
-    }
-
-    px_res <- rethrow_error_cmd(
-      expr = {
-        native_cmd(
-          conda_cmd = "create",
-          conda_args = c(
-            "-n",
-            env_name,
-            "--yes",
-            verbose_list$quiet_flag,
-            "--override-channels",
-            channel_priority_args,
-            channels_arg,
-            platform_args
-          ),
-          packages_arg,
-          verbose = verbose_list,
-          error = "cancel"
-        )
-      }
-    )
-  }
+  write_backend_marker(
+    env_dir_for_backend(resolved$backend, env_name),
+    resolved$name
+  )
 
   if (isTRUE(verbose_list$strategy %in% c("full", "output"))) {
     cli::cli_inform(
@@ -177,9 +167,9 @@ create_env <- function(
   }
 
   result <- new_condathis_result(
-    status = px_res$status,
-    stdout = px_res$stdout,
-    stderr = px_res$stderr,
+    status = if (is.null(px_res$status)) 0L else px_res$status,
+    stdout = if (is.null(px_res$stdout)) "" else px_res$stdout,
+    stderr = if (is.null(px_res$stderr)) "" else px_res$stderr,
     timeout = if (is.null(px_res$timeout)) FALSE else px_res$timeout,
     pid = if (is.null(px_res$pid)) NA_integer_ else px_res$pid,
     cmd = cmd_string,
@@ -188,125 +178,16 @@ create_env <- function(
   return(invisible(result))
 }
 
-#' Work around a libmamba bug that checks for `~/.mamba/pkgs` unconditionally
-#'
-#' Some versions of libmamba check for a `pkgs_dir` in the home directory
-#' even when the package cache is configured elsewhere. Creates it if
-#' missing, and registers a `withr::defer()` cleanup that removes it again
-#' once the caller (normally `create_env()`) returns — so a fresh
-#' `~/.mamba` isn't left behind on a machine that never had one. No cleanup
-#' fires if the directory already existed.
-#'
-#' @param envir Environment whose exit the deferred cleanup is tied to.
-#'   Defaults to the caller's own frame (`parent.frame()`), which is what
-#'   makes this correct to call with no arguments from `create_env()`:
-#'   `withr::defer()`'s own default `envir` is *its* immediate caller —
-#'   this function's frame, not `create_env()`'s — so without explicitly
-#'   threading `envir` through here, the cleanup would fire the instant
-#'   this helper returns rather than when `create_env()` itself exits. Same
-#'   class of scoping hazard as `withr::local_tempfile()`'s `.local_envir`
-#'   default, already hit twice elsewhere in this codebase.
-#'
-#' @keywords internal
-#' @noRd
-ensure_libmamba_pkgs_dir_workaround <- function(envir = parent.frame()) {
-  pkgs_dir <- fs::path_home(".mamba", "pkgs")
-  pkgs_dir_already_exists <- FALSE
-  if (isTRUE(is_windows())) {
-    pkgs_dir <- base::Sys.getenv(
-      x = "APPDATA",
-      unset = fs::path_home("AppData", "Roaming"),
-      names = FALSE
-    )
-    pkgs_dir <- fs::path(pkgs_dir, ".mamba", "pkgs")
-  }
-  if (isFALSE(fs::dir_exists(pkgs_dir))) {
-    fs::dir_create(pkgs_dir)
-  } else {
-    pkgs_dir_already_exists <- TRUE
-  }
-  withr::defer(
-    expr = {
-      if (
-        isFALSE(pkgs_dir_already_exists) &&
-          fs::dir_exists(base::dirname(pkgs_dir))
-      ) {
-        invisible(rlang::catch_cnd(
-          expr = {
-            fs::dir_delete(base::dirname(pkgs_dir))
-          }
-        ))
-      }
-    },
-    envir = envir
-  )
-  return(invisible(NULL))
-}
-
-#' Resolve `create_env()`'s `packages`/`env_file` arguments into a
-#' `micromamba create` argument
-#'
-#' @param packages Character vector of package MatchSpec strings, or `NULL`.
-#' @param env_file Path to an environment YAML file, or `NULL`.
-#'
-#' @returns `packages` unchanged when `env_file` is `NULL`; otherwise
-#'   `c("-f", env_file)`. Aborts with class
-#'   `condathis_create_missing_env_file` if `env_file` is given but doesn't
-#'   exist.
-#'
-#' @keywords internal
-#' @noRd
-resolve_create_env_packages_arg <- function(packages, env_file) {
-  if (isTRUE(rlang::is_null(env_file))) {
-    return(packages)
-  }
-  if (isFALSE(fs::file_exists(env_file))) {
-    cli::cli_abort(
-      message = c(
-        `x` = "The file {.code \"env_file\"} does not exist."
-      ),
-      class = "condathis_create_missing_env_file"
-    )
-  }
-  return(c("-f", fs::path(env_file)))
-}
-
-#' Resolve `create_env()`'s `--platform` argument
-#'
-#' @returns A character vector of `micromamba create` arguments, or `NULL`
-#'   when no platform override applies.
-#'
-#' @keywords internal
-#' @noRd
-resolve_create_env_platform_args <- function(
-  packages,
-  platform,
-  channels,
-  channel_priority,
-  additional_channels
-) {
-  platform_args <- NULL
-  if (isFALSE(rlang::is_null(packages))) {
-    platform_args <- define_platform(
-      packages = packages,
-      platform = platform,
-      channels = channels,
-      channel_priority = channel_priority,
-      additional_channels = additional_channels,
-      verbose = "silent"
-    )
-  }
-
-  if (isFALSE(rlang::is_null(platform)) && rlang::is_null(platform_args)) {
-    platform_args <- c("--platform", platform)
-  }
-
-  return(platform_args)
-}
-
 #' Check if an existing environment already satisfies a `create_env()`
 #' request
 #'
+#' Backend-agnostic: only calls the generic `backend_has_env()`/
+#' `satisfies_dependencies()` against an already-resolved backend, so every
+#' backend benefits from this shortcut without re-implementing it.
+#'
+#' @param backend An already-resolved backend object (from
+#'   `resolve_backend()`), so this never triggers a second, independent
+#'   backend resolution.
 #' @param cmd_string Pre-built command string, used to fill in the
 #'   early-return result's `cmd` field so it matches what a real call would
 #'   have reported.
@@ -314,11 +195,12 @@ resolve_create_env_platform_args <- function(
 #' @returns A `condathis_result` ready to return immediately if the target
 #'   environment already exists and already satisfies every requested
 #'   package spec (so nothing needs to run); `NULL` otherwise (the caller
-#'   should proceed with the actual `micromamba create` call).
+#'   should proceed with the actual creation call).
 #'
 #' @keywords internal
 #' @noRd
 env_already_satisfies_request <- function(
+  backend,
   env_name,
   packages,
   overwrite,
@@ -328,7 +210,7 @@ env_already_satisfies_request <- function(
   if (
     isTRUE(overwrite) ||
       isFALSE(length(packages) > 0L) ||
-      isFALSE(env_exists(env_name = env_name, verbose = "silent"))
+      isFALSE(backend_has_env(backend, env_name = env_name, verbose = FALSE))
   ) {
     return(NULL)
   }
@@ -336,7 +218,8 @@ env_already_satisfies_request <- function(
   is_satisfied_vector <- satisfies_dependencies(
     pkg_str_vector = packages,
     env_name = env_name,
-    verbose = "silent"
+    verbose = "silent",
+    backend = backend
   )
   if (isFALSE(all(is_satisfied_vector))) {
     return(NULL)

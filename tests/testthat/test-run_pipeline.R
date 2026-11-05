@@ -59,6 +59,29 @@ test_that("Pipeline rejects non-existent environment", {
   )
 })
 
+test_that("Pipeline rejects conflicting per-command methods for a shared env_name", {
+  # Every command sharing an env_name must resolve to the same backend, so
+  # two different explicit `method`s for the same env_name is a
+  # self-contradictory spec that must fail fast, regardless of `error`.
+  testthat::expect_error(
+    object = run_pipeline(
+      list(
+        list(
+          cmd = c("echo", "hello"),
+          env_name = "shared-conflicting-env",
+          method = "micromamba"
+        ),
+        list(
+          cmd = c("cat"),
+          env_name = "shared-conflicting-env",
+          method = "some-other-backend"
+        )
+      )
+    ),
+    class = "condathis_pipeline_conflicting_method"
+  )
+})
+
 test_that("Pipeline runs two commands in same environment", {
   testthat::skip_on_cran()
   testthat::skip_if_offline()
@@ -78,7 +101,7 @@ test_that("Pipeline runs two commands in same environment", {
   )
   testthat::expect_s3_class(res, "condathis_pipeline")
   testthat::expect_length(res$statuses, 2L)
-  testthat::expect_true(is.integer(res$statuses))
+  testthat::expect_type(res$statuses, "integer")
   testthat::expect_length(res$processes, 2L)
 
   last_stdout <- res$processes[[2]]$stdout
@@ -489,7 +512,7 @@ test_that("Pipeline preserves output a killed downstream stage already produced"
 
   # Regression test: an earlier draft killed every process in the pipeline
   # as soon as the first stage timed out, discarding output later stages
-  # had already produced but not yet drained — `processx` invalidates a
+  # had already produced but not yet drained - `processx` invalidates a
   # process's own connection immediately on `kill()`, so anything unread at
   # that point is lost for good, confirmed empirically.
   create_env(
@@ -579,7 +602,7 @@ test_that("Pipeline with binary = TRUE round-trips raw bytes", {
     binary = TRUE
   )
   last_stdout <- res$processes[[2]]$stdout
-  testthat::expect_true(is.raw(last_stdout))
+  testthat::expect_type(last_stdout, "raw")
   testthat::expect_identical(last_stdout, raw_bytes)
 
   formatted <- format(res)
@@ -603,7 +626,7 @@ test_that("Pipeline with binary = FALSE (default) still captures text", {
     ),
     env_name = "run-pipeline-cli-tools-env"
   )
-  testthat::expect_true(is.character(res$processes[[2]]$stdout))
+  testthat::expect_type(res$processes[[2]]$stdout, "character")
 })
 
 test_that("Pipeline rejects non-logical binary argument", {
@@ -622,14 +645,14 @@ test_that("Pipeline does not deadlock when the last command's stdout and stderr 
 
   # Regression test: draining stdout and stderr sequentially (or calling
   # wait() before draining either) deadlocks once combined output exceeds
-  # the OS pipe buffer (64KB on Linux, smaller on macOS/Windows) — the
+  # the OS pipe buffer (64KB on Linux, smaller on macOS/Windows) - the
   # child blocks on write() to whichever stream isn't being read yet, so it
   # never reaches EOF on the stream that IS being read either. 200KB on
   # each stream comfortably exceeds every platform's default pipe buffer.
   # `printf '%*s' N '' | tr ' ' 'X'` (not `yes X | head -c N`) generates
   # exactly N bytes: `yes | head -c` doesn't reliably stop `yes` under
   # MSYS2/Windows bash (SIGPIPE from `head` closing its read end isn't
-  # delivered the same way), so `yes` keeps writing well past N bytes —
+  # delivered the same way), so `yes` keeps writing well past N bytes -
   # confirmed directly on Windows (600KB+ and still growing).
   create_env(
     pipeline_cli_pkgs(),

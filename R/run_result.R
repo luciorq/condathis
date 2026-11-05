@@ -2,9 +2,9 @@
 #'
 #' @description
 #' An S3 class representing the result of `run()` or `run_bin()`. It is a
-#' plain list under the hood — `$status`, `$stdout`, `$stderr`, and
+#' plain list under the hood - `$status`, `$stdout`, `$stderr`, and
 #' `$timeout` are always present and work exactly as they did when `run()`/
-#' `run_bin()` returned an unclassed `processx::run()` result list — with a
+#' `run_bin()` returned an unclassed `processx::run()` result list - with a
 #' `print()`/`format()` method and `pid`/`cmd`/`env_name` metadata added,
 #' mirroring `condathis_pipeline`'s per-process result shape.
 #'
