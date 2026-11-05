@@ -1,0 +1,275 @@
+---
+title: "Backends: micromamba and rattler"
+description: "Choose the engine that creates and runs your Conda environments, and use the rattler backend of rattlerthis next to micromamba."
+knitr:
+  opts_chunk:
+    collapse: true
+    comment: "#>"
+---
+
+```{r}
+#| label: setup
+#| include: false
+knitr::opts_chunk$set(echo = TRUE)
+library(condathis)
+# The rattler examples run only where rattlerthis is installed.
+has_rattler <- requireNamespace("rattlerthis", quietly = TRUE)
+```
+
+## What a Backend Does
+
+Every `condathis` function that touches an environment hands the work to a
+*backend*.
+The backend solves the package specs, downloads and links the packages,
+and activates the environment before a command runs.
+`condathis` keeps everything else: the arguments, the checks, the messages,
+the results and the condition classes.
+
+Two backends exist today:
+
+* **`"micromamba"`** is built in.
+  `condathis` downloads the `micromamba` binary the first time it needs it,
+  and runs it as a separate process.
+  Every environment uses it unless you ask for another backend.
+* **`"rattler"`** comes from the
+  [`rattlerthis`](https://github.com/luciorq/rattlerthis) package.
+  It uses [`rattler`](https://github.com/conda/rattler), the Rust library
+  behind `pixi`, inside the R process.
+  There is no package manager binary to download.
+
+Your code stays the same with either backend.
+The `method` argument of the environment functions, and of `run()`,
+`run_bin()` and `run_pipeline()`, picks the backend.
+Its default, `"auto"`, picks it for you.
+
+## Installing rattlerthis
+
+`rattlerthis` is not on CRAN yet.
+It builds from source, so it needs a Rust toolchain (`rustc` >= 1.88.0 and
+`cargo`, from <https://rustup.rs>).
+Linux also needs `pkg-config` and the OpenSSL headers, and Windows needs
+Rtools.
+The [`rattlerthis` README](https://github.com/luciorq/rattlerthis#installation)
+lists the requirements of each platform.
+
+```{r}
+#| label: install-rattlerthis
+#| eval: false
+# install.packages("pak")
+pak::pak("luciorq/rattlerthis")
+```
+
+You never call `library(rattlerthis)`.
+The package exports no functions: `condathis` loads it when `method`
+names `"rattler"`, and when rattler environments already exist.
+
+## Choosing the Backend of a New Environment
+
+Without `method`, a new environment uses `micromamba`:
+
+```{r}
+#| label: create-jq-env
+create_env("jq", env_name = "jq-env", verbose = "silent")
+```
+
+Pass `method = "rattler"` to create one with `rattler` instead:
+
+```{r}
+#| label: create-rg-env
+#| eval: !expr has_rattler
+create_env(
+  "ripgrep",
+  env_name = "rg-env",
+  method = "rattler",
+  verbose = "silent"
+)
+```
+
+`list_envs()` covers every backend.
+The `backend` column tells you which one owns each environment:
+
+```{r}
+#| label: list-envs
+#| eval: !expr has_rattler
+list_envs()[, c("backend", "env_name")]
+```
+
+## Running Commands
+
+Commands need no `method`.
+`"auto"` finds the backend that owns the environment, and that backend
+activates it:
+
+```{r}
+#| label: run-rg
+#| eval: !expr has_rattler
+res <- run("rg", "--version", env_name = "rg-env", verbose = "silent")
+parse_output(res)[1]
+```
+
+Environments of different backends work together.
+In this pipeline, `ripgrep` from the rattler environment searches a file
+and prints its matches as JSON.
+`jq` from the micromamba environment turns the JSON into one line per
+match:
+
+```{r}
+#| label: pipeline
+#| eval: !expr has_rattler
+notes_path <- fs::file_temp(pattern = "notes-", ext = "txt")
+writeLines(
+  con = notes_path,
+  text = c(
+    "micromamba is the built-in backend.",
+    "Environments live in the condathis data directory.",
+    "rattler is the backend of rattlerthis."
+  )
+)
+
+res <- run_pipeline(
+  run_step("rg", "--json", "backend", notes_path, env_name = "rg-env"),
+  run_step(
+    "jq", "-r",
+    paste(
+      'select(.type == "match")',
+      '"\\(.data.line_number): \\(.data.lines.text | rtrimstr("\\n") | rtrimstr("\\r"))"',
+      sep = " | "
+    ),
+    env_name = "jq-env"
+  ),
+  verbose = "silent"
+)
+
+parse_output(res)
+```
+
+## One Environment, One Backend
+
+The backend that creates an environment owns it for its whole life.
+A call that names another backend for it does not move it:
+
+* Functions that change the environment, such as `install_packages()` and
+  `remove_env()`, abort with class `condathis_backend_mismatch`.
+* Functions that only read it, such as `run()` and `list_packages()`, warn
+  with class `condathis_backend_mismatch_warning` and use the owner.
+
+```{r}
+#| label: mismatch
+#| eval: !expr has_rattler
+#| error: true
+install_packages("jq", env_name = "rg-env", method = "micromamba")
+```
+
+To move an environment to another backend, create it again with that
+backend, and remove the old one.
+Each backend keeps its environments in its own directory, so the same name
+can exist under both.
+Then `"auto"` cannot choose, and the call aborts with class
+`condathis_backend_ambiguous_env` until `method` names one of them.
+
+## Making rattler the Default
+
+The option `condathis.backend_priority` sets the order that `"auto"` tries
+for a *new* environment.
+Its default is `"micromamba"`, so installing `rattlerthis` alone changes
+nothing.
+To create new environments with `rattler`, and keep `micromamba` as the
+fallback, put this in your `.Rprofile`:
+
+```{r}
+#| label: priority-option
+#| eval: false
+options(condathis.backend_priority = c("rattler", "micromamba"))
+```
+
+With the option set, `create_env()` uses `rattler` without `method`:
+
+```{r}
+#| label: priority-create
+#| eval: !expr has_rattler
+old_options <- options(condathis.backend_priority = c("rattler", "micromamba"))
+create_env("jq", env_name = "jq-rattler-env", verbose = "silent")
+options(old_options)
+
+list_envs()[, c("backend", "env_name")]
+```
+
+Existing environments keep their owner: `jq-env` stays a micromamba
+environment.
+
+## Which Backend to Use
+
+Both backends behave the same wherever they can.
+They activate environments the same way, cache the activation, install the
+`pip:` sections of environment files, and let one R session at a time
+change an environment.
+The differences you are most likely to notice:
+
+* **Link scripts.**
+  `rattler` never runs the `pre-link`, `post-link` and `pre-unlink`
+  scripts of packages.
+  `condathis` warns with class `condathis_link_scripts_skipped`, and names
+  the packages.
+  `micromamba` runs them.
+  Both run the `activate.d` scripts.
+* **No binary, no command line.**
+  `rattler` needs no download of a package manager, and nothing runs as a
+  separate process to create an environment.
+  For the same reason, `verbose = "cmd"` prints a one-line description, and
+  the results of `create_env()` and `install_packages()` have `NA` in
+  `cmd` and `pid`.
+* **Errors.**
+  The classes are `condathis`'s with both backends.
+  Under a `rattler` failure, the parent condition has the classes
+  `rattlerthis_rattler_<kind>`, such as `rattlerthis_rattler_solve`,
+  instead of `micromamba`'s status classes.
+* **Disk.**
+  The package caches are separate, so a package that both backends use is
+  downloaded twice.
+
+The [`rattlerthis` README](https://github.com/luciorq/rattlerthis#differences-from-the-micromamba-backend)
+and `?rattlerthis` list every difference.
+A simple rule: keep `micromamba` for packages whose link scripts matter.
+Try `rattler` when you want no extra binary, or a solver inside R.
+
+## Where the Files Live
+
+`get_install_dir()` reports the data directory of each backend:
+
+```{r}
+#| label: install-dirs
+#| eval: !expr has_rattler
+get_install_dir()
+```
+
+The `rattler` backend keeps its environments, its package cache and its
+channel metadata in `backend_root_dir("rattler")`, the `rattler` directory
+inside the data directory of `condathis`.
+The functions that manage files cover every backend:
+
+* `clean_cache()` deletes the package caches of `micromamba` and of
+  `rattler`.
+* `with_sandbox_dir()` redirects the directories of every backend, so code
+  in it leaves nothing behind.
+
+## Writing a Backend
+
+The backend system is open: another package can add its own backend with
+`register_backend()`, and users then select it with `method`.
+The API is experimental, and it may still change between `0.x` releases.
+`?register_backend` describes the functions a backend provides, and how
+to register them when the package loads.
+[`rattlerthis`](https://github.com/luciorq/rattlerthis) is a complete
+example.
+
+## Cleaning Up
+
+```{r}
+#| label: cleanup
+#| results: hide
+remove_env(env_name = "jq-env", verbose = "silent")
+if (isTRUE(has_rattler)) {
+  remove_env(env_name = "rg-env", verbose = "silent")
+  remove_env(env_name = "jq-rattler-env", verbose = "silent")
+}
+```
