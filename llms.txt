@@ -174,7 +174,9 @@ can add backends with
 [`register_backend()`](https://luciorq.github.io/condathis/reference/register_backend.md).
 New environments use `micromamba` unless you pass `method` (for example
 `method = "rattler"`, which needs the `rattlerthis` package, not yet on
-CRAN) or set `options(condathis.backend_priority = ...)`.
+CRAN) or set `options(condathis.backend_priority = ...)`. The [backends
+article](https://luciorq.github.io/condathis/articles/backends.html)
+shows how to install `rattlerthis` and use both backends together.
 
 Already have an environment created outside `condathis`, for example by
 `conda`, `mamba`, or `micromamba` itself? Pass its directory as
@@ -229,8 +231,8 @@ literally.
 - [`vignette("condathis")`](https://luciorq.github.io/condathis/articles/condathis.md)
   walks through a complete example.
 - The [articles](https://luciorq.github.io/condathis/articles/) on the
-  package website show how to use Python with `reticulate`, and how to
-  stream binary data through pipelines.
+  package website show how to use Python with `reticulate`, how to
+  stream binary data through pipelines, and how to choose a backend.
 
 # Package index
 
@@ -332,3 +334,11 @@ the classes of the conditions it signals.
 
   Stream binary image data through a pipeline whose commands run in
   different environments.
+
+### Backends
+
+- [Backends: micromamba and
+  rattler](https://luciorq.github.io/condathis/articles/backends.md):
+
+  Choose the engine that creates and runs your Conda environments, and
+  use the rattler backend of rattlerthis next to micromamba.

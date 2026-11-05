@@ -44,6 +44,7 @@
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
 <li><a class="dropdown-item" href="articles/python-and-reticulate.html">Running Python Code with condathis and reticulate</a></li>
     <li><a class="dropdown-item" href="articles/whole-slide-images.html">Whole-Slide Pathology Images: Binary Pipelines Across Environments</a></li>
+    <li><a class="dropdown-item" href="articles/backends.html">Backends: micromamba and rattler</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="news/index.html">Changelog</a></li>
@@ -193,7 +194,7 @@
 <h2 id="how-it-works">How It Works<a class="anchor" aria-label="anchor" href="#how-it-works"></a>
 </h2>
 <p><code>condathis</code> relies on <a href="https://mamba.readthedocs.io/en/latest/user_guide/micromamba.html" class="external-link"><strong><code>micromamba</code></strong></a> to bring <strong>reproducibility and isolation</strong>. <code>micromamba</code> is a package manager that “does not need a base environment and does not come with a default version of Python”. <code>condathis</code> downloads <code>micromamba</code> when it first needs it and finds no usable copy. It keeps <code>micromamba</code> and the environments in its own data directory (see <code><a href="reference/get_install_dir.html">condathis::get_install_dir()</a></code>). Environments stay there until you remove them. <code><a href="reference/list_envs.html">condathis::list_envs()</a></code> lists them, <code>condathis::get_env_dir("cowpy-env")</code> returns the directory of one, <code>condathis::remove_env("cowpy-env")</code> removes it, and <code><a href="reference/clean_cache.html">condathis::clean_cache()</a></code> deletes the downloaded package files.</p>
-<p><code>micromamba</code> is the built-in <em>backend</em> of <code>condathis</code>. Other packages can add backends with <code><a href="reference/register_backend.html">register_backend()</a></code>. New environments use <code>micromamba</code> unless you pass <code>method</code> (for example <code>method = "rattler"</code>, which needs the <code>rattlerthis</code> package, not yet on CRAN) or set <code>options(condathis.backend_priority = ...)</code>.</p>
+<p><code>micromamba</code> is the built-in <em>backend</em> of <code>condathis</code>. Other packages can add backends with <code><a href="reference/register_backend.html">register_backend()</a></code>. New environments use <code>micromamba</code> unless you pass <code>method</code> (for example <code>method = "rattler"</code>, which needs the <code>rattlerthis</code> package, not yet on CRAN) or set <code>options(condathis.backend_priority = ...)</code>. The <a href="https://luciorq.github.io/condathis/articles/backends.html">backends article</a> shows how to install <code>rattlerthis</code> and use both backends together.</p>
 <p>Already have an environment created outside <code>condathis</code>, for example by <code>conda</code>, <code>mamba</code>, or <code>micromamba</code> itself? Pass its directory as <code>env_name = condathis::env_path("/path/to/env")</code> to <code><a href="reference/run.html">run()</a></code>, <code><a href="reference/run_bin.html">run_bin()</a></code>, <code><a href="reference/run_pipeline.html">run_pipeline()</a></code> or <code><a href="reference/run_step.html">run_step()</a></code> to run commands from it. <code>condathis</code> never modifies such an environment. It runs commands in it with <code>micromamba</code> by default.</p>
 </div>
 <div class="section level2">
@@ -224,7 +225,7 @@
 <ul>
 <li>
 <code><a href="articles/condathis.html">vignette("condathis")</a></code> walks through a complete example.</li>
-<li>The <a href="https://luciorq.github.io/condathis/articles/">articles</a> on the package website show how to use Python with <code>reticulate</code>, and how to stream binary data through pipelines.</li>
+<li>The <a href="https://luciorq.github.io/condathis/articles/">articles</a> on the package website show how to use Python with <code>reticulate</code>, how to stream binary data through pipelines, and how to choose a backend.</li>
 </ul>
 </div>
 </div>
