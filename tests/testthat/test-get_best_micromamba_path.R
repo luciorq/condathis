@@ -75,3 +75,31 @@ testthat::test_that("internal path is checked when no user override", {
   result <- get_best_micromamba_path()
   testthat::expect_equal(as.character(result), internal_path)
 })
+
+testthat::test_that("a broken discovery candidate is skipped, not fatal", {
+  # Regression test: only the "not executable" condition was caught, so a
+  # candidate that was a directory, not executable, or printed no version
+  # aborted discovery instead of falling through to the next candidate.
+  tmp <- withr::local_tempdir()
+  # A runnable program that prints no version: a batch file on Windows, a
+  # shell script elsewhere.
+  if (isTRUE(is_windows())) {
+    no_version <- fs::path(tmp, "micromamba.bat")
+    writeLines(c("@echo off", "echo no version here"), no_version)
+  } else {
+    no_version <- fs::path(tmp, "micromamba")
+    writeLines(c("#!/bin/sh", "echo no version here"), no_version)
+    fs::file_chmod(no_version, "u+x")
+  }
+  not_exec <- fs::path(tmp, "not-exec")
+  writeLines("data", not_exec)
+  for (candidate in c(tmp, not_exec, no_version)) {
+    testthat::expect_false(
+      is_umamba_version_available(candidate),
+      info = candidate
+    )
+  }
+  withr::local_options(condathis.micromamba_path = NULL)
+  withr::local_envvar(CONDATHIS_MICROMAMBA_PATH = as.character(no_version))
+  testthat::expect_no_error(get_best_micromamba_path())
+})

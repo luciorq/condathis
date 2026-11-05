@@ -9,36 +9,64 @@ unregister_backend(name, call = rlang::caller_env())
 \arguments{
 \item{name}{Character string with the backend name to unregister.}
 
-\item{call}{Calling environment reported in error conditions. Defaults
-to the caller's environment.}
+\item{call}{The environment reported as the caller in errors, for calls
+from another package's \code{.onUnload()}, as in rlang.}
 }
 \value{
 Logical, invisibly: \code{TRUE} if a backend was unregistered,
-\code{FALSE} if no backend by that name was registered.
+\code{FALSE} if no backend by that name was registered. A malformed name
+aborts with class \code{condathis_backend_invalid_name}, and a reserved one
+with \code{condathis_backend_reserved_name} (also
+\code{condathis_backend_invalid_name}).
 }
 \description{
-Removes a backend previously added with \code{\link[=register_backend]{register_backend()}}: the
-registry entry and the S3 methods that were registered for its class.
-Intended for a backend package's \code{.onUnload()} (see the registration
-section of \code{\link[=register_backend]{register_backend()}}), so an unloaded package never leaves
-behind a registered backend whose functions belong to a namespace that
-no longer exists.
+Removes a backend added with \code{\link[=register_backend]{register_backend()}}: the registry entry
+and the S3 methods registered for its class. Call it from the
+\code{.onUnload()} of a backend package (see \emph{Registering from a backend
+package} in \code{\link[=register_backend]{register_backend()}}). Then an unloaded package leaves no
+registered backend whose functions belong to a missing namespace.
 }
 \details{
-Unregistering a name that isn't currently registered is a silent no-op
-(returning \code{FALSE}), never an error - unload hooks shouldn't fail on
-cleanup that has nothing left to clean.
+Unregistering a name that is not registered does nothing and returns
+\code{FALSE}, so an unload hook never fails on cleanup that has nothing left
+to clean. \code{unregister_backend()} refuses the reserved names of
+\code{\link[=register_backend]{register_backend()}}, because the built-in \code{"micromamba"} backend is
+always registered.
 
-Part of the \strong{experimental} backend extension API - see the
+Part of the \strong{experimental} backend extension API. See the
 \emph{Lifecycle} section of \code{\link[=register_backend]{register_backend()}}.
 }
 \examples{
-\dontrun{
-# Inside a backend package's .onUnload():
-condathis::unregister_backend("mybackend")
+# A minimal backend: the three required functions, which this example
+# does not implement. It reports that it is unavailable, so
+# `method = "auto"` never selects it. condathis supplies the other
+# functions: they look for environments in
+# `backend_root_dir("mybackend")/envs`. A backend package builds this
+# object in its own constructor, for example `new_backend_mybackend()` in
+# *Registering from a backend package* of `?register_backend`.
+not_implemented <- function(...) {
+  stop("Not implemented by this example backend.")
 }
+mybackend <- structure(
+  list(
+    backend_create_env = not_implemented,
+    backend_install = not_implemented,
+    backend_resolve_run = not_implemented,
+    backend_available = function(backend) FALSE
+  ),
+  class = c("condathis_backend_mybackend", "condathis_backend")
+)
 
+condathis::register_backend("mybackend", mybackend)
+condathis::list_registered_backend_names()
+
+condathis::unregister_backend("mybackend")
+condathis::list_registered_backend_names()
 }
 \seealso{
-\code{\link[=register_backend]{register_backend()}}, \code{\link[=list_registered_backend_names]{list_registered_backend_names()}}
+Other backends:
+\code{\link[=backend_root_dir]{backend_root_dir()}},
+\code{\link[=list_registered_backend_names]{list_registered_backend_names()}},
+\code{\link[=register_backend]{register_backend()}}
 }
+\concept{backends}

@@ -6,7 +6,7 @@ create_libmambapy_env <- function(
 ) {
   if (isFALSE(env_exists(env_name, verbose = verbose))) {
     create_env(
-      packages = package_string,
+      package_string,
       env_name = env_name,
       verbose = verbose,
       overwrite = overwrite

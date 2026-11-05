@@ -138,7 +138,7 @@ testthat::test_that("verify_micromamba_checksum warns, but never aborts, on a re
 
   urls <- get_micromamba_urls(
     sys_arch_str = is_micromamba_available_for_arch(),
-    micromamba_version = "2.8.1-0"
+    micromamba_version = "2.9.0-0"
   )
   # Any file that isn't the real micromamba binary triggers a genuine
   # mismatch against the real, network-fetched .sha256 for this version.
@@ -156,4 +156,72 @@ testthat::test_that("verify_micromamba_checksum warns, but never aborts, on a re
     regexp = "checksum mismatch"
   )
   testthat::expect_false(result)
+})
+
+testthat::test_that("parse_sha256_file reads bare and sha256sum-format checksum files", {
+  write_sha_file <- function(content) {
+    tmp <- base::tempfile(fileext = ".sha256")
+    writeBin(charToRaw(content), tmp)
+    return(tmp)
+  }
+  # micromamba release files hold the bare hash with no trailing newline.
+  testthat::expect_identical(
+    parse_sha256_file(write_sha_file(abc_sha256)),
+    abc_sha256
+  )
+  testthat::expect_identical(
+    parse_sha256_file(write_sha_file(paste0(toupper(abc_sha256), "\n"))),
+    abc_sha256
+  )
+  testthat::expect_identical(
+    parse_sha256_file(write_sha_file(paste0(abc_sha256, "  micromamba\n"))),
+    abc_sha256
+  )
+  testthat::expect_identical(
+    parse_sha256_file(write_sha_file("<!DOCTYPE html><html></html>")),
+    NA_character_
+  )
+  testthat::expect_identical(
+    parse_sha256_file(write_sha_file("")),
+    NA_character_
+  )
+})
+
+testthat::test_that("verify_micromamba_checksum accepts the sha256sum file format", {
+  # Regression test: the whole first line was compared, so a
+  # `<hash>  <file name>` line never matched a correct binary.
+  sha_content <- paste0(abc_sha256, "  micromamba-linux-64\n")
+  testthat::local_mocked_bindings(
+    try_download_from_mirrors = function(urls, destfile, ...) {
+      writeBin(charToRaw(sha_content), destfile)
+      TRUE
+    }
+  )
+  testthat::expect_true(
+    verify_micromamba_checksum(abc_test_file(), sha256_urls = "mocked")
+  )
+
+  # A checksum file that is not one cannot verify anything: NA, not a
+  # mismatch.
+  sha_content <- "<html>rate limited</html>"
+  testthat::expect_identical(
+    verify_micromamba_checksum(abc_test_file(), sha256_urls = "mocked"),
+    NA
+  )
+})
+
+testthat::test_that("the default micromamba version publishes a valid checksum", {
+  testthat::skip_if_offline()
+  testthat::skip_on_cran()
+
+  default_version <- formals(install_micromamba)$micromamba_version
+  urls <- get_micromamba_urls(
+    sys_arch_str = is_micromamba_available_for_arch(),
+    micromamba_version = default_version
+  )
+  sha_file <- withr::local_tempfile(fileext = ".sha256")
+  testthat::expect_true(
+    try_download_from_mirrors(urls = urls$sha256, destfile = sha_file)
+  )
+  testthat::expect_match(parse_sha256_file(sha_file), "^[0-9a-f]{64}$")
 })

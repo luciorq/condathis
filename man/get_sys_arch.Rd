@@ -7,16 +7,28 @@
 get_sys_arch()
 }
 \value{
-A character string such as \code{"Darwin-x86_64"} or
-\code{"Linux-aarch64"}.
+A character string such as \code{"Linux-x86_64"}, \code{"Linux-aarch64"},
+\code{"Darwin-x86_64"} or \code{"Darwin-arm64"}. On Windows it is
+\code{"Windows-aarch64"} for a native ARM64 build of R. It is
+\code{"Windows-x86-64"} for an x64 build, also when that build runs through
+x64 emulation on an ARM64 PC.
 }
 \description{
-Returns the current operating system and CPU architecture as a single
-string in the format \code{"<OS>-<Architecture>"}.
+Returns the operating system and the CPU architecture that the running
+R reports with \code{\link[base:Sys.info]{base::Sys.info()}}, as a single string,
+\code{"<OS>-<architecture>"}. \code{\link[=install_micromamba]{install_micromamba()}} uses it to choose the
+micromamba build.
 }
 \examples{
-# Retrieve the system architecture
 condathis::get_sys_arch()
-#> [1] "Darwin-x86_64"
 
 }
+\seealso{
+Other setup:
+\code{\link[=clean_cache]{clean_cache()}},
+\code{\link[=get_install_dir]{get_install_dir()}},
+\code{\link[=install_micromamba]{install_micromamba()}},
+\code{\link[=micromamba_bin_path]{micromamba_bin_path()}},
+\code{\link[=with_sandbox_dir]{with_sandbox_dir()}}
+}
+\concept{setup}

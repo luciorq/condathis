@@ -4,11 +4,19 @@
 \name{condathis-package}
 \alias{condathis}
 \alias{condathis-package}
-\title{condathis: Run Any CLI Tool on a 'Conda' Environment}
+\title{condathis: Run Any CLI Tool in a 'Conda' Environment}
 \description{
 \if{html}{\figure{logo.svg}{options: style='float: right' alt='logo' width='120'}}
 
-Simplifies the execution of command line interface (CLI) tools within isolated and reproducible environments. It enables users to effortlessly manage 'Conda' environments, execute command line tools, handle dependencies, and ensure reproducibility in their data analysis workflows.
+Runs command line interface (CLI) tools in isolated and reproducible 'Conda' environments from R. Environments are created and managed with 'micromamba' \url{https://mamba.readthedocs.io/en/latest/}, which is downloaded when no usable copy is found. Commands run with their environment activated, alone or as pipelines connected by pipes, and other packages can add backends that create and run environments.
+}
+\details{
+Create an environment with \code{\link[=create_env]{create_env()}}. Run a command line tool in it
+with \code{\link[=run]{run()}}, or run several tools connected by pipes with
+\code{\link[=run_pipeline]{run_pipeline()}}. Read the output with \code{\link[=parse_output]{parse_output()}}. Start with
+\code{vignette("condathis")}. \link{condathis-options} lists the options and
+environment variables that \code{condathis} reads. \link{condathis-conditions}
+lists the classes of its errors and warnings.
 }
 \seealso{
 Useful links:

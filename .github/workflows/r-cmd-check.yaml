@@ -6,7 +6,7 @@
 # + Add CronJob to run every Sunday
 # + Add `workflow_dispatch`
 # + Add cancel on concurrency
-# Check <https://github.com/luciorq/condathis/blob/main/.github/workflows/R-CMD-check.yaml> for the source of truth
+# Check <https://github.com/luciorq/condathis/blob/main/.github/workflows/r-cmd-check.yaml> for the source of truth
 ---
 on:
   push:
@@ -40,6 +40,10 @@ concurrency:
 jobs:
   r-cmd-check:
     runs-on: ${{ matrix.config.os }}
+    # Run the weekly cron only in the canonical repository, never in
+    # + forks (pushes, PRs and manual dispatches still run everywhere).
+    if: github.event_name != 'schedule' || github.repository == 'luciorq/condathis'
+    timeout-minutes: 120
 
     name: ${{ matrix.config.os }} (${{ matrix.config.r }})
 
@@ -49,6 +53,12 @@ jobs:
         config:
           - {os: macos-latest, r: 'release'}
           - {os: windows-latest, r: 'release'}
+          # Native ARM64 R on Windows 11. setup-r turns off the public RSPM
+          # + there (it has no ARM64 binaries), and setup-pandoc and Quarto
+          # + install their x64 builds, which run through x64 emulation.
+          # + cran.r-universe.dev has aarch64 binaries of every dependency
+          # + for R 4.6, so pak does not build them from source.
+          - {os: windows-11-arm, r: 'release', extra-repositories: 'https://cran.r-universe.dev'}
           - {os: ubuntu-latest, r: 'devel', http-user-agent: 'release'}
           - {os: ubuntu-latest, r: 'release'}
           - {os: ubuntu-latest, r: 'oldrel-1'}
@@ -58,14 +68,17 @@ jobs:
       R_KEEP_PKG_SOURCE: yes
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: r-lib/actions/setup-pandoc@v2
+
+      - uses: quarto-dev/quarto-actions/setup@v2
 
       - uses: r-lib/actions/setup-r@v2
         with:
           r-version: ${{ matrix.config.r }}
           http-user-agent: ${{ matrix.config.http-user-agent }}
+          extra-repositories: ${{ matrix.config.extra-repositories }}
           use-public-rspm: true
 
       - uses: r-lib/actions/setup-r-dependencies@v2

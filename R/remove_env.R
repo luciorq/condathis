@@ -2,28 +2,51 @@
 #'
 #' Removes an environment managed by `condathis`.
 #'
-#' @param env_name Character string with the environment name to remove.
-#'   Defaults to `"condathis-env"`.
-#' @param method Character string naming the backend to use. Defaults to
-#'   `"auto"` (resolve automatically: the environment's own owning backend).
-#'   `"micromamba"` is the only backend registered today. `"native"` is a
-#'   deprecated alias for `"micromamba"` (warns once per session).
-#' @param verbose Character string controlling console output.
-#'   Supported values are `"silent"`, `"cmd"`, `"output"`, `"spinner"`,
-#'   and `"full"`. Defaults to `"silent"`.
+#' With the micromamba backend, `remove_env()` does not change
+#' `~/.conda/environments.txt`, the registry that conda and mamba share. A
+#' line that [create_env()] added to that file stays (see Details in
+#' [get_install_dir()]). On Windows, it also leaves the Start Menu
+#' shortcuts that `condathis` 0.1.4 and earlier added for packages such as
+#' `spyder`. Delete them from the Start Menu.
 #'
-#' @returns A `condathis_result` S3 object (a classed list, still usable as
-#'   a plain list) with `status`, `stdout`, `stderr`, `timeout`, `pid`,
-#'   `cmd`, and `env_name`.
+#' @inheritParams condathis-params
+#'
+#' @returns A `condathis_result` object, invisibly: a classed list with
+#'   `status`, `stdout`, `stderr`, `timeout`, `pid`, `cmd` and `env_name`.
+#'   `cmd` is the command line that the backend ran, or `NA` when the
+#'   backend reports none. `stdout`, `stderr` and `pid` are `NA` when the
+#'   backend reports none, and `pid` always is with micromamba.
+#'   An environment that does not exist aborts with class
+#'   `condathis_remove_env_env_not_found` (also `condathis_env_not_found`
+#'   and the 0.1.4 class `condathis_error_env_remove`). `remove_env()`
+#'   deletes nothing then, not even a leftover directory of that name.
+#'   A backend failure aborts with class `condathis_remove_env_failed` (also
+#'   `condathis_backend_error`), with the backend's error as the parent.
+#'   micromamba runs the `pre-unlink` scripts of packages before it removes
+#'   them. A backend that does not makes `remove_env()` warn with class
+#'   `condathis_remove_env_link_scripts_skipped` (also
+#'   `condathis_link_scripts_skipped`). The warning names the packages.
+#'
+#' @inheritSection create_env Other R sessions
+#'
+#' @family environments
+#' @seealso [condathis-conditions] for every condition class.
 #'
 #' @examples
 #' \dontrun{
 #' condathis::with_sandbox_dir({
-#'   condathis::create_env(
-#'     packages = "bioconda::fastqc",
-#'     env_name = "fastqc-env"
+#'   # A local channel shipped with condathis, with `polyglot`: a
+#'   # dependency-free script that runs on Linux, macOS and Windows.
+#'   channel <- system.file(
+#'     "extdata", "polyglot-channel",
+#'     package = "condathis"
 #'   )
-#'   condathis::remove_env(env_name = "fastqc-env")
+#'   condathis::create_env(
+#'     "polyglot",
+#'     env_name = "polyglot-env",
+#'     channels = channel
+#'   )
+#'   condathis::remove_env(env_name = "polyglot-env")
 #' })
 #' }
 #'
@@ -31,16 +54,17 @@
 remove_env <- function(
   env_name = "condathis-env",
   method = "auto",
-  verbose = c(
-    "silent",
-    "cmd",
-    "output",
-    "spinner",
-    "full"
-  )
+  verbose = c("output", "silent", "cmd", "spinner", "full")
 ) {
+  # Rule R2: every argument is checked before the first backend call.
   validate_env_name(env_name, class = "condathis_remove_env_invalid_env_name")
-  verbose_list <- parse_strategy_verbose(verbose = verbose)
+  validate_method_arg(method)
+  verbose_list <- parse_verbose_arg(verbose)
+
+  # One R session at a time changes an environment (see
+  # `local_env_lock()`): an install in another session finishes before the
+  # environment is removed.
+  env_lock <- local_env_lock(env_name, verbose = verbose_list$strategy)
 
   resolved <- resolve_backend(
     env_name = env_name,
@@ -48,30 +72,60 @@ remove_env <- function(
     mutating = TRUE
   )
 
-  px_res <- backend_remove_env(
+  # One missing-environment error on every backend, before the backend is
+  # called. A name the backend does not list is not removed, so its
+  # leftover directory stays: the backend's create replaces that directory
+  # (see ?register_backend). A failed probe (`NA`, rule R5) goes on to
+  # the backend, which reports its own error.
+  env_probe <- backend_probe_env(
     resolved$backend,
     env_name = env_name,
-    verbose = verbose
+    verbose = "silent"
   )
-
-  if (isTRUE(verbose_list$strategy %in% c("full", "output"))) {
-    cli::cli_inform(
-      message = c(
-        `!` = "Environment {.field {env_name}} succesfully removed."
+  if (isFALSE(env_probe)) {
+    abort_env_not_found(
+      env_name,
+      class = c(
+        "condathis_remove_env_env_not_found",
+        "condathis_error_env_remove"
       )
     )
   }
 
-  result <- new_condathis_result(
-    status = if (is.null(px_res$status)) 0L else px_res$status,
-    stdout = if (is.null(px_res$stdout)) "" else px_res$stdout,
-    stderr = if (is.null(px_res$stderr)) "" else px_res$stderr,
-    timeout = if (is.null(px_res$timeout)) FALSE else px_res$timeout,
-    pid = if (is.null(px_res$pid)) NA_integer_ else px_res$pid,
-    cmd = paste(
-      c(resolved$name, "env", "remove", "-n", env_name),
-      collapse = " "
+  env_lock_before_change(env_lock)
+  px_res <- with_backend_errors(
+    backend_remove_env(
+      resolved$backend,
+      env_name = env_name,
+      verbose = verbose_list$strategy
     ),
+    fn = "remove_env",
+    backend_name = resolved$name,
+    action = paste0("remove environment '", env_name, "'")
+  )
+  result <- new_backend_result(
+    px_res,
+    fn = "remove_env",
+    backend_name = resolved$name,
+    env_name = env_name
+  )
+  link_scripts <- backend_link_scripts_skipped(
+    px_res,
+    fn = "remove_env",
+    backend_name = resolved$name
+  )
+
+  if (isTRUE(verbose_list$strategy %in% c("full", "output"))) {
+    condathis_inform(
+      message = c(
+        `v` = "Environment {.field {env_name}} successfully removed."
+      )
+    )
+  }
+  warn_link_scripts_skipped(
+    link_scripts,
+    fn = "remove_env",
+    backend_name = resolved$name,
     env_name = env_name
   )
   return(invisible(result))

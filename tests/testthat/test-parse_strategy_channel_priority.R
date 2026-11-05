@@ -43,9 +43,10 @@ testthat::test_that("parse_strategy_channel_priority handles non-character input
 })
 
 testthat::test_that("parse_strategy_channel_priority handles missing input correctly", {
+  # The default is "strict", matching micromamba's own recommended default.
   testthat::expect_equal(
     parse_strategy_channel_priority(),
-    c("--no-channel-priority", "--channel-priority=0")
+    c("--strict-channel-priority", "--channel-priority=2")
   )
 })
 
@@ -66,4 +67,52 @@ testthat::test_that("parse_strategy_channel_priority error caller environment", 
     outer_outer_fun(1)
   })
   testthat::expect_equal(cnd_res$call, base::str2lang("outer_fun(x)"))
+})
+
+testthat::test_that("parse_strategy_channel_priority() raises classed errors", {
+  # Regression test: an invalid channel_priority raised a plain rlang
+  # error without any condathis class.
+  for (bad in list(
+    "invalid_strategy",
+    123,
+    NA_character_,
+    c("disabled", "flexible")
+  )) {
+    cnd <- rlang::catch_cnd(
+      parse_strategy_channel_priority(bad),
+      classes = "error"
+    )
+    testthat::expect_identical(
+      class(cnd),
+      c(
+        "condathis_invalid_channel_priority",
+        "condathis_invalid_arg",
+        "condathis_error",
+        "rlang_error",
+        "error",
+        "condition"
+      ),
+      info = deparse(bad)
+    )
+  }
+  cnd <- rlang::catch_cnd(
+    parse_strategy_channel_priority(
+      "bogus",
+      class = "condathis_install_packages_invalid_channel_priority"
+    ),
+    classes = "error"
+  )
+  testthat::expect_identical(
+    class(cnd)[1:3],
+    c(
+      "condathis_install_packages_invalid_channel_priority",
+      "condathis_invalid_channel_priority",
+      "condathis_invalid_arg"
+    )
+  )
+  testthat::expect_match(
+    conditionMessage(cnd),
+    "channel_priority",
+    fixed = TRUE
+  )
 })

@@ -2,42 +2,94 @@
 % Please edit documentation in R/get_install_dir.R
 \name{get_install_dir}
 \alias{get_install_dir}
-\title{Get the \code{condathis} data directory}
+\title{Get the data directories of the backends}
 \usage{
 get_install_dir(method = "auto")
 }
 \arguments{
-\item{method}{Character string naming which backend(s) to report.
-Defaults to \code{"auto"}: every currently \emph{registered and available}
-backend. \code{"micromamba"} is the only backend registered today.
-\code{"native"} is a deprecated alias for \code{"micromamba"} (warns once per
-session).}
+\item{method}{Character string naming the backend to report. \code{"auto"}
+(the default) covers every registered backend, in
+\code{getOption("condathis.backend_priority")} order, also a backend that
+reports itself unavailable. Any name from
+\code{\link[=list_registered_backend_names]{list_registered_backend_names()}} reports only that backend, and
+\code{"micromamba"} is built in. The name of a backend whose package
+\code{condathis} knows, such as \code{"rattler"} of the \code{rattlerthis} package,
+also reports only that backend. \code{condathis} loads the package. It
+aborts with class \code{condathis_backend_not_installed} when the package
+is not installed. \code{"native"} is a deprecated alias for \code{"micromamba"}
+(warns once per session). Invalid values abort with class
+\code{condathis_invalid_method}.}
 }
 \value{
-A tibble-classed data frame with one row per backend covered by
-\code{method}, columns \code{backend} (chr) and \code{path} (chr) - the normalized,
-real path to that backend's own data directory. With a single
-registered backend (today's default), this is always the same shape,
-just one row.
+A data frame (a tibble) with one row per backend covered by
+\code{method}, and the character columns \code{backend} and \code{path}. \code{path} is
+the real, absolute path of the data directory of the backend, which is
+created when it does not exist yet. \code{get_install_dir()} creates no
+environment and does not install micromamba. When the backend that
+\code{method} names fails, \code{get_install_dir()} aborts with class
+\code{condathis_get_install_dir_failed} (also \code{condathis_backend_error}).
+With \code{method = "auto"}, \code{get_install_dir()} skips a backend that
+fails, with a warning of class \code{condathis_backend_query_failed}.
 }
 \description{
-Returns the data directory used by each backend, creating it when
-needed. The base path follows the platform-specific user data directory
-rules used by \code{tools::R_user_dir()} (each backend resolves its own root
-independently - e.g. the \code{"micromamba"} backend uses \code{condathis}'s own
-\code{tools::R_user_dir("condathis", "data")}).
+Returns the data directory of each registered backend. The
+\code{"micromamba"} backend uses the condathis data directory,
+\code{tools::R_user_dir("condathis", "data")} (see \link{condathis-options} for
+the variables that move it). Every other backend uses the directory of
+its name inside it, \code{\link[=backend_root_dir]{backend_root_dir()}}, unless it chooses its own. An
+example is \verb{<condathis data directory>/rattler} for the \code{"rattler"}
+backend.
 }
 \details{
-On macOS, \code{condathis} uses a path without spaces when possible because
-\verb{micromamba run} can fail on paths that contain spaces.
+On macOS, when neither \code{R_USER_DATA_DIR} nor \code{XDG_DATA_HOME} is set, the
+condathis data directory is \verb{~/.local/share/R/condathis}, a path without
+spaces. \verb{micromamba run} can fail on paths that contain spaces.
+
+The data directories of the other backends that use \code{\link[=backend_root_dir]{backend_root_dir()}}
+are inside the condathis data directory. So deleting it deletes their
+environments and caches too. Each backend keeps its environments in the
+\code{envs} directory of its own data directory.
+
+\code{micromamba} adds each environment that it creates to
+\verb{~/.conda/environments.txt} (in \verb{\%USERPROFILE\%} on Windows), the list of
+environments that conda and mamba share. It creates that file when it
+is missing. To leave the file alone, \code{condathis} runs
+\verb{micromamba create}, \verb{micromamba env list} and \verb{micromamba env remove}
+with the \verb{home/} directory of the data directory as their home.
+\code{\link[=create_env]{create_env()}} still runs micromamba with your home directory when
+micromamba needs something from there. It then adds the environment to
+your list. This happens for channel credentials that you saved (with
+\verb{micromamba auth login}, an \code{anaconda-client} token, or a \code{.netrc}
+file), and for an \code{env_file} that names your home directory (\verb{~/},
+\verb{$HOME}) or installs pip packages. Listing and removing environments
+never change the file, so the line of an environment that
+\code{\link[=remove_env]{remove_env()}} deleted stays. Both conda and mamba drop such lines the
+next time they list environments. A \code{~} at the start of a channel, of a
+package path and of the path of \code{env_file} always means your own home
+directory.
+
+The pip that installs the pip packages of an \code{env_file} keeps its cache
+in the \verb{cache/} directory of the data directory on Linux, which
+\code{\link[=clean_cache]{clean_cache()}} deletes. On macOS and Windows, it keeps its cache in
+your own user cache (\verb{~/Library/Caches/pip},
+\verb{\%LOCALAPPDATA\%\\pip\\Cache}).
 }
 \examples{
 condathis::with_sandbox_dir({
+  # One row per backend: its name and its data directory,
+  # <data dir>/R/condathis for micromamba
   print(condathis::get_install_dir())
-  #> # A tibble: 1 x 2
-  #>   backend    path
-  #>   <chr>      <chr>
-  #> 1 micromamba /home/username/.local/share/condathis
 })
 
 }
+\seealso{
+\code{\link[=backend_root_dir]{backend_root_dir()}}, \link{condathis-options}
+
+Other setup:
+\code{\link[=clean_cache]{clean_cache()}},
+\code{\link[=get_sys_arch]{get_sys_arch()}},
+\code{\link[=install_micromamba]{install_micromamba()}},
+\code{\link[=micromamba_bin_path]{micromamba_bin_path()}},
+\code{\link[=with_sandbox_dir]{with_sandbox_dir()}}
+}
+\concept{setup}

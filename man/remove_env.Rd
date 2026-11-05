@@ -7,39 +7,144 @@
 remove_env(
   env_name = "condathis-env",
   method = "auto",
-  verbose = c("silent", "cmd", "output", "spinner", "full")
+  verbose = c("output", "silent", "cmd", "spinner", "full")
 )
 }
 \arguments{
-\item{env_name}{Character string with the environment name to remove.
-Defaults to \code{"condathis-env"}.}
+\item{env_name}{Character string with the environment name.
+It must be a plain directory name that is valid on Linux, macOS and
+Windows:
+\itemize{
+\item Not empty, and not \code{.} or \code{..}.
+\item Not starting with \code{-}, and not ending with \code{.}.
+\item Without path separators, \code{:}, \verb{#}, whitespace, control characters or
+\verb{<>"|?*}.
+\item Not a Windows device name, such as \code{NUL} or \code{COM1} (see
+\emph{Environment names} in \code{\link[=create_env]{create_env()}}).
+}
 
-\item{method}{Character string naming the backend to use. Defaults to
-\code{"auto"} (resolve automatically: the environment's own owning backend).
-\code{"micromamba"} is the only backend registered today. \code{"native"} is a
-deprecated alias for \code{"micromamba"} (warns once per session).}
+Invalid values abort with class \code{condathis_invalid_env_name}.
+Functions that take only names reject an \code{\link[=env_path]{env_path()}} value with class
+\code{condathis_env_path_read_only}. \code{\link[=run]{run()}}, \code{\link[=run_bin]{run_bin()}}, \code{\link[=run_pipeline]{run_pipeline()}}
+and \code{\link[=run_step]{run_step()}} accept one.}
 
-\item{verbose}{Character string controlling console output.
-Supported values are \code{"silent"}, \code{"cmd"}, \code{"output"}, \code{"spinner"},
-and \code{"full"}. Defaults to \code{"silent"}.}
+\item{method}{Character string naming the backend. \code{"auto"} (the
+default) uses the backend that owns \code{env_name} when it exists, and
+otherwise the first available backend in
+\code{getOption("condathis.backend_priority")} order (see
+\link{condathis-options}). Any name from \code{\link[=list_registered_backend_names]{list_registered_backend_names()}}
+selects that backend, and \code{"micromamba"} is built in. The name of a
+backend whose package \code{condathis} knows, such as \code{"rattler"} of the
+\code{rattlerthis} package, also selects it. \code{condathis} loads the package
+on first use. It aborts with class \code{condathis_backend_not_installed}
+when the package is not installed. \code{"native"} is a deprecated alias for
+\code{"micromamba"} (warns once per session).
+If you name a backend other than the owner, functions that change the
+environment abort with class \code{condathis_backend_mismatch}. The others
+warn (\code{condathis_backend_mismatch_warning}) and use the owner.
+An environment found under several backends aborts with
+\code{condathis_backend_ambiguous_env} unless \code{method} names one of them.
+Invalid values abort with class \code{condathis_invalid_method}.}
+
+\item{verbose}{Character string that controls the console output. One
+of:
+\itemize{
+\item \code{"output"}: show the output of the command and the messages of
+condathis.
+\item \code{"silent"}: show nothing.
+\item \code{"cmd"}: show the command line.
+\item \code{"spinner"}: show only a spinner.
+\item \code{"full"}: show the command line, the output, and the backend's own
+log.
+}
+
+\code{TRUE} means \code{"output"} and \code{FALSE} means \code{"silent"}. Every level
+except \code{"silent"} shows a spinner in interactive sessions. Invalid
+values abort with class \code{condathis_invalid_verbose} (see
+\link{condathis-conditions}). The default is shown in Usage.
+
+The command line shown, the \code{cmd} of a result and the messages of
+\code{condathis} show the password and the token of a URL as \verb{*****}.
+\code{micromamba} does the same (\verb{https://user:*****@host/channel},
+\verb{https://host/t/*****/channel}). The command still gets them.}
 }
 \value{
-A \code{condathis_result} S3 object (a classed list, still usable as
-a plain list) with \code{status}, \code{stdout}, \code{stderr}, \code{timeout}, \code{pid},
-\code{cmd}, and \code{env_name}.
+A \code{condathis_result} object, invisibly: a classed list with
+\code{status}, \code{stdout}, \code{stderr}, \code{timeout}, \code{pid}, \code{cmd} and \code{env_name}.
+\code{cmd} is the command line that the backend ran, or \code{NA} when the
+backend reports none. \code{stdout}, \code{stderr} and \code{pid} are \code{NA} when the
+backend reports none, and \code{pid} always is with micromamba.
+An environment that does not exist aborts with class
+\code{condathis_remove_env_env_not_found} (also \code{condathis_env_not_found}
+and the 0.1.4 class \code{condathis_error_env_remove}). \code{remove_env()}
+deletes nothing then, not even a leftover directory of that name.
+A backend failure aborts with class \code{condathis_remove_env_failed} (also
+\code{condathis_backend_error}), with the backend's error as the parent.
+micromamba runs the \code{pre-unlink} scripts of packages before it removes
+them. A backend that does not makes \code{remove_env()} warn with class
+\code{condathis_remove_env_link_scripts_skipped} (also
+\code{condathis_link_scripts_skipped}). The warning names the packages.
 }
 \description{
 Removes an environment managed by \code{condathis}.
 }
+\details{
+With the micromamba backend, \code{remove_env()} does not change
+\verb{~/.conda/environments.txt}, the registry that conda and mamba share. A
+line that \code{\link[=create_env]{create_env()}} added to that file stays (see Details in
+\code{\link[=get_install_dir]{get_install_dir()}}). On Windows, it also leaves the Start Menu
+shortcuts that \code{condathis} 0.1.4 and earlier added for packages such as
+\code{spyder}. Delete them from the Start Menu.
+}
+\section{Other R sessions}{
+
+Only one R session at a time changes an environment. \code{\link[=create_env]{create_env()}},
+\code{\link[=install_packages]{install_packages()}} and \code{\link[=remove_env]{remove_env()}} hold a lock on the environment
+name while they work, with every backend. A call for an environment that
+another R session is changing waits until that session is done. After
+two seconds, the call says so with a message of class
+\code{condathis_env_lock_waiting}. \code{verbose = "silent"} hides this message.
+Ctrl-C stops the wait. \code{\link[=clean_cache]{clean_cache()}} waits until no other R session
+creates an environment or installs packages. Those calls wait while it
+cleans. Each wait gives a message of class \code{condathis_cache_lock_waiting}.
+A lock lasts only as long as its session, also when the session crashes
+or is killed. The lock files are in the directory \code{locks} of the
+condathis data directory (see \code{\link[=get_install_dir]{get_install_dir()}}). Where files cannot be
+locked, such as on some network file systems, the call goes on without
+the lock. When it changes something, it warns once per session with class
+\code{condathis_env_lock_unavailable}.
+}
+
 \examples{
 \dontrun{
 condathis::with_sandbox_dir({
-  condathis::create_env(
-    packages = "bioconda::fastqc",
-    env_name = "fastqc-env"
+  # A local channel shipped with condathis, with `polyglot`: a
+  # dependency-free script that runs on Linux, macOS and Windows.
+  channel <- system.file(
+    "extdata", "polyglot-channel",
+    package = "condathis"
   )
-  condathis::remove_env(env_name = "fastqc-env")
+  condathis::create_env(
+    "polyglot",
+    env_name = "polyglot-env",
+    channels = channel
+  )
+  condathis::remove_env(env_name = "polyglot-env")
 })
 }
 
 }
+\seealso{
+\link{condathis-conditions} for every condition class.
+
+Other environments:
+\code{\link[=create_env]{create_env()}},
+\code{\link[=env_exists]{env_exists()}},
+\code{\link[=env_path]{env_path()}},
+\code{\link[=get_env_dir]{get_env_dir()}},
+\code{\link[=install_packages]{install_packages()}},
+\code{\link[=list_envs]{list_envs()}},
+\code{\link[=list_packages]{list_packages()}},
+\code{\link[=validate_env]{validate_env()}}
+}
+\concept{environments}

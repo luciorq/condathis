@@ -1,56 +1,99 @@
-#' Install micromamba binaries in the managed condathis path
+#' Install micromamba
 #'
-#' Downloads and installs the `micromamba` executable used by `condathis`.
+#' Downloads the `micromamba` binary that `condathis` uses and installs it
+#' in the condathis data directory, at the path that
+#' [micromamba_bin_path()] returns. The functions that need micromamba call
+#' it when no usable binary is found (see *micromamba discovery* in
+#' [condathis-options]). You need to call it only to choose the version, or
+#' to install micromamba ahead of time.
 #'
-#' @param micromamba_version Character string with the micromamba version.
-#'   Defaults to `"2.8.1-0"`.
-#' @param timeout_limit Numeric download timeout in seconds.
-#'   Defaults to `3600`.
-#' @param download_method Character string passed as the download method when
-#'   `utils::download.file()` is used. Defaults to `"auto"`.
-#' @param force Logical value that controls forced reinstallation.
-#'   Defaults to `FALSE`.
-#' @param verbose Character string controlling console output.
-#'   Supported values are `"output"`, `"silent"`, `"cmd"`, `"spinner"`,
-#'   and `"full"`. Defaults to `"output"`.
+#' @inheritParams condathis-params
+#' @param micromamba_version Character string with the micromamba version,
+#'   in the format `"X.Y.Z-N"` (version and build number), for example
+#'   `"2.10.0-0"`, the default. Another format aborts with class
+#'   `condathis_install_micromamba_invalid_micromamba_version`. Versions
+#'   older than 2.8.1 abort with class
+#'   `condathis_install_micromamba_unsupported_version`, because
+#'   `condathis` does not use them. When you pass `micromamba_version` and a
+#'   binary is already installed, `install_micromamba()` keeps the binary
+#'   only when its version (`X.Y.Z`) is the requested one. When it reports
+#'   another version, or its version cannot be read, `install_micromamba()`
+#'   installs the requested version. Without `micromamba_version`, it
+#'   always keeps an installed binary, unless `force = TRUE`.
+#' @param timeout Numeric download timeout in seconds, a single
+#'   non-negative number. `Inf` means no limit. Defaults to `3600`. Each
+#'   download uses the larger of this value and `getOption("timeout")`, so
+#'   `0` means no limit only when `getOption("timeout")` is `0` too. The
+#'   function lowers values above 2147483 seconds (about 24.8 days) to
+#'   2147483. Other values abort with class
+#'   `condathis_install_micromamba_invalid_timeout`.
+#' @param download_method Character string with the download method of
+#'   [utils::download.file()]: one of `"auto"` (the default), `"internal"`,
+#'   `"libcurl"`, `"wget"`, `"curl"` or `"wininet"`. It is ignored when the
+#'   `curl` package 5.0.0 or later is installed, because then
+#'   [curl::curl_download()] is used. Other values abort with class
+#'   `condathis_install_micromamba_invalid_download_method`.
+#' @param force Logical value. `TRUE` downloads micromamba also when a
+#'   binary is already installed. Defaults to `FALSE`. A value that is not
+#'   `TRUE` or `FALSE` aborts with class
+#'   `condathis_install_micromamba_invalid_force`.
+#' @param timeout_limit Deprecated. Use `timeout`. A value warns with class
+#'   `condathis_deprecated_arg` and is used as `timeout`. Passing both
+#'   aborts with class `condathis_install_micromamba_conflicting_args`.
 #'
-#' @returns The installed micromamba binary path (a `fs_path`/character
-#'   string), invisibly - not a `condathis_result` object like `run()`,
-#'   `run_bin()`, `create_env()`, `install_packages()`, `remove_env()`, and
-#'   `clean_cache()` return. This is intentional, not an oversight: those
-#'   functions each wrap a single `micromamba` subprocess call, so a real
-#'   status/stdout/stderr/pid is available to report. `install_micromamba()`
-#'   downloads and extracts a binary directly (no `micromamba` subprocess
-#'   involved at all), so there is no real process result to expose - the
-#'   installed path is the only meaningful thing to return, exactly like
-#'   `get_env_dir()`/`get_install_dir()`/`micromamba_bin_path()`. On
-#'   failure, this function always raises an error rather than returning a
-#'   partial or invalid path.
+#' @returns The path of the micromamba binary, an `fs_path`, invisibly: the
+#'   path that [micromamba_bin_path()] returns. A failed download aborts
+#'   with class `condathis_install_micromamba_download_failed`.
 #'
 #' @details
-#' Download mirrors are tried in order until one succeeds.
-#' When system `tar` and `bzip2` are available, a compressed archive may be
-#' used first. Otherwise, or when extraction fails, a standalone binary is
-#' downloaded.
+#' The binary is the build for the platform of the running R (see
+#' [get_sys_arch()]): `linux-64`, `linux-aarch64`, `linux-ppc64le`,
+#' `osx-64`, `osx-arm64`, `win-64` or `win-arm64`. A native ARM64 R on
+#' Windows gets `win-arm64`. An x64 R on an ARM64 PC gets `win-64`, which
+#' runs through x64 emulation. Every R of a user shares the installed
+#' binary. So on an ARM64 PC, the binary installed first stays until you
+#' replace it, for example with `force = TRUE`. Either binary works with
+#' both builds of R: micromamba builds environments for its own platform.
+#'
+#' `install_micromamba()` tries the compressed archive first, from the
+#' micromamba releases on GitHub, then from the conda-forge channel on
+#' anaconda.org and prefix.dev. It extracts the archive with R's internal
+#' `tar`, so no system `tar` or `bzip2` is needed. When every archive
+#' fails, it downloads the standalone binary from GitHub. A mirror fails
+#' when the download fails, or when the file does not extract, does not
+#' run, or does not match the SHA256 checksum published with the release.
+#' Then it tries the next mirror. It replaces an installed binary only with
+#' a download that passed these checks, also with `force = TRUE`.
+#'
+#' When no published checksum can be read, `install_micromamba()` installs
+#' the binary. It warns with class
+#' `condathis_install_micromamba_checksum_unavailable` when `verbose` is
+#' `"output"` or `"full"`. A checksum that does not match warns with class
+#' `condathis_install_micromamba_checksum_mismatch`, and that binary is not
+#' installed.
 #'
 #' @examples
 #' \dontrun{
 #' condathis::with_sandbox_dir({
-#'   # Install the default version of Micromamba
+#'   # Install the default version of micromamba
 #'   condathis::install_micromamba()
 #'
-#'   # Install a specific version of Micromamba
-#'   condathis::install_micromamba(micromamba_version = "2.0.2-2")
+#'   # Install a specific version (2.8.1 or newer): it replaces a binary of
+#'   # another version
+#'   condathis::install_micromamba(micromamba_version = "2.9.0-0")
 #'
-#'   # Force reinstallation of Micromamba
+#'   # Without `micromamba_version`, the installed binary is kept unless
+#'   # `force = TRUE`
 #'   condathis::install_micromamba(force = TRUE)
 #' })
 #' }
 #'
+#' @family setup
+#'
 #' @export
 install_micromamba <- function(
-  micromamba_version = "2.8.1-0",
-  timeout_limit = 3600,
+  micromamba_version = "2.10.0-0",
+  timeout = 3600,
   download_method = "auto",
   force = FALSE,
   verbose = c(
@@ -59,9 +102,53 @@ install_micromamba <- function(
     "cmd",
     "spinner",
     "full"
-  )
+  ),
+  timeout_limit = NULL
 ) {
-  verbose_list <- parse_strategy_verbose(verbose = verbose)
+  # Rule R2: every argument is checked before the first side effect.
+  verbose_list <- parse_verbose_arg(verbose)
+  if (isFALSE(is.null(timeout_limit))) {
+    if (isFALSE(missing(timeout))) {
+      condathis_abort(
+        message = c(
+          `x` = "{.arg timeout} and {.arg timeout_limit} cannot both be given.",
+          `i` = "{.arg timeout_limit} is deprecated; use {.arg timeout}."
+        ),
+        class = c(
+          "condathis_install_micromamba_conflicting_args",
+          "condathis_invalid_arg"
+        )
+      )
+    }
+    condathis_warn(
+      message = c(
+        `!` = "{.arg timeout_limit} is deprecated; use {.arg timeout}."
+      ),
+      class = "condathis_deprecated_arg"
+    )
+    timeout <- timeout_limit
+  }
+  timeout <- validate_timeout_arg(
+    timeout,
+    class = arg_error_class(
+      "install_micromamba",
+      "timeout",
+      aliases = "condathis_install_micromamba_invalid_timeout_limit"
+    )
+  )
+  validate_bool_arg(
+    force,
+    class = arg_error_class("install_micromamba", "force"),
+    arg_name = "force"
+  )
+  requested_version <- validate_micromamba_version_arg(micromamba_version)
+  download_method <- arg_match_classed(
+    download_method,
+    values = c("auto", "internal", "libcurl", "wget", "curl", "wininet"),
+    class = arg_error_class("install_micromamba", "download_method"),
+    arg_name = "download_method"
+  )
+
   dl_quiet_flag <- TRUE
   if (isTRUE(verbose_list$strategy %in% c("output", "full"))) {
     dl_quiet_flag <- FALSE
@@ -69,12 +156,37 @@ install_micromamba <- function(
   umamba_bin_path <- micromamba_bin_path()
 
   if (isTRUE(fs::file_exists(umamba_bin_path)) && isFALSE(force)) {
+    # An explicit version is a request for that version, for
+    # reproducibility, so a binary of another version does not satisfy it.
+    installed_version <- if (isTRUE(missing(micromamba_version))) {
+      NA_character_
+    } else {
+      tryCatch(
+        get_micromamba_version(umamba_bin_path),
+        error = function(e) NA_character_
+      )
+    }
+    keep_installed <- isTRUE(missing(micromamba_version)) ||
+      identical(installed_version, requested_version)
+    if (isTRUE(keep_installed)) {
+      if (isFALSE(dl_quiet_flag)) {
+        condathis_inform(c(
+          `i` = "{.pkg micromamba} is already installed at {.path {umamba_bin_path}}."
+        ))
+      }
+      return(invisible(umamba_bin_path))
+    }
     if (isFALSE(dl_quiet_flag)) {
-      cli::cli_inform(c(
-        `i` = "{.pkg micromamba} is already installed at {.path {umamba_bin_path}}."
+      installed_line <- if (isTRUE(is.na(installed_version))) {
+        "The version of the installed {.pkg micromamba} could not be read."
+      } else {
+        "The installed {.pkg micromamba} is version {.val {installed_version}}."
+      }
+      condathis_inform(c(
+        `i` = installed_line,
+        `i` = "Installing the requested version {.val {requested_version}}."
       ))
     }
-    return(invisible(umamba_bin_path))
   }
 
   sys_arch_str <- is_micromamba_available_for_arch()
@@ -95,90 +207,193 @@ install_micromamba <- function(
     fs::dir_create(untar_dir)
   }
 
-  # --- Strategy 1: Download compressed .tar.bz2 and extract ---
-  # --- Strategy 2 (fallback): Download uncompressed binary directly ---
-  # Strategy 2 is used when tar/bzip2 are not available, or when Strategy 1
-  # failed to extract.
+  # Strategy 1: download the compressed .tar.bz2 and extract it.
+  # Strategy 2: download the uncompressed binary when Strategy 1 failed.
+  # Each strategy produces a candidate binary away from the live path and
+  # installs it only after it runs and matches the published checksum (see
+  # install_candidate_micromamba()), so a failed attempt never replaces or
+  # corrupts a working installation.
   extraction_succeeded <- download_compressed_and_extract(
     compressed_urls = mirror_urls$compressed,
     output_dir = output_dir,
     untar_dir = untar_dir,
     umamba_bin_path = umamba_bin_path,
-    timeout_limit = timeout_limit,
+    timeout_limit = timeout,
     download_method = download_method,
-    dl_quiet_flag = dl_quiet_flag
+    dl_quiet_flag = dl_quiet_flag,
+    sha256_urls = mirror_urls$sha256,
+    archive_sha256_urls = mirror_urls$archive_sha256 %||% character(0L),
+    verbose = verbose_list
   )
   if (isFALSE(extraction_succeeded)) {
     extraction_succeeded <- download_uncompressed_binary(
       uncompressed_urls = mirror_urls$uncompressed,
       umamba_bin_path = umamba_bin_path,
-      timeout_limit = timeout_limit,
+      timeout_limit = timeout,
       download_method = download_method,
-      dl_quiet_flag = dl_quiet_flag
+      dl_quiet_flag = dl_quiet_flag,
+      sha256_urls = mirror_urls$sha256,
+      archive_sha256_urls = mirror_urls$archive_sha256 %||% character(0L),
+      verbose = verbose_list
     )
   }
 
-  # --- Verify the binary exists ---
-  if (isFALSE(file_exists_retry(umamba_bin_path))) {
-    cli::cli_abort(
+  # Check the strategies' success flag, not only file existence: a failed
+  # `force = TRUE` reinstall preserves the previous binary at
+  # `umamba_bin_path` (see `download_uncompressed_binary()`), so existence
+  # does not imply this call installed anything. Abort on failure and leave
+  # the old binary intact.
+  if (
+    isFALSE(extraction_succeeded) ||
+      isFALSE(file_exists_retry(umamba_bin_path))
+  ) {
+    condathis_abort(
       message = c(
-        `x` = "{.file {umamba_bin_path}} was not downloaded or extracted successfully.",
-        `!` = paste0(
-          "This error may be caused by missing system tools ",
-          "({.code tar}, {.code bzip2}), network issues, or an ",
-          "invalid version string."
+        `x` = "{.pkg micromamba} {.val {micromamba_version}} was not downloaded or installed.",
+        `i` = "Every download mirror was tried.",
+        `i` = paste0(
+          "A network problem, a release that does not exist, or a file ",
+          "that failed the checks can cause this."
         )
       ),
-      class = "condathis_install_error_missing_bzip2"
+      # The old class named bzip2, which the install does not need.
+      class = c(
+        "condathis_install_micromamba_download_failed",
+        "condathis_install_error_missing_bzip2"
+      )
     )
   }
-
-  # --- Verify SHA256 checksum ---
-  # Warn-and-continue by design (see verify_micromamba_checksum()): a
-  # mismatch, or a failure to even compute/download a hash to compare,
-  # never blocks the install. The GitHub-published .sha256 is fetched
-  # dynamically for the exact version + platform, so this needs no
-  # hardcoded hashes and no per-release maintenance.
-  verify_micromamba_checksum(
-    bin_path = umamba_bin_path,
-    sha256_urls = mirror_urls$sha256,
-    timeout_limit = timeout_limit,
-    method = download_method,
-    verbose = verbose_list
-  )
 
   if (
     isTRUE(extraction_succeeded) &&
       verbose_list$strategy %in% c("full", "output")
   ) {
-    cli::cli_inform(
+    condathis_inform(
       message = c(
         `v` = "{.pkg micromamba} successfully downloaded."
       )
     )
   }
 
-  invisible(umamba_bin_path)
+  return(invisible(umamba_bin_path))
+}
+
+#' Check the `micromamba_version` argument of `install_micromamba()`
+#'
+#' @param micromamba_version The value to check. It must be a single string
+#'   `"X.Y.Z-N"`: the version and the build number of a micromamba release.
+#'   The version must be `micromamba_minimum_version` or newer.
+#' @param call Environment of the function the error is reported for.
+#'
+#' @returns The version part `"X.Y.Z"`. A wrong format aborts with
+#'   `c("condathis_install_micromamba_invalid_micromamba_version",
+#'   "condathis_invalid_micromamba_version", "condathis_invalid_arg",
+#'   "condathis_error")`. An older version aborts with
+#'   `c("condathis_install_micromamba_unsupported_version",
+#'   "condathis_micromamba_version_unsupported", "condathis_error")`.
+#'
+#' @keywords internal
+#' @noRd
+validate_micromamba_version_arg <- function(
+  micromamba_version,
+  call = rlang::caller_env()
+) {
+  # Without the build number, the download URLs end in "-NA" (see
+  # `get_micromamba_urls()`), and "latest" passed unchecked.
+  if (
+    isFALSE(rlang::is_string(micromamba_version)) ||
+      isTRUE(is.na(micromamba_version)) ||
+      isFALSE(grepl("^[0-9]+\\.[0-9]+\\.[0-9]+-[0-9]+$", micromamba_version))
+  ) {
+    message <- if (isTRUE(rlang::is_string(micromamba_version))) {
+      c(
+        `x` = "{.arg micromamba_version} must be a version and a build number, such as {.val 2.10.0-0}, not {.val {micromamba_version}}."
+      )
+    } else {
+      c(
+        `x` = "{.arg micromamba_version} must be a version and a build number, such as {.val 2.10.0-0}, not {.obj_type_friendly {micromamba_version}}."
+      )
+    }
+    condathis_abort(
+      message = message,
+      class = arg_error_class("install_micromamba", "micromamba_version"),
+      call = call
+    )
+  }
+  requested_version <- sub("-[0-9]+$", "", micromamba_version)
+  # Discovery skips anything older than the minimum, so an older install
+  # was replaced by the pinned version on the next command without a word.
+  if (
+    isTRUE(
+      utils::compareVersion(requested_version, micromamba_minimum_version) < 0L
+    )
+  ) {
+    condathis_abort(
+      message = c(
+        `x` = "{.pkg micromamba} {.val {requested_version}} is not supported.",
+        `i` = "{.pkg condathis} requires {.pkg micromamba} {.val {micromamba_minimum_version}} or newer."
+      ),
+      class = c(
+        "condathis_install_micromamba_unsupported_version",
+        "condathis_micromamba_version_unsupported"
+      ),
+      call = call
+    )
+  }
+  return(requested_version)
+}
+
+#' Tell the user that a mirror's file was not installed
+#'
+#' The next mirror or strategy is tried after this, so it is a message,
+#' not a warning.
+#'
+#' @param url Character string. The mirror endpoint.
+#' @param problem Character string. What was wrong with the file, as a
+#'   `cli` format string that can use `{.url {url}}`.
+#' @param verbose List. Parsed verbose flags from `parse_strategy_verbose()`.
+#'
+#' @returns `NULL`, invisibly.
+#'
+#' @keywords internal
+#' @noRd
+inform_rejected_download <- function(url, problem, verbose) {
+  # A message, so an information bullet: `!` is only for warnings (rule R3).
+  if (isTRUE(verbose$strategy %in% c("full", "output"))) {
+    condathis_inform(c(`i` = problem))
+  }
+  return(invisible(NULL))
 }
 
 #' Download and extract the compressed micromamba archive
 #'
 #' Strategy 1 of `install_micromamba()`'s two download strategies: fetch the
-#' `.tar.bz2` archive from the given mirrors and extract it with the system
-#' `tar`/`bzip2` tools. A no-op (returns `FALSE` immediately) when those
-#' tools aren't available - `install_micromamba()` falls back to
-#' `download_uncompressed_binary()` in that case.
+#' `.tar.bz2` archive from the given mirrors and extract it with
+#' `extract_tar_bz2()`, which needs no system tools. When this fails,
+#' `install_micromamba()` falls back to `download_uncompressed_binary()`.
+#'
+#' Each mirror's file is extracted and checked before the next mirror is
+#' considered. A mirror that serves an error page with status 200, a
+#' truncated archive, or a binary that does not run or match the checksum
+#' moves the search to the next mirror. It does not end the strategy.
 #'
 #' @param compressed_urls Character vector of `.tar.bz2` mirror endpoints.
 #' @param output_dir Directory the archive is downloaded into.
-#' @param untar_dir Directory the archive is extracted into.
-#' @param umamba_bin_path Expected path of the extracted binary, used to
-#'   confirm extraction actually produced it.
+#' @param untar_dir Directory of the live installation. The binary's path
+#'   relative to it locates the binary inside the extracted archive.
+#' @param umamba_bin_path Path of the live binary.
 #' @param timeout_limit,download_method,dl_quiet_flag Passed through to
 #'   `try_download_from_mirrors()`.
+#' @param sha256_urls,verbose Passed to `install_candidate_micromamba()`.
+#' @param archive_sha256_urls Character vector, the endpoints of the
+#'   published checksum of the archive. With the SHA256 hash of each
+#'   downloaded archive, they are the `archive` of
+#'   `install_candidate_micromamba()`.
 #'
-#' @returns Logical. `TRUE` only if the archive was downloaded *and*
-#'   extracted *and* the binary is present afterward.
+#' @returns Logical. `TRUE` only if the archive from one mirror was
+#'   downloaded, extracted cleanly into a temporary directory, and its
+#'   binary passed `install_candidate_micromamba()` and replaced the live
+#'   one.
 #'
 #' @keywords internal
 #' @noRd
@@ -189,73 +404,111 @@ download_compressed_and_extract <- function(
   umamba_bin_path,
   timeout_limit,
   download_method,
-  dl_quiet_flag
+  dl_quiet_flag,
+  sha256_urls = character(0L),
+  archive_sha256_urls = character(0L),
+  verbose = list(strategy = "silent")
 ) {
-  if (isFALSE(can_extract_tar_bz2())) {
-    return(FALSE)
+  full_dl_path <- as.character(
+    fs::path(output_dir, paste0("micromamba-dl-", Sys.getpid(), ".tar.bz2"))
+  )
+  extract_dir <- fs::path(
+    output_dir,
+    paste0("micromamba-extract-", Sys.getpid())
+  )
+  on.exit(
+    {
+      if (fs::file_exists(full_dl_path)) {
+        try(fs::file_delete(full_dl_path), silent = TRUE)
+      }
+      if (fs::dir_exists(extract_dir)) {
+        try(fs::dir_delete(extract_dir), silent = TRUE)
+      }
+    },
+    add = TRUE
+  )
+
+  # The checks run inside the mirror loop. Run after it, they ended the
+  # strategy on the first mirror that served a bad file, and the other
+  # mirrors were never tried.
+  accept_archive <- function(destfile, url) {
+    # Hashed before the extraction, for a release that publishes only the
+    # checksum of the archive (see `verify_micromamba_checksum()`).
+    archive <- list(
+      hash = if (isTRUE(length(archive_sha256_urls) > 0L)) {
+        compute_sha256(destfile)
+      } else {
+        NA_character_
+      },
+      sha256_urls = archive_sha256_urls
+    )
+    # Extract into a temporary directory, never over the live
+    # installation: a truncated or invalid archive used to overwrite a
+    # working binary in place.
+    if (isFALSE(extract_tar_bz2(destfile, extract_dir))) {
+      inform_rejected_download(
+        url = url,
+        problem = "The file from {.url {url}} is not a valid {.pkg micromamba} archive.",
+        verbose = verbose
+      )
+      return(FALSE)
+    }
+    candidate <- fs::path(
+      extract_dir,
+      fs::path_rel(umamba_bin_path, untar_dir)
+    )
+    installed <- install_candidate_micromamba(
+      candidate = candidate,
+      umamba_bin_path = umamba_bin_path,
+      sha256_urls = sha256_urls,
+      timeout_limit = timeout_limit,
+      download_method = download_method,
+      verbose = verbose,
+      archive = archive
+    )
+    if (isFALSE(installed)) {
+      inform_rejected_download(
+        url = url,
+        problem = "The archive from {.url {url}} has no working {.pkg micromamba} binary.",
+        verbose = verbose
+      )
+    }
+    return(installed)
   }
 
-  full_dl_path <- as.character(
-    fs::path(output_dir, "micromamba-dl.tar.bz2")
-  )
-  compressed_ok <- try_download_from_mirrors(
+  return(try_download_from_mirrors(
     urls = compressed_urls,
     destfile = full_dl_path,
     timeout_limit = timeout_limit,
     method = download_method,
-    quiet = dl_quiet_flag
-  )
-
-  if (isFALSE(compressed_ok)) {
-    # Clean up any partial download
-    if (fs::file_exists(full_dl_path)) {
-      try(fs::file_delete(full_dl_path), silent = TRUE)
-    }
-    return(FALSE)
-  }
-
-  # Extract the archive, suppressing warnings from tar/bzip2
-  extract_result <- tryCatch(
-    {
-      suppressWarnings(
-        utils::untar(
-          tarfile = full_dl_path,
-          exdir = fs::path_expand(untar_dir)
-        )
-      )
-      TRUE
-    },
-    error = function(e) {
-      FALSE
-    },
-    warning = function(w) {
-      FALSE
-    }
-  )
-
-  # Clean up the downloaded archive
-  if (fs::file_exists(full_dl_path)) {
-    try(fs::file_delete(full_dl_path), silent = TRUE)
-  }
-
-  return(
-    isTRUE(extract_result) && isTRUE(file_exists_retry(umamba_bin_path))
-  )
+    quiet = dl_quiet_flag,
+    accept = accept_archive
+  ))
 }
 
 #' Download the standalone micromamba binary directly
 #'
 #' Strategy 2 of `install_micromamba()`'s two download strategies: used when
-#' `tar`/`bzip2` are unavailable, or when `download_compressed_and_extract()`
-#' failed to extract.
+#' `download_compressed_and_extract()` failed.
+#'
+#' Each mirror's binary is checked before the next mirror is considered, so
+#' a bad file from one mirror moves the search to the next one.
 #'
 #' @param uncompressed_urls Character vector of raw binary mirror endpoints.
-#' @param umamba_bin_path Destination path for the downloaded binary.
+#' @param umamba_bin_path Final destination path for the binary. Never
+#'   written to (or deleted) until a complete download exists at a
+#'   temporary sibling path - see the comment in the body: an existing
+#'   working installation must survive a total download failure.
 #' @param timeout_limit,download_method,dl_quiet_flag Passed through to
 #'   `try_download_from_mirrors()`.
+#' @param sha256_urls,verbose Passed to `install_candidate_micromamba()`.
+#' @param archive_sha256_urls Character vector, the endpoints of the
+#'   published checksum of the archive. Without an archive, it verifies the
+#'   binary only when it holds the hash of the binary (see
+#'   `verify_micromamba_checksum()`).
 #'
-#' @returns Logical. `TRUE` if the binary was downloaded and made
-#'   executable.
+#' @returns Logical. `TRUE` if the binary from one mirror was downloaded,
+#'   passed `install_candidate_micromamba()`, and replaced the live one.
 #'
 #' @keywords internal
 #' @noRd
@@ -264,7 +517,10 @@ download_uncompressed_binary <- function(
   umamba_bin_path,
   timeout_limit,
   download_method,
-  dl_quiet_flag
+  dl_quiet_flag,
+  sha256_urls = character(0L),
+  archive_sha256_urls = character(0L),
+  verbose = list(strategy = "silent")
 ) {
   # This is not the right path on Windows
   base_dl_dir <- fs::path(base::dirname(umamba_bin_path))
@@ -272,31 +528,215 @@ download_uncompressed_binary <- function(
     fs::dir_create(base_dl_dir)
   }
 
-  uncompressed_ok <- try_download_from_mirrors(
-    urls = uncompressed_urls,
-    destfile = umamba_bin_path,
-    timeout_limit = timeout_limit,
-    method = download_method,
-    quiet = dl_quiet_flag
+  # Download to a temporary sibling path, never onto the live binary:
+  # try_download_from_mirrors() deletes its destfile after every failed
+  # mirror, and a partial download would corrupt the destination. Writing
+  # to `umamba_bin_path` would delete a working installation when all
+  # mirrors fail. A sibling in the same directory (not `tempfile()`) keeps
+  # the final move a same-filesystem rename.
+  tmp_dl_path <- fs::path(
+    base_dl_dir,
+    paste0("micromamba-dl-", Sys.getpid(), ".tmp")
   )
 
-  if (isFALSE(uncompressed_ok)) {
-    return(FALSE)
+  on.exit(
+    if (isTRUE(fs::file_exists(tmp_dl_path))) {
+      try(fs::file_delete(tmp_dl_path), silent = TRUE)
+    },
+    add = TRUE
+  )
+
+  # The complete new binary exists on disk, and is checked, before the old
+  # one is touched. The check runs inside the mirror loop, so a mirror that
+  # serves a bad file does not end the strategy.
+  accept_binary <- function(destfile, url) {
+    installed <- install_candidate_micromamba(
+      candidate = destfile,
+      umamba_bin_path = umamba_bin_path,
+      sha256_urls = sha256_urls,
+      timeout_limit = timeout_limit,
+      download_method = download_method,
+      verbose = verbose,
+      archive = list(hash = NA_character_, sha256_urls = archive_sha256_urls)
+    )
+    if (isFALSE(installed)) {
+      inform_rejected_download(
+        url = url,
+        problem = "The file from {.url {url}} is not a working {.pkg micromamba} binary.",
+        verbose = verbose
+      )
+    }
+    return(installed)
   }
 
-  fs::file_chmod(umamba_bin_path, mode = "u+x")
-  return(TRUE)
+  return(try_download_from_mirrors(
+    urls = uncompressed_urls,
+    destfile = tmp_dl_path,
+    timeout_limit = timeout_limit,
+    method = download_method,
+    quiet = dl_quiet_flag,
+    accept = accept_binary
+  ))
+}
+
+#' Extract a `.tar.bz2` archive
+#'
+#' Uses R's internal tar first. It decompresses bzip2 itself, so it needs
+#' neither a system `tar` nor a `bzip2` program, which Windows usually
+#' lacks. A system `tar` is the fallback when the internal one fails. It is
+#' the program from `system_tar_program()`, the rule `has_system_tar()`
+#' also uses. It reads the archive on stdin, so a Windows drive letter in
+#' the path cannot be taken for a remote host, and its output is captured
+#' instead of printed.
+#'
+#' Only an error or a non-zero status counts as failure. Warnings are
+#' dropped: R warns about harmless details such as pax headers, which
+#' conda-forge archives use. A truncated archive cannot install a broken
+#' binary, because `install_candidate_micromamba()` runs the extracted
+#' binary and checks its SHA256 checksum. A failed attempt removes `exdir`.
+#'
+#' @param tarfile Path to the archive.
+#' @param exdir Directory to extract into.
+#'
+#' @returns Logical scalar. `TRUE` when an extraction succeeded.
+#'
+#' @keywords internal
+#' @noRd
+extract_tar_bz2 <- function(tarfile, exdir) {
+  exdir <- fs::path_expand(exdir)
+  extractors <- list(function() {
+    rc <- suppressWarnings(
+      utils::untar(tarfile = tarfile, exdir = exdir, tar = "internal")
+    )
+    identical(as.integer(rc), 0L)
+  })
+  # `TAR` used to be run as given, so `TAR=internal`, or a `TAR` that is not
+  # a program, made the fallback fail although `has_system_tar()` had found
+  # `tar` on `PATH`.
+  tar_program <- system_tar_program()
+  if (isFALSE(is.null(tar_program))) {
+    extractors[[2L]] <- function() {
+      res <- processx::run(
+        command = tar_program,
+        args = c("-xjf", "-"),
+        stdin = as.character(tarfile),
+        wd = as.character(exdir),
+        error_on_status = FALSE
+      )
+      identical(res$status, 0L)
+    }
+  }
+  for (extractor in extractors) {
+    if (fs::dir_exists(exdir)) {
+      fs::dir_delete(exdir)
+    }
+    fs::dir_create(exdir)
+    if (isTRUE(tryCatch(extractor(), error = function(e) FALSE))) {
+      return(TRUE)
+    }
+  }
+  if (fs::dir_exists(exdir)) {
+    fs::dir_delete(exdir)
+  }
+  return(FALSE)
+}
+
+#' Check a downloaded micromamba binary, then put it in place
+#'
+#' The candidate must run and report a version, and must match the
+#' published SHA256 checksum when one can be downloaded. Only then does it
+#' replace the live binary. A failed check leaves the live binary untouched
+#' and returns `FALSE`, so `install_micromamba()` tries the next mirror,
+#' then the next strategy, then aborts. A checksum that cannot be downloaded
+#' or computed does not block the install (mirrors without `.sha256` files
+#' exist); a mismatch does.
+#'
+#' @param candidate Path to the downloaded or extracted binary.
+#' @param umamba_bin_path Path of the live binary.
+#' @param sha256_urls,timeout_limit,download_method,verbose,archive Passed
+#'   to `verify_micromamba_checksum()`.
+#'
+#' @returns Logical scalar. `TRUE` when the candidate was installed.
+#'
+#' @keywords internal
+#' @noRd
+install_candidate_micromamba <- function(
+  candidate,
+  umamba_bin_path,
+  sha256_urls,
+  timeout_limit,
+  download_method,
+  verbose,
+  archive = NULL
+) {
+  if (isFALSE(file_exists_retry(candidate))) {
+    return(FALSE)
+  }
+  if (isFALSE(is_windows())) {
+    fs::file_chmod(candidate, mode = "u+x")
+  }
+  if (isFALSE(candidate_micromamba_runs(candidate))) {
+    return(FALSE)
+  }
+  checksum_ok <- verify_micromamba_checksum(
+    bin_path = candidate,
+    sha256_urls = sha256_urls,
+    timeout_limit = timeout_limit,
+    method = download_method,
+    verbose = verbose,
+    archive = archive
+  )
+  if (isFALSE(checksum_ok)) {
+    return(FALSE)
+  }
+  bin_dir <- fs::path_dir(umamba_bin_path)
+  if (isFALSE(fs::dir_exists(bin_dir))) {
+    fs::dir_create(bin_dir)
+  }
+  if (isTRUE(fs::file_exists(umamba_bin_path))) {
+    fs::file_delete(umamba_bin_path)
+  }
+  fs::file_move(path = candidate, new_path = umamba_bin_path)
+  return(isTRUE(file_exists_retry(umamba_bin_path)))
+}
+
+#' Does a candidate micromamba binary run and report a version?
+#'
+#' @param path Path to the candidate binary.
+#'
+#' @returns Logical scalar.
+#'
+#' @keywords internal
+#' @noRd
+candidate_micromamba_runs <- function(path) {
+  version <- tryCatch(
+    get_micromamba_version(path),
+    error = function(e) NA_character_
+  )
+  return(rlang::is_string(version) && isFALSE(is.na(version)))
 }
 
 #' Verify Micromamba Binary SHA256 Checksum
 #'
 #' Downloads the published SHA256 checksum from GitHub releases and compares
-#' it against the locally installed binary. Emits a warning if the checksums
-#' do not match, but does not abort (to allow manual override).
+#' it against a candidate binary. Emits a warning if the checksums do not
+#' match. It never aborts: `install_candidate_micromamba()` decides, and it
+#' refuses a mismatching candidate but installs one that could not be
+#' verified.
 #'
 #' The SHA256 checksum files on GitHub releases always contain the hash of the
 #' standalone binary (not the archive). This means the same checksum works
 #' regardless of whether the compressed or uncompressed download was used.
+#'
+#' One release has no such file: 2.8.1-0 on win-arm64 publishes no
+#' `.sha256`, and its `.tar.bz2.sha256` holds the hash of the archive. When
+#' the checksum of the binary cannot be downloaded or read, the
+#' `.tar.bz2.sha256` file of `archive` is read instead, and it verifies the
+#' candidate when it holds the hash of the binary, as for most releases, or
+#' the hash of the archive that the candidate was extracted from. A hash
+#' that matches neither is a mismatch only for an extracted binary: for a
+#' binary downloaded on its own, it can be the hash of an archive, so the
+#' binary is not verified.
 #'
 #' @section Updating checksums for a new release:
 #' When updating the default `micromamba_version`, no code changes are needed
@@ -309,9 +749,14 @@ download_uncompressed_binary <- function(
 #' @param timeout_limit Numeric. Timeout in seconds.
 #' @param method Character string. Download method.
 #' @param verbose List. Parsed verbose flags from `parse_strategy_verbose()`.
+#' @param archive `NULL`, or a list with `hash`, the SHA256 hash of the
+#'   archive the binary was extracted from (`NA` for a binary downloaded on
+#'   its own), and `sha256_urls`, the endpoints of the published checksum
+#'   of the archive.
 #'
-#' @returns Invisible `TRUE` if checksum matches, `FALSE` if verification
-#'   failed or was skipped.
+#' @returns Invisible `TRUE` if the checksum matches, `FALSE` on a
+#'   mismatch, and `NA` when verification was not possible (no published
+#'   checksum could be downloaded, or no hash could be computed).
 #'
 #' @keywords internal
 #' @noRd
@@ -320,52 +765,91 @@ verify_micromamba_checksum <- function(
   sha256_urls,
   timeout_limit = 3600,
   method = "auto",
-  verbose = list(strategy = "silent")
+  verbose = list(strategy = "silent"),
+  archive = NULL
 ) {
   if (isFALSE(fs::file_exists(bin_path))) {
-    return(invisible(FALSE))
+    return(invisible(NA))
   }
-
-  # Download the published checksum to a temporary file
-  sha256_tmpfile <- base::tempfile(fileext = ".sha256")
-  on.exit(
-    if (file.exists(sha256_tmpfile)) {
-      try(base::file.remove(sha256_tmpfile), silent = TRUE)
-    },
-    add = TRUE
-  )
-
-  sha256_ok <- try_download_from_mirrors(
-    urls = sha256_urls,
-    destfile = sha256_tmpfile,
-    timeout_limit = timeout_limit,
-    method = method,
-    quiet = TRUE
-  )
-
-  if (isFALSE(sha256_ok)) {
+  warn_unverified <- function(problem) {
     if (verbose$strategy %in% c("full", "output")) {
-      cli::cli_warn(c(
-        `!` = "Could not download SHA256 checksum for verification.",
-        `i` = "Skipping checksum verification."
-      ))
+      condathis_warn(
+        message = c(
+          `!` = problem,
+          `i` = "Skipping checksum verification."
+        ),
+        class = "condathis_install_micromamba_checksum_unavailable"
+      )
     }
+    return(invisible(NA))
+  }
+  warn_mismatch <- function(subject, expected_hash, actual_hash) {
+    condathis_warn(
+      message = c(
+        `!` = subject,
+        `i` = "Expected: {.val {expected_hash}}",
+        `i` = "Actual:   {.val {actual_hash}}",
+        `!` = paste0(
+          "The binary may be corrupted or tampered with. ",
+          "It was not installed."
+        )
+      ),
+      class = "condathis_install_micromamba_checksum_mismatch"
+    )
     return(invisible(FALSE))
   }
 
-  expected_hash <- tryCatch(
-    {
-      hash_content <- base::readLines(sha256_tmpfile, n = 1L, warn = FALSE)
-      base::trimws(hash_content)
-    },
-    error = function(e) {
-      NA_character_
-    }
+  published <- download_published_sha256(
+    urls = sha256_urls,
+    timeout_limit = timeout_limit,
+    method = method
   )
-
-  if (is.na(expected_hash) || !nzchar(expected_hash)) {
-    return(invisible(FALSE))
+  if (
+    isTRUE(is.na(published$hash)) &&
+      isTRUE(length(archive$sha256_urls) > 0L)
+  ) {
+    archive_published <- download_published_sha256(
+      urls = archive$sha256_urls,
+      timeout_limit = timeout_limit,
+      method = method
+    )
+    if (isFALSE(is.na(archive_published$hash))) {
+      actual_hash <- compute_sha256(bin_path)
+      if (is.na(actual_hash)) {
+        return(warn_unverified(
+          "Could not compute the SHA256 hash of the downloaded binary."
+        ))
+      }
+      archive_hash <- tolower(archive$hash %||% NA_character_)
+      if (
+        isTRUE(identical(archive_published$hash, tolower(actual_hash))) ||
+          isTRUE(identical(archive_published$hash, archive_hash))
+      ) {
+        return(invisible(TRUE))
+      }
+      if (isFALSE(is.na(archive_hash))) {
+        return(warn_mismatch(
+          "SHA256 checksum mismatch for the archive of {.path {bin_path}}.",
+          archive_published$hash,
+          archive_hash
+        ))
+      }
+    }
   }
+  if (identical(published$problem, "download")) {
+    return(warn_unverified(
+      "Could not download the SHA256 checksum for verification."
+    ))
+  }
+  # Not a checksum file at all (e.g. an HTML error page served with a 200
+  # status by a proxy): verification is not possible, which is not a
+  # mismatch.
+  if (identical(published$problem, "invalid")) {
+    return(warn_unverified(
+      "The downloaded SHA256 checksum file is not valid."
+    ))
+  }
+  expected_hash <- published$hash
 
   # Compute SHA256 of the installed binary.
   # R base does not have a built-in SHA256 function.
@@ -374,40 +858,92 @@ verify_micromamba_checksum <- function(
   actual_hash <- compute_sha256(bin_path)
 
   if (is.na(actual_hash)) {
-    if (verbose$strategy %in% c("full", "output")) {
-      cli::cli_warn(c(
-        `!` = "Could not compute SHA256 hash of the downloaded binary.",
-        `i` = "Skipping checksum verification."
-      ))
-    }
-    return(invisible(FALSE))
+    return(warn_unverified(
+      "Could not compute the SHA256 hash of the downloaded binary."
+    ))
   }
 
   if (!identical(tolower(actual_hash), tolower(expected_hash))) {
-    cli::cli_warn(c(
-      `!` = "SHA256 checksum mismatch for {.file {bin_path}}.",
-      `i` = "Expected: {.val {expected_hash}}",
-      `i` = "Actual:   {.val {actual_hash}}",
-      `!` = paste0(
-        "The binary may be corrupted or tampered with. ",
-        "Consider reinstalling with {.code install_micromamba(force = TRUE)}."
-      )
+    return(warn_mismatch(
+      "SHA256 checksum mismatch for {.path {bin_path}}.",
+      expected_hash,
+      actual_hash
     ))
-    return(invisible(FALSE))
   }
 
   return(invisible(TRUE))
 }
 
+#' Download and read a published SHA256 checksum file
+#'
+#' @param urls Character vector of mirror endpoints.
+#' @param timeout_limit,method Passed to `try_download_from_mirrors()`.
+#'
+#' @returns A list with `hash`, the lower-case hash or `NA_character_`, and
+#'   `problem`: `NA` when `hash` was read, `"download"` when no endpoint
+#'   gave a file, `"invalid"` when the file holds no hash.
+#'
+#' @keywords internal
+#' @noRd
+download_published_sha256 <- function(urls, timeout_limit, method) {
+  sha256_tmpfile <- base::tempfile(fileext = ".sha256")
+  on.exit(
+    if (file.exists(sha256_tmpfile)) {
+      try(base::file.remove(sha256_tmpfile), silent = TRUE)
+    },
+    add = TRUE
+  )
+  downloaded <- try_download_from_mirrors(
+    urls = urls,
+    destfile = sha256_tmpfile,
+    timeout_limit = timeout_limit,
+    method = method,
+    quiet = TRUE
+  )
+  if (isFALSE(downloaded)) {
+    return(list(hash = NA_character_, problem = "download"))
+  }
+  hash <- tryCatch(
+    parse_sha256_file(sha256_tmpfile),
+    error = function(e) NA_character_
+  )
+  if (is.na(hash)) {
+    return(list(hash = NA_character_, problem = "invalid"))
+  }
+  return(list(hash = tolower(hash), problem = NA_character_))
+}
+
+#' Read the hash from a published SHA256 checksum file
+#'
+#' Accepts a bare hash (the format of the micromamba release files) and the
+#' `sha256sum` format `<hash>  <file name>`.
+#'
+#' @param path Path to the checksum file.
+#'
+#' @returns The lower-case 64-digit hex hash, or `NA_character_` when the
+#'   file does not start with one.
+#'
+#' @keywords internal
+#' @noRd
+parse_sha256_file <- function(path) {
+  first_line <- base::readLines(path, n = 1L, warn = FALSE)
+  if (length(first_line) == 0L) {
+    return(NA_character_)
+  }
+  token <- strsplit(base::trimws(first_line), "[[:space:]]+")[[1L]][1L]
+  if (isFALSE(grepl("^[0-9a-fA-F]{64}$", token))) {
+    return(NA_character_)
+  }
+  return(tolower(token))
+}
+
 #' Check whether `tools::sha256sum()` is available
 #'
-#' Added to base R in version 4.5.0 (confirmed against R's own `NEWS`:
-#' "Added function sha256sum() in package tools analogous to md5sum()",
-#' under "CHANGES IN R 4.5.0"). Checks both the R version and the
-#' function's actual presence in the `tools` namespace - belt and
-#' suspenders, since `condathis` only requires R >= 4.3 and must not
-#' assume a newer `tools` is present just because the running R claims a
-#' high enough version (e.g. a patched/vendored R build).
+#' Base R provides `tools::sha256sum()` from R 4.5.0 onward. Checks both the
+#' R version and the function's presence in the `tools` namespace. The
+#' double-check is needed because `condathis` requires only R >= 4.3 and a
+#' patched or vendored R build can claim a high version without a matching
+#' `tools`.
 #'
 #' @returns Logical.
 #'
@@ -427,16 +963,11 @@ has_tools_sha256sum <- function() {
 #' Known-answer test for a system SHA256 command
 #'
 #' Shelling out to an external `sha256sum`/`shasum` binary means trusting
-#' whatever happens to be on `PATH` under that name - it could be a
-#' different tool entirely, a broken build, or something else shadowing
-#' the real one, and behavior has been observed to differ across mirrors,
-#' download strategies, and operating systems during development. Rather
-#' than trusting the exit status alone, this runs the command against the
-#' standard SHA-256 test vector for the ASCII string `"abc"`
-#' (`ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad`,
-#' cross-checked directly against `tools::sha256sum()`, `digest::digest()`,
-#' `openssl::sha256()`, and Python's `hashlib`, which all agree) and only
-#' trusts the command if it reproduces that exact hash.
+#' whatever happens to be on `PATH` under that name. It could be a
+#' different tool, a broken build, or a shadowing binary. This runs the
+#' command against the standard SHA-256 test vector for the ASCII string
+#' `"abc"` (`ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad`)
+#' and trusts the command only if it reproduces that exact hash.
 #'
 #' @param sha_cmd Character string. `"sha256sum"` or `"shasum"`.
 #'
@@ -491,15 +1022,11 @@ run_sha256_command <- function(sha_cmd, file_path) {
   if (isFALSE(identical(sha_result$status, 0L))) {
     return(NA_character_)
   }
-  # Output format: "hash  filename\n", or "\hash  filename\n" (a leading
-  # backslash directly prefixing the hash, no space) when the filename
-  # contains a backslash or newline - GNU coreutils' sha256sum/md5sum
-  # escaping convention, flagging that the filename part has embedded
-  # "\\"/"\n" escapes. Essentially guaranteed on Windows, where every
-  # absolute path contains backslashes (confirmed on real Windows CI: the
-  # unstripped leading "\" failed the 64-hex-char check below and made a
-  # perfectly valid hash look untrustworthy), vs. almost never on Linux/
-  # macOS, where backslash isn't a path separator.
+  # Output format: "hash  filename\n". GNU coreutils prefixes the hash with
+  # a backslash ("\hash  filename\n") when the filename contains a backslash
+  # or newline. This happens on Windows, where every absolute path contains
+  # backslashes. Strip the backslash, or the 64-hex-char check below
+  # rejects a valid hash. It is rare on Linux and macOS.
   hash_field <- base::trimws(strsplit(sha_result$stdout, "\\s+")[[1L]][1L])
   hash_field <- base::sub("^\\\\", "", hash_field)
   if (isFALSE(grepl("^[0-9a-fA-F]{64}$", hash_field))) {
@@ -536,8 +1063,15 @@ run_sha256_command <- function(sha_cmd, file_path) {
 #' @noRd
 compute_sha256 <- function(file_path) {
   if (isTRUE(has_tools_sha256sum())) {
+    # Looked up at run time: `tools::sha256sum` would be a static reference,
+    # which `R CMD check` flags on R < 4.5.0.
+    sha256sum <- get(
+      "sha256sum",
+      envir = asNamespace("tools"),
+      inherits = FALSE
+    )
     result <- base::tryCatch(
-      unname(tools::sha256sum(file_path)),
+      unname(sha256sum(file_path)),
       error = function(e) NA_character_
     )
     if (isTRUE(!is.na(result) && nzchar(result))) {
@@ -569,15 +1103,11 @@ compute_sha256 <- function(file_path) {
 
 #' Poll for a file's existence with a short backoff
 #'
-#' On Windows, antivirus real-time scanning can briefly hold its own handle
-#' on a just-extracted or just-downloaded executable, making
-#' `fs::file_exists()` return `FALSE` for a few hundred milliseconds even
-#' though extraction/download already succeeded - observed directly as an
-#' intermittent `install_micromamba()` failure on a real Windows machine
-#' (`force = TRUE` failed once, then succeeded on immediate retry with no
-#' code change in between). A short poll absorbs that race without masking
-#' a genuine missing file: it still returns `FALSE` if the file never shows
-#' up within `attempts * delay_secs`.
+#' On Windows, antivirus real-time scanning can briefly hold a handle on a
+#' just-extracted or just-downloaded executable. `fs::file_exists()` then
+#' returns `FALSE` for a few hundred milliseconds, which caused intermittent
+#' `install_micromamba()` failures. A short poll absorbs that race. It still
+#' returns `FALSE` if the file does not appear within `attempts * delay_secs`.
 #'
 #' @keywords internal
 #' @noRd

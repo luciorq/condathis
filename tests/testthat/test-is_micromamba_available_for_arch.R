@@ -21,6 +21,22 @@ testthat::test_that("is_micromamba_available_for_arch handles custom sys_arch in
     is_micromamba_available_for_arch("Windows-x86_64"),
     "win-64"
   )
+  # R on Windows reports "x86-64", also for an x64 R on an ARM64 PC.
+  testthat::expect_equal(
+    is_micromamba_available_for_arch("Windows-x86-64"),
+    "win-64"
+  )
+
+  # Test case for a native ARM64 R on Windows: R reports "aarch64", and
+  # "arm64" is the name Windows uses.
+  testthat::expect_equal(
+    is_micromamba_available_for_arch("Windows-aarch64"),
+    "win-arm64"
+  )
+  testthat::expect_equal(
+    is_micromamba_available_for_arch("Windows-arm64"),
+    "win-arm64"
+  )
 
   # Test case for Darwin-arm64 or MacOSX-arm64
   testthat::expect_equal(
@@ -47,11 +63,27 @@ testthat::test_that("is_micromamba_available_for_arch handles custom sys_arch in
   # Test case for unsupported architecture
   testthat::expect_error(
     is_micromamba_available_for_arch("unsupported-arch"),
-    "micromamba is not available for unsupported-arch CPU architecture."
+    "micromamba is not available for the .*unsupported-arch.* CPU architecture\\."
   )
   testthat::expect_error(
     is_micromamba_available_for_arch("Unknown-arch"),
     class = "condathis_umamba_not_available_for_arch"
+  )
+})
+
+testthat::test_that("is_micromamba_available_for_arch() has the renamed class and the old one", {
+  # Decision D2: condathis_umamba_* became condathis_micromamba_*.
+  cnd <- testthat::expect_error(
+    is_micromamba_available_for_arch("Unknown-arch"),
+    class = "condathis_micromamba_not_available_for_arch"
+  )
+  testthat::expect_identical(
+    class(cnd)[1:3],
+    c(
+      "condathis_micromamba_not_available_for_arch",
+      "condathis_umamba_not_available_for_arch",
+      "condathis_error"
+    )
   )
 })
 
@@ -75,6 +107,11 @@ testthat::test_that("is_micromamba_available_for_arch returns correct architectu
   with_mocked_bindings(
     get_sys_arch = mock_get_sys_arch("Windows-x86_64"),
     testthat::expect_equal(is_micromamba_available_for_arch(), "win-64")
+  )
+
+  with_mocked_bindings(
+    get_sys_arch = mock_get_sys_arch("Windows-aarch64"),
+    testthat::expect_equal(is_micromamba_available_for_arch(), "win-arm64")
   )
 
   with_mocked_bindings(

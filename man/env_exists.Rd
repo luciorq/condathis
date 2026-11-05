@@ -4,39 +4,102 @@
 \alias{env_exists}
 \title{Check whether a Conda environment exists}
 \usage{
-env_exists(env_name, method = "auto", verbose = "silent")
+env_exists(env_name = "condathis-env", method = "auto", verbose = "silent")
 }
 \arguments{
-\item{env_name}{Character string with the environment name to check.
-Must be a single, non-missing character string.}
+\item{env_name}{Character string with the environment name.
+It must be a plain directory name that is valid on Linux, macOS and
+Windows:
+\itemize{
+\item Not empty, and not \code{.} or \code{..}.
+\item Not starting with \code{-}, and not ending with \code{.}.
+\item Without path separators, \code{:}, \verb{#}, whitespace, control characters or
+\verb{<>"|?*}.
+\item Not a Windows device name, such as \code{NUL} or \code{COM1} (see
+\emph{Environment names} in \code{\link[=create_env]{create_env()}}).
+}
 
-\item{method}{Character string naming which backend(s) to check.
-Defaults to \code{"auto"}: does the environment exist under \emph{any}
-registered backend. An explicit backend name checks only that one.
-\code{"micromamba"} is the only backend registered today. \code{"native"} is a
-deprecated alias for \code{"micromamba"} (warns once per session).}
+Invalid values abort with class \code{condathis_invalid_env_name}.
+Functions that take only names reject an \code{\link[=env_path]{env_path()}} value with class
+\code{condathis_env_path_read_only}. \code{\link[=run]{run()}}, \code{\link[=run_bin]{run_bin()}}, \code{\link[=run_pipeline]{run_pipeline()}}
+and \code{\link[=run_step]{run_step()}} accept one.}
 
-\item{verbose}{Character string controlling console output passed to
-the backend. Defaults to \code{"silent"}.}
+\item{method}{Character string naming the backend to query. \code{"auto"} (the
+default) covers every registered backend, in
+\code{getOption("condathis.backend_priority")} order, also a backend that
+reports itself unavailable. Any name from
+\code{\link[=list_registered_backend_names]{list_registered_backend_names()}} queries only that backend.
+\code{"micromamba"} is built in. The name of a backend whose package
+condathis knows, such as \code{"rattler"} of the \code{rattlerthis} package,
+also queries only that backend. condathis loads that package. When it
+is not installed, the call aborts with class
+\code{condathis_backend_not_installed}. \code{"native"} is a deprecated alias for
+\code{"micromamba"} (warns once per session). Invalid values abort with
+class \code{condathis_invalid_method}.}
+
+\item{verbose}{Character string that controls the console output. One
+of:
+\itemize{
+\item \code{"output"}: show the output of the command and the messages of
+condathis.
+\item \code{"silent"}: show nothing.
+\item \code{"cmd"}: show the command line.
+\item \code{"spinner"}: show only a spinner.
+\item \code{"full"}: show the command line, the output, and the backend's own
+log.
+}
+
+\code{TRUE} means \code{"output"} and \code{FALSE} means \code{"silent"}. Every level
+except \code{"silent"} shows a spinner in interactive sessions. Invalid
+values abort with class \code{condathis_invalid_verbose} (see
+\link{condathis-conditions}). The default is shown in Usage.
+
+The command line shown, the \code{cmd} of a result and the messages of
+\code{condathis} show the password and the token of a URL as \verb{*****}.
+\code{micromamba} does the same (\verb{https://user:*****@host/channel},
+\verb{https://host/t/*****/channel}). The command still gets them.}
 }
 \value{
-\code{TRUE} when the environment exists and \code{FALSE} otherwise.
+\code{TRUE} when a queried backend reports the environment. \code{FALSE}
+when every queried backend reports it absent. When the query fails for
+the backend that \code{method} names, \code{env_exists()} aborts with class
+\code{condathis_env_exists_failed} (also \code{condathis_backend_error}). With
+\code{method = "auto"}, \code{env_exists()} skips a backend whose query fails and
+warns with class \code{condathis_backend_query_failed}. It aborts only when
+every backend fails.
 }
 \description{
 Checks whether an environment name is present in the environments managed
 by \code{condathis}.
 }
+\details{
+\code{env_exists()} is a query: it never creates an environment. When
+\code{env_name} has no directory under a backend's data directory, as on a new
+data directory, \code{env_exists()} returns \code{FALSE}. It does not start or
+install micromamba.
+When no micromamba binary is installed, the micromamba backend reads
+the \code{envs} directory of its data directory and the package records in
+\verb{conda-meta/} instead. It never installs micromamba.
+}
 \examples{
 \dontrun{
 condathis::with_sandbox_dir({
+  # A local channel shipped with condathis, with `polyglot`: a
+  # dependency-free script that runs on Linux, macOS and Windows.
+  channel <- system.file(
+    "extdata", "polyglot-channel",
+    package = "condathis"
+  )
+
   # Create the environment
   condathis::create_env(
-    packages = "bioconda::fastqc",
-    env_name = "fastqc-env"
+    "polyglot",
+    env_name = "polyglot-env",
+    channels = channel
   )
 
   # Check if the environment exists
-  condathis::env_exists("fastqc-env")
+  print(condathis::env_exists("polyglot-env"))
   #> [1] TRUE
 
   # Check for a non-existent environment
@@ -46,3 +109,17 @@ condathis::with_sandbox_dir({
 }
 
 }
+\seealso{
+\link{condathis-conditions} for every condition class.
+
+Other environments:
+\code{\link[=create_env]{create_env()}},
+\code{\link[=env_path]{env_path()}},
+\code{\link[=get_env_dir]{get_env_dir()}},
+\code{\link[=install_packages]{install_packages()}},
+\code{\link[=list_envs]{list_envs()}},
+\code{\link[=list_packages]{list_packages()}},
+\code{\link[=remove_env]{remove_env()}},
+\code{\link[=validate_env]{validate_env()}}
+}
+\concept{environments}

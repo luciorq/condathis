@@ -2,24 +2,68 @@
 % Please edit documentation in R/with_sandbox_dir.R
 \name{with_sandbox_dir}
 \alias{with_sandbox_dir}
-\title{Execute code in an isolated temporary environment}
+\title{Run code with temporary home and data directories}
 \usage{
 with_sandbox_dir(code, .local_envir = base::parent.frame())
 }
 \arguments{
-\item{code}{Expression to evaluate in the sandboxed environment.}
+\item{code}{Expression to evaluate with the temporary directories.}
 
-\item{.local_envir}{Environment used for local scoping and evaluation.
+\item{.local_envir}{Environment \code{code} is evaluated in.
 Defaults to \code{parent.frame()}.}
 }
 \value{
-\code{NULL}, invisibly.
+The value of \code{code}, visible or invisible as in \code{code}.
 }
 \description{
-Evaluates code with temporary home, data, and cache directories.
-This is mainly intended for examples and tests so no user files are written.
+Evaluates code with temporary home, data, cache, configuration and
+state directories. It is meant for examples and tests. \code{condathis} puts
+the environments, packages and micromamba binary that it installs into
+the sandbox, with every backend, not into your own directories. No Conda
+configuration file of yours is in reach.
+}
+\details{
+Processes that \code{condathis} starts ignore the session's Conda settings.
+Code that starts micromamba or conda itself must pass \code{--no-rc} and
+\code{--no-env} to do the same.
+
+The sandbox lasts exactly as long as the call. Before
+\code{with_sandbox_dir()} returns, also after an error in \code{code}, it does
+these steps in this order:
+\itemize{
+\item It restores the working directory.
+\item It restores every environment variable, including ones that \code{code}
+set, changed or removed itself.
+\item It stops the processes that use the sandbox, and their children, if
+they are still running. These are the processes that \code{condathis}
+starts for \code{code}. A process counts when its executable or one of its
+arguments is a path inside the sandbox. It also counts when it runs
+with a \code{condathis} environment or package cache inside the sandbox.
+Other processes started inside \code{code} keep running, for example the
+\code{processx} supervisor, \code{callr} sessions and \code{mirai} daemons.
+\item It waits until every backend has finished its work in the R session.
+\item It deletes the sandbox directories, with every environment, package
+and micromamba binary installed into them. When it cannot delete them,
+\code{with_sandbox_dir()} warns with class
+\code{condathis_with_sandbox_dir_cleanup_failed}. An interrupt during this
+cleanup leaves them in the session's temporary directory.
+}
+
+\code{with_sandbox_dir()} does not reset options and objects that \code{code}
+assigns: \code{code} runs in \code{.local_envir}, as with \code{withr::with_envvar()}.
+It does not change \code{\link[=tempdir]{tempdir()}} or \code{TMPDIR} either, so files that \code{code}
+writes there stay.
 }
 \examples{
 condathis::with_sandbox_dir(print(fs::path_home()))
 condathis::with_sandbox_dir(print(tools::R_user_dir("condathis")))
 }
+\seealso{
+Other setup:
+\code{\link[=clean_cache]{clean_cache()}},
+\code{\link[=get_install_dir]{get_install_dir()}},
+\code{\link[=get_sys_arch]{get_sys_arch()}},
+\code{\link[=install_micromamba]{install_micromamba()}},
+\code{\link[=micromamba_bin_path]{micromamba_bin_path()}}
+}
+\concept{setup}

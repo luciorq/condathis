@@ -1,0 +1,21 @@
+{
+  "info": {
+    "subdir": "noarch"
+  },
+  "packages": {},
+  "packages.conda": {
+    "polyglot-0.1.0-h4616a5c_0.conda": {
+      "build": "h4616a5c_0",
+      "build_number": 0,
+      "depends": [],
+      "md5": "59a37b1b046df5560f1b25abb0ddf8f8",
+      "name": "polyglot",
+      "noarch": "generic",
+      "sha256": "8c37f42361a32fb76093020403b38064644a7410e8ffc65c669b5595eca36507",
+      "size": 1557,
+      "subdir": "noarch",
+      "timestamp": 1786113546620,
+      "version": "0.1.0"
+    }
+  }
+}

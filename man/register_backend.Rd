@@ -2,128 +2,601 @@
 % Please edit documentation in R/backend.R
 \name{register_backend}
 \alias{register_backend}
-\title{Register a condathis backend implementation}
+\title{Register a condathis backend}
 \usage{
 register_backend(name, backend, call = rlang::caller_env())
 }
 \arguments{
-\item{name}{Character string identifying this backend (e.g.
-\code{"micromamba"}, \code{"rattler"}). This is the value users pass as
-\verb{method =}. Re-registering an existing name overwrites it.}
+\item{name}{Character string, the backend name that users pass as
+\code{method}. It must start with a letter, contain only letters, digits,
+\code{.}, \verb{_} and \code{-}, and not end with \code{.}. It must not be a Windows device
+name, such as \code{"nul"}, \code{"con"} or \code{"com1"}, with or without an
+extension. Reserved, in any case: \code{"auto"}, \code{"native"} and
+\code{"micromamba"}, the names of the entries of the condathis data
+directory (\code{"envs"}, \code{"pkgs"}, \code{"micromamba"}, \code{"condabin"},
+\code{"Scripts"}, \code{"condathis-micromamba.yaml"}, \code{"cache"}, \code{"home"},
+\code{"channels"} and \code{"locks"}), and \code{"tmp"}, \code{"bin"}, \code{"lib"}, \code{"etc"} and
+\code{"conda-meta"}. \code{register_backend()} also refuses a name when the
+condathis data directory has an entry of that name that is not a
+directory. It also refuses a name that differs only in case from a
+registered backend name or from the backend name of a package that
+\code{condathis} knows, such as \code{"rattler"}. On macOS and Windows, both
+would have the same root. Registering a name again replaces its
+backend.}
 
-\item{backend}{A classed, named list of the 10 contract functions - see
-\emph{The backend contract} below.}
+\item{backend}{The backend object: a list of the backend functions,
+with its own class. See \emph{The backend object}.}
 
-\item{call}{Calling environment reported in error conditions. Defaults
-to the caller's environment.}
+\item{call}{The environment reported as the caller in errors, for calls
+from another package's \code{.onLoad()}, as in rlang.}
 }
 \value{
-\code{name}, invisibly. Signals a condition of class
-\code{condathis_backend_contract_violation} (naming exactly which contract
-functions are missing) if the vtable is incomplete.
+\code{name}, invisibly. Aborts with these classes:
+\itemize{
+\item \code{condathis_backend_invalid_name}: a name that breaks the rules above.
+\item \code{condathis_backend_reserved_name} (also
+\code{condathis_backend_invalid_name}): a reserved name.
+\item \code{condathis_backend_root_conflict} (also
+\code{condathis_backend_invalid_name}): a name whose entry in the
+condathis data directory is not a directory.
+\item \code{condathis_backend_name_conflict} (also
+\code{condathis_backend_invalid_name}): a name that differs only in case
+from another backend name.
+\item \code{condathis_backend_class_conflict}: another registered name uses the
+same first class.
+\item \code{condathis_backend_contract_violation}: a backend object that breaks
+the contract. The error names the missing functions or arguments.
+}
+
+Every error also has the class \code{condathis_error}, and the name errors
+have \code{condathis_invalid_arg}.
 }
 \description{
-The extension point for packages that provide an alternative execution
-engine for \code{condathis} (e.g. an in-process \code{rattler}-based solver, or a
-container-based engine). Once registered, the backend becomes selectable
-through the \code{method} argument of every environment-management function
-(\code{create_env()}, \code{run()}, \code{list_envs()}, ...), and participates in
-\code{method = "auto"} resolution.
+Adds a backend: the engine that creates Conda environments and runs
+commands in them. \code{condathis} has one built-in backend, \code{"micromamba"}.
+Another package can provide a backend and register it from its
+\code{.onLoad()} (see \emph{Registering from a backend package}). The backend's
+name is then a valid \code{method} value of every \code{condathis} function that
+takes \code{method}, and \code{method = "auto"} can select it.
 }
 \details{
-\code{backend} is a classed, named list (a "vtable"), not an S3 object with
-methods already attached: its element names must be exactly the 10
-contract function names listed below, each a function implementing that
-part of the contract. \code{register_backend()} validates the vtable is
-complete, then registers each entry for S3 dispatch from inside
-\code{condathis}'s own namespace - the backend package does not need to
-\code{Imports}/\code{Depends} on \code{condathis} or register anything in its own
-\code{NAMESPACE}.
+\code{backend} is a list of backend functions, with its own class: the three
+required functions described below, and any of the optional ones.
+\code{condathis} supplies a default for every optional function that the list
+leaves out. \code{register_backend()} checks the list, then registers each
+function as an S3 method of the \code{condathis} generic of the same name,
+from inside the \code{condathis} namespace. The backend package needs no S3
+registrations in its \code{NAMESPACE}.
 }
 \section{Lifecycle}{
 
-This extension API is \strong{experimental}. The backend contract (the
-required functions, their signatures, and their return-value
-expectations) has not yet been validated by a second, real backend
-package shipping against it, and may change in breaking ways between
-\verb{0.x} releases as the first external backends are wired in. Backend
-authors should declare the specific \code{condathis} version they were
-developed against and expect to track contract changes until this
-notice is removed.
+This extension API is \strong{experimental}. \code{condathis} 0.2.0 defines the
+contract, designed together with a second backend package
+(\code{rattlerthis}). The API may still change in breaking ways between
+\verb{0.x} releases. State the \code{condathis} version that you developed
+against, for example as \verb{condathis (>= 0.2.0)} in \code{Imports}.
 }
 
-\section{The backend contract}{
+\section{The backend object}{
 
-\code{backend} must be built as
-\verb{structure(list(<the 10 functions>), class = c("condathis_backend_<name>", "condathis_backend"))}
+Build the backend as
+\verb{structure(list(<the functions>), class = c("condathis_backend_<name>", "condathis_backend"))}.
+S3 dispatch keys on the first class, so it must be unique to the
+backend. It must not be \code{"condathis_backend"}, \code{"default"}, \code{"list"} or
+\code{"data.frame"}: methods for those classes would also catch objects that
+are not this backend. The element names are the names of the functions
+below. The object must have \code{backend_create_env}, \code{backend_install} and
+\code{backend_resolve_run}. Each other function is optional: an element that
+is missing or \code{NULL} gets the default of condathis. Each function must
+accept every argument of its signature by name, or have a \code{...}
+argument. \code{register_backend()} checks the class and the three required
+functions. It checks that each other element of the contract is a
+function or \code{NULL}. It also checks the rule of the next paragraph and
+the arguments of the functions that are present. Extra elements are
+ignored.
+
+An object that has its own \code{backend_get_install_dir()} must also have
+its own \code{backend_get_env_dir()}, \code{backend_list_envs()} and
+\code{backend_env_exists()}. An object that has its own
+\code{backend_get_env_dir()} must also have its own \code{backend_list_envs()} and
+\code{backend_env_exists()}. Their defaults look for environments in
+\verb{<backend_root_dir(name)>/envs}, not where the backend keeps them.
+}
+
+\section{Roots}{
+
+Each backend has a root, its data directory, which \code{\link[=get_install_dir]{get_install_dir()}}
+reports. The root of the \code{"micromamba"} backend is the condathis data
+directory, \code{tools::R_user_dir("condathis", "data")}. The root of every
+other backend is the directory of its name inside it,
+\code{\link[=backend_root_dir]{backend_root_dir()}}: for example \verb{<condathis data directory>/rattler}.
+So the root of a backend can lie inside the root of micromamba. The
+names of the entries of the condathis data directory are reserved (see
+\code{name}). Each backend has its own environment directory, \verb{<root>/envs},
+and its own package caches, and never uses those of another backend.
+\code{condathis} owns \verb{<root>/conda-pkgs} in the root of every backend (see
+\emph{Child processes}), so a backend must not use that name.
+\code{\link[=with_sandbox_dir]{with_sandbox_dir()}} moves the condathis data directory, and with it
+every root that \code{\link[=backend_root_dir]{backend_root_dir()}} gives.
+}
+
+\section{What condathis passes}{
+
+\code{condathis} passes \code{backend} first and every other argument by name. It
+checks every value before it calls a backend function. \code{verbose} is
+always one of the five strings, so the defaults of the signatures below
+are never used. The values are:
 \itemize{
-\item the first class is what S3 dispatch keys on, so it must be unique to
-this backend. The 10 required element names are:
-}
-\itemize{
-\item \code{backend_create_env(backend, packages, env_file, env_name, channels, channel_priority, additional_channels, platform, overwrite, verbose)}
-\item \code{backend_install(backend, packages, env_name, channels, channel_priority, additional_channels, verbose)}
-\item \code{backend_remove_env(backend, env_name, verbose)}
-\item \code{backend_list_envs(backend, verbose)} - returns a bare character
-vector of environment names.
-\item \code{backend_env_exists(backend, env_name, verbose)} - returns a single
-logical.
-\item \code{backend_list_packages(backend, env_name, verbose)} - returns a data
-frame with at least \code{name}, \code{version}, \code{build_number}, and \code{channel}
-columns; extra backend-specific columns are allowed.
-\item \code{backend_get_env_dir(backend, env_name)} - returns the environment's
-directory path.
-\item \code{backend_get_install_dir(backend)} - returns the backend's own
-install root. Each backend must use its own separate root: directory
-placement under that root is how \code{condathis} determines which backend
-owns an existing environment.
-\item \code{backend_resolve_run(backend, cmd, args, env_name, verbose)} -
-returns \code{list(command, args, env, dir)} describing how to execute
-\code{cmd} inside \code{env_name}.
-\item \code{backend_available(backend)} - returns a single logical; gates
-\code{method = "auto"} selection for \emph{new} environments.
+\item \code{backend}: the registered backend object.
+\item \code{env_name}: a valid environment name, as described for the \code{env_name}
+argument of \code{\link[=create_env]{create_env()}}. It is a single directory name, never a
+path.
+\item \code{packages}: a character vector of package match specs, such as
+\code{"python>=3.12"}, without \code{NA} or \code{""}. \code{backend_create_env()} gets
+\code{NULL} when the request has no packages: an empty environment, or one
+built from \code{env_file}.
+\item \code{env_file}: \code{NULL}, or the path of an existing environment file. When
+it is set, \code{packages} is \code{NULL}.
+\item \code{channels}: a non-empty character vector of channel names or URLs,
+without \code{NA} or \code{""}, in priority order.
+\item \code{additional_channels}: \code{NULL}, or a character vector like \code{channels}.
+These channels come after \code{channels}.
+\item \code{channel_priority}: \code{"strict"}, \code{"flexible"} or \code{"disabled"}.
+\item \code{platform}: \code{NULL}, or one known conda platform (subdir) name, such as
+\code{"linux-64"} or \code{"osx-arm64"} (see \code{platform} in \code{\link[=create_env]{create_env()}}). It
+can still be a platform that the backend does not support. \code{NULL}
+means the native platform of the backend.
+\item \code{overwrite}: \code{TRUE} or \code{FALSE}.
+\item \code{verbose}: one of \code{"output"} (show the backend's output), \code{"silent"}
+(show nothing), \code{"cmd"} (show the command line), \code{"spinner"} (show
+only progress) or \code{"full"} (show everything, also the backend's own
+log). It is never a logical or a vector. The probes and listings that
+\code{condathis} uses to choose a backend get \code{"silent"}. \code{condathis} prints
+its own messages, such as "Environment x successfully created.", so the
+backend must not print them again.
+\item \code{cmd}: a single, non-empty string. \code{args}: a character vector.
+\item \code{base_env}: a named character vector, the environment of the command
+before activation (see \code{backend_resolve_run()}).
+\item \code{env_dir}: the absolute path of an existing directory with a
+\code{conda-meta} directory, in its real form (see
+\code{backend_resolve_run_in_dir()}).
+\item \code{timeout}: a positive number of seconds. For \code{backend_resolve_run()}
+and \code{backend_resolve_run_in_dir()}, it can also be \code{Inf} (no limit).
 }
 
-Creation/installation/removal functions signal an error condition on
-failure; their return values are not otherwise inspected. \code{condathis}
-builds its own user-facing result objects.
+\code{\link[=create_env]{create_env()}}, \code{\link[=install_packages]{install_packages()}} and \code{\link[=remove_env]{remove_env()}} hold the lock of
+the environment name (see \emph{Other R sessions} in \code{\link[=create_env]{create_env()}}). They
+hold it while they call \code{backend_create_env()}, \code{backend_install()} or
+\code{backend_remove_env()}, and during the existence checks before them. So
+no other R session that uses \code{condathis} changes the environment
+meanwhile, with any backend. They also hold the lock of the package
+caches, shared. \code{\link[=clean_cache]{clean_cache()}} holds it exclusive while it calls
+\code{backend_clean_cache()}. So no create or install of another R session
+runs while caches are deleted. A backend needs no lock of its own
+against those sessions.
+}
+
+\section{Required functions}{
+
+\itemize{
+\item \code{backend_create_env(backend, packages = NULL, env_file = NULL, env_name = "condathis-env", channels = "conda-forge", channel_priority = c("strict", "flexible", "disabled"), additional_channels = NULL, platform = NULL, overwrite = FALSE, verbose = c("output", "silent", "cmd", "spinner", "full"))} creates
+the environment in the directory that \code{backend_get_env_dir()} returns.
+\code{condathis} calls it only when that directory does not exist. That is
+the case for a new environment. It is also the case with
+\code{overwrite = TRUE}, after \code{condathis} moved the existing environment
+aside or deleted a directory that was not an environment (one left by
+a failed create). When the call fails, \code{condathis} deletes what it left
+and moves the old environment back. A call fails also when it returns a
+non-zero \code{status} or an invalid \code{link_scripts_skipped} (see \emph{Results}).
+So a misspelled spec with \code{overwrite = TRUE} does not cost the user the
+environment. \code{overwrite} tells the backend which of the two cases
+applies. With \code{env_file}, build the environment from that file. With
+\code{platform}, build it for that platform. The platform can be one that
+\code{condathis} chose because the request does not solve for the native
+platform of the backend (see \code{backend_can_solve()}). After a successful
+call, \code{condathis} writes \verb{<env_dir>/.condathis/backend.json}. It uses
+this marker as a cross-check, and the marker records the platform when
+one was given or chosen.
+
+\code{condathis} moves aside or deletes only the directory
+\verb{<backend_get_install_dir()>/envs/<env_name>}. For a backend whose
+\code{backend_get_env_dir()} returns another directory, \code{create_env()}
+cannot replace an existing environment, or delete a directory left by
+a failed create. It aborts with \code{condathis_create_env_failed}, whose
+parent has the class \code{condathis_unsafe_env_dir_move} or
+\code{condathis_unsafe_env_dir_delete}. It keeps the environment that it
+replaces in \verb{<backend_get_install_dir()>/envs/#trash} until the
+backend succeeded. No environment can have that name, so
+\code{backend_list_envs()} must leave that directory out.
+\item \code{backend_install(backend, packages, env_name = "condathis-env", channels = "conda-forge", channel_priority = c("strict", "flexible", "disabled"), additional_channels = NULL, platform = NULL, verbose = c("output", "silent", "cmd", "spinner", "full"))} installs
+\code{packages} into the existing environment \code{env_name}, solving for
+\code{platform}. \code{condathis} passes the platform recorded for the
+environment: the one in its marker or its \code{.mambarc}. On Apple Silicon
+and on Windows, \code{condathis} can choose an emulated platform (see
+\code{backend_can_solve()}). There it also reads the platform of the
+package records of an environment without a recorded one. For an
+environment without packages of a platform, it passes the platform
+that it would choose for a new environment. Otherwise, \code{platform} is
+\code{NULL}. It must not create a missing environment.
+\item \code{backend_resolve_run(backend, cmd, args = character(0L), env_name = "condathis-env", verbose = "silent", base_env = NULL, timeout = Inf)} describes, without running \code{cmd}, how to run \code{cmd}
+with \code{args} in the activated environment. \code{base_env} is the
+environment that the command gets without activation: the session's
+environment with the changes of \emph{Child processes}. Compute the
+activation against it, not against the environment of the R session.
+\code{condathis} always passes it. \code{timeout} is the number of seconds the
+function may take: what is left of the \code{timeout} of \code{\link[=run]{run()}},
+\code{\link[=run_bin]{run_bin()}} or \code{\link[=run_pipeline]{run_pipeline()}}, or \code{Inf}. If the function runs code
+to compute the activation, such as the \code{activate.d} scripts of the
+environment, that code can hang. The function should stop it when the
+time runs out, and signal an error. When the time ran out,
+\code{condathis} reports a timeout for the call (\code{timeout = TRUE}, status
+\code{-9}), whatever the function returned or signaled. It does not start
+the command. \code{timeout} is the one argument a function may leave out.
+Then \code{condathis} does not pass it, and can report the timeout only
+once the function returned.
+The function returns \code{list(command, args, env, dir)}:
+\itemize{
+\item \code{command}: a single string, the program to start: an absolute path,
+or a bare name. \code{condathis} starts a bare name the same way for every
+backend. On Linux and macOS, it is looked up on the \code{PATH} of the
+command, after \code{env} is applied. On Windows, \code{\link[=run]{run()}} and
+\code{\link[=run_pipeline]{run_pipeline()}} look it up in the binary directories of the
+environment, with the extensions of \code{PATHEXT}. Otherwise, they leave
+it to \code{processx}, which searches the working directory and the \code{PATH}
+of the R session for \verb{<name>.com} and \verb{<name>.exe}. \code{\link[=run_bin]{run_bin()}}
+searches the binary directories of the environment and then the
+\code{PATH} of the command. A bare name that is found nowhere fails to
+start.
+\item \code{args}: a character vector, or \code{NULL}. It replaces the user's
+arguments, so it must contain them.
+\item \code{env}: \code{NULL}, or a named character vector (not a list) of
+activation variables. Each entry replaces the variable of the same
+name in the environment of the command, \code{PATH} included. An \code{NA}
+entry removes the variable, for a variable that the activation
+unsets. \code{\link[=run_bin]{run_bin()}} also prepends the environment's binary
+directories to \code{PATH}.
+\item \code{dir}: \code{NULL} to keep R's working directory, or the path of an
+existing directory to run the command in.
+}
+
+\code{condathis} calls it only with activation on (\code{\link[=run]{run()}}, and \code{\link[=run_bin]{run_bin()}}
+and \code{\link[=run_pipeline]{run_pipeline()}} with \code{activate = TRUE}). It calls it only for an
+environment that this backend reported as existing. It never calls it
+for an \code{\link[=env_path]{env_path()}} environment (see \code{backend_resolve_run_in_dir()}).
+A value that breaks these rules aborts with
+\code{condathis_backend_resolve_run_invalid}.
+}
+}
+
+\section{Optional functions and their defaults}{
+
+The defaults treat the environments of a backend as conda prefixes in
+\verb{<backend_root_dir(name)>/envs}. A directory there with
+\code{conda-meta/history} is an environment, and the \verb{conda-meta/*.json}
+files are its package records.
+\itemize{
+\item \code{backend_get_install_dir(backend)} returns the backend's root: the
+absolute path of an existing directory, in its real form
+(\code{fs::path_real()}). Paths then compare equal where a temporary
+directory is a symbolic link (macOS). Create the directory when it is
+missing. Default: \code{\link[=backend_root_dir]{backend_root_dir()}}, created when missing.
+\item \code{backend_get_env_dir(backend, env_name = "condathis-env")} returns the
+absolute path of the environment directory (its prefix): the directory
+that \code{backend_create_env()} creates. It returns the path also for an
+environment that does not exist yet, and it must not create anything.
+Default: \verb{<backend_root_dir(name)>/envs/<env_name>}.
+\item \code{backend_list_envs(backend, verbose = "silent")} returns the names of
+this backend's environments: a character vector without \code{NA} or
+duplicates. Names of the vector are dropped. It returns \code{character(0)}
+when there are none, also when the backend's root does not exist yet.
+It is read only: it must not create anything, and it should not
+install or download anything. Default: the directories in
+\verb{<root>/envs} that have \code{conda-meta/history}, without symbolic links
+and without directories whose real path is elsewhere, as
+\verb{micromamba env list} reports them.
+\item \code{backend_env_exists(backend, env_name, verbose = "silent")} returns
+\code{TRUE} or \code{FALSE}: whether \code{env_name} is an environment of this
+backend. It must agree with \code{backend_list_envs()}. \code{condathis} calls it
+for every registered backend on every call that names an environment,
+whatever \code{method} is, to find the backend that owns the environment.
+So it must be cheap and must not create anything. Avoid processes and
+downloads. Report only the environments in this backend's own root:
+when two backends report the same name, \code{condathis} aborts with
+\code{condathis_backend_ambiguous_env} unless \code{method} names one of them.
+Default: \code{FALSE} when \verb{<root>/envs/<env_name>} is not a directory,
+else whether \code{backend_list_envs()} lists \code{env_name} (a file system
+that ignores case opens the directory for every spelling).
+\item \code{backend_list_packages(backend, env_name = "condathis-env", verbose = "silent")} returns a data frame (a tibble is fine) with one
+row per installed package and at least these columns: \code{name},
+\code{version}, \code{build_string}, \code{channel} and \code{platform} (character), and
+\code{build_number} (integer, or a double with whole numbers).
+\code{platform} is the subdir of the package, such as \code{"linux-64"} or
+\code{"noarch"}. Extra columns are kept. An empty environment gives zero
+rows with the same columns. \code{\link[=create_env]{create_env()}} reads these columns to
+decide whether an existing environment already has the requested
+packages and was built for the requested platform. Default: the
+package records, with the columns of \verb{micromamba list --json}, and the
+PyPI packages that pip or uv installed into the environment's python,
+as \verb{micromamba list} lists them (channel \code{pypi}, and as \code{platform} a
+tag such as \code{linux-x86_64}). See \code{\link[=list_packages]{list_packages()}}.
+\item \code{backend_remove_env(backend, env_name = "condathis-env", verbose = c("output", "silent", "cmd", "spinner", "full"))} removes the
+environment and its directory. Default: deletes \code{conda-meta/history}
+first, so the environment leaves every listing at once. Then it moves
+the directory into \verb{<root>/envs/#trash} and deletes it there. When a
+program uses one of its files (Windows), the directory cannot be
+moved. Then it deletes the files one by one, and moves each file in
+use into \verb{#trash}, where a later call deletes it. A symbolic link is
+deleted, never followed. It does not run pre-unlink scripts, and
+reports the packages that have one (see \emph{Results}). Like
+\code{create_env()}, it deletes only the directory
+\verb{<backend_get_install_dir()>/envs/<env_name>}. A backend whose
+\code{backend_get_env_dir()} returns another directory needs its own
+\code{backend_remove_env()}. Without it, \code{\link[=remove_env]{remove_env()}} aborts with
+\code{condathis_remove_env_failed}, whose parent has the class
+\code{condathis_unsafe_env_dir_delete}.
+\item \code{backend_available(backend)} returns \code{TRUE} or \code{FALSE}: whether the
+backend can create environments on this system now. It must be cheap.
+It only decides which backend \code{method = "auto"} picks for a new
+environment. \code{condathis} still lists, finds and uses the existing
+environments of an unavailable backend. Default: \code{TRUE}.
+\item \code{backend_clean_cache(backend, verbose = c("output", "silent", "cmd", "spinner", "full"))} deletes
+the package caches and the metadata caches of the backend, and nothing
+else. It returns \code{NULL} when there was nothing to clean, or a result
+list (see \emph{Results}). \code{\link[=clean_cache]{clean_cache()}} calls it for every registered
+backend, also after the function of another backend failed, and then
+deletes \verb{<root>/conda-pkgs} itself. Default: \code{NULL}.
+\item \code{backend_quiesce(backend, timeout = 30)} waits until no work of the
+backend runs in the R process any more, at most \code{timeout} seconds, and
+returns \code{TRUE} (invisibly), or \code{FALSE} with a warning when the time
+ran out. \code{condathis} calls it before \code{\link[=with_sandbox_dir]{with_sandbox_dir()}} and
+\code{\link[=clean_cache]{clean_cache()}} delete directories. An error from it, or a value other
+than \code{TRUE} or \code{FALSE}, becomes a warning of class
+\code{condathis_backend_quiesce_failed}, and \code{condathis} goes on. A backend
+that only starts processes has nothing to wait for. Default: \code{TRUE}.
+\item \code{backend_native_platform(backend)} returns the platform (subdir) that
+the backend solves for when it gets no \code{platform}, such as
+\code{"osx-arm64"}, or \code{NA} when it cannot tell. Default: \code{NA}.
+\item \code{backend_can_solve(backend, packages = NULL, env_file = NULL, channels = "conda-forge", channel_priority = c("strict", "flexible", "disabled"), additional_channels = NULL, platform)} returns \code{TRUE} when the request
+solves for \code{platform}, \code{FALSE} when it does not, and \code{NA} when it
+cannot tell, for example without network access or for a missing
+channel. It must not create an environment. \code{condathis} asks it when
+it chooses the platform of a new environment. A request that does not
+solve for the native platform uses an emulated one when it solves
+there: \code{"osx-64"} on Apple Silicon with Rosetta 2, and \code{"win-64"} on
+Windows on ARM. An error counts as \code{NA}. Default: \code{NA}, so \code{condathis}
+never chooses an emulated platform.
+\item \code{backend_resolve_run_in_dir(backend, cmd, args = character(0L), env_dir, verbose = "silent", base_env = NULL, timeout = Inf)}
+describes how to run \code{cmd} with \code{args} in the activated environment
+whose directory (its prefix) is \code{env_dir}. This is an environment
+given by \code{\link[=env_path]{env_path()}}, which \code{condathis} did not create and which may
+belong to no backend, such as one made by conda or mamba elsewhere. It
+returns \code{list(command, args, env, dir)} with the rules of
+\code{backend_resolve_run()} (also for \code{base_env} and \code{timeout}).
+\code{condathis} treats the value the same way, also when it breaks them.
+It must not change, lock or register the environment. \code{condathis}
+calls it with activation on, after it checked that \code{env_dir} exists
+and has a \code{conda-meta} directory. It calls it only when the backend
+object has this function. For a backend without it, \code{\link[=run]{run()}},
+\code{\link[=run_bin]{run_bin()}} and \code{\link[=run_pipeline]{run_pipeline()}} abort with class
+\code{condathis_env_path_unsupported_method} (also
+\code{condathis_backend_unsupported}) when \code{method} names that backend.
+\code{method = "auto"} uses the first backend in the order of the option
+\code{condathis.backend_priority} that has it (micromamba by default).
+Default: aborts with class \code{condathis_backend_unsupported}.
+}
+
+Every value is checked: a return value that breaks these rules aborts
+with \code{condathis_backend_invalid_return} (also
+\code{condathis_backend_contract_violation}), naming the backend.
+}
+
+\section{Results}{
+
+\code{backend_create_env()}, \code{backend_install()}, \code{backend_remove_env()} and
+\code{backend_clean_cache()} may return \code{NULL} or a list. \code{condathis} copies
+the elements \code{status}, \code{stdout}, \code{stderr}, \code{timeout}, \code{pid} and \code{cmd}
+when present (exact names) and ignores everything else. Any other value
+counts as an empty list. A non-zero \code{status} without an error counts as
+a failure. \code{cmd} is reported as the command line that ran, so give the
+exact command line, or leave it out. \code{condathis} shows the password and
+the token of a URL in it as \verb{*****}, as micromamba does. Hide them the
+same way in what the backend prints and in its errors.
+
+The element \code{link_scripts_skipped} of the results of
+\code{backend_create_env()}, \code{backend_install()} and \code{backend_remove_env()},
+when present, is a data frame with the character columns \code{package} and
+\code{script} (\code{"pre-link"}, \code{"post-link"} or \code{"pre-unlink"}). It holds the
+link scripts of packages that the backend did not run. \code{condathis} then
+warns with class \code{condathis_link_scripts_skipped} after the call
+succeeded, naming the packages (see \link{condathis-conditions}). A backend
+that runs every link script, as micromamba does, leaves the element
+out. Any other value aborts with \code{condathis_backend_invalid_return}.
+}
+
+\section{Missing environments}{
+
+\code{condathis} checks with \code{backend_env_exists()} that an environment
+exists before it calls \code{backend_install()}, \code{backend_remove_env()},
+\code{backend_list_packages()} and \code{backend_resolve_run()}. A missing
+environment aborts with class \code{condathis_env_not_found} before the
+backend is called. So these functions do not get a missing environment
+from \code{condathis}, except when \code{backend_env_exists()} failed. Then
+\code{condathis} calls them anyway, and they must signal an error for a
+missing environment. Give that error the class
+\code{condathis_env_not_found}. \code{condathis} keeps the \verb{condathis_*} classes
+of a backend error when it re-raises it, so one handler catches a
+missing environment on both sides. None of them may create an
+environment.
+
+Only \code{\link[=run]{run()}}, \code{\link[=run_bin]{run_bin()}}, \code{\link[=run_pipeline]{run_pipeline()}} and \code{\link[=install_packages]{install_packages()}}
+create a missing environment, and only the default \code{"condathis-env"}:
+they call \code{backend_create_env()} for an empty environment first.
+
+For a missing environment, \code{backend_env_exists()} returns \code{FALSE},
+\code{backend_list_envs()} leaves the name out, and \code{backend_get_env_dir()}
+returns the path anyway. None of them signals an error for it.
+}
+
+\section{Errors}{
+
+Signal an error of any class when an operation fails. \code{condathis}
+re-raises it with the classes \verb{condathis_<function>_failed} (for example
+\code{condathis_create_env_failed}) and \code{condathis_backend_error}, plus every
+\verb{condathis_*} class of your error. It keeps your error as the parent.
+Handlers still find your own classes with \code{rlang::cnd_inherits()}. When
+you cannot honor an argument (for example \code{env_file}, or
+\code{channel_priority = "flexible"}), also give your condition the class
+\code{condathis_backend_unsupported}.
+
+Do not give your own conditions the class \code{condathis_backend_error}:
+\code{condathis} adds it when it re-raises your error. An error that has it
+anyway is re-raised like any other error.
+
+An error from \code{backend_env_exists()} means "cannot tell", never
+"absent". A call that would change the environment then aborts with
+\code{condathis_backend_probe_failed}. A query warns with
+\code{condathis_backend_query_failed} and skips the backend.
+
+See \link{condathis-conditions} for every class.
+}
+
+\section{Channels}{
+
+Search only the channels in \code{channels} and \code{additional_channels}, in that
+order, and no default channels. \code{channel_priority} has its Conda
+meaning. The \code{channel} column of \code{backend_list_packages()} is the
+channel name, as micromamba reports it (for example \code{"conda-forge"}), or
+the channel URL. \code{condathis} compares \verb{https://conda.anaconda.org/<name>}
+equal to \verb{<name>}, and drops credentials (\verb{user:password@},
+\verb{/t/<token>}) and a platform subdirectory. It compares a \verb{file://}
+channel by its absolute path.
+}
+
+\section{Child processes}{
+
+\code{condathis} starts \code{command} with a copy of the session's environment
+in which the \verb{CONDA_*} and \verb{MAMBA_*} variables listed in
+\link{condathis-options} are cleared. It then applies \code{env}. For commands of
+every backend other than \code{"micromamba"}, \code{CONDA_ENVS_PATH} is the
+parent directory of the environment directory from
+\code{backend_get_env_dir()}, so a Conda tool run in the environment creates
+named environments next to it. \code{CONDA_PKGS_DIRS} and \code{MAMBA_PKGS_DIRS}
+are \verb{<root>/conda-pkgs} for them when that parent directory is
+\verb{<root>/envs}, and \code{""} otherwise. A Conda tool run in the environment
+keeps its package cache in the backend's root, never in the user's home
+directory or in the cache of another backend. \code{\link[=clean_cache]{clean_cache()}} empties
+it. For an environment given by \code{\link[=env_path]{env_path()}}, they have the values of
+the backend's own environments (those of \code{"condathis-env"}), not of the
+directory that holds it. The \code{"micromamba"} backend sets these
+variables to the \verb{envs/} and \verb{pkgs/} directories of its own root. A
+backend whose commands need other values returns them in \code{env}.
 }
 
 \section{Registering from a backend package}{
 
-Register from your package's \code{.onLoad()}, and \emph{also} hook \code{condathis}'s
-own load event: the registry lives inside \code{condathis}'s namespace, so if
-\code{condathis} is ever unloaded and reloaded after your package registered,
-the registration would silently be lost without the hook. The combined
-pattern covers both load orders:
+Put \code{condathis} in \code{Imports}, so it is loaded before your package, and
+register from your package's \code{.onLoad()}. Also register from a hook on
+the \code{condathis} load event. The registry lives in the \code{condathis}
+namespace, so a registration is lost when \code{condathis} is unloaded and
+loaded again, as during development with \code{pkgload::load_all()}. The hook
+registers the backend on every later load of \code{condathis}. The hook list
+belongs to base R and outlives your package, so \code{.onUnload()} must
+remove the hook. Otherwise, the next load of \code{condathis} registers the
+functions of an unloaded namespace.
 
-\if{html}{\out{<div class="sourceCode r">}}\preformatted{.onLoad <- function(libname, pkgname) \{
-  register_self <- function(...) \{
-    condathis::register_backend("mybackend", new_backend_mybackend())
-  \}
-  if (requireNamespace("condathis", quietly = TRUE)) \{
-    register_self()
-  \}
-  setHook(packageEvent("condathis", "onLoad"), register_self)
+\if{html}{\out{<div class="sourceCode r">}}\preformatted{register_mybackend <- function(...) \{
+  condathis::register_backend("mybackend", new_backend_mybackend())
+\}
+
+.onLoad <- function(libname, pkgname) \{
+  register_mybackend()
+  setHook(packageEvent("condathis", "onLoad"), register_mybackend)
   invisible(NULL)
 \}
 
 .onUnload <- function(libpath) \{
+  hook <- packageEvent("condathis", "onLoad")
+  setHook(
+    hook,
+    Filter(function(h) !identical(h, register_mybackend), getHook(hook)),
+    action = "replace"
+  )
   if (isNamespaceLoaded("condathis")) \{
     condathis::unregister_backend("mybackend")
   \}
+  invisible(NULL)
 \}
 }\if{html}{\out{</div>}}
+
+\code{register_mybackend()} must be a function at the top level of your
+package, so that \code{identical()} finds it. A function created inside
+\code{.onLoad()} is a new object every time. Call \code{condathis} functions with
+\verb{condathis::} instead of importing them in your \code{NAMESPACE}. After a
+reload of \code{condathis}, imported copies would be the functions of the
+old namespace.
+
+\code{register_backend()} validates the backend, so after a \code{condathis}
+upgrade that changes the contract, the call in \code{.onLoad()} fails and
+your package does not load. The error names what to change. R runs the
+hook under \code{try()}, so a failing hook only prints its error and
+\code{condathis} still loads.
+
+\code{condathis} knows some backend packages by name: \code{rattlerthis} provides
+the backend \code{"rattler"}. \code{condathis} loads such a package when it is
+installed and one of these holds:
+\itemize{
+\item \code{method} names its backend.
+\item Its backend has environments (a directory in
+\verb{<backend_root_dir(name)>/envs}), so that \code{method = "auto"} finds them
+without a call to \code{library()}.
+\item The option \code{condathis.backend_priority} names its backend, and
+\code{method = "auto"} chooses the backend of a new environment.
+}
+
+\code{condathis} does not depend on these packages. When such a package is
+not installed, or fails to load, a \code{method} that names its backend
+aborts with class \code{condathis_backend_not_installed} or
+\code{condathis_backend_load_failed}. A change to one of its environments
+aborts the same way. The queries skip its environments with a warning of
+the same class (see \link{condathis-conditions}). The package must register
+its backend from its \code{.onLoad()}. A package that loads without
+registering it counts as failed.
 }
 
 \examples{
-\dontrun{
-# Inside a backend package's .onLoad() (see the registration section
-# for the full, load-order-safe pattern):
-condathis::register_backend("mybackend", new_backend_mybackend())
+# A minimal backend: the three required functions, which this example
+# does not implement. It reports that it is unavailable, so
+# `method = "auto"` never selects it. condathis supplies the other
+# functions: they look for environments in
+# `backend_root_dir("mybackend")/envs`. A backend package builds this
+# object in its own constructor, for example `new_backend_mybackend()` in
+# *Registering from a backend package* of `?register_backend`.
+not_implemented <- function(...) {
+  stop("Not implemented by this example backend.")
 }
+mybackend <- structure(
+  list(
+    backend_create_env = not_implemented,
+    backend_install = not_implemented,
+    backend_resolve_run = not_implemented,
+    backend_available = function(backend) FALSE
+  ),
+  class = c("condathis_backend_mybackend", "condathis_backend")
+)
 
+condathis::register_backend("mybackend", mybackend)
+condathis::list_registered_backend_names()
+
+condathis::unregister_backend("mybackend")
+condathis::list_registered_backend_names()
 }
 \seealso{
-\code{\link[=unregister_backend]{unregister_backend()}}, \code{\link[=list_registered_backend_names]{list_registered_backend_names()}}
+\link{condathis-conditions} for the condition classes, and
+\link{condathis-options} for the variables of child processes.
+
+Other backends:
+\code{\link[=backend_root_dir]{backend_root_dir()}},
+\code{\link[=list_registered_backend_names]{list_registered_backend_names()}},
+\code{\link[=unregister_backend]{unregister_backend()}}
 }
+\concept{backends}

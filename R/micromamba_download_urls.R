@@ -6,12 +6,16 @@
 #' @param sys_arch_str Character string. The platform slug returned by
 #'   `is_micromamba_available_for_arch()`, e.g., `"osx-arm64"`, `"linux-64"`.
 #' @param micromamba_version Character string. The version to download,
-#'   e.g., `"2.8.1-0"`.
+#'   e.g., `"2.10.0-0"`.
 #'
 #' @returns A named list with:
 #'   - `compressed`: Character vector of `.tar.bz2` archive endpoints.
 #'   - `uncompressed`: Character vector of raw binary endpoints.
-#'   - `sha256`: Character vector of SHA256 checksum endpoints.
+#'   - `sha256`: Character vector of SHA256 checksum endpoints of the
+#'     binary.
+#'   - `archive_sha256`: Character vector of the endpoints of the
+#'     `.tar.bz2.sha256` files, for `verify_micromamba_checksum()` when no
+#'     checksum of the binary is published.
 #'
 #' @keywords internal
 #' @noRd
@@ -19,7 +23,7 @@ get_micromamba_urls <- function(sys_arch_str, micromamba_version) {
   github_base <- "https://github.com/mamba-org/micromamba-releases/releases"
 
   # Parse version components for conda-forge URL format
-  # Version format, e.g.: "2.8.1-0" -> version "2.8.1", build "0"
+  # Version format, e.g.: "2.10.0-0" -> version "2.10.0", build "0"
   version_parts <- strsplit(micromamba_version, "-", fixed = TRUE)[[1L]]
   version_num <- version_parts[1L]
   build_num <- version_parts[2L]
@@ -96,9 +100,18 @@ get_micromamba_urls <- function(sys_arch_str, micromamba_version) {
 
   sha256_urls <- sha256_url
 
+  # The `.tar.bz2.sha256` file holds the hash of the binary too, for most
+  # releases and platforms. For 2.8.1-0 on win-arm64, which publishes no
+  # `.sha256` file, it holds the hash of the archive, the conda-forge
+  # package that every compressed mirror serves (checked on 2026-10-29). So
+  # it is read only when the `.sha256` file cannot be, and either hash
+  # verifies (see `verify_micromamba_checksum()`).
+  archive_sha256_urls <- paste0(github_compressed, ".sha256")
+
   return(list(
     compressed = compressed_urls,
     uncompressed = uncompressed_urls,
-    sha256 = sha256_urls
+    sha256 = sha256_urls,
+    archive_sha256 = archive_sha256_urls
   ))
 }

@@ -4,3 +4,61 @@ template:
   light-switch: true
   llm-docs: true
 
+reference:
+  - title: Run command line tools
+    desc: Run a command, or a pipeline of commands, in a Conda environment.
+    contents:
+      - run
+      - run_bin
+      - run_pipeline
+      - run_step
+      - parse_output
+  - title: Manage environments
+    desc: Create, change, check, list and remove Conda environments.
+    contents:
+      - create_env
+      - install_packages
+      - remove_env
+      - validate_env
+      - env_exists
+      - list_envs
+      - list_packages
+      - get_env_dir
+      - env_path
+  - title: "Setup: micromamba, data directories and caches"
+    desc: >-
+      Install and locate the micromamba binary that condathis uses, find
+      the data directory of each backend, clean the package caches, run
+      code with temporary home and data directories, and report the
+      operating system and CPU architecture.
+    contents:
+      - install_micromamba
+      - micromamba_bin_path
+      - get_install_dir
+      - clean_cache
+      - with_sandbox_dir
+      - get_sys_arch
+  - title: Backends
+    desc: Add, remove and inspect backends that create and run environments.
+    contents:
+      - register_backend
+      - unregister_backend
+      - list_registered_backend_names
+      - backend_root_dir
+  - title: Options and conditions
+    desc: >-
+      The options and environment variables that condathis reads or sets,
+      and the classes of the conditions it signals.
+    contents:
+      - condathis-options
+      - condathis-conditions
+
+articles:
+  - title: Worked examples
+    navbar: ~
+    contents:
+      - articles/python-and-reticulate
+      - articles/whole-slide-images
+
+redirects:
+  - ["articles/condathis-intro.html", "articles/condathis.html"]

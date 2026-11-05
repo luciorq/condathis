@@ -15,6 +15,14 @@
 #' - **Fuzzy matching:** `=1.2` matches any version starting with `1.2`
 #'   (e.g., `1.2.3`, `1.2.0`). `==1.2.*` and `=1.2.*` also work.
 #' - **Compatible release:** `~=1.4.2` is equivalent to `>=1.4.2,=1.4.*`.
+#' - **Globs after an operator:** `>=1.3.*` is `>=1.3`, as in micromamba.
+#'   Any other `*` after `>=` (`>=1.3*`, `>=1.3.*.*`), a glob after `>`,
+#'   `<`, `<=` or `~=`, a `*` that is not a trailing glob (`1.*.5`,
+#'   `1.3.*.*`), `!=1.3*`, `=1.3*`, `~=1`, an operator with no version
+#'   (`>=*`, the `>=` of `>=,<2`), a missing operand (`>=1.3,`) or
+#'   parenthesis, and a version that micromamba rejects (`>==1.3`) are not
+#'   compared: micromamba and conda read them differently, so such a spec
+#'   is never satisfied (see `version_spec_is_compared()`).
 #' - **Epoch:** Optional `N!` prefix (e.g., `1!2.0`).
 #' - **Version atoms:** Segments split by `.`/`-`/`_`, with atoms of alternating
 #'   digit/letter runs. Special ordering: `dev < _ < regular < "" < post`.
@@ -41,11 +49,14 @@ version_spec_contains <- function(version_string, spec_string) {
       !is.character(version_string) ||
       !identical(length(version_string), 1L)
   ) {
-    cli::cli_abort(
+    condathis_abort(
       message = c(
         `x` = "{.arg version_string} must be a single character string."
       ),
-      class = "condathis_version_spec_contains_invalid_input"
+      class = c(
+        "condathis_version_spec_contains_invalid_input",
+        "condathis_invalid_arg"
+      )
     )
   }
   if (
@@ -53,17 +64,78 @@ version_spec_contains <- function(version_string, spec_string) {
       !is.character(spec_string) ||
       !identical(length(spec_string), 1L)
   ) {
-    cli::cli_abort(
+    condathis_abort(
       message = c(
         `x` = "{.arg spec_string} must be a single character string."
       ),
-      class = "condathis_version_spec_contains_invalid_input"
+      class = c(
+        "condathis_version_spec_contains_invalid_input",
+        "condathis_invalid_arg"
+      )
     )
   }
 
   parsed_ver <- vs_parse_ver(version_string)
   spec_tree <- vs_parse_spec_expr(spec_string)
+  # One uncompared predicate makes the whole spec uncompared, also in an
+  # OR: `">1.3.*|<1"` is never satisfied.
+  if (isTRUE(vs_has_uncompared(spec_tree))) {
+    return(FALSE)
+  }
   return(vs_eval_spec(spec_tree, parsed_ver))
+}
+
+#' Can a VersionSpec be compared?
+#'
+#' A spec with a glob after `>`, `<`, `<=` or `~=`, a `*` after `>=` other
+#' than one trailing `.*`, a `*` that is not a trailing glob, `!=` with a
+#' `*` but no `.*`, `=` with a `*` but no `.*`, `~=` with a one-part
+#' version, an operator with no version, a missing operand or parenthesis,
+#' or a version that micromamba rejects, is not compared:
+#' `version_spec_contains()` never reports it as satisfied (see
+#' `vs_parse_predicate()` and `vs_parse_primary_expr()`).
+#'
+#' @param spec_string A character string containing the VersionSpec.
+#'
+#' @returns `TRUE` or `FALSE`.
+#'
+#' @keywords internal
+#' @noRd
+version_spec_is_compared <- function(spec_string) {
+  return(isFALSE(vs_has_uncompared(vs_parse_spec_expr(spec_string))))
+}
+
+#' Does a VersionSpec AST have an uncompared predicate?
+#'
+#' @param node An AST node (from `vs_parse_spec_expr`).
+#' @returns Logical scalar.
+#'
+#' @keywords internal
+#' @noRd
+vs_has_uncompared <- function(node) {
+  if (identical(node$type, "predicate")) {
+    return(identical(node$op, "uncompared"))
+  }
+  return(any(vapply(node$children, vs_has_uncompared, logical(1L))))
+}
+
+#' Is a string a version that micromamba accepts?
+#'
+#' An optional epoch (`1!`), then parts of letters and digits separated by
+#' `.`, `_` or `-`, and an optional local version after `+` of the same
+#' form. Anything else is not compared: micromamba rejects most of it
+#' (`1..2`, `1.3.0+`, `!`), and reads the rest, such as a trailing `.` in
+#' `>=1.3.`, its own way.
+#'
+#' @param x A character string: a version without operator or glob.
+#'
+#' @returns `TRUE` or `FALSE`.
+#'
+#' @keywords internal
+#' @noRd
+vs_is_version_string <- function(x) {
+  part <- "[0-9A-Za-z]+([._-][0-9A-Za-z]+)*"
+  return(isTRUE(grepl(paste0("^([0-9]+!)?", part, "(\\+", part, ")?$"), x)))
 }
 
 
@@ -86,13 +158,13 @@ vs_parse_ver <- function(str) {
 
   # Parse epoch
 
-  epoch <- 0L
+  epoch <- 0
   bang_pos <- regexpr("!", str, fixed = TRUE)
   if (isTRUE(as.integer(bang_pos) > 0L)) {
     epoch_str <- substring(str, 1L, as.integer(bang_pos) - 1L)
-    epoch <- suppressWarnings(as.integer(epoch_str))
+    epoch <- suppressWarnings(as.numeric(epoch_str))
     if (is.na(epoch)) {
-      epoch <- 0L
+      epoch <- 0
     }
     str <- substring(str, as.integer(bang_pos) + 1L)
   }
@@ -142,7 +214,7 @@ vs_parse_ver_parts <- function(str) {
 
 #' Parse a single version segment into atoms
 #'
-#' Alternates between digit runs (parsed as integers) and letter runs
+#' Alternates between digit runs (parsed as doubles) and letter runs
 #' (lowercased). If the segment starts with letters, an implicit leading
 #' zero is prepended.
 #'
@@ -153,7 +225,7 @@ vs_parse_ver_parts <- function(str) {
 #' @noRd
 vs_parse_ver_segment <- function(str) {
   if (rlang::is_null(str) || identical(str, "")) {
-    return(list(list(num = 0L, lit = "")))
+    return(list(list(num = 0, lit = "")))
   }
 
   atoms <- list()
@@ -169,18 +241,23 @@ vs_parse_ver_segment <- function(str) {
       end <- end + 1L
     }
     lit_val <- tolower(substring(str, pos, end - 1L))
-    atoms <- c(atoms, list(list(num = 0L, lit = lit_val)))
+    atoms <- c(atoms, list(list(num = 0, lit = lit_val)))
     pos <- end
   }
 
   while (isTRUE(pos <= n)) {
+    atom_start <- pos
     # Consume digit run
     digit_start <- pos
     while (isTRUE(pos <= n) && isTRUE(grepl("[0-9]", chars[pos]))) {
       pos <- pos + 1L
     }
     num_str <- substring(str, digit_start, pos - 1L)
-    num_val <- if (identical(num_str, "")) 0L else as.integer(num_str)
+    # Doubles, not integers: libmamba stores numerals as `size_t`, and
+    # timestamp-style versions (`0.0.20240101123456`) exceed R's integer
+    # range. `as.integer()` turned them into `NA` (with a warning), and `NA`
+    # numerals compared as equal to anything. Doubles are exact to 2^53.
+    num_val <- if (identical(num_str, "")) 0 else as.numeric(num_str)
 
     # Consume letter run
     lit_start <- pos
@@ -189,11 +266,18 @@ vs_parse_ver_segment <- function(str) {
     }
     lit_val <- tolower(substring(str, lit_start, pos - 1L))
 
+    # Neither a digit nor a letter, such as `*`: one literal atom, so the
+    # loop always moves on. It looped forever on `"1.3.*"` before.
+    if (identical(pos, atom_start)) {
+      lit_val <- chars[pos]
+      pos <- pos + 1L
+    }
+
     atoms <- c(atoms, list(list(num = num_val, lit = lit_val)))
   }
 
   if (identical(length(atoms), 0L)) {
-    return(list(list(num = 0L, lit = "")))
+    return(list(list(num = 0, lit = "")))
   }
 
   return(atoms)
@@ -263,7 +347,7 @@ vs_cmp_atoms <- function(a, b) {
     return(1L)
   }
 
-  # Same priority class - if both are regular strings (priority 0),
+  # Same priority class: if both are regular strings (priority 0),
   # compare lexicographically
   if (identical(pa, 0L)) {
     if (isTRUE(a$lit < b$lit)) {
@@ -289,7 +373,7 @@ vs_cmp_atoms <- function(a, b) {
 #' @keywords internal
 #' @noRd
 vs_cmp_segments <- function(sa, sb) {
-  default_atom <- list(num = 0L, lit = "")
+  default_atom <- list(num = 0, lit = "")
   len <- max(length(sa), length(sb))
 
   for (i in seq_len(len)) {
@@ -316,7 +400,7 @@ vs_cmp_segments <- function(sa, sb) {
 #' @keywords internal
 #' @noRd
 vs_cmp_parts <- function(pa, pb) {
-  default_segment <- list(list(num = 0L, lit = ""))
+  default_segment <- list(list(num = 0, lit = ""))
   len <- max(length(pa), length(pb))
 
   if (identical(len, 0L)) {
@@ -421,21 +505,16 @@ vs_parts_starts_with <- function(candidate_parts, prefix_parts) {
     return(TRUE)
   }
 
-  # The candidate must have at least as many segments as the prefix
-  # (No - actually in libmamba, if candidate has fewer segments, the missing
-
-  # ones are padded with default (0,""). The prefix segments must match.)
-  # But for starts_with, the behavior is: prefix segments are checked against
-  # candidate segments. If candidate has fewer, padding with (0,"") applies.
-  # A prefix segment [(0,"")] (the default) will match any candidate segment
-  # that also equals (0,"") via padding.
+  # Match each prefix segment against the candidate segment. Like libmamba,
+  # pad a shorter candidate with the default (0,""). A default prefix segment
+  # [(0,"")] matches any candidate segment that equals (0,"") after padding.
 
   for (i in seq_along(prefix_parts)) {
     ref_seg <- prefix_parts[[i]]
     cand_seg <- if (isTRUE(i <= length(candidate_parts))) {
       candidate_parts[[i]]
     } else {
-      list(list(num = 0L, lit = ""))
+      list(list(num = 0, lit = ""))
     }
     if (isFALSE(vs_segment_starts_with(cand_seg, ref_seg))) {
       return(FALSE)
@@ -459,7 +538,7 @@ vs_parts_starts_with <- function(candidate_parts, prefix_parts) {
 #' @keywords internal
 #' @noRd
 vs_segment_starts_with <- function(cand_seg, ref_seg) {
-  default_atom <- list(num = 0L, lit = "")
+  default_atom <- list(num = 0, lit = "")
 
   for (i in seq_along(ref_seg)) {
     ref_atom <- ref_seg[[i]]
@@ -527,12 +606,12 @@ vs_ver_compatible_with <- function(v, ref) {
     ref_seg <- if (isTRUE(i <= length(ref$segments))) {
       ref$segments[[i]]
     } else {
-      list(list(num = 0L, lit = ""))
+      list(list(num = 0, lit = ""))
     }
     cand_seg <- if (isTRUE(i <= length(v$segments))) {
       v$segments[[i]]
     } else {
-      list(list(num = 0L, lit = ""))
+      list(list(num = 0, lit = ""))
     }
     seg_cmp <- vs_cmp_segments(cand_seg, ref_seg)
     if (!identical(seg_cmp, 0L)) {
@@ -586,6 +665,10 @@ vs_parse_spec_expr <- function(spec_str) {
   env$pos <- 1L
 
   result <- vs_parse_and_expr(env)
+  # Tokens left over, as after the `)` of `>=1.3)`: not compared.
+  if (isTRUE(env$pos <= length(env$tokens))) {
+    return(list(type = "predicate", op = "uncompared", ver = NULL))
+  }
   return(result)
 }
 
@@ -713,22 +796,30 @@ vs_parse_or_expr <- function(env) {
 #' @keywords internal
 #' @noRd
 vs_parse_primary_expr <- function(env) {
+  # A missing operand, as in `>=1.3,`, `>=1,,<2`, `|<2` or `()`, is not
+  # compared: micromamba rejects it. A `,`, `|` or `)` is left for the
+  # caller.
+  uncompared <- list(type = "predicate", op = "uncompared", ver = NULL)
   if (isTRUE(env$pos > length(env$tokens))) {
-    # Unexpected end - return a free predicate
-    return(list(type = "predicate", op = "free", ver = NULL))
+    return(uncompared)
   }
 
   tok <- env$tokens[env$pos]
+  if (isTRUE(tok %in% c(",", "|", ")"))) {
+    return(uncompared)
+  }
 
   if (identical(tok, "(")) {
     env$pos <- env$pos + 1L
     node <- vs_parse_and_expr(env)
-    # Consume closing paren
+    # Consume closing paren; without one, the group is not compared.
     if (
       isTRUE(env$pos <= length(env$tokens)) &&
         identical(env$tokens[env$pos], ")")
     ) {
       env$pos <- env$pos + 1L
+    } else {
+      return(uncompared)
     }
     return(node)
   }
@@ -759,6 +850,51 @@ vs_parse_predicate <- function(atom_str) {
       identical(atom_str, "==*")
   ) {
     return(list(type = "predicate", op = "free", ver = NULL))
+  }
+
+  # A glob after a range operator: micromamba 2.9.0 and 2.10.0 read
+  # `>=1.3.*` as `>=1.3`, but compare any other `*` after `>=`, as in
+  # `>=1.3*` or `>=1.3.*.*`, as the lowest version, so pre-releases of 1.3
+  # match too. `>1.3.*`, `<1.3.*`, `<=1.3.*` and `~=1.2.*` match no
+  # version, while conda drops the glob. With no known answer, such a
+  # predicate is "uncompared" and never satisfied. So is a `*` that is not
+  # a trailing glob, as in `1.*.5`, `!=1.3*`, which micromamba reads as a
+  # literal version (conda as "does not start with"), and an operator with
+  # no version: micromamba reads `>=*` as any version and rejects the `>=`
+  # of `>=,<2`. Also not compared: `=1.3*`, a glob without a dot after
+  # `=`, which micromamba reads as 1.3 followed by more version parts (so
+  # not 1.3 itself), `~=` with a one-part version (`~=1`), which matches no
+  # version in micromamba, and a version that micromamba rejects, such as
+  # `=1.3` after `>=` (`>==1.3`), `1.3.0+` or `!`.
+  operator <- regmatches(
+    atom_str,
+    regexpr("^(>=|>|<=|<|~=|!=|==|=)", atom_str)
+  )
+  if (identical(length(operator), 0L)) {
+    operator <- ""
+  }
+  ver_str <- trimws(substring(atom_str, nchar(operator) + 1L))
+  if (identical(operator, ">=")) {
+    ver_str <- sub("\\.\\*$", "", ver_str)
+    atom_str <- paste0(">=", ver_str)
+  }
+  rest <- ver_str
+  if (isTRUE(operator %in% c("==", ""))) {
+    rest <- if (isTRUE(grepl("\\.\\*$", rest))) {
+      sub("\\.\\*$", "", rest)
+    } else {
+      sub("\\*$", "", rest)
+    }
+  } else if (isTRUE(operator %in% c("=", "!="))) {
+    rest <- sub("\\.\\*$", "", rest)
+  }
+  if (
+    isTRUE(grepl("*", rest, fixed = TRUE)) ||
+      isFALSE(vs_is_version_string(rest)) ||
+      (identical(operator, "~=") &&
+        isFALSE(grepl("[._-]", sub("\\+.*$", "", sub("^[0-9]+!", "", rest)))))
+  ) {
+    return(list(type = "predicate", op = "uncompared", ver = NULL))
   }
 
   # Detect operator prefix (order matters: longer prefixes first)
@@ -804,18 +940,9 @@ vs_parse_predicate <- function(atom_str) {
   }
   if (isTRUE(startsWith(atom_str, "!="))) {
     ver_str <- substring(atom_str, 3L)
-    # Check for glob suffix .* or trailing *
+    # Check for glob suffix .* (a trailing * without the dot is uncompared)
     if (isTRUE(grepl("\\.\\*$", ver_str))) {
       cleaned <- sub("\\.\\*$", "", ver_str)
-      return(list(
-        type = "predicate",
-        op = "not_starts_with",
-        ver = vs_parse_ver(cleaned)
-      ))
-    }
-    if (isTRUE(grepl("\\*$", ver_str)) && !identical(ver_str, "*")) {
-      cleaned <- sub("\\*$", "", ver_str)
-      cleaned <- sub("\\.$", "", cleaned)
       return(list(
         type = "predicate",
         op = "not_starts_with",
@@ -934,7 +1061,7 @@ vs_eval_spec <- function(node, parsed_ver) {
     return(FALSE)
   }
 
-  # Unknown node type - should not happen
+  # Unknown node type: unreachable
   return(FALSE)
 }
 
@@ -953,6 +1080,9 @@ vs_eval_predicate <- function(pred, parsed_ver) {
 
   if (identical(op, "free")) {
     return(TRUE)
+  }
+  if (identical(op, "uncompared")) {
+    return(FALSE)
   }
 
   cmp <- vs_cmp_versions(parsed_ver, ref)

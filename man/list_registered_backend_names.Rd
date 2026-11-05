@@ -2,7 +2,7 @@
 % Please edit documentation in R/backend.R
 \name{list_registered_backend_names}
 \alias{list_registered_backend_names}
-\title{List every currently registered backend name}
+\title{List the registered backends}
 \usage{
 list_registered_backend_names()
 }
@@ -10,16 +10,27 @@ list_registered_backend_names()
 A sorted character vector of registered backend names.
 }
 \description{
-Returns the names of every backend currently registered with
-\code{\link[=register_backend]{register_backend()}}, whether or not each is currently available
-on this system. These are the valid values for the \code{method}
-argument of \code{condathis}'s environment-management functions, alongside
-\code{"auto"}. \code{"micromamba"}, the built-in backend, is always present.
+Returns the names of every backend registered with \code{\link[=register_backend]{register_backend()}},
+available on this system or not. Each one is a valid \code{method} value of
+every \code{condathis} function that takes \code{method}, besides \code{"auto"}. The
+built-in \code{"micromamba"} backend is always registered.
+}
+\details{
+A backend whose package \code{condathis} knows, such as \code{"rattler"} of the
+\code{rattlerthis} package, is also a valid \code{method} value when its package
+is installed but not loaded yet. \code{condathis} loads the package on first
+use (see \emph{Registering from a backend package} in \code{\link[=register_backend]{register_backend()}}).
+It is listed here once it is loaded. The error for an invalid \code{method}
+value names these backends too.
 }
 \examples{
 condathis::list_registered_backend_names()
 
 }
 \seealso{
-\code{\link[=register_backend]{register_backend()}}, \code{\link[=unregister_backend]{unregister_backend()}}
+Other backends:
+\code{\link[=backend_root_dir]{backend_root_dir()}},
+\code{\link[=register_backend]{register_backend()}},
+\code{\link[=unregister_backend]{unregister_backend()}}
 }
+\concept{backends}

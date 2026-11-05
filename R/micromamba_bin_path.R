@@ -1,23 +1,26 @@
-#' Get the managed `micromamba` binary path
+#' Get the path of the managed micromamba binary
 #'
-#' Returns the expected path to the `micromamba` executable managed by
-#' `condathis` for the current operating system.
+#' Returns the path of the `micromamba` executable that
+#' [install_micromamba()] installs, in the condathis data directory (see
+#' [get_install_dir()]). It is the third candidate of *micromamba
+#' discovery* in [condathis-options], after the `condathis.micromamba_path`
+#' option and the `CONDATHIS_MICROMAMBA_PATH` variable.
 #'
-#' @returns A character string with the full executable path.
-#'   On Windows this points to `micromamba.exe` under `Library/bin`.
-#'   On other platforms this points to `micromamba` under `bin`.
-#'   This is purely a computed, expected path - it does not check whether a
-#'   file actually exists there yet (unlike `get_install_dir()`, which
-#'   creates its directory before returning). Use `fs::file_exists()` on
-#'   the result, or `install_micromamba()`, if you need the binary to
-#'   actually be present.
+#' @returns An `fs_path`, the full path of the executable:
+#'   `micromamba/bin/micromamba` in the condathis data directory, or
+#'   `micromamba/Library/bin/micromamba.exe` on Windows. It does not check
+#'   that a file exists there. Like [get_install_dir()], it creates the
+#'   condathis data directory when it is missing. Use [fs::file_exists()] on
+#'   the result to check that the binary is present, or
+#'   [install_micromamba()] to install it.
 #'
 #' @examples
 #' condathis::with_sandbox_dir({
-#'   # Retrieve the path used by condathis for micromamba
-#'   micromamba_path <- condathis::micromamba_bin_path()
-#'   print(micromamba_path)
+#'   # The path where condathis installs micromamba
+#'   print(condathis::micromamba_bin_path())
 #' })
+#'
+#' @family setup
 #'
 #' @export
 micromamba_bin_path <- function() {

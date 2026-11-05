@@ -22,7 +22,8 @@ testthat::test_that("Output redirection to file", {
   testthat::expect_true(
     fs::file_exists(temp_output_file)
   )
-  testthat::expect_null(px_res$stdout)
+  # An uncaptured stream is `NA`, as documented for `condathis_result`.
+  testthat::expect_true(is.na(px_res$stdout))
   fs::file_delete(temp_output_file)
   # })
 
@@ -63,7 +64,7 @@ testthat::test_that("Output redirection to file", {
   testthat::expect_true(
     fs::file_exists(temp_output_file)
   )
-  testthat::expect_null(px_res$stderr)
+  testthat::expect_true(is.na(px_res$stderr))
   fs::file_delete(temp_output_file)
   remove_env(env_name = "condathis-output-test-env", verbose = FALSE)
 })
