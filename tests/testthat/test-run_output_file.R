@@ -2,7 +2,11 @@ testthat::test_that("Output redirection to file", {
   testthat::skip_if_offline()
   testthat::skip_on_cran()
 
-  create_env(env_name = "condathis-output-test-env", verbose = "silent")
+  create_env(
+    test_os_pkg("coreutils"),
+    env_name = "condathis-output-test-env",
+    verbose = "silent"
+  )
   temp_output_file <- fs::file_temp("test_output", ext = "txt")
   px_res <- run(
     "ls",

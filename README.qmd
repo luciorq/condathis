@@ -164,11 +164,18 @@ The integration of `micromamba` into `R` is handled using the `processx` and `wi
 
 Special characters in CLI commands are interpreted as literals and not expanded.
 
-* It is not supported the use of output redirections in commands, e.g. "|" or ">".
-  * Instead of redirects (e.g. ">"), use the argument `stdout = "<FILENAME>.txt"`.
-    Instead of Pipes ("|"), simple run multiple calls to `condathis::run()`,
-    using `stdout` argument to control the output and `stdin` to control the input of each command.
-    P.S. The current implementation only supports files as the "STDIN".
+* Shell-style output redirection syntax (e.g. "|" or ">") inside a single
+  command string is interpreted literally, not expanded.
+  * Instead of redirects (e.g. ">"), use the `stdout`/`stderr` arguments
+    (a file path redirects to that file).
+  * Instead of shell pipes (e.g. "cmd1 | cmd2"), use `condathis::run_pipeline()`
+    to connect commands (optionally each in its own Conda environment) via
+    kernel-level pipes, or run multiple calls to `condathis::run()` using
+    `stdout`/`stdin` file arguments to pass data between them.
+  * `stdin` accepts a file path, or `"|"` together with the `input`
+    argument to write in-memory data (character or raw vector) directly to
+    a command's standard input — supported by `run()`, `run_bin()`, and
+    `run_pipeline()`.
 
 * File paths should not use special characters for relative paths, e.g. "~", ".", "..".
   * Expand file paths directly in R, using `base` functions

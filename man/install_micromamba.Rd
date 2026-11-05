@@ -30,7 +30,18 @@ Supported values are \code{"output"}, \code{"silent"}, \code{"cmd"}, \code{"spin
 and \code{"full"}. Defaults to \code{"output"}.}
 }
 \value{
-The installed micromamba binary path, invisibly.
+The installed micromamba binary path (a \code{fs_path}/character
+string), invisibly — not a \code{condathis_result} object like \code{run()},
+\code{run_bin()}, \code{create_env()}, \code{install_packages()}, \code{remove_env()}, and
+\code{clean_cache()} return. This is intentional, not an oversight: those
+functions each wrap a single \code{micromamba} subprocess call, so a real
+status/stdout/stderr/pid is available to report. \code{install_micromamba()}
+downloads and extracts a binary directly (no \code{micromamba} subprocess
+involved at all), so there is no real process result to expose — the
+installed path is the only meaningful thing to return, exactly like
+\code{get_env_dir()}/\code{get_install_dir()}/\code{micromamba_bin_path()}. On
+failure, this function always raises an error rather than returning a
+partial or invalid path.
 }
 \description{
 Downloads and installs the \code{micromamba} executable used by \code{condathis}.

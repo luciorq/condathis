@@ -8,8 +8,9 @@
 #'   Supported values are `"silent"`, `"cmd"`, `"output"`, `"spinner"`,
 #'   and `"full"`. Defaults to `"silent"`.
 #'
-#' @returns A process result list (from `processx::run()`) with command output,
-#'   error output, exit status, and timeout information.
+#' @returns A `condathis_result` S3 object (a classed list, still usable as
+#'   a plain list) with `status`, `stdout`, `stderr`, `timeout`, `pid`,
+#'   `cmd`, and `env_name`.
 #'
 #' @examples
 #' \dontrun{
@@ -73,5 +74,18 @@ remove_env <- function(
       )
     )
   }
-  return(invisible(px_res))
+
+  result <- new_condathis_result(
+    status = px_res$status,
+    stdout = px_res$stdout,
+    stderr = px_res$stderr,
+    timeout = if (is.null(px_res$timeout)) FALSE else px_res$timeout,
+    pid = if (is.null(px_res$pid)) NA_integer_ else px_res$pid,
+    cmd = paste(
+      c("micromamba", "env", "remove", "-n", env_name),
+      collapse = " "
+    ),
+    env_name = env_name
+  )
+  return(invisible(result))
 }

@@ -22,6 +22,34 @@ testthat::test_that("parse_match_spec rejects invalid input", {
 })
 
 
+testthat::test_that("parse_match_spec rejects a spec with an empty package name", {
+  # A channel with nothing after it leaves no package name to parse.
+  testthat::expect_error(
+    parse_match_spec("conda-forge::"),
+    class = "condathis_parse_match_spec_invalid_name"
+  )
+  # A bracket-only spec has no positional name either.
+  testthat::expect_error(
+    parse_match_spec("[version=1.0]"),
+    class = "condathis_parse_match_spec_invalid_name"
+  )
+})
+
+
+testthat::test_that("parse_match_spec rejects an archive URL it cannot split into name/version/build", {
+  # No dashes at all in the filename: cannot even split off a build string.
+  testthat::expect_error(
+    parse_match_spec("https://example.com/nodashesatall.tar.bz2"),
+    class = "condathis_parse_match_spec_invalid_url"
+  )
+  # Only one dash: a build string splits off, but not a name/version pair.
+  testthat::expect_error(
+    parse_match_spec("https://example.com/onlyonedash-nope.tar.bz2"),
+    class = "condathis_parse_match_spec_invalid_url"
+  )
+})
+
+
 testthat::test_that("parse_match_spec: bare package name 'numpy'", {
   res <- parse_match_spec("numpy")
   testthat::expect_equal(res$name, "numpy")

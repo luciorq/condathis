@@ -13,7 +13,13 @@ run(
   error = c("cancel", "continue"),
   stdout = "|",
   stderr = "|",
-  stdin = NULL
+  stdin = NULL,
+  input = NULL,
+  binary = FALSE,
+  supervise = FALSE,
+  cleanup_tree = FALSE,
+  linux_pdeathsig = FALSE,
+  timeout = Inf
 )
 }
 \arguments{
@@ -23,12 +29,16 @@ run(
 
 \item{env_name}{Character string with the target environment name.
 Defaults to \code{"condathis-env"}.
-If the default environment does not exist, it is created automatically.}
+If the default environment does not exist, it is created automatically.
+A missing \emph{custom} \code{env_name} is never created automatically — it
+fails instead, per \code{error} below.}
 
 \item{method}{Character string with the backend execution strategy.
 Supported values are \code{"native"} and \code{"auto"}.
 Defaults to \code{"native"}.
-This argument is soft-deprecated and currently does not change behavior.}
+Currently does not change behavior — reserved for upcoming pluggable
+backend support (e.g. running through \code{rattler} or a container engine
+instead of a managed \code{micromamba} install). Not deprecated.}
 
 \item{verbose}{Character string controlling console output.
 Supported values are \code{"output"}, \code{"silent"}, \code{"cmd"}, \code{"spinner"},
@@ -38,7 +48,10 @@ Logical values are accepted for backward compatibility:
 
 \item{error}{Character string that controls error behavior.
 Supported values are \code{"cancel"} and \code{"continue"}.
-Defaults to \code{"cancel"}.}
+Defaults to \code{"cancel"}. Also controls what happens when \code{env_name} is
+a non-default environment that does not exist: \code{"cancel"} aborts with
+class \code{condathis_run_env_not_found}; \code{"continue"} returns a result
+with \code{status = 127} instead of running anything.}
 
 \item{stdout}{Standard output target.
 Defaults to \code{"|"} (capture stdout in the returned object).
@@ -50,11 +63,46 @@ Provide a file path to redirect stderr to a file.}
 
 \item{stdin}{Standard input source.
 Defaults to \code{NULL} (no stdin stream).
-Provide a file path to use file contents as stdin.}
+Provide a file path to use file contents as stdin, or \code{"|"} to write
+\code{input} to the process.}
+
+\item{input}{Character or raw vector written to the process's standard
+input when \code{stdin = "|"}. Defaults to \code{NULL}. Ignored (and must not be
+set) when \code{stdin} is not \code{"|"}. Note: live (real-time) stdout/stderr
+streaming and the spinner are not available when \code{input} triggers the
+writable-stdin code path; \code{timeout} still works.}
+
+\item{binary}{Logical. Whether to capture stdout/stderr as raw vectors
+instead of decoding them as UTF-8 text. Defaults to \code{FALSE}. Since a
+process's stdout and stderr share a single encoding, both streams are
+returned raw when \code{TRUE}, even if only one of them actually carries
+binary data — check with \code{is.raw()} before treating either as text.
+Binary streams are never live-echoed to the console, regardless of
+\code{verbose}.}
+
+\item{supervise}{Logical. Whether the process should be supervised by the
+\code{processx} supervisor for crash-safe cleanup — the process (and its
+descendants, with \code{cleanup_tree = TRUE}) is killed if the R session
+crashes. Defaults to \code{FALSE}.}
+
+\item{cleanup_tree}{Logical. Whether to clean up the child process tree
+(not just the direct child) on crash/interrupt. Defaults to \code{FALSE}.}
+
+\item{linux_pdeathsig}{Logical. On Linux, whether to send \code{SIGKILL} to the
+child process if the parent R process dies. Has no effect on other
+platforms. Defaults to \code{FALSE}.}
+
+\item{timeout}{Numeric. Maximum number of seconds to let the command run
+before it's killed. Defaults to \code{Inf} (no limit, the previous
+behavior). On expiry, the process is killed, \code{timeout} is \code{TRUE} in the
+returned result, and \code{error = "cancel"} aborts with class
+\code{condathis_run_timeout_error} (\code{error = "continue"} returns normally
+with \code{status = -9}).}
 }
 \value{
-A process result list (from \code{processx::run()}) with command output,
-error output, exit status, and timeout information.
+A \code{condathis_result} S3 object (a classed list, still usable as
+a plain list) with \code{status}, \code{stdout}, \code{stderr}, \code{timeout}, \code{pid},
+\code{cmd}, and \code{env_name}.
 }
 \description{
 Executes a command in a Conda environment managed by \code{condathis}.
@@ -69,6 +117,10 @@ environments.
 \dontrun{
 condathis::with_sandbox_dir({
   ## Create env
+  ## `samtools` (bioconda) has no Windows build on any channel, so this
+  ## specific example only runs on Linux/macOS — unlike most `condathis`
+  ## examples, there's no portable substitute that still demonstrates a
+  ## real bioinformatics CLI operating on the packaged BAM file below.
   create_env("bioconda::samtools", env_name = "samtools-env")
 
   ## Run a command in a specific Conda environment

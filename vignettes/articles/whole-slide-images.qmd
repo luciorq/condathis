@@ -1,0 +1,257 @@
+---
+title: "Whole-Slide Pathology Images: Binary Pipelines Across Environments"
+knitr:
+  opts_chunk:
+    collapse: true
+    comment: "#>"
+---
+
+```{r}
+#| label: setup
+#| include: false
+knitr::opts_chunk$set(echo = TRUE)
+library(condathis)
+```
+
+## The Problem
+
+Whole-slide images (WSI) used in digital pathology, files like Aperio `.svs`,
+Hamamatsu `.ndpi`, or MIRAX `.mrxs`, are not ordinary images.
+A single slide is a multi-resolution pyramid of tiled, compressed pixels that
+can be tens of gigapixels in size.
+Reading them requires the OpenSlide C library, and in practice the only
+convenient, scriptable way to pull a region out of a slide is through a tool
+built on top of it, most commonly a Python environment
+(`openslide-python`) or `libvips` compiled with OpenSlide support.
+
+That creates a real dependency problem for an R user:
+
+* Installing a Python/OpenSlide stack just to read one file format pollutes
+  (or conflicts with) whatever environment your actual analysis lives in.
+* The tool you'd use to *look at* the extracted region, an image
+  processing library like ImageMagick, often needs its own, different set of
+  compiled dependencies (its own `libjpeg`, `libpng`, `libtiff`...), which can
+  clash with the versions OpenSlide/`libvips` need.
+* None of this is reproducible unless the exact environments are pinned
+  somewhere.
+
+This article uses `condathis` to solve all three: two CLI tools, each
+completely isolated in its own Conda environment, connected by a real Unix
+pipe, streaming binary image data from one environment straight into the
+other, and finally back into R for plotting. Nothing is installed system-wide
+and nothing leaks between environments.
+
+## The Slide
+
+We'll use a real, public test slide from the OpenSlide project: a small
+region cropped from an Aperio `.svs` file, about 2 MB.
+
+```{r}
+#| label: download-slide
+data_dir <- fs::path("data-raw")
+fs::dir_create(data_dir)
+
+svs_path <- fs::path(data_dir, "CMU-1-Small-Region.svs")
+
+if (isFALSE(fs::file_exists(svs_path))) {
+  utils::download.file(
+    url = paste0(
+      "https://openslide.cs.cmu.edu/download/",
+      "openslide-testdata/Aperio/CMU-1-Small-Region.svs"
+    ),
+    destfile = svs_path,
+    mode = "wb",
+    quiet = TRUE
+  )
+}
+
+fs::file_size(svs_path)
+```
+
+## Two Isolated Toolchains
+
+We need two tools that have no business sharing a Conda environment:
+
+1. **`libvips`**, built with OpenSlide support, to open the `.svs` pyramid
+   and extract pixels from it.
+2. **ImageMagick**, to post-process the extracted region.
+
+```{r}
+#| label: create-envs
+create_env(
+  packages = "conda-forge::libvips",
+  channels = "conda-forge",
+  env_name = "wsi-vips-env",
+  verbose = "silent"
+)
+
+create_env(
+  packages = "conda-forge::imagemagick",
+  channels = "conda-forge",
+  env_name = "wsi-magick-env",
+  verbose = "silent"
+)
+```
+
+Each `create_env()` call resolves and installs its own dependency graph.
+`libvips` pulls in OpenSlide, `openjpeg`, and friends; ImageMagick pulls in
+its own delegate libraries. They never see each other.
+
+## Orienting Ourselves: a Thumbnail
+
+Before extracting a region, let's generate a small overview of the whole
+slide with a single `run()` call, `vips thumbnail` scales the pyramid down
+directly, it never decodes full-resolution pixels.
+
+```{r}
+#| label: thumbnail
+thumb_png <- fs::file_temp(ext = "png")
+
+run(
+  "vips", "thumbnail", svs_path, thumb_png, "400",
+  env_name = "wsi-vips-env",
+  verbose = "silent"
+)
+
+thumb_img <- png::readPNG(thumb_png)
+dim(thumb_img)
+```
+
+## Building the Pipeline
+
+Now the actual pipeline: `run_pipeline()` chains two commands, in two
+different Conda environments, connected by a kernel-level pipe managed
+entirely by the child processes. The PNG bytes produced by `vips crop` never
+pass through R, they go straight into ImageMagick's stdin.
+
+```{r}
+#| label: run-pipeline
+region_png <- fs::file_temp(ext = "png")
+
+# left, top, width, height (pixels) of the region to crop out of the slide
+crop_box <- c(800, 1600, 800, 800)
+
+pipeline_res <- run_pipeline(
+  cmds = list(
+    list(
+      cmd = c("vips", "crop", svs_path, ".png", as.character(crop_box)),
+      env_name = "wsi-vips-env"
+    ),
+    list(
+      cmd = c(
+        "magick", "-",
+        "-modulate", "100,150,100", # boost saturation
+        "-sharpen", "0x1",
+        "png:-"
+      ),
+      env_name = "wsi-magick-env",
+      stdout = region_png
+    )
+  )
+)
+
+pipeline_res
+```
+
+Two details are load-bearing here:
+
+* **`stdin`/`-`/`png:-`**: the middle of the pipe is fully binary and never
+  touches R, `processx` connects the two child processes' file descriptors
+  directly. Only the *first* command's stdin and the *last* command's stdout
+  are ever visible to R, everything in between is a raw byte stream.
+* **`stdout = region_png`** on the last command: `run_pipeline()`'s default
+  `stdout = "|"` capture decodes output as UTF-8 text, which would corrupt
+  binary PNG bytes. Since the final artifact here is a binary image, we
+  redirect it straight to a file instead of capturing it as a character
+  string.
+
+## Plotting the Result
+
+With the pipeline's output on disk, reading it into R is a normal
+`png::readPNG()` call.
+
+```{r}
+#| label: plot-result
+#| fig-width: 9
+#| fig-height: 5
+region_img <- png::readPNG(region_png)
+
+th <- dim(thumb_img)[1]
+tw <- dim(thumb_img)[2]
+scale_x <- tw / 2220
+scale_y <- th / 2967
+rx0 <- crop_box[1] * scale_x
+ry0 <- crop_box[2] * scale_y
+rx1 <- (crop_box[1] + crop_box[3]) * scale_x
+ry1 <- (crop_box[2] + crop_box[4]) * scale_y
+
+withr::local_par(mfrow = c(1, 2), mar = c(1, 1, 2, 1))
+
+plot(
+  c(0, tw), c(0, th),
+  type = "n", xlab = "", ylab = "", asp = 1, axes = FALSE,
+  main = "Whole slide (thumbnail)"
+)
+rasterImage(thumb_img, 0, 0, tw, th)
+rect(rx0, th - ry1, rx1, th - ry0, border = "red", lwd = 2)
+
+plot(
+  c(0, crop_box[3]), c(0, crop_box[4]),
+  type = "n", xlab = "", ylab = "", asp = 1, axes = FALSE,
+  main = "Extracted + enhanced region"
+)
+rasterImage(region_img, 0, 0, crop_box[3], crop_box[4])
+```
+
+The red box on the thumbnail marks exactly the region `libvips` cropped out
+of the pyramid, ImageMagick then boosted its saturation and sharpened it, all
+without R ever holding a raw pixel buffer for anything but the final,
+already-small PNG.
+
+## Binary Data In: Raw Bytes as stdin
+
+The pipeline above only needed a *file* as its output. `run()` and
+`run_pipeline()` also accept raw binary data as *input*, written directly to
+a process's stdin. To show it, let's read the region PNG we just produced
+back into R as a raw vector and pipe those bytes into ImageMagick's `identify`
+without writing anything new to disk:
+
+```{r}
+#| label: raw-input
+png_bytes <- readBin(region_png, what = "raw", n = fs::file_size(region_png))
+length(png_bytes)
+
+identify_res <- run(
+  "magick", "identify", "-",
+  env_name = "wsi-magick-env",
+  stdin = "|",
+  input = png_bytes,
+  verbose = "silent"
+)
+
+parse_output(identify_res)
+```
+
+`input` accepts a character or raw vector, here we pass the raw PNG bytes
+already sitting in R's memory straight into the child process, no temporary
+file involved.
+
+## Cleaning Up
+
+```{r}
+#| label: cleanup
+remove_env("wsi-vips-env")
+remove_env("wsi-magick-env")
+```
+
+## Why This Matters
+
+* **Isolation**: `libvips`+OpenSlide and ImageMagick never share a
+  dependency graph, so there's no solver conflict to fight and each can be
+  upgraded independently.
+* **True binary pipes**: data moves between the two Conda environments as
+  raw bytes over a kernel pipe, exactly like a shell `|`, R is only on the
+  hook for the first command's stdin and the last command's stdout.
+* **Reproducibility**: the whole toolchain, from slide to plotted region, is
+  defined in this article. Anyone who runs it gets the same environments and
+  the same pixels.

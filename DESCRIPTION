@@ -1,6 +1,6 @@
 Package: condathis
 Title: Run Any CLI Tool on a 'Conda' Environment
-Version: 0.1.4
+Version: 0.1.4.9004
 Authors@R: c(
     person("Lucio", "Queiroz", , "luciorqueiroz@gmail.com", role = c("aut", "cre", "cph"),
            comment = c(ORCID = "0000-0002-6090-1834")),
@@ -22,7 +22,7 @@ Imports:
     cli,
     fs,
     jsonlite,
-    processx,
+    processx (>= 3.9.0),
     rlang,
     stringr,
     tools,
@@ -30,6 +30,7 @@ Imports:
     withr
 Suggests:
     curl,
+    digest,
     knitr,
     quarto,
     testthat (>= 3.0.0)
@@ -38,7 +39,7 @@ VignetteBuilder:
 Config/Needs/dev: devtools, pkgload, remotes, rcmdcheck, covr, testthat,
     usethis, pak, knitr, quarto, pkgdown, roxygen2, roxygen2md, lintr,
     styler
-Config/Needs/website: quarto
+Config/Needs/website: quarto, png
 Config/roxygen2/markdown: TRUE
 Config/roxygen2/version: 8.0.0
 Config/testthat/edition: 3

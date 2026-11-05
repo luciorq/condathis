@@ -20,8 +20,6 @@ Evaluates code with temporary home, data, and cache directories.
 This is mainly intended for examples and tests so no user files are written.
 }
 \examples{
-\dontrun{
 condathis::with_sandbox_dir(print(fs::path_home()))
 condathis::with_sandbox_dir(print(tools::R_user_dir("condathis")))
-}
 }

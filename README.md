@@ -123,16 +123,16 @@ Your system’s `curl`:
 
 ``` r
 libcurlVersion()
-#> [1] "8.7.1"
+#> [1] "8.21.0"
 #> attr(,"ssl_version")
-#> [1] "SecureTransport (LibreSSL/3.3.6)"
+#> [1] "OpenSSL/3.6.3"
 #> attr(,"libssh_version")
-#> [1] ""
+#> [1] "libssh2/1.11.1"
 #> attr(,"protocols")
 #>  [1] "dict"    "file"    "ftp"     "ftps"    "gopher"  "gophers" "http"
-#>  [8] "https"   "imap"    "imaps"   "ldap"    "ldaps"   "mqtt"    "pop3"
-#> [15] "pop3s"   "rtsp"    "smb"     "smbs"    "smtp"    "smtps"   "telnet"
-#> [22] "tftp"
+#>  [8] "https"   "imap"    "imaps"   "mqtt"    "mqtts"   "pop3"    "pop3s"
+#> [15] "rtsp"    "scp"     "sftp"    "smtp"    "smtps"   "telnet"  "tftp"
+#> [22] "ws"      "wss"
 ```
 
 A specific `curl` version, isolated with `condathis`:
@@ -152,10 +152,10 @@ out <- condathis::run(
 )
 
 message(out$stdout)
-#> curl 8.10.1 (aarch64-apple-darwin20.0.0) libcurl/8.10.1 OpenSSL/3.6.3 (SecureTransport) zlib/1.3.2 zstd/1.5.7 libssh2/1.11.1 nghttp2/1.68.1
+#> curl 8.10.1 (x86_64-conda-linux-gnu) libcurl/8.10.1 OpenSSL/3.6.3 zlib/1.3.2 zstd/1.5.7 libssh2/1.11.1 nghttp2/1.68.1
 #> Release-Date: 2024-09-18
 #> Protocols: dict file ftp ftps gopher gophers http https imap imaps ipfs ipns mqtt pop3 pop3s rtsp scp sftp smb smbs smtp smtps telnet tftp ws wss
-#> Features: alt-svc AsynchDNS GSS-API HSTS HTTP2 HTTPS-proxy IPv6 Kerberos Largefile libz MultiSSL NTLM SPNEGO SSL threadsafe TLS-SRP UnixSockets zstd
+#> Features: alt-svc AsynchDNS GSS-API HSTS HTTP2 HTTPS-proxy IPv6 Kerberos Largefile libz NTLM SPNEGO SSL threadsafe TLS-SRP UnixSockets zstd
 ```
 
 This allows you to run tools with conflicting dependencies side-by-side
@@ -177,13 +177,19 @@ and `withr` packages.
 Special characters in CLI commands are interpreted as literals and not
 expanded.
 
-- It is not supported the use of output redirections in commands,
-  e.g. “\|” or “\>”.
-  - Instead of redirects (e.g. “\>”), use the argument
-    `stdout = "<FILENAME>.txt"`. Instead of Pipes (“\|”), simple run
-    multiple calls to `condathis::run()`, using `stdout` argument to
-    control the output and `stdin` to control the input of each command.
-    P.S. The current implementation only supports files as the “STDIN”.
+- Shell-style output redirection syntax (e.g. “\|” or “\>”) inside a
+  single command string is interpreted literally, not expanded.
+  - Instead of redirects (e.g. “\>”), use the `stdout`/`stderr`
+    arguments (a file path redirects to that file).
+  - Instead of shell pipes (e.g. “cmd1 \| cmd2”), use
+    `condathis::run_pipeline()` to connect commands (optionally each in
+    its own Conda environment) via kernel-level pipes, or run multiple
+    calls to `condathis::run()` using `stdout`/`stdin` file arguments to
+    pass data between them.
+  - `stdin` accepts a file path, or `"|"` together with the `input`
+    argument to write in-memory data (character or raw vector) directly
+    to a command’s standard input — supported by `run()`, `run_bin()`,
+    and `run_pipeline()`.
 - File paths should not use special characters for relative paths,
   e.g. “~”, “.”, “..”.
   - Expand file paths directly in R, using `base` functions or functions

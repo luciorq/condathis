@@ -21,5 +21,6 @@
 #'
 #' @export
 get_env_dir <- function(env_name = "condathis-env") {
+  validate_env_name(env_name, class = "condathis_get_env_dir_invalid_env_name")
   return(fs::path(get_install_dir(), "envs", env_name))
 }

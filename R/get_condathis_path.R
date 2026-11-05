@@ -10,7 +10,7 @@
 get_condathis_path <- function() {
   if (
     identical(Sys.getenv(x = "XDG_DATA_HOME", unset = "", names = FALSE), "") &&
-      isTRUE(stringr::str_detect(get_sys_arch(), pattern = "^Darwin"))
+      isTRUE(is_macos())
   ) {
     withr::local_envvar(
       .new = list(

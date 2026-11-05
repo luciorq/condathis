@@ -8,8 +8,10 @@
 #'   Supported values are `"output"`, `"silent"`, `"cmd"`, `"spinner"`,
 #'   and `"full"`. Defaults to `"output"`.
 #'
-#' @returns A process result list (from `processx::run()`) with command output,
-#'   error output, exit status, and timeout information.
+#' @returns A `condathis_result` S3 object (a classed list, still usable as
+#'   a plain list) with `status`, `stdout`, `stderr`, `timeout`, `pid`,
+#'   `cmd`, and `env_name`. `env_name` is always `NA` since cache cleanup is
+#'   not tied to a specific environment.
 #'
 #' @details
 #' Package files still referenced by existing environments may not be removed.
@@ -67,5 +69,15 @@ clean_cache <- function(
       )
     )
   }
-  return(invisible(px_res))
+
+  result <- new_condathis_result(
+    status = px_res$status,
+    stdout = px_res$stdout,
+    stderr = px_res$stderr,
+    timeout = if (is.null(px_res$timeout)) FALSE else px_res$timeout,
+    pid = if (is.null(px_res$pid)) NA_integer_ else px_res$pid,
+    cmd = paste(c("micromamba", "clean", "--all"), collapse = " "),
+    env_name = NA_character_
+  )
+  return(invisible(result))
 }

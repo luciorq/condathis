@@ -14,7 +14,9 @@ install_packages(
 )
 }
 \arguments{
-\item{packages}{Character vector of package MatchSpec strings to install.}
+\item{packages}{Character vector of package MatchSpec strings to install.
+Required; must not be \code{NULL} (use \code{create_env()} to create an empty
+environment instead).}
 
 \item{env_name}{Character string with the target environment name.
 Defaults to \code{"condathis-env"}.}
@@ -34,8 +36,9 @@ Supported values are \code{"output"}, \code{"silent"}, \code{"cmd"}, \code{"spin
 and \code{"full"}. Defaults to \code{"output"}.}
 }
 \value{
-A process result list (from \code{processx::run()}) with command output,
-error output, exit status, and timeout information.
+A \code{condathis_result} S3 object (a classed list, still usable as
+a plain list) with \code{status}, \code{stdout}, \code{stderr}, \code{timeout}, \code{pid},
+\code{cmd}, and \code{env_name}.
 }
 \description{
 Installs packages into an existing \code{condathis} environment.

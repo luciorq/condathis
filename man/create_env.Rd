@@ -35,7 +35,9 @@ resolution. Defaults to \code{c("conda-forge", "bioconda")}.}
 \item{method}{Character string with the backend execution strategy.
 Supported values are \code{"native"} and \code{"auto"}.
 Defaults to \code{"native"}.
-This argument is soft-deprecated and currently does not change behavior.}
+Currently does not change behavior — reserved for upcoming pluggable
+backend support (e.g. running through \code{rattler} or a container engine
+instead of a managed \code{micromamba} install). Not deprecated.}
 
 \item{channel_priority}{Character string with channel priority mode.
 Supported values are \code{"disabled"}, \code{"strict"}, and \code{"flexible"}.
@@ -60,8 +62,9 @@ Logical values are accepted for backward compatibility:
 should always be recreated. Defaults to \code{FALSE}.}
 }
 \value{
-A process result list (from \code{processx::run()}) with command output,
-error output, exit status, and timeout information.
+A \code{condathis_result} S3 object (a classed list, still usable as
+a plain list) with \code{status}, \code{stdout}, \code{stderr}, \code{timeout}, \code{pid},
+\code{cmd}, and \code{env_name}.
 }
 \description{
 Creates a Conda environment managed by \code{condathis} and installs dependencies

@@ -3,7 +3,10 @@
 #' Parses output from a `run()` result into trimmed text lines.
 #'
 #' @param res Either a process result list (with `stdout` and/or `stderr`) or a
-#'   character vector when `stream = "plain"`.
+#'   character vector when `stream = "plain"`. Errors if the requested
+#'   stream(s) hold raw binary data (from `run()`/`run_bin()`/
+#'   `run_pipeline()` called with `binary = TRUE`) — read those directly
+#'   instead, e.g. with `writeBin()`.
 #' @param stream Character string selecting the output source.
 #'   Supported values are `"stdout"`, `"stderr"`, `"both"`, and `"plain"`.
 #'   Defaults to `"stdout"`.
@@ -47,6 +50,25 @@ parse_output <- function(res, stream = c("stdout", "stderr", "both", "plain")) {
       ),
       class = "condathis_parse_output_invalid_res"
     )
+  }
+
+  if (rlang::is_list(res)) {
+    binary_streams <- Filter(
+      x = c("stdout", "stderr"),
+      f = function(nm) rlang::has_name(res, nm) && isTRUE(is.raw(res[[nm]]))
+    )
+    if (
+      length(binary_streams) > 0L &&
+        (identical(stream, "both") || stream %in% binary_streams)
+    ) {
+      cli::cli_abort(
+        c(
+          `x` = "{.field {binary_streams}}: raw binary data, not text.",
+          `!` = "{.fn parse_output} only works on character output. Read the raw vector directly instead (e.g. with {.fn writeBin})."
+        ),
+        class = "condathis_parse_output_binary_stream"
+      )
+    }
   }
 
   if (stream %in% c("stdout", "stderr") && rlang::has_name(res, stream)) {
