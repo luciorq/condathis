@@ -21,6 +21,7 @@ run_pipeline(
   binary = FALSE,
   error = c("cancel", "continue"),
   env_name = "condathis-env",
+  method = "auto",
   supervise = TRUE,
   cleanup_tree = TRUE,
   linux_pdeathsig = FALSE,
@@ -40,10 +41,13 @@ run_pipeline(
 
   - A named list with `cmd` (character vector) and, optionally,
     `env_name` (character string) to specify a per-command environment,
-    `stderr` to override the top-level `stderr` target for this command,
-    and `stdout` to override the top-level `stdout` target, only allowed
-    on the **last** command, since every other command's standard output
-    is always piped to the next command.
+    `method` (character string) to specify a per-command backend (see
+    `method` below - only the `"micromamba"` backend can actually
+    execute a command today, regardless of which backend owns its
+    environment), `stderr` to override the top-level `stderr` target for
+    this command, and `stdout` to override the top-level `stdout`
+    target, only allowed on the **last** command, since every other
+    command's standard output is always piped to the next command.
 
 - stdout:
 
@@ -87,6 +91,15 @@ run_pipeline(
   Character string with the default Conda environment name for commands
   that do not specify their own. Defaults to `"condathis-env"`.
 
+- method:
+
+  Character string naming the default backend for commands that do not
+  specify their own `method` (see `cmds`). Defaults to `"auto"` (resolve
+  automatically: each command's environment's own owning backend).
+  `"micromamba"` is the only backend registered today - and the only one
+  that can actually execute a command so far. `"native"` is a deprecated
+  alias for `"micromamba"` (warns once per session).
+
 - supervise:
 
   Logical. Whether each process should be supervised by the `processx`
@@ -108,15 +121,14 @@ run_pipeline(
 
 - activate:
 
-  Logical. Whether to resolve each command's environment via
-  `get_micromamba_activation_envvars()`, a real `micromamba run`
-  activation (including package `activate.d` hook scripts), cached per
-  `env_name`. Defaults to `TRUE`. Set to `FALSE` to use the original,
-  faster hand-rolled activation (`get_activation_envvars()`: a fixed set
-  of `CONDA_*`/`MAMBA_*` variables, no `activate.d` execution). The
-  first pipeline call touching a given `env_name` with `activate = TRUE`
-  pays for two extra subprocess spawns to resolve it; repeat calls for
-  the same, unchanged environment hit the cache.
+  Logical. Whether to resolve each command's environment through a real
+  `micromamba run` activation (including package `activate.d` hook
+  scripts), cached per `env_name`. Defaults to `TRUE`. Set to `FALSE` to
+  use the original, faster hand-rolled activation (a fixed set of
+  `CONDA_*`/`MAMBA_*` variables, no `activate.d` execution). The first
+  pipeline call touching a given `env_name` with `activate = TRUE` pays
+  for two extra subprocess spawns to resolve it; repeat calls for the
+  same, unchanged environment hit the cache.
 
 - timeout:
 
@@ -174,7 +186,7 @@ condathis::with_sandbox_dir({
   # exists under the "m2-" (MSYS2) prefix on conda-forge.
   #
   # `samtools` (bioconda) has no Windows build on any channel, so this
-  # specific example only runs on Linux/macOS regardless — there's no
+  # specific example only runs on Linux/macOS regardless - there's no
   # portable substitute that still demonstrates a real bioinformatics
   # CLI operating on the packaged BAM file below.
   create_env("bioconda::samtools", env_name = "samtools-env")

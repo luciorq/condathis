@@ -13,7 +13,7 @@ micromamba_bin_path()
 
 A character string with the full executable path. On Windows this points
 to `micromamba.exe` under `Library/bin`. On other platforms this points
-to `micromamba` under `bin`. This is purely a computed, expected path —
+to `micromamba` under `bin`. This is purely a computed, expected path -
 it does not check whether a file actually exists there yet (unlike
 [`get_install_dir()`](https://luciorq.github.io/condathis/reference/get_install_dir.md),
 which creates its directory before returning). Use
@@ -30,5 +30,5 @@ condathis::with_sandbox_dir({
   micromamba_path <- condathis::micromamba_bin_path()
   print(micromamba_path)
 })
-#> /tmp/RtmpwVEJJf/tmp-data1a134213e49c/R/condathis/micromamba/bin/micromamba
+#> /tmp/Rtmp7nn3rS/tmp-data1a231545c8e8/R/condathis/micromamba/bin/micromamba
 ```

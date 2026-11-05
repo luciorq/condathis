@@ -11,7 +11,7 @@ create_env(
   env_file = NULL,
   env_name = "condathis-env",
   channels = c("conda-forge", "bioconda"),
-  method = c("native", "auto"),
+  method = "auto",
   channel_priority = c("disabled", "strict", "flexible"),
   additional_channels = NULL,
   platform = NULL,
@@ -44,11 +44,12 @@ create_env(
 
 - method:
 
-  Character string with the backend execution strategy. Supported values
-  are `"native"` and `"auto"`. Defaults to `"native"`. Currently does
-  not change behavior — reserved for upcoming pluggable backend support
-  (e.g. running through `rattler` or a container engine instead of a
-  managed `micromamba` install). Not deprecated.
+  Character string naming the backend to use. Defaults to `"auto"`
+  (resolve automatically: the environment's own owning backend if it
+  already exists, otherwise `getOption("condathis.backend_priority")`
+  order). `"micromamba"` is the only backend registered today.
+  `"native"` is a deprecated alias for `"micromamba"` (warns once per
+  session).
 
 - channel_priority:
 

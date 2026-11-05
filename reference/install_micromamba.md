@@ -44,7 +44,7 @@ install_micromamba(
 ## Value
 
 The installed micromamba binary path (a `fs_path`/character string),
-invisibly — not a `condathis_result` object like
+invisibly - not a `condathis_result` object like
 [`run()`](https://luciorq.github.io/condathis/reference/run.md),
 [`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md),
 [`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md),
@@ -56,7 +56,7 @@ return. This is intentional, not an oversight: those functions each wrap
 a single `micromamba` subprocess call, so a real
 status/stdout/stderr/pid is available to report. `install_micromamba()`
 downloads and extracts a binary directly (no `micromamba` subprocess
-involved at all), so there is no real process result to expose — the
+involved at all), so there is no real process result to expose - the
 installed path is the only meaningful thing to return, exactly like
 [`get_env_dir()`](https://luciorq.github.io/condathis/reference/get_env_dir.md)/[`get_install_dir()`](https://luciorq.github.io/condathis/reference/get_install_dir.md)/[`micromamba_bin_path()`](https://luciorq.github.io/condathis/reference/micromamba_bin_path.md).
 On failure, this function always raises an error rather than returning a

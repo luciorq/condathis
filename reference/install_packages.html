@@ -9,7 +9,7 @@ If the target environment does not exist, it is created first."><meta property="
 
     <a class="navbar-brand me-2" href="../index.html">condathis</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.4.9004</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.0.9003</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -56,6 +56,7 @@ If the target environment does not exist, it is created first.</p>
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">install_packages</span><span class="op">(</span></span>
 <span>  <span class="va">packages</span>,</span>
 <span>  env_name <span class="op">=</span> <span class="st">"condathis-env"</span>,</span>
+<span>  method <span class="op">=</span> <span class="st">"auto"</span>,</span>
 <span>  channels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"conda-forge"</span>, <span class="st">"bioconda"</span><span class="op">)</span>,</span>
 <span>  channel_priority <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"disabled"</span>, <span class="st">"strict"</span>, <span class="st">"flexible"</span><span class="op">)</span>,</span>
 <span>  additional_channels <span class="op">=</span> <span class="cn">NULL</span>,</span>
@@ -76,6 +77,14 @@ environment instead).</p></dd>
 <dt id="arg-env-name">env_name<a class="anchor" aria-label="anchor" href="#arg-env-name"></a></dt>
 <dd><p>Character string with the target environment name.
 Defaults to <code>"condathis-env"</code>.</p></dd>
+
+
+<dt id="arg-method">method<a class="anchor" aria-label="anchor" href="#arg-method"></a></dt>
+<dd><p>Character string naming the backend to use. Defaults to
+<code>"auto"</code> (resolve automatically: the environment's own owning backend
+if it already exists). <code>"micromamba"</code> is the only backend registered
+today. <code>"native"</code> is a deprecated alias for <code>"micromamba"</code> (warns once
+per session).</p></dd>
 
 
 <dt id="arg-channels">channels<a class="anchor" aria-label="anchor" href="#arg-channels"></a></dt>

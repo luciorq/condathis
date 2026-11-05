@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">condathis</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.4.9004</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.0.9003</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -52,6 +52,7 @@
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">list_packages</span><span class="op">(</span></span>
 <span>  env_name <span class="op">=</span> <span class="st">"condathis-env"</span>,</span>
+<span>  method <span class="op">=</span> <span class="st">"auto"</span>,</span>
 <span>  verbose <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"output"</span>, <span class="st">"silent"</span>, <span class="st">"cmd"</span>, <span class="st">"spinner"</span>, <span class="st">"full"</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -65,6 +66,14 @@
 Defaults to <code>"condathis-env"</code>.</p></dd>
 
 
+<dt id="arg-method">method<a class="anchor" aria-label="anchor" href="#arg-method"></a></dt>
+<dd><p>Character string naming the backend to use. Defaults to
+<code>"auto"</code> (resolve automatically: the environment's own owning
+backend). <code>"micromamba"</code> is the only backend registered today.
+<code>"native"</code> is a deprecated alias for <code>"micromamba"</code> (warns once per
+session).</p></dd>
+
+
 <dt id="arg-verbose">verbose<a class="anchor" aria-label="anchor" href="#arg-verbose"></a></dt>
 <dd><p>Character string controlling console output.
 Supported values are <code>"output"</code>, <code>"silent"</code>, <code>"cmd"</code>, <code>"spinner"</code>,
@@ -73,15 +82,13 @@ and <code>"full"</code>. Defaults to <code>"output"</code>.</p></dd>
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A data frame (<code>tibble</code>) with installed packages and the columns:</p><ul><li><p><strong>base_url</strong>: The base URL of the package source.</p></li>
-<li><p><strong>build_number</strong>: The build number of the package.</p></li>
-<li><p><strong>build_string</strong>: The build string describing the package build details.</p></li>
-<li><p><strong>channel</strong>: The channel from which the package was installed.</p></li>
-<li><p><strong>dist_name</strong>: The distribution name of the package.</p></li>
-<li><p><strong>name</strong>: The name of the package.</p></li>
-<li><p><strong>platform</strong>: The platform for which the package is built.</p></li>
-<li><p><strong>version</strong>: The version of the package.</p></li>
-</ul></div>
+    <p>A data frame (<code>tibble</code>) with installed packages. Only four
+columns are guaranteed present regardless of backend: <strong>name</strong>,
+<strong>version</strong>, <strong>build_number</strong>, and <strong>channel</strong>. Additional columns
+vary by backend and shouldn't be relied on in cross-backend code - the
+<code>"micromamba"</code> backend today also includes <code>base_url</code>,
+<code>build_string</code>, <code>dist_name</code>, <code>platform</code>, <code>md5</code>, <code>sha256</code>, and <code>url</code>.</p>
+    </div>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>

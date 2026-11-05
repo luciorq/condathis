@@ -26,12 +26,15 @@
 <url><loc>https://luciorq.github.io/condathis/reference/install_packages.html</loc></url>
 <url><loc>https://luciorq.github.io/condathis/reference/list_envs.html</loc></url>
 <url><loc>https://luciorq.github.io/condathis/reference/list_packages.html</loc></url>
+<url><loc>https://luciorq.github.io/condathis/reference/list_registered_backend_names.html</loc></url>
 <url><loc>https://luciorq.github.io/condathis/reference/micromamba_bin_path.html</loc></url>
 <url><loc>https://luciorq.github.io/condathis/reference/parse_output.html</loc></url>
+<url><loc>https://luciorq.github.io/condathis/reference/register_backend.html</loc></url>
 <url><loc>https://luciorq.github.io/condathis/reference/remove_env.html</loc></url>
 <url><loc>https://luciorq.github.io/condathis/reference/run.html</loc></url>
 <url><loc>https://luciorq.github.io/condathis/reference/run_bin.html</loc></url>
 <url><loc>https://luciorq.github.io/condathis/reference/run_pipeline.html</loc></url>
+<url><loc>https://luciorq.github.io/condathis/reference/unregister_backend.html</loc></url>
 <url><loc>https://luciorq.github.io/condathis/reference/with_sandbox_dir.html</loc></url>
 </urlset>
 

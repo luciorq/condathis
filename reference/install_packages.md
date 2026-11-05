@@ -9,6 +9,7 @@ target environment does not exist, it is created first.
 install_packages(
   packages,
   env_name = "condathis-env",
+  method = "auto",
   channels = c("conda-forge", "bioconda"),
   channel_priority = c("disabled", "strict", "flexible"),
   additional_channels = NULL,
@@ -29,6 +30,14 @@ install_packages(
 
   Character string with the target environment name. Defaults to
   `"condathis-env"`.
+
+- method:
+
+  Character string naming the backend to use. Defaults to `"auto"`
+  (resolve automatically: the environment's own owning backend if it
+  already exists). `"micromamba"` is the only backend registered today.
+  `"native"` is a deprecated alias for `"micromamba"` (warns once per
+  session).
 
 - channels:
 

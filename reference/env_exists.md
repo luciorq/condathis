@@ -6,7 +6,7 @@ managed by `condathis`.
 ## Usage
 
 ``` r
-env_exists(env_name, verbose = "silent")
+env_exists(env_name, method = "auto", verbose = "silent")
 ```
 
 ## Arguments
@@ -16,10 +16,17 @@ env_exists(env_name, verbose = "silent")
   Character string with the environment name to check. Must be a single,
   non-missing character string.
 
+- method:
+
+  Character string naming which backend(s) to check. Defaults to
+  `"auto"`: does the environment exist under *any* registered backend.
+  An explicit backend name checks only that one. `"micromamba"` is the
+  only backend registered today. `"native"` is a deprecated alias for
+  `"micromamba"` (warns once per session).
+
 - verbose:
 
-  Character string controlling console output passed to
-  [`list_envs()`](https://luciorq.github.io/condathis/reference/list_envs.md).
+  Character string controlling console output passed to the backend.
   Defaults to `"silent"`.
 
 ## Value

@@ -9,7 +9,7 @@ from package specs or from an environment file."><meta property="og:image" conte
 
     <a class="navbar-brand me-2" href="../index.html">condathis</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.4.9004</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.0.9003</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -58,7 +58,7 @@ from package specs or from an environment file.</p>
 <span>  env_file <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  env_name <span class="op">=</span> <span class="st">"condathis-env"</span>,</span>
 <span>  channels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"conda-forge"</span>, <span class="st">"bioconda"</span><span class="op">)</span>,</span>
-<span>  method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"native"</span>, <span class="st">"auto"</span><span class="op">)</span>,</span>
+<span>  method <span class="op">=</span> <span class="st">"auto"</span>,</span>
 <span>  channel_priority <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"disabled"</span>, <span class="st">"strict"</span>, <span class="st">"flexible"</span><span class="op">)</span>,</span>
 <span>  additional_channels <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  platform <span class="op">=</span> <span class="cn">NULL</span>,</span>
@@ -94,12 +94,12 @@ resolution. Defaults to <code>c("conda-forge", "bioconda")</code>.</p></dd>
 
 
 <dt id="arg-method">method<a class="anchor" aria-label="anchor" href="#arg-method"></a></dt>
-<dd><p>Character string with the backend execution strategy.
-Supported values are <code>"native"</code> and <code>"auto"</code>.
-Defaults to <code>"native"</code>.
-Currently does not change behavior — reserved for upcoming pluggable
-backend support (e.g. running through <code>rattler</code> or a container engine
-instead of a managed <code>micromamba</code> install). Not deprecated.</p></dd>
+<dd><p>Character string naming the backend to use. Defaults to
+<code>"auto"</code> (resolve automatically: the environment's own owning backend
+if it already exists, otherwise <code>getOption("condathis.backend_priority")</code>
+order). <code>"micromamba"</code> is the only backend registered today.
+<code>"native"</code> is a deprecated alias for <code>"micromamba"</code> (warns once per
+session).</p></dd>
 
 
 <dt id="arg-channel-priority">channel_priority<a class="anchor" aria-label="anchor" href="#arg-channel-priority"></a></dt>

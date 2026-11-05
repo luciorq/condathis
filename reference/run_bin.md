@@ -12,6 +12,7 @@ run_bin(
   cmd,
   ...,
   env_name = "condathis-env",
+  method = "auto",
   verbose = c("output", "silent", "cmd", "spinner", "full"),
   error = c("cancel", "continue"),
   stdout = "|",
@@ -41,6 +42,14 @@ run_bin(
 
   Character string with the target environment name. Defaults to
   `"condathis-env"`.
+
+- method:
+
+  Character string naming the backend to use. Defaults to `"auto"`
+  (resolve automatically: the environment's own owning backend).
+  `"micromamba"` is the only backend registered today - and the only one
+  `run_bin()` can actually execute through so far. `"native"` is a
+  deprecated alias for `"micromamba"` (warns once per session).
 
 - verbose:
 
@@ -82,8 +91,8 @@ run_bin(
   Logical. Whether to capture stdout/stderr as raw vectors instead of
   decoding them as UTF-8 text. Defaults to `FALSE`. Since a process's
   stdout and stderr share a single encoding, both streams are returned
-  raw when `TRUE`, even if only one of them actually carries binary data
-  — check with [`is.raw()`](https://rdrr.io/r/base/raw.html) before
+  raw when `TRUE`, even if only one of them actually carries binary
+  data - check with [`is.raw()`](https://rdrr.io/r/base/raw.html) before
   treating either as text. Binary streams are never live-echoed to the
   console, regardless of `verbose`.
 
@@ -106,17 +115,16 @@ run_bin(
 - activate:
 
   Logical. Whether to resolve and apply `env_name`'s real
-  `micromamba run` activation (via
-  `get_micromamba_activation_envvars()`, including any package
-  `activate.d` hook scripts) as an environment overlay before running
-  `cmd`. Defaults to `TRUE`. Silently skipped (`cmd` still runs,
-  unactivated) when `env_name` does not exist, so
-  `error = "continue"`-style fallback to a binary outside any managed
-  environment keeps working. Set to `FALSE` to restore the original,
-  activation-free `run_bin()` behavior — `cmd` still resolves against
-  `env_name`'s `bin/` directory (falling back to `PATH`), but the child
-  process otherwise inherits the caller's environment unmodified. This
-  is the mechanism that makes `run_bin(activate = TRUE)` behave like
+  `micromamba run` activation (including any package `activate.d` hook
+  scripts) as an environment overlay before running `cmd`. Defaults to
+  `TRUE`. Silently skipped (`cmd` still runs, unactivated) when
+  `env_name` does not exist, so `error = "continue"`-style fallback to a
+  binary outside any managed environment keeps working. Set to `FALSE`
+  to restore the original, activation-free `run_bin()` behavior - `cmd`
+  still resolves against `env_name`'s `bin/` directory (falling back to
+  `PATH`), but the child process otherwise inherits the caller's
+  environment unmodified. This is the mechanism that makes
+  `run_bin(activate = TRUE)` behave like
   [`run()`](https://luciorq.github.io/condathis/reference/run.md), minus
   the different binary-resolution strategy:
   [`run()`](https://luciorq.github.io/condathis/reference/run.md)
@@ -145,7 +153,7 @@ if (FALSE) { # \dontrun{
 condathis::with_sandbox_dir({
   # Create an environment with 'python' and 'ripgrep'. `coreutils`
   # (and other GNU tools like `grep`) aren't available for Windows on
-  # conda-forge, so `ripgrep` is used here instead of e.g. `ls`/`grep` —
+  # conda-forge, so `ripgrep` is used here instead of e.g. `ls`/`grep` -
   # a single package name that installs and runs the same way on every
   # platform `condathis` supports.
   condathis::create_env(

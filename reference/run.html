@@ -9,7 +9,7 @@ The command is run through micromamba run using the internal Conda root."><meta 
 
     <a class="navbar-brand me-2" href="../index.html">condathis</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.4.9004</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.0.9003</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -57,7 +57,7 @@ The command is run through <code>micromamba run</code> using the internal Conda 
 <span>  <span class="va">cmd</span>,</span>
 <span>  <span class="va">...</span>,</span>
 <span>  env_name <span class="op">=</span> <span class="st">"condathis-env"</span>,</span>
-<span>  method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"native"</span>, <span class="st">"auto"</span><span class="op">)</span>,</span>
+<span>  method <span class="op">=</span> <span class="st">"auto"</span>,</span>
 <span>  verbose <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"output"</span>, <span class="st">"silent"</span>, <span class="st">"cmd"</span>, <span class="st">"spinner"</span>, <span class="st">"full"</span><span class="op">)</span>,</span>
 <span>  error <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"cancel"</span>, <span class="st">"continue"</span><span class="op">)</span>,</span>
 <span>  stdout <span class="op">=</span> <span class="st">"|"</span>,</span>
@@ -88,17 +88,17 @@ The command is run through <code>micromamba run</code> using the internal Conda 
 <dd><p>Character string with the target environment name.
 Defaults to <code>"condathis-env"</code>.
 If the default environment does not exist, it is created automatically.
-A missing <em>custom</em> <code>env_name</code> is never created automatically — it
+A missing <em>custom</em> <code>env_name</code> is never created automatically - it
 fails instead, per <code>error</code> below.</p></dd>
 
 
 <dt id="arg-method">method<a class="anchor" aria-label="anchor" href="#arg-method"></a></dt>
-<dd><p>Character string with the backend execution strategy.
-Supported values are <code>"native"</code> and <code>"auto"</code>.
-Defaults to <code>"native"</code>.
-Currently does not change behavior — reserved for upcoming pluggable
-backend support (e.g. running through <code>rattler</code> or a container engine
-instead of a managed <code>micromamba</code> install). Not deprecated.</p></dd>
+<dd><p>Character string naming the backend to use. Defaults to
+<code>"auto"</code> (resolve automatically: the environment's own owning backend
+if it already exists). <code>"micromamba"</code> is the only backend registered
+today - and the only one <code>run()</code> can actually execute through so far.
+<code>"native"</code> is a deprecated alias for <code>"micromamba"</code> (warns once per
+session).</p></dd>
 
 
 <dt id="arg-verbose">verbose<a class="anchor" aria-label="anchor" href="#arg-verbose"></a></dt>
@@ -150,14 +150,14 @@ writable-stdin code path; <code>timeout</code> still works.</p></dd>
 instead of decoding them as UTF-8 text. Defaults to <code>FALSE</code>. Since a
 process's stdout and stderr share a single encoding, both streams are
 returned raw when <code>TRUE</code>, even if only one of them actually carries
-binary data — check with <code><a href="https://rdrr.io/r/base/raw.html" class="external-link">is.raw()</a></code> before treating either as text.
+binary data - check with <code><a href="https://rdrr.io/r/base/raw.html" class="external-link">is.raw()</a></code> before treating either as text.
 Binary streams are never live-echoed to the console, regardless of
 <code>verbose</code>.</p></dd>
 
 
 <dt id="arg-supervise">supervise<a class="anchor" aria-label="anchor" href="#arg-supervise"></a></dt>
 <dd><p>Logical. Whether the process should be supervised by the
-<code>processx</code> supervisor for crash-safe cleanup — the process (and its
+<code>processx</code> supervisor for crash-safe cleanup - the process (and its
 descendants, with <code>cleanup_tree = TRUE</code>) is killed if the R session
 crashes. Defaults to <code>FALSE</code>.</p></dd>
 
@@ -205,7 +205,7 @@ environments.</p>
 <span class="r-in"><span><span class="fu">condathis</span><span class="fu">::</span><span class="fu"><a href="with_sandbox_dir.html">with_sandbox_dir</a></span><span class="op">(</span><span class="op">{</span></span></span>
 <span class="r-in"><span>  <span class="co">## Create env</span></span></span>
 <span class="r-in"><span>  <span class="co">## `samtools` (bioconda) has no Windows build on any channel, so this</span></span></span>
-<span class="r-in"><span>  <span class="co">## specific example only runs on Linux/macOS — unlike most `condathis`</span></span></span>
+<span class="r-in"><span>  <span class="co">## specific example only runs on Linux/macOS - unlike most `condathis`</span></span></span>
 <span class="r-in"><span>  <span class="co">## examples, there's no portable substitute that still demonstrates a</span></span></span>
 <span class="r-in"><span>  <span class="co">## real bioinformatics CLI operating on the packaged BAM file below.</span></span></span>
 <span class="r-in"><span>  <span class="fu"><a href="create_env.html">create_env</a></span><span class="op">(</span><span class="st">"bioconda::samtools"</span>, env_name <span class="op">=</span> <span class="st">"samtools-env"</span><span class="op">)</span></span></span>

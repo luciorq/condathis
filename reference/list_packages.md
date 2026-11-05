@@ -7,6 +7,7 @@ Returns package metadata for a Conda environment as a tibble.
 ``` r
 list_packages(
   env_name = "condathis-env",
+  method = "auto",
   verbose = c("output", "silent", "cmd", "spinner", "full")
 )
 ```
@@ -18,6 +19,13 @@ list_packages(
   Character string with the target environment name. Defaults to
   `"condathis-env"`.
 
+- method:
+
+  Character string naming the backend to use. Defaults to `"auto"`
+  (resolve automatically: the environment's own owning backend).
+  `"micromamba"` is the only backend registered today. `"native"` is a
+  deprecated alias for `"micromamba"` (warns once per session).
+
 - verbose:
 
   Character string controlling console output. Supported values are
@@ -26,24 +34,12 @@ list_packages(
 
 ## Value
 
-A data frame (`tibble`) with installed packages and the columns:
-
-- **base_url**: The base URL of the package source.
-
-- **build_number**: The build number of the package.
-
-- **build_string**: The build string describing the package build
-  details.
-
-- **channel**: The channel from which the package was installed.
-
-- **dist_name**: The distribution name of the package.
-
-- **name**: The name of the package.
-
-- **platform**: The platform for which the package is built.
-
-- **version**: The version of the package.
+A data frame (`tibble`) with installed packages. Only four columns are
+guaranteed present regardless of backend: **name**, **version**,
+**build_number**, and **channel**. Additional columns vary by backend
+and shouldn't be relied on in cross-backend code - the `"micromamba"`
+backend today also includes `base_url`, `build_string`, `dist_name`,
+`platform`, `md5`, `sha256`, and `url`.
 
 ## Examples
 

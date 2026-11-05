@@ -10,7 +10,7 @@ run(
   cmd,
   ...,
   env_name = "condathis-env",
-  method = c("native", "auto"),
+  method = "auto",
   verbose = c("output", "silent", "cmd", "spinner", "full"),
   error = c("cancel", "continue"),
   stdout = "|",
@@ -40,15 +40,16 @@ run(
   Character string with the target environment name. Defaults to
   `"condathis-env"`. If the default environment does not exist, it is
   created automatically. A missing *custom* `env_name` is never created
-  automatically — it fails instead, per `error` below.
+  automatically - it fails instead, per `error` below.
 
 - method:
 
-  Character string with the backend execution strategy. Supported values
-  are `"native"` and `"auto"`. Defaults to `"native"`. Currently does
-  not change behavior — reserved for upcoming pluggable backend support
-  (e.g. running through `rattler` or a container engine instead of a
-  managed `micromamba` install). Not deprecated.
+  Character string naming the backend to use. Defaults to `"auto"`
+  (resolve automatically: the environment's own owning backend if it
+  already exists). `"micromamba"` is the only backend registered today -
+  and the only one `run()` can actually execute through so far.
+  `"native"` is a deprecated alias for `"micromamba"` (warns once per
+  session).
 
 - verbose:
 
@@ -95,15 +96,15 @@ run(
   Logical. Whether to capture stdout/stderr as raw vectors instead of
   decoding them as UTF-8 text. Defaults to `FALSE`. Since a process's
   stdout and stderr share a single encoding, both streams are returned
-  raw when `TRUE`, even if only one of them actually carries binary data
-  — check with [`is.raw()`](https://rdrr.io/r/base/raw.html) before
+  raw when `TRUE`, even if only one of them actually carries binary
+  data - check with [`is.raw()`](https://rdrr.io/r/base/raw.html) before
   treating either as text. Binary streams are never live-echoed to the
   console, regardless of `verbose`.
 
 - supervise:
 
   Logical. Whether the process should be supervised by the `processx`
-  supervisor for crash-safe cleanup — the process (and its descendants,
+  supervisor for crash-safe cleanup - the process (and its descendants,
   with `cleanup_tree = TRUE`) is killed if the R session crashes.
   Defaults to `FALSE`.
 
@@ -151,7 +152,7 @@ if (FALSE) { # \dontrun{
 condathis::with_sandbox_dir({
   ## Create env
   ## `samtools` (bioconda) has no Windows build on any channel, so this
-  ## specific example only runs on Linux/macOS — unlike most `condathis`
+  ## specific example only runs on Linux/macOS - unlike most `condathis`
   ## examples, there's no portable substitute that still demonstrates a
   ## real bioinformatics CLI operating on the packaged BAM file below.
   create_env("bioconda::samtools", env_name = "samtools-env")

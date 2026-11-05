@@ -238,7 +238,7 @@ identify_res <- run(
 )
 
 parse_output(identify_res)
-#> [1] "-=>/tmp/Rtmpa1Zooi/mamba-tmp1c8d5d0ad3ee/magick-RdZsF-84iYJKTI67HLQ5KCAaIDJlXuKa PNG 800x800 800x800+0+0 8-bit sRGB 1.65386MiB 0.000u 0:00.000"
+#> [1] "-=>/tmp/RtmpvnzKWL/mamba-tmp1cd51070822b/magick-eopztHHzTMkMT8yT4f1Lfs0Vn8ZfFUmZ PNG 800x800 800x800+0+0 8-bit sRGB 1.65386MiB 0.000u 0:00.000"
 ```
 
 `input` accepts a character or raw vector, here we pass the raw PNG

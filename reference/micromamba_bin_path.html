@@ -9,7 +9,7 @@ condathis for the current operating system."><meta property="og:image" content="
 
     <a class="navbar-brand me-2" href="../index.html">condathis</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.4.9004</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.2.0.9003</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -61,7 +61,7 @@ condathis for the current operating system."><meta property="og:image" content="
     <p>A character string with the full executable path.
 On Windows this points to <code>micromamba.exe</code> under <code>Library/bin</code>.
 On other platforms this points to <code>micromamba</code> under <code>bin</code>.
-This is purely a computed, expected path — it does not check whether a
+This is purely a computed, expected path - it does not check whether a
 file actually exists there yet (unlike <code><a href="get_install_dir.html">get_install_dir()</a></code>, which
 creates its directory before returning). Use <code><a href="https://fs.r-lib.org/reference/file_access.html" class="external-link">fs::file_exists()</a></code> on
 the result, or <code><a href="install_micromamba.html">install_micromamba()</a></code>, if you need the binary to
@@ -75,7 +75,7 @@ actually be present.</p>
 <span class="r-in"><span>  <span class="va">micromamba_path</span> <span class="op">&lt;-</span> <span class="fu">condathis</span><span class="fu">::</span><span class="fu">micromamba_bin_path</span><span class="op">(</span><span class="op">)</span></span></span>
 <span class="r-in"><span>  <span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">micromamba_path</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">}</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> /tmp/RtmpwVEJJf/tmp-data1a134213e49c/R/condathis/micromamba/bin/micromamba</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> /tmp/Rtmp7nn3rS/tmp-data1a231545c8e8/R/condathis/micromamba/bin/micromamba</span>
 <span class="r-in"><span></span></span>
 </code></pre></div>
     </div>

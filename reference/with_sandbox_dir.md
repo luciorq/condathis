@@ -28,7 +28,7 @@ with_sandbox_dir(code, .local_envir = base::parent.frame())
 
 ``` r
 condathis::with_sandbox_dir(print(fs::path_home()))
-#> /tmp/RtmpwVEJJf/tmp-home1a13735df67e
+#> /tmp/Rtmp7nn3rS/tmp-home1a23134253aa
 condathis::with_sandbox_dir(print(tools::R_user_dir("condathis")))
-#> [1] "/tmp/RtmpwVEJJf/tmp-data1a13bd3ac2c/R/condathis"
+#> [1] "/tmp/Rtmp7nn3rS/tmp-data1a23347258ca/R/condathis"
 ```

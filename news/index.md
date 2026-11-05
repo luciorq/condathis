@@ -1,9 +1,96 @@
 # Changelog
 
-## condathis 0.1.5 (Development Version)
+## condathis 0.2.0 (Development Version)
 
 Development Changelog:
 [dev](https://github.com/luciorq/condathis/compare/v0.1.4...HEAD)
+
+This release is being tracked as a minor version bump instead of a patch
+(`0.1.5`) because its centerpiece - the pluggable backend system - is a
+structural, package-wide refactor: every environment-management function
+now dispatches through a backend registry instead of hardcoding the
+managed `micromamba` installation, laying the foundation for future
+backends (e.g. an in-process `rattler` engine) to plug in without
+further changes to the public API. It also carries several other
+breaking (though narrow) changes alongside it - see below.
+
+### Backend System
+
+- `condathis` now has a pluggable backend system. Internally, every
+  environment-management operation
+  ([`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md),
+  [`install_packages()`](https://luciorq.github.io/condathis/reference/install_packages.md),
+  [`remove_env()`](https://luciorq.github.io/condathis/reference/remove_env.md),
+  [`list_envs()`](https://luciorq.github.io/condathis/reference/list_envs.md),
+  [`env_exists()`](https://luciorq.github.io/condathis/reference/env_exists.md),
+  [`list_packages()`](https://luciorq.github.io/condathis/reference/list_packages.md),
+  [`get_env_dir()`](https://luciorq.github.io/condathis/reference/get_env_dir.md),
+  [`get_install_dir()`](https://luciorq.github.io/condathis/reference/get_install_dir.md),
+  and, for the environments it can already execute through,
+  [`run()`](https://luciorq.github.io/condathis/reference/run.md),
+  [`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md),
+  [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md))
+  now dispatches to a registered *backend* instead of hardcoding the
+  managed `micromamba` installation. `"micromamba"` is the built-in
+  default and, today, the only registered backend - this is the
+  foundation for future backends (e.g. an in-process `rattler` engine,
+  or container-based engines) to plug in later without changing any of
+  the functions above. All of these functions gain a new `method`
+  argument: `"auto"` (the default) resolves automatically - an existing
+  environment’s own owning backend, or
+  `getOption("condathis.backend_priority")` order for a new one;
+  `"micromamba"` selects it explicitly. `"native"` (the old default) is
+  now a deprecated alias for `"micromamba"` and warns once per session,
+  but keeps working exactly the same. If you never pass `method`,
+  nothing about your existing code changes.
+
+- New exported extension API for backend authors:
+  [`register_backend()`](https://luciorq.github.io/condathis/reference/register_backend.md)
+  (the extension point itself - its documentation specifies the full
+  10-function backend contract, the class convention, and the
+  load-order-safe
+  `.onLoad()`/[`setHook()`](https://rdrr.io/r/base/userhooks.html)
+  registration pattern),
+  [`unregister_backend()`](https://luciorq.github.io/condathis/reference/unregister_backend.md)
+  (for a backend package’s `.onUnload()`), and
+  [`list_registered_backend_names()`](https://luciorq.github.io/condathis/reference/list_registered_backend_names.md)
+  (introspection: what’s currently plugged in). These are aimed at
+  packages providing alternative execution engines, not at end users -
+  regular `condathis` usage never needs them. This extension API is
+  **experimental**: the backend contract may change in breaking ways
+  between `0.x` releases as the first external backends are wired in
+  (see
+  [`register_backend()`](https://luciorq.github.io/condathis/reference/register_backend.md)’s
+  *Lifecycle* section).
+
+- **Breaking (minor):**
+  [`get_install_dir()`](https://luciorq.github.io/condathis/reference/get_install_dir.md)
+  and
+  [`list_envs()`](https://luciorq.github.io/condathis/reference/list_envs.md)
+  now return a tibble-classed data frame instead of a bare character
+  vector/string, so they can report results across more than one
+  backend.
+  [`get_install_dir()`](https://luciorq.github.io/condathis/reference/get_install_dir.md)
+  gains `backend`/`path` columns;
+  [`list_envs()`](https://luciorq.github.io/condathis/reference/list_envs.md)
+  gains `backend`/`env_name`/ `path` columns. With a single registered
+  backend (today’s default), this is always one row per environment (or
+  one row total for
+  [`get_install_dir()`](https://luciorq.github.io/condathis/reference/get_install_dir.md)),
+  just no longer a bare vector - code checking
+  `is.character(get_install_dir())` or iterating
+  `for (e in list_envs())` needs to switch to `get_install_dir()$path` /
+  `list_envs()$env_name`.
+  [`env_exists()`](https://luciorq.github.io/condathis/reference/env_exists.md)
+  is unaffected - it still returns a plain `TRUE`/`FALSE`.
+
+- [`list_packages()`](https://luciorq.github.io/condathis/reference/list_packages.md)’s
+  columns are now documented as backend-dependent: only `name`,
+  `version`, `build_number`, and `channel` are guaranteed present across
+  every backend. The `"micromamba"` backend’s other columns (`base_url`,
+  `build_string`, `dist_name`, `platform`, `md5`, `sha256`, `url`) are
+  unchanged, just no longer part of the documented cross-backend
+  guarantee.
 
 ### Added
 
@@ -28,7 +115,7 @@ Development Changelog:
     crash-safe process cleanup . Default to `FALSE`, preserving existing
     behavior.
   - New `input` argument: writable `stdin = "|"` support, writing
-    character/raw data directly to the process’s standard input —
+    character/raw data directly to the process’s standard input -
     matching
     [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md)’s
     `input` argument. Previously `stdin` only accepted `NULL` or a file
@@ -55,7 +142,7 @@ Development Changelog:
   captures stdout/stderr as raw vectors instead of decoding them as
   UTF-8 text, so binary output (images, compressed data, etc.)
   round-trips correctly. Since a process’s stdout and stderr share one
-  encoding, both streams come back raw when `TRUE` — check with
+  encoding, both streams come back raw when `TRUE` - check with
   [`is.raw()`](https://rdrr.io/r/base/raw.html) before treating either
   as text.
   [`format()`](https://rdrr.io/r/base/format.html)/[`print()`](https://rdrr.io/r/base/print.html)
@@ -88,8 +175,8 @@ Development Changelog:
 
 - [`install_micromamba()`](https://luciorq.github.io/condathis/reference/install_micromamba.md)
   now verifies the downloaded `micromamba` binary against its official
-  checksum. If it doesn’t match — or the check can’t be run at all, for
-  any reason — you’ll see a warning, but the install still completes;
+  checksum. If it doesn’t match - or the check can’t be run at all, for
+  any reason - you’ll see a warning, but the install still completes;
   this never blocks you. On R 4.5 and newer this needs no extra software
   at all; on older R it prefers the optional `digest` package if you
   have it installed, and only as a last resort falls back to a
@@ -109,7 +196,7 @@ Development Changelog:
     [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md)).
     Default to `FALSE`, preserving existing behavior.
   - New `input` argument: writable `stdin = "|"` support, writing
-    character/raw data directly to the process’s standard input —
+    character/raw data directly to the process’s standard input -
     matching
     [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md)’s
     `input` argument. Previously `stdin` only accepted `NULL` or a file
@@ -139,7 +226,7 @@ Development Changelog:
   [`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md)
   (a `condathis_result`), instead of a plain, unlabeled list. If your
   code only reads `res$status`, `res$stdout`, or `res$stderr`, nothing
-  changes — that keeps working exactly as before. What’s new: every
+  changes - that keeps working exactly as before. What’s new: every
   result now also includes `res$pid`, `res$cmd`, and `res$env_name`, and
   simply printing a result (e.g. typing it at the console, or letting it
   auto-print) now shows a short, readable summary instead of a raw list
@@ -182,7 +269,7 @@ Development Changelog:
 
 - [`get_env_dir()`](https://luciorq.github.io/condathis/reference/get_env_dir.md)
   now validates `env_name` (a single, non-missing character string)
-  instead of silently building a nonsensical path — for example, a
+  instead of silently building a nonsensical path - for example, a
   multi-element `env_name` used to silently return a vector of paths.
 
 - [`install_packages()`](https://luciorq.github.io/condathis/reference/install_packages.md)
@@ -193,7 +280,7 @@ Development Changelog:
   with `channels = "bioconda"` only). The channel used is recorded per
   package in the environment’s `conda-meta/history` file; dropping a
   previously-used channel can change how dependencies resolve. The
-  install still proceeds — this is a warning, not an error.
+  install still proceeds - this is a warning, not an error.
 
 - **Breaking (minor):**
   [`env_exists()`](https://luciorq.github.io/condathis/reference/env_exists.md)
@@ -201,7 +288,7 @@ Development Changelog:
   environment name (for example `NULL`, `NA`, a number, or a vector of
   more than one name). Previously, these invalid inputs silently
   returned `FALSE`, which looked exactly the same as “that environment
-  doesn’t exist” — an easy way to hide a mistake in your own code. If
+  doesn’t exist” - an easy way to hide a mistake in your own code. If
   you were deliberately relying on `env_exists(NULL)` or
   `env_exists(NA)` returning `FALSE`, that call now errors instead;
   everything else (checking a real environment name) is unaffected.
@@ -209,7 +296,7 @@ Development Changelog:
 - **Breaking (minor):**
   [`run()`](https://luciorq.github.io/condathis/reference/run.md) no
   longer creates any environment when the one you asked for (`env_name`)
-  doesn’t exist — it errors instead, telling you to create it first.
+  doesn’t exist - it errors instead, telling you to create it first.
   Previously, if you gave a custom `env_name` that didn’t exist,
   [`run()`](https://luciorq.github.io/condathis/reference/run.md) would
   silently create an unrelated, empty `"condathis-env"` as a side effect
@@ -245,7 +332,7 @@ Development Changelog:
   and
   [`list_packages()`](https://luciorq.github.io/condathis/reference/list_packages.md)
   each already auto-create `"condathis-env"` themselves, correctly
-  scoped to only when it’s actually the target — that behavior is
+  scoped to only when it’s actually the target - that behavior is
   unaffected.
 
 - Fix
@@ -308,7 +395,7 @@ Development Changelog:
   [`run()`](https://luciorq.github.io/condathis/reference/run.md)/[`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md)’s
   `stdin = "|"` silently truncating `input` larger than the OS pipe
   buffer (confirmed: only 8192 of 200000 bytes delivered on macOS, no
-  error) — a single non-blocking `write_input()` call can short-write
+  error) - a single non-blocking `write_input()` call can short-write
   and discard the undelivered remainder. Also fixes a related deadlock
   in [`run()`](https://luciorq.github.io/condathis/reference/run.md),
   [`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md),
@@ -327,7 +414,7 @@ Development Changelog:
   binary as missing on Windows. Antivirus real-time scanning can briefly
   hold its own handle on a just-written executable, making a
   [`file.exists()`](https://rdrr.io/r/base/files.html) check performed
-  immediately afterward return `FALSE` even though the file is present —
+  immediately afterward return `FALSE` even though the file is present -
   confirmed directly (a `force = TRUE` reinstall failed once, then
   succeeded on an immediate retry with no code change). The existence
   check now polls briefly before giving up.
@@ -347,7 +434,7 @@ Development Changelog:
   as a proper error, so code calling
   [`list_envs()`](https://luciorq.github.io/condathis/reference/list_envs.md)
   can rely on always getting back either a vector of names or an
-  informative error — never a bare number.
+  informative error - never a bare number.
 
 - Fix
   [`list_packages()`](https://luciorq.github.io/condathis/reference/list_packages.md)

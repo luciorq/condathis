@@ -34,6 +34,9 @@
 - [`list_packages()`](https://luciorq.github.io/condathis/reference/list_packages.md)
   : List packages in a Conda environment
 
+- [`list_registered_backend_names()`](https://luciorq.github.io/condathis/reference/list_registered_backend_names.md)
+  : List every currently registered backend name
+
 - [`micromamba_bin_path()`](https://luciorq.github.io/condathis/reference/micromamba_bin_path.md)
   :
 
@@ -41,6 +44,9 @@
 
 - [`parse_output()`](https://luciorq.github.io/condathis/reference/parse_output.md)
   : Parse command output text
+
+- [`register_backend()`](https://luciorq.github.io/condathis/reference/register_backend.md)
+  : Register a condathis backend implementation
 
 - [`remove_env()`](https://luciorq.github.io/condathis/reference/remove_env.md)
   : Remove a Conda environment
@@ -53,6 +59,9 @@
 
 - [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md)
   : Run a pipeline of commands connected with pipes
+
+- [`unregister_backend()`](https://luciorq.github.io/condathis/reference/unregister_backend.md)
+  : Unregister a condathis backend
 
 - [`with_sandbox_dir()`](https://luciorq.github.io/condathis/reference/with_sandbox_dir.md)
   : Execute code in an isolated temporary environment

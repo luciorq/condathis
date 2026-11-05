@@ -19,7 +19,7 @@ parse_output(res, stream = c("stdout", "stderr", "both", "plain"))
   stream(s) hold raw binary data (from
   [`run()`](https://luciorq.github.io/condathis/reference/run.md)/[`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md)/
   [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md)
-  called with `binary = TRUE`) — read those directly instead, e.g. with
+  called with `binary = TRUE`) - read those directly instead, e.g. with
   [`writeBin()`](https://rdrr.io/r/base/readBin.html).
 
 - stream:
