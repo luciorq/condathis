@@ -630,7 +630,9 @@ read_env_package_records <- function(env_dir, env_name) {
 #' condathis runs `micromamba list` without them (see
 #' `micromamba_cmd_overlay()`). For the platform of uv's rows, this takes
 #' the platform of the `python` package, which is micromamba's own unless
-#' the environment is for an emulated platform. uv also normalizes
+#' the environment is for an emulated platform. The micromamba backend
+#' gives its own listing that platform too (see
+#' `micromamba_pypi_uv_platform()`). uv also normalizes
 #' versions, which this reads as written: package builders write them
 #' normalized.
 #'

@@ -672,6 +672,7 @@ micromamba_backend_list_packages <- function(
       micromamba_parse_list_json(px_res, env_name),
       env_dir = env_dir_for_backend(backend, env_name)
     )
+    pkgs_df <- micromamba_pypi_uv_platform(pkgs_df)
   }
   # A local channel in a directory with white space was passed to
   # micromamba by another path (see `micromamba_channel_arg()`), which is
@@ -772,6 +773,48 @@ micromamba_use_record_channels <- function(pkgs_df, env_dir) {
     record_channel == pkgs_df[["base_url"]]
   replace <- !(keep %in% TRUE)
   pkgs_df[["channel"]][replace] <- record_channel[replace]
+  return(pkgs_df)
+}
+
+#' Give the PyPI rows that micromamba read from uv the platform of python
+#'
+#' Without a `pip` Conda package, micromamba asks `uv` for the PyPI
+#' packages and gives them its own platform, such as `win-arm64`, as
+#' `platform`. In an environment for an emulated platform, such as a
+#' `win-64` environment on Windows ARM, that is not the platform of the
+#' environment's `python`, which the packages were installed for, nor the
+#' one that `read_pypi_package_records()` gives when micromamba is not
+#' installed. This takes the platform of the `python` package, so both
+#' listings agree. With `pip`, the platform is pip's own tag (see
+#' `pip_platform_tag()`) and is kept.
+#'
+#' @param pkgs_df The result of `micromamba_use_record_channels()`.
+#'
+#' @returns `pkgs_df`, with `platform` of the `pypi` rows replaced when
+#'   the environment has `uv` and `python` but no `pip`.
+#'
+#' @keywords internal
+#' @noRd
+micromamba_pypi_uv_platform <- function(pkgs_df) {
+  if (
+    isFALSE(is.data.frame(pkgs_df)) ||
+      identical(nrow(pkgs_df), 0L) ||
+      isFALSE(all(c("name", "channel", "platform") %in% names(pkgs_df)))
+  ) {
+    return(pkgs_df)
+  }
+  is_pypi <- pkgs_df[["channel"]] %in% "pypi"
+  conda_names <- pkgs_df[["name"]][!is_pypi]
+  python_row <- which(!is_pypi & pkgs_df[["name"]] %in% "python")
+  if (
+    isFALSE(any(is_pypi)) ||
+      isTRUE("pip" %in% conda_names) ||
+      isFALSE("uv" %in% conda_names) ||
+      isFALSE(identical(length(python_row), 1L))
+  ) {
+    return(pkgs_df)
+  }
+  pkgs_df[["platform"]][is_pypi] <- pkgs_df[["platform"]][python_row]
   return(pkgs_df)
 }
 

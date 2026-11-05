@@ -476,7 +476,8 @@ testthat::test_that("micromamba and the default listing give one frame for an en
 
 testthat::test_that("micromamba and the default listing give one frame for an environment with uv and no pip", {
   # micromamba asks uv when the environment has no pip: the names are
-  # normalized, and the platform is a Conda one.
+  # normalized, and the platform is a Conda one, the one of python (also in
+  # an emulated environment, such as win-64 on Windows ARM).
   testthat::skip_if_offline()
   env_name <- "pypi-uv-env"
   withr::defer({
@@ -557,4 +558,37 @@ testthat::test_that("micromamba and the default listing give one frame for an en
     backend_list_packages.default(micromamba_backend(), env_name = env_name),
     micromamba_pkgs
   )
+})
+
+testthat::test_that("micromamba_pypi_uv_platform() gives uv's PyPI rows the platform of python", {
+  # On Windows ARM, an emulated win-64 environment: micromamba gives the
+  # rows that uv reports its own platform.
+  pkgs_df <- data.frame(
+    name = c("python", "uv", "tiny-pkg"),
+    channel = c("conda-forge", "conda-forge", "pypi"),
+    platform = c("win-64", "win-64", "win-arm64"),
+    stringsAsFactors = FALSE
+  )
+  testthat::expect_identical(
+    micromamba_pypi_uv_platform(pkgs_df)$platform,
+    c("win-64", "win-64", "win-64")
+  )
+  # With pip, the platform is pip's own tag, and is kept.
+  with_pip <- rbind(
+    pkgs_df,
+    data.frame(
+      name = "pip",
+      channel = "conda-forge",
+      platform = "noarch",
+      stringsAsFactors = FALSE
+    )
+  )
+  with_pip$platform[3L] <- "win32-ARM64"
+  testthat::expect_identical(micromamba_pypi_uv_platform(with_pip), with_pip)
+  # Without python, or without PyPI rows, nothing changes.
+  no_python <- pkgs_df[-1L, , drop = FALSE]
+  testthat::expect_identical(micromamba_pypi_uv_platform(no_python), no_python)
+  no_pypi <- pkgs_df[-3L, , drop = FALSE]
+  testthat::expect_identical(micromamba_pypi_uv_platform(no_pypi), no_pypi)
+  testthat::expect_identical(micromamba_pypi_uv_platform(list()), list())
 })
