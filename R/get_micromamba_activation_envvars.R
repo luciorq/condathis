@@ -1187,13 +1187,13 @@ ensure_windows_micromamba_bat <- function(timeout = Inf) {
 #' `Rscript` itself puts in front at its start (Rtools on Windows) lead
 #' both: they are skipped first. Then the baseline block starts where the
 #' activated `PATH` has the first remaining baseline entry. The entries
-#' before it were put in front by the activation, in its order, also those
-#' the session's `PATH` already has further back (an environment directory
-#' at the end of the session's `PATH` still comes first, as with
-#' `micromamba run`); the entries after it that the baseline lacks were
-#' appended, by an `activate.d` script. When the first baseline entry is
-#' not in the activated `PATH`, every entry that the baseline lacks counts
-#' as put in front.
+#' before it were put in front by the activation, in its order. This
+#' includes those that the session's `PATH` already has further back. An
+#' environment directory at the end of the session's `PATH` still comes
+#' first, as with `micromamba run`. The entries after it that the baseline
+#' lacks were appended by an `activate.d` script. When the first baseline
+#' entry is not in the activated `PATH`, every entry that the baseline
+#' lacks counts as put in front.
 #'
 #' On Windows, entries compare as Windows compares directories: without
 #' case and with `/` the same as `\\`. micromamba spells the session's
