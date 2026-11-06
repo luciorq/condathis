@@ -446,5 +446,5 @@ interactive session.
 condathis::with_sandbox_dir({
   print(condathis::get_install_dir()$path)
 })
-#> [1] "/tmp/RtmpxiirNk/condathis-sandbox-2b1e77067219/data/R/condathis"
+#> [1] "/tmp/Rtmpu60vo2/condathis-sandbox-2b1217f9d129/data/R/condathis"
 ```
