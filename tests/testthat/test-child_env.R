@@ -158,14 +158,41 @@ testthat::test_that("split_activated_path() finds what the activation put before
     ),
     list(prepend = "/env/bin", append = character(0L))
   )
-  # The session's entries spelled differently (micromamba on Windows): every
-  # entry the baseline lacks counts as put in front, as before.
+  # Off Windows, entries compare as written: every entry the baseline lacks
+  # counts as put in front.
+  testthat::local_mocked_bindings(is_windows = function() FALSE)
   testthat::expect_identical(
     split_activated_path(
       p("/env/bin", "\\usr\\bin"),
       p("/usr/bin")
     ),
     list(prepend = c("/env/bin", "\\usr\\bin"), append = character(0L))
+  )
+})
+
+testthat::test_that("split_activated_path() compares Windows entries as Windows does", {
+  testthat::local_mocked_bindings(is_windows = function() TRUE)
+  sep <- .Platform$path.sep
+  p <- function(...) paste(c(...), collapse = sep)
+  # Regression test: micromamba spells the session's entries with
+  # backslashes, so with a first session entry spelled with `/` every such
+  # entry went in front of the session's PATH again (found on r-universe's
+  # Windows runners, where R CMD check puts `C:/R/bin/x64` first). Paths
+  # without a drive letter, as `.Platform$path.sep` is `:` off Windows.
+  testthat::expect_identical(
+    split_activated_path(
+      p("\\env", "\\env\\Scripts", "\\R\\bin\\x64", "\\Windows", "\\Apps"),
+      p("/R/bin/x64", "\\Windows", "/apps")
+    ),
+    list(prepend = c("\\env", "\\env\\Scripts"), append = character(0L))
+  )
+  # What an activate.d script appends, spelled either way, is still found.
+  testthat::expect_identical(
+    split_activated_path(
+      p("\\env", "\\Windows", "\\Extra", "/extra"),
+      p("\\Windows")
+    ),
+    list(prepend = "\\env", append = "\\Extra")
   )
 })
 

@@ -1,3 +1,13 @@
+## condathis (development version)
+
+### Bug fixes
+
+* On Windows, `run()`, `run_bin()` and `run_pipeline()` with the micromamba
+  backend no longer put a second copy of `PATH` entries written with `/` in
+  front of your session's `PATH`. micromamba rewrites these entries with `\`,
+  and condathis had read the rewritten copies as directories that the
+  environment added.
+
 ## condathis 0.2.0
 
 Development Changelog: [0.2.0](https://github.com/luciorq/condathis/compare/v0.1.4...v0.2.0)

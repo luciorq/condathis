@@ -1192,9 +1192,13 @@ ensure_windows_micromamba_bat <- function(timeout = Inf) {
 #' at the end of the session's `PATH` still comes first, as with
 #' `micromamba run`); the entries after it that the baseline lacks were
 #' appended, by an `activate.d` script. When the first baseline entry is
-#' not in the activated `PATH` (micromamba spells the session's entries
-#' with backslashes on Windows), every entry that the baseline lacks counts
+#' not in the activated `PATH`, every entry that the baseline lacks counts
 #' as put in front.
+#'
+#' On Windows, entries compare as Windows compares directories: without
+#' case and with `/` the same as `\\`. micromamba spells the session's
+#' entries with backslashes, so an entry that the session spells with `/`
+#' is not an added directory.
 #'
 #' @param activated_path,baseline_path Character strings.
 #'
@@ -1209,24 +1213,30 @@ split_activated_path <- function(activated_path, baseline_path) {
   activated_parts <- activated_parts[nzchar(activated_parts)]
   baseline_parts <- strsplit(baseline_path %||% "", sep, fixed = TRUE)[[1L]]
   baseline_parts <- baseline_parts[nzchar(baseline_parts)]
+  key <- function(x) {
+    if (isTRUE(is_windows())) tolower(gsub("/", "\\", x, fixed = TRUE)) else x
+  }
+  distinct <- function(x) x[!duplicated(key(x))]
+  activated_keys <- key(activated_parts)
+  baseline_keys <- key(baseline_parts)
   common <- 0L
   while (
     common < min(length(activated_parts), length(baseline_parts)) &&
-      identical(activated_parts[[common + 1L]], baseline_parts[[common + 1L]])
+      identical(activated_keys[[common + 1L]], baseline_keys[[common + 1L]])
   ) {
     common <- common + 1L
   }
   rest <- activated_parts[seq_along(activated_parts) > common]
-  baseline_rest <- baseline_parts[seq_along(baseline_parts) > common]
+  baseline_rest <- baseline_keys[seq_along(baseline_keys) > common]
   start <- if (identical(length(baseline_rest), 0L)) {
     NA_integer_
   } else {
-    match(baseline_rest[[1L]], rest)
+    match(baseline_rest[[1L]], key(rest))
   }
   if (identical(length(baseline_rest), 0L)) {
     # The whole baseline leads the activated `PATH`: the rest was appended,
     # unless there is no baseline at all.
-    added <- unique(rest[!(rest %in% baseline_parts)])
+    added <- distinct(rest[!(key(rest) %in% baseline_keys)])
     if (identical(length(baseline_parts), 0L)) {
       return(list(prepend = added, append = character(0L)))
     }
@@ -1234,15 +1244,17 @@ split_activated_path <- function(activated_path, baseline_path) {
   }
   if (isTRUE(is.na(start))) {
     return(list(
-      prepend = unique(rest[!(rest %in% baseline_parts)]),
+      prepend = distinct(rest[!(key(rest) %in% baseline_keys)]),
       append = character(0L)
     ))
   }
   before <- rest[seq_len(start - 1L)]
   after <- rest[seq_along(rest) >= start]
   return(list(
-    prepend = unique(before),
-    append = unique(after[!(after %in% c(baseline_parts, before))])
+    prepend = distinct(before),
+    append = distinct(
+      after[!(key(after) %in% c(baseline_keys, key(before)))]
+    )
   ))
 }
 
