@@ -39,7 +39,7 @@ there with a pointer to this file.
 | 12 | `verbose` on `run_pipeline()` | feat-pipeline "intentional divergences" | explicitly not planned | no |
 | 13 | Issue #12 (inner double quotes on Windows) | GitHub issue | fixed in 0.2.0, issue still open | no |
 | 14 | Tests that need a UTF-8 locale or direct DNS | local run 2026-11-05 | open | no |
-| 15 | r-universe: condathis, rattlerthis and `Additional_repositories` | r-universe research 2026-11-05 | open | no |
+| 15 | r-universe: condathis and rattlerthis | r-universe research 2026-11-05 | open | no |
 | 16 | condathis on WebAssembly (webR) | r-universe research 2026-11-05 | idea | yes: whether to abort early |
 
 ## 0. Before 0.2.0: the 0.1.4 release was never recorded on GitHub
@@ -464,7 +464,7 @@ marked), and note both in `.github/CONTRIBUTING.md`: run the suite in a
 UTF-8 locale, and expect network tests to skip behind a proxy unless the
 DNS check works there.
 
-## 15. r-universe: condathis, rattlerthis and `Additional_repositories`
+## 15. r-universe: condathis and rattlerthis
 
 **Origin.** Research on 2026-11-05 (see rattlerthis's `PLAN.md`,
 "r-universe and WebAssembly", for r-universe's build matrix and tooling).
@@ -476,21 +476,23 @@ DNS check works there.
   built 2026-10-17 from the old `main`, and it checks for changes every
   hour. condathis has no compiled code, so it gets one binary per OS
   (also used on Windows on ARM64) and a WebAssembly one.
-- rattlerthis is not registered. Registering it would give binaries for
-  Linux, macOS, Windows x64 and Windows on ARM64, so its users would not
-  need Rust.
+- rattlerthis is registered (first build 2026-11-05). On 2026-11-06 the
+  universe had binaries for Linux, macOS, Windows x64, Windows on ARM64
+  and WebAssembly, so its users do not need Rust; only macOS x86_64 on
+  R 4.6.2 failed (see rattlerthis's `TODO.md`).
 - The pkgdown workflow builds rattlerthis from source for the backends
   article (about 2.5 minutes of Rust on the runner, PR #38).
-- rattlerthis's open item "condathis declares `Enhances: rattlerthis` plus
-  `Additional_repositories`" (spec decision Q22) needs a repository URL;
-  the universe is that URL.
+- Decided 2026-11-08: condathis's `DESCRIPTION` does not name
+  rattlerthis. No `Enhances`, `Suggests` or `Additional_repositories`
+  entry: the CRAN release of condathis is independent of rattlerthis, and
+  CRAN reviewers do not like a CRAN package that points to a package
+  outside CRAN. This replaces spec decision Q22. condathis still finds the
+  package by name at run time (`known_backend_packages`).
 
-**Implementation plan.** Register rattlerthis in the
-`luciorq/luciorq.r-universe.dev` registry and watch its first builds.
-Then: install the rattlerthis binary from the universe in the pkgdown
-workflow (with `dependencies = FALSE`, so the local condathis stays), show
-the universe in the article's install section, and use its URL for
-`Additional_repositories` before the next CRAN release.
+**Implementation plan.** Install the rattlerthis binary from the
+universe in the pkgdown workflow (with `dependencies = FALSE`, so the
+local condathis stays), and show the universe in the article's install
+section.
 
 ## 16. condathis on WebAssembly (webR)
 
