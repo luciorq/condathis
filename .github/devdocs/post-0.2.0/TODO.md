@@ -67,9 +67,10 @@ Nothing here blocks the v0.2.0 release.
 - [ ] 14: make the pip test of `test-list_packages_pypi.R` skip or read
       UTF-8 explicitly in a non-UTF-8 locale; note the UTF-8 locale and
       the DNS-based `skip_if_offline()` in `.github/CONTRIBUTING.md`
-- [ ] 15: rattlerthis is registered in `luciorq.r-universe.dev`; use its
-      binary in the pkgdown workflow and show the universe in the backends
-      article. condathis's `DESCRIPTION` does not name rattlerthis
+- [ ] 15: rattlerthis is registered in `luciorq.r-universe.dev`.
+      Use its binary in the pkgdown workflow and show the universe in the
+      backends article.
+      condathis's `DESCRIPTION` does not name rattlerthis
       (decided 2026-11-08, see PLAN.md)
 - [ ] 16: decide whether condathis aborts early, with one class, on
       WebAssembly (webR), where no backend can start a process

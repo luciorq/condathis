@@ -10,8 +10,6 @@
 
 ## condathis 0.2.0
 
-Development Changelog: [0.2.0](https://github.com/luciorq/condathis/compare/v0.1.4...v0.2.0)
-
 condathis 0.2.0 adds pipelines and runs the environment and command
 functions through backends.
 It makes the exported functions consistent (one argument order, one rule for

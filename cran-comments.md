@@ -16,21 +16,7 @@ under "Breaking changes".
 
 ## R CMD check results
 
-0 errors | 0 warnings | 1 note
-
-* checking CRAN incoming feasibility ... NOTE
-
-  Found the following (possibly) invalid URLs:
-    URL: https://github.com/luciorq/condathis/compare/v0.1.4...v0.2.0
-      From: NEWS.md
-      Status: 404
-
-  The link compares two GitHub tags. It returns 404 until the v0.2.0 tag
-  is pushed, on acceptance.
-
-On the local Windows machine, the check also lists a folder 'NULL' in the
-check directory and in the temporary directory. R 4.6.1 on Windows
-creates it there for any package, a minimal one included.
+0 errors | 0 warnings | 0 notes
 
 ## Notes
 

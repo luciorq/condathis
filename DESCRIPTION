@@ -1,6 +1,6 @@
 Package: condathis
 Title: Run Any CLI Tool in a 'Conda' Environment
-Version: 0.2.0.9000
+Version: 0.2.0
 Authors@R: c(
     person("Lucio", "Queiroz", , "luciorqueiroz@gmail.com", role = c("aut", "cre", "cph"),
            comment = c(ORCID = "0000-0002-6090-1834")),
@@ -9,10 +9,10 @@ Authors@R: c(
   )
 Description: Runs command line interface (CLI) tools in isolated and
     reproducible 'Conda' environments from R. Environments are created and
-    managed with 'micromamba' <https://mamba.readthedocs.io/en/latest/>,
-    which is downloaded when no usable copy is found. Commands run with
-    their environment activated, alone or as pipelines connected by pipes,
-    and other packages can add backends that create and run environments.
+    managed with 'micromamba', which is downloaded when no usable copy is
+    found. Commands run with their environment activated, alone or as
+    pipelines connected by pipes, and other packages can add backends that
+    create and run environments.
 License: MIT + file LICENSE
 URL: https://github.com/luciorq/condathis,
     https://luciorq.github.io/condathis/

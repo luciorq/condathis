@@ -476,23 +476,26 @@ DNS check works there.
   built 2026-10-17 from the old `main`, and it checks for changes every
   hour. condathis has no compiled code, so it gets one binary per OS
   (also used on Windows on ARM64) and a WebAssembly one.
-- rattlerthis is registered (first build 2026-11-05). On 2026-11-06 the
-  universe had binaries for Linux, macOS, Windows x64, Windows on ARM64
-  and WebAssembly, so its users do not need Rust; only macOS x86_64 on
-  R 4.6.2 failed (see rattlerthis's `TODO.md`).
+- rattlerthis is registered (first build 2026-11-05).
+  On 2026-11-06 the universe had binaries for Linux, macOS, Windows x64,
+  Windows on ARM64 and WebAssembly, so its users do not need Rust.
+  Only macOS x86_64 on R 4.6.2 failed (see rattlerthis's `TODO.md`).
 - The pkgdown workflow builds rattlerthis from source for the backends
   article (about 2.5 minutes of Rust on the runner, PR #38).
 - Decided 2026-11-08: condathis's `DESCRIPTION` does not name
-  rattlerthis. No `Enhances`, `Suggests` or `Additional_repositories`
-  entry: the CRAN release of condathis is independent of rattlerthis, and
+  rattlerthis.
+  No `Enhances`, `Suggests` or `Additional_repositories` entry.
+  The CRAN release of condathis is independent of rattlerthis.
   CRAN reviewers do not like a CRAN package that points to a package
-  outside CRAN. This replaces spec decision Q22. condathis still finds the
-  package by name at run time (`known_backend_packages`).
+  outside CRAN.
+  This replaces spec decision Q22.
+  condathis still finds the package by name at run time
+  (`known_backend_packages`).
 
 **Implementation plan.** Install the rattlerthis binary from the
 universe in the pkgdown workflow (with `dependencies = FALSE`, so the
-local condathis stays), and show the universe in the article's install
-section.
+local condathis stays).
+Show the universe in the article's install section.
 
 ## 16. condathis on WebAssembly (webR)
 
