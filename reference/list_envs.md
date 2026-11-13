@@ -17,8 +17,8 @@ list_envs(method = "auto", verbose = "silent")
   Character string naming the backend to query. `"auto"` (the default)
   covers every registered backend, in
   `getOption("condathis.backend_priority")` order, also a backend that
-  reports itself unavailable. Any name from
-  [`list_registered_backend_names()`](https://luciorq.github.io/condathis/reference/list_registered_backend_names.md)
+  reports itself unavailable. The name of a registered backend (see
+  [`list_registered_backend_names()`](https://luciorq.github.io/condathis/reference/list_registered_backend_names.md))
   queries only that backend. `"micromamba"` is built in. The name of a
   backend whose package condathis knows, such as `"rattler"` of the
   `rattlerthis` package, also queries only that backend. condathis loads
@@ -32,7 +32,7 @@ list_envs(method = "auto", verbose = "silent")
   Character string that controls the console output. One of:
 
   - `"output"`: show the output of the command and the messages of
-    condathis.
+    `condathis`.
 
   - `"silent"`: show nothing.
 
@@ -44,10 +44,22 @@ list_envs(method = "auto", verbose = "silent")
     log.
 
   `TRUE` means `"output"` and `FALSE` means `"silent"`. Every level
-  except `"silent"` shows a spinner in interactive sessions. Invalid
-  values abort with class `condathis_invalid_verbose` (see
-  [condathis-conditions](https://luciorq.github.io/condathis/reference/condathis-conditions.md)).
-  The default is shown in Usage.
+  except `"silent"` shows a spinner in interactive sessions. It also
+  shows these messages and this warning when they occur (see
+  [condathis-conditions](https://luciorq.github.io/condathis/reference/condathis-conditions.md)):
+
+  - `condathis_micromamba_downloading` (a message): no usable
+    `micromamba` was found, so it is downloaded. Queries, such as
+    `list_envs()`, never download it.
+
+  - `condathis_env_lock_waiting` and `condathis_cache_lock_waiting`
+    (messages): the call waits for another R session.
+
+  - `condathis_install_micromamba_checksum_unavailable` (a warning): the
+    checksum of the downloaded `micromamba` could not be checked.
+
+  Invalid values abort with class `condathis_invalid_verbose`. The
+  default is shown in Usage.
 
   The command line shown, the `cmd` of a result and the messages of
   `condathis` show the password and the token of a URL as `*****`.
@@ -92,6 +104,13 @@ Other environments:
 ## Examples
 
 ``` r
+condathis::with_sandbox_dir({
+  # No environment yet: a data frame with no rows
+  print(condathis::list_envs())
+})
+#> # A tibble: 0 × 3
+#> # ℹ 3 variables: backend <chr>, env_name <chr>, path <chr>
+
 if (FALSE) { # \dontrun{
 condathis::with_sandbox_dir({
   # A local channel shipped with condathis, with `polyglot`: a

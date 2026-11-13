@@ -42,6 +42,11 @@ channel. Name the environment with `env_name`. `channels` lists, in
 priority order, the channels for the other packages: here `conda-forge`
 and then `bioconda`.
 
+`bioconda` builds `samtools`, like its other tools with compiled code,
+for Linux and macOS only, so this example does not run on Windows. On
+Windows, run R in the Windows Subsystem for Linux (WSL), or use a tool
+that `conda-forge` builds for Windows.
+
 ``` r
 
 create_env(
@@ -153,3 +158,11 @@ By using `condathis`, you get:
   removes one, and
   [`clean_cache()`](https://luciorq.github.io/condathis/reference/clean_cache.md)
   deletes the downloaded package files.
+- [`get_install_dir()`](https://luciorq.github.io/condathis/reference/get_install_dir.md)
+  shows the data directory of `condathis`, which holds `micromamba`, the
+  environments and the package cache. To remove everything that
+  `condathis` installed, see the section *Removing everything* in
+  [`?clean_cache`](https://luciorq.github.io/condathis/reference/clean_cache.md).
+- The [articles](https://luciorq.github.io/condathis/articles/) on the
+  package website show how to use Python with `reticulate`, how to
+  stream binary data through pipelines, and how to choose a backend.

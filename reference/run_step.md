@@ -57,8 +57,12 @@ run_step(cmd, ..., env_name = NULL, method = NULL, stderr)
 
   Standard error target for this step, replacing the `stderr` of
   [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md):
-  `"|"` to capture it, `NULL` to discard it, or a file path. When not
-  given, the step uses the `stderr` of
+  `"|"` to capture it, `NULL` to discard it, `""` to send it to the
+  standard error of the R process, `"2>&1"` to send it to the standard
+  output of the step (the next command, or the `stdout` target of
+  [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md)
+  for the last step), or a file path. When not given, the step uses the
+  `stderr` of
   [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md).
 
 ## Value
@@ -66,9 +70,9 @@ run_step(cmd, ..., env_name = NULL, method = NULL, stderr)
 An object of class `condathis_run_step`, for
 [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md),
 which prints as the command line and its environment.
-[`c()`](https://rdrr.io/r/base/c.html) combines steps into a list of
-steps of class `condathis_run_steps`, which
-[`c()`](https://rdrr.io/r/base/c.html) extends again.
+[`c()`](https://luciorq.github.io/condathis/reference/c.condathis_run_step.md)
+combines steps into a list of steps of class `condathis_run_steps`,
+which [`c()`](https://rdrr.io/r/base/c.html) extends again.
 `c(step_1, step_2)`, `c(c(step_1, step_2), step_3)` and
 `Reduce(c, steps)` all give a list for `run_pipeline(!!!steps)`.
 [`c()`](https://rdrr.io/r/base/c.html) with a value that is not a step

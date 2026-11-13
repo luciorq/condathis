@@ -89,8 +89,13 @@ example as `condathis (>= 0.2.0)` in `Imports`.
 
 ## The backend object
 
-Build the backend as
-`structure(list(<the functions>), class = c("condathis_backend_<name>", "condathis_backend"))`.
+Build the backend as:
+
+    structure(
+      list(<the functions>),
+      class = c("condathis_backend_<name>", "condathis_backend")
+    )
+
 S3 dispatch keys on the first class, so it must be unique to the
 backend. It must not be `"condathis_backend"`, `"default"`, `"list"` or
 `"data.frame"`: methods for those classes would also catch objects that
@@ -187,8 +192,8 @@ are never used. The values are:
   `conda-meta` directory, in its real form (see
   `backend_resolve_run_in_dir()`).
 
-- `timeout`: a positive number of seconds. For `backend_resolve_run()`
-  and `backend_resolve_run_in_dir()`, it can also be `Inf` (no limit).
+- `timeout`: a positive number of seconds. It can also be `Inf` (no
+  limit) for `backend_resolve_run()` and `backend_resolve_run_in_dir()`.
 
 [`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md),
 [`install_packages()`](https://luciorq.github.io/condathis/reference/install_packages.md)
@@ -209,36 +214,38 @@ needs no lock of its own against those sessions.
 ## Required functions
 
 - `backend_create_env(backend, packages = NULL, env_file = NULL, env_name = "condathis-env", channels = "conda-forge", channel_priority = c("strict", "flexible", "disabled"), additional_channels = NULL, platform = NULL, overwrite = FALSE, verbose = c("output", "silent", "cmd", "spinner", "full"))`
-  creates the environment in the directory that `backend_get_env_dir()`
-  returns. `condathis` calls it only when that directory does not exist.
-  That is the case for a new environment. It is also the case with
-  `overwrite = TRUE`, after `condathis` moved the existing environment
-  aside or deleted a directory that was not an environment (one left by
-  a failed create). When the call fails, `condathis` deletes what it
-  left and moves the old environment back. A call fails also when it
-  returns a non-zero `status` or an invalid `link_scripts_skipped` (see
-  *Results*). So a misspelled spec with `overwrite = TRUE` does not cost
-  the user the environment. `overwrite` tells the backend which of the
-  two cases applies. With `env_file`, build the environment from that
-  file. With `platform`, build it for that platform. The platform can be
-  one that `condathis` chose because the request does not solve for the
-  native platform of the backend (see `backend_can_solve()`). After a
-  successful call, `condathis` writes
+  creates the environment. Its directory is the one that
+  `backend_get_env_dir()` returns, and `condathis` calls it only when
+  that directory does not exist. That is the case for a new environment.
+  It is also the case with `overwrite = TRUE`, after `condathis` moved
+  the existing environment aside or deleted a directory that was not an
+  environment (one left by a failed create). When the call fails,
+  `condathis` deletes what it left and moves the old environment back. A
+  call fails also when it returns a non-zero `status` or an invalid
+  `link_scripts_skipped` (see *Results*). So a misspelled spec with
+  `overwrite = TRUE` does not cost the user the environment. `overwrite`
+  tells the backend which of the two cases applies. With `env_file`,
+  build the environment from that file. With `platform`, build it for
+  that platform. The platform can be one that `condathis` chose because
+  the request does not solve for the native platform of the backend (see
+  `backend_can_solve()`). After a successful call, `condathis` writes
   `<env_dir>/.condathis/backend.json`. It uses this marker as a
   cross-check, and the marker records the platform when one was given or
   chosen.
 
-  `condathis` moves aside or deletes only the directory
+  `condathis` moves aside or deletes only the directory  
   `<backend_get_install_dir()>/envs/<env_name>`. For a backend whose
   `backend_get_env_dir()` returns another directory,
   [`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md)
   cannot replace an existing environment, or delete a directory left by
   a failed create. It aborts with `condathis_create_env_failed`, whose
   parent has the class `condathis_unsafe_env_dir_move` or
-  `condathis_unsafe_env_dir_delete`. It keeps the environment that it
-  replaces in `<backend_get_install_dir()>/envs/#trash` until the
-  backend succeeded. No environment can have that name, so
-  `backend_list_envs()` must leave that directory out.
+  `condathis_unsafe_env_dir_delete`.
+
+  `condathis` keeps the environment that it replaces in the directory  
+  `<backend_get_install_dir()>/envs/#trash` until the backend succeeded.
+  No environment can have that name, so `backend_list_envs()` must leave
+  that directory out.
 
 - `backend_install(backend, packages, env_name = "condathis-env", channels = "conda-forge", channel_priority = c("strict", "flexible", "disabled"), additional_channels = NULL, platform = NULL, verbose = c("output", "silent", "cmd", "spinner", "full"))`
   installs `packages` into the existing environment `env_name`, solving
@@ -516,13 +523,20 @@ returns the path anyway. None of them signals an error for it.
 ## Errors
 
 Signal an error of any class when an operation fails. `condathis`
-re-raises it with the classes `condathis_<function>_failed` (for example
-`condathis_create_env_failed`) and `condathis_backend_error`, plus every
-`condathis_*` class of your error. It keeps your error as the parent.
+re-raises it with your error as the parent, and with these classes:
+
+- `condathis_<function>_failed`, for example
+  `condathis_create_env_failed`.
+
+- `condathis_backend_error`.
+
+- Every `condathis_*` class of your error.
+
 Handlers still find your own classes with
 [`rlang::cnd_inherits()`](https://rlang.r-lib.org/reference/cnd_inherits.html).
-When you cannot honor an argument (for example `env_file`, or
-`channel_priority = "flexible"`), also give your condition the class
+
+When you cannot honor an argument, such as `env_file` or
+`channel_priority = "flexible"`, also give your condition the class
 `condathis_backend_unsupported`.
 
 Do not give your own conditions the class `condathis_backend_error`:

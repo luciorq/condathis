@@ -63,7 +63,7 @@ install.packages("condathis")
 ```
 
 Or get the development version from
-[R-Universe](https://luciorq.r-universe.dev/condathis):
+[R-universe](https://luciorq.r-universe.dev/condathis):
 
 ``` r
 
@@ -147,7 +147,7 @@ out <- condathis::run(
 )
 
 condathis::parse_output(out)[1]
-#> [1] "curl 8.10.1 (x86_64-conda-linux-gnu) libcurl/8.10.1 OpenSSL/3.6.5 zlib/1.3.2 zstd/1.5.7 libssh2/1.11.1 nghttp2/1.70.0"
+#> [1] "curl 8.10.1 (x86_64-conda-linux-gnu) libcurl/8.10.1 OpenSSL/3.6.5 zlib/1.3.2 zstd/1.5.7 libssh2/1.11.1 nghttp2/1.71.0"
 ```
 
 This lets you run tools with conflicting dependencies side by side.
@@ -158,25 +158,38 @@ This lets you run tools with conflicting dependencies side by side.
 [**`micromamba`**](https://mamba.readthedocs.io/en/latest/user_guide/micromamba.html)
 to bring **reproducibility and isolation**. `micromamba` is a package
 manager that “does not need a base environment and does not come with a
-default version of Python”. `condathis` downloads `micromamba` when it
-first needs it and finds no usable copy. It keeps `micromamba` and the
+default version of Python”. `condathis` uses a usable `micromamba` that
+it finds, such as one on your `PATH` (see *micromamba discovery* in
+[`` ?condathis::`condathis-options` ``](https://luciorq.github.io/condathis/reference/condathis-options.md)).
+When it finds none, it downloads one the first time it needs it, so that
+first call needs internet access. A message tells you about the download
+(class `condathis_micromamba_downloading`), unless `verbose = "silent"`.
+
+`condathis` keeps the downloaded `micromamba`, the package cache and the
 environments in its own data directory (see
 [`condathis::get_install_dir()`](https://luciorq.github.io/condathis/reference/get_install_dir.md)).
 Environments stay there until you remove them.
 [`condathis::list_envs()`](https://luciorq.github.io/condathis/reference/list_envs.md)
 lists them, `condathis::get_env_dir("cowpy-env")` returns the directory
-of one, `condathis::remove_env("cowpy-env")` removes it, and
+of one, `condathis::install_packages("jq", env_name = "cowpy-env")` adds
+packages to it, `condathis::list_packages("cowpy-env")` lists its
+packages, `condathis::remove_env("cowpy-env")` removes it, and
 [`condathis::clean_cache()`](https://luciorq.github.io/condathis/reference/clean_cache.md)
-deletes the downloaded package files.
+deletes the downloaded package files. Removing the `condathis` package
+does not delete any of this: the section *Removing everything* of
+[`?condathis::clean_cache`](https://luciorq.github.io/condathis/reference/clean_cache.md)
+shows how.
 
 `micromamba` is the built-in *backend* of `condathis`. Other packages
-can add backends with
+can add backends with the experimental
 [`register_backend()`](https://luciorq.github.io/condathis/reference/register_backend.md).
-New environments use `micromamba` unless you pass `method` (for example
-`method = "rattler"`, which needs the `rattlerthis` package, not yet on
-CRAN) or set `options(condathis.backend_priority = ...)`. The [backends
+New environments use `micromamba` unless you pass `method` or set
+`options(condathis.backend_priority = ...)`. For example,
+`method = "rattler"` uses the optional `rattlerthis` package. It is not
+on CRAN: it is available from
+[R-universe](https://luciorq.r-universe.dev/rattlerthis). The [backends
 article](https://luciorq.github.io/condathis/articles/backends.html)
-shows how to install `rattlerthis` and use both backends together.
+shows how to install it and use both backends together.
 
 Already have an environment created outside `condathis`, for example by
 `conda`, `mamba`, or `micromamba` itself? Pass its directory as
@@ -189,14 +202,58 @@ or
 to run commands from it. `condathis` never modifies such an environment.
 It runs commands in it with `micromamba` by default.
 
+## Output and Errors
+
+`verbose` sets what a call prints:
+
+- `"output"`, the default of the functions that create environments or
+  run commands, shows the output of the command and the messages of
+  `condathis`.
+- `"silent"` shows nothing.
+- `"cmd"` shows the command line.
+- `"spinner"` shows only a spinner.
+- `"full"` shows the command line, the output and the log of the
+  backend.
+
+[`run()`](https://luciorq.github.io/condathis/reference/run.md) keeps
+the output in its result at every level: read it with
+[`condathis::parse_output()`](https://luciorq.github.io/condathis/reference/parse_output.md).
+
+A command that fails aborts with an error of class
+`condathis_status_error`. Its fields `status`, `stdout` and `stderr`
+hold what the command returned. With `error = "continue"`, you get the
+result, with its `status`, instead:
+
+``` r
+
+tryCatch(
+  condathis::run("curl", "--no-such-option", env_name = "curl-env", verbose = "silent"),
+  condathis_status_error = function(e) e$status
+)
+#> [1] 2
+
+res <- condathis::run(
+  "curl", "--no-such-option",
+  env_name = "curl-env",
+  error = "continue",
+  verbose = "silent"
+)
+res$status
+#> [1] 2
+```
+
+Every error of `condathis` has the class `condathis_error`, and
+[`` ?condathis::`condathis-conditions` ``](https://luciorq.github.io/condathis/reference/condathis-conditions.md)
+lists the other classes.
+
 ## Known Caveats
 
 No shell is involved, so shell syntax in an argument is passed
 literally.
 
-- Shell builtins, such as `echo` or `dir` on Windows, are not available
-  as commands. To use shell features, run a shell explicitly, for
-  example `condathis::run("bash", "-c", "...")`.
+- Shell builtins, such as `echo`, are not available as commands. To use
+  shell features, run a shell explicitly, for example
+  `condathis::run("bash", "-c", "...")`.
 - Shell operators such as `|` and `>` are not interpreted.
   - Instead of `>`, use the `stdout`/`stderr` arguments (a file path
     redirects to that file).
@@ -207,7 +264,7 @@ literally.
     per command, as in
     `run_pipeline(run_step("cmd1"), run_step("cmd2", env_name = "other-env"))`.
     It connects the commands (optionally each in its own Conda
-    environment) via kernel-level pipes. Alternatively, call
+    environment) through operating system pipes. Alternatively, call
     [`condathis::run()`](https://luciorq.github.io/condathis/reference/run.md)
     several times and use the `stdout`/`stdin` file arguments to pass
     data between the calls.
@@ -225,14 +282,36 @@ literally.
   - Relative paths, such as `"data/sample.fastq"` or
     `"../sample.fastq"`, work: they are relative to the working
     directory of R.
+- On Windows:
+  - Run `cmd.exe` for its builtins, as in
+    `condathis::run("cmd", "/c", "dir")`.
+  - Batch files (`.bat`, `.cmd`) start through `cmd.exe`, which parses
+    their arguments again.
+  - `bioconda` has no Windows builds. Its `noarch` packages, such as
+    `fastqc`, install on Windows, but tools with compiled code, such as
+    `samtools`, need Linux, macOS or the Windows Subsystem for Linux
+    (WSL).
 
 ## Learn More
 
 - [`vignette("condathis")`](https://luciorq.github.io/condathis/articles/condathis.md)
   walks through a complete example.
 - The [articles](https://luciorq.github.io/condathis/articles/) on the
-  package website show how to use Python with `reticulate`, how to
-  stream binary data through pipelines, and how to choose a backend.
+  package website show how to [use Python with
+  `reticulate`](https://luciorq.github.io/condathis/articles/python-and-reticulate.html),
+  [stream binary data through
+  pipelines](https://luciorq.github.io/condathis/articles/whole-slide-images.html),
+  and [choose a
+  backend](https://luciorq.github.io/condathis/articles/backends.html).
+- [`?condathis::run`](https://luciorq.github.io/condathis/reference/run.md),
+  [`?condathis::run_pipeline`](https://luciorq.github.io/condathis/reference/run_pipeline.md)
+  and
+  [`?condathis::create_env`](https://luciorq.github.io/condathis/reference/create_env.md)
+  describe every argument.
+  [`` ?condathis::`condathis-options` ``](https://luciorq.github.io/condathis/reference/condathis-options.md)
+  lists the options and environment variables that `condathis` reads.
+- Upgrading from 0.1.4? `news(package = "condathis")` lists the breaking
+  changes, each with what to write instead.
 
 # Package index
 
@@ -288,7 +367,7 @@ CPU architecture.
 - [`get_install_dir()`](https://luciorq.github.io/condathis/reference/get_install_dir.md)
   : Get the data directories of the backends
 - [`clean_cache()`](https://luciorq.github.io/condathis/reference/clean_cache.md)
-  : Clean Conda cache
+  : Clean the package caches of condathis
 - [`with_sandbox_dir()`](https://luciorq.github.io/condathis/reference/with_sandbox_dir.md)
   : Run code with temporary home and data directories
 - [`get_sys_arch()`](https://luciorq.github.io/condathis/reference/get_sys_arch.md)

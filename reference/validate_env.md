@@ -38,10 +38,22 @@ validate_env(
   spec without a channel matches a package from `channels` (see below).
   A spec with a channel, such as `"conda-forge::zlib"`, matches only a
   package from that channel. A spec that is not compared, such as
-  `"zlib[md5=...]"` or `"zlib<2.*"`, never counts as satisfied. These
-  values abort with class `condathis_validate_env_invalid_packages`:
+  `"zlib[md5=...]"` or `"zlib<2.*"`, never counts as satisfied. A spec
+  for a virtual package, whose name starts with `__` (`"__cuda=12"`,
+  `"__unix"`), is not checked: it describes the host, and an environment
+  never lists it. `packages = <specs>` still works, as in
+  [`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md),
+  and `packages = NULL` only checks that the environment exists. It is
+  deprecated. It warns once per session (class
+  `condathis_deprecated_packages_arg`) when the call comes from the
+  console, a script or the tests of the package that makes it. Calls
+  made inside other packages do not warn.
 
-  - A named argument that `validate_env()` does not have.
+  These values abort with class
+  `condathis_validate_env_invalid_packages`:
+
+  - A named argument that `validate_env()` does not have. Names are
+    never abbreviated.
 
   - A value that is not a character vector.
 
@@ -49,14 +61,22 @@ validate_env(
 
   - A file name that ends in `.yml` or `.yaml`.
 
-  `validate_env()` aborts with class
-  `condathis_validate_env_positional_env_name` when `env_name` is not
-  given and the last of two or more specs names an existing environment.
-  A spec that condathis cannot read, such as `"::"`, aborts with class
-  `condathis_parse_match_spec_invalid_name`. For the URL of a package
-  file, the class is `condathis_parse_match_spec_invalid_url`. Both
-  errors also have class `condathis_invalid_arg`. They abort with
-  `error = "continue"` too.
+  These classes abort too:
+
+  - `condathis_validate_env_positional_env_name`  
+    `env_name` is not given, the specs are two or more unnamed
+    arguments, and the last of them is one string that names an existing
+    environment. Specs given with `packages =` or as one vector are
+    never checked this way.
+
+  - `condathis_parse_match_spec_invalid_name`  
+    a spec that condathis cannot read, such as `"::"`.
+
+  - `condathis_parse_match_spec_invalid_url`  
+    the URL of a package file that condathis cannot read.
+
+  Both parse errors also have class `condathis_invalid_arg`. They abort
+  with `error = "continue"` too.
 
 - env_name:
 
@@ -75,15 +95,15 @@ validate_env(
     [`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md)).
 
   Invalid values abort with class `condathis_invalid_env_name`.
-  Functions that take only names reject an
-  [`env_path()`](https://luciorq.github.io/condathis/reference/env_path.md)
-  value with class `condathis_env_path_read_only`.
   [`run()`](https://luciorq.github.io/condathis/reference/run.md),
   [`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md),
   [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md)
   and
   [`run_step()`](https://luciorq.github.io/condathis/reference/run_step.md)
-  accept one.
+  also accept an
+  [`env_path()`](https://luciorq.github.io/condathis/reference/env_path.md)
+  value. The other functions reject it with class
+  `condathis_env_path_read_only`.
 
 - method:
 
@@ -97,22 +117,33 @@ validate_env(
   selects that backend, and `"micromamba"` is built in. The name of a
   backend whose package `condathis` knows, such as `"rattler"` of the
   `rattlerthis` package, also selects it. `condathis` loads the package
-  on first use. It aborts with class `condathis_backend_not_installed`
-  when the package is not installed. `"native"` is a deprecated alias
-  for `"micromamba"` (warns once per session). If you name a backend
-  other than the owner, functions that change the environment abort with
-  class `condathis_backend_mismatch`. The others warn
-  (`condathis_backend_mismatch_warning`) and use the owner. An
-  environment found under several backends aborts with
-  `condathis_backend_ambiguous_env` unless `method` names one of them.
-  Invalid values abort with class `condathis_invalid_method`.
+  on first use. `"native"` is a deprecated alias for `"micromamba"`
+  (warns once per session). The 0.1.4 default `c("native", "auto")` is
+  read as `"native"`.
+
+  If you name a backend other than the owner, functions that change the
+  environment abort. The others warn and use the owner. The classes:
+
+  - `condathis_backend_not_installed`: the package of the named backend
+    is not installed.
+
+  - `condathis_backend_mismatch`: the named backend does not own the
+    environment, and the function changes it.
+
+  - `condathis_backend_mismatch_warning` (a warning): the same, for a
+    function that does not change the environment.
+
+  - `condathis_backend_ambiguous_env`: several backends have an
+    environment of that name, and `method` names none of them.
+
+  - `condathis_invalid_method`: an invalid value.
 
 - verbose:
 
   Character string that controls the console output. One of:
 
   - `"output"`: show the output of the command and the messages of
-    condathis.
+    `condathis`.
 
   - `"silent"`: show nothing.
 
@@ -124,10 +155,23 @@ validate_env(
     log.
 
   `TRUE` means `"output"` and `FALSE` means `"silent"`. Every level
-  except `"silent"` shows a spinner in interactive sessions. Invalid
-  values abort with class `condathis_invalid_verbose` (see
-  [condathis-conditions](https://luciorq.github.io/condathis/reference/condathis-conditions.md)).
-  The default is shown in Usage.
+  except `"silent"` shows a spinner in interactive sessions. It also
+  shows these messages and this warning when they occur (see
+  [condathis-conditions](https://luciorq.github.io/condathis/reference/condathis-conditions.md)):
+
+  - `condathis_micromamba_downloading` (a message): no usable
+    `micromamba` was found, so it is downloaded. Queries, such as
+    [`list_envs()`](https://luciorq.github.io/condathis/reference/list_envs.md),
+    never download it.
+
+  - `condathis_env_lock_waiting` and `condathis_cache_lock_waiting`
+    (messages): the call waits for another R session.
+
+  - `condathis_install_micromamba_checksum_unavailable` (a warning): the
+    checksum of the downloaded `micromamba` could not be checked.
+
+  Invalid values abort with class `condathis_invalid_verbose`. The
+  default is shown in Usage.
 
   The command line shown, the `cmd` of a result and the messages of
   `condathis` show the password and the token of a URL as `*****`.
@@ -141,9 +185,11 @@ validate_env(
   any channel. Otherwise, a spec without a channel must match a package
   from one of `channels`, compared as in
   [`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md).
-  A spec with a channel ignores `channels`. There is no
-  `additional_channels`: put those channels in `channels`. Invalid
-  values abort with class `condathis_validate_env_invalid_channels`.
+  A spec with a channel ignores `channels`. When a package matches a
+  spec but comes from a channel that is not in `channels`, the error
+  names that channel. There is no `additional_channels`: put those
+  channels in `channels`. Invalid values abort with class
+  `condathis_validate_env_invalid_channels`.
 
 - platform:
 
@@ -164,18 +210,25 @@ validate_env(
 ## Value
 
 `TRUE`, invisibly, when the environment exists and has every requested
-package. Otherwise, with `error = "cancel"`, it aborts. The class is
-`condathis_validate_env_env_not_found` (also `condathis_env_not_found`)
-when the environment does not exist. The class is
-`condathis_validate_env_unsatisfied` when a spec is not satisfied or the
-platform differs. The message lists each spec that is not satisfied.
+package. Otherwise, with `error = "cancel"`, it aborts with one of these
+classes:
+
+- `condathis_validate_env_env_not_found` (also
+  `condathis_env_not_found`)  
+  the environment does not exist.
+
+- `condathis_validate_env_unsatisfied`  
+  a spec is not satisfied or the platform differs. The message lists
+  each spec that is not satisfied.
+
 With `error = "continue"`, it returns `FALSE` with two attributes.
 `reason` is one of `"env_not_found"`, `"platform_mismatch"` and
 `"unsatisfied"`. `unsatisfied` is a character vector of the specs that
 are not satisfied (every spec when the environment does not exist).
-`validate_env()` reports a platform mismatch before unsatisfied specs. A
-backend failure aborts with class `condathis_validate_env_failed` (also
-`condathis_backend_error`).
+`validate_env()` reports a platform mismatch before unsatisfied specs.
+
+A backend failure aborts with either value of `error`, with the class
+`condathis_validate_env_failed` (also `condathis_backend_error`).
 
 ## Details
 
@@ -196,9 +249,9 @@ answer as that call, with two exceptions. They exist because
 
 - When a backend cannot tell whether the environment exists,
   `validate_env()` still lists its packages, and reports the listing's
-  error if it fails.
+  error if it fails. In that case,
   [`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md)
-  aborts with class `condathis_backend_probe_failed`.
+  aborts with the class `condathis_backend_probe_failed`.
 
 ## See also
 
@@ -218,6 +271,21 @@ Other environments:
 ## Examples
 
 ``` r
+condathis::with_sandbox_dir({
+  # A missing environment: FALSE, with the reason
+  res <- condathis::validate_env(
+    "polyglot",
+    env_name = "no-such-env",
+    error = "continue"
+  )
+  print(res)
+})
+#> [1] FALSE
+#> attr(,"reason")
+#> [1] "env_not_found"
+#> attr(,"unsatisfied")
+#> [1] "polyglot"
+
 if (FALSE) { # \dontrun{
 condathis::with_sandbox_dir({
   # A local channel shipped with condathis, with `polyglot`: a

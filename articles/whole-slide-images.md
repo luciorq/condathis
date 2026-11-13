@@ -94,8 +94,10 @@ libraries. They never see each other.
 Before extracting a region, let’s generate a small overview of the whole
 slide with a single
 [`run()`](https://luciorq.github.io/condathis/reference/run.md) call.
-`vips thumbnail` scales the pyramid down directly and never decodes
-full-resolution pixels.
+`vips thumbnail` starts from the smallest pyramid level that is large
+enough, so on a full-size slide it does not decode the full-resolution
+pixels. This small test slide has a single level, so here it reads all
+of it.
 
 ``` r
 
@@ -115,10 +117,10 @@ dim(thumb_img)
 ## Building the Pipeline
 
 [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md)
-chains two commands, in two different Conda environments, connected by a
-kernel-level pipe managed entirely by the child processes. The PNG bytes
-produced by `vips crop` never pass through R. They go straight into
-ImageMagick’s stdin.
+chains two commands, in two different Conda environments, connected by
+an operating system pipe managed entirely by the child processes. The
+PNG bytes produced by `vips crop` never pass through R. They go straight
+into ImageMagick’s stdin.
 
 Each command is described with
 [`run_step()`](https://luciorq.github.io/condathis/reference/run_step.md).
@@ -228,7 +230,9 @@ final, already-small PNG.
 ## Binary Data In: Raw Bytes as stdin
 
 The pipeline above only needed a *file* as its output.
-[`run()`](https://luciorq.github.io/condathis/reference/run.md) and
+[`run()`](https://luciorq.github.io/condathis/reference/run.md),
+[`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md)
+and
 [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md)
 also accept raw binary data as *input*, written directly to a process’s
 stdin. To show it, read the region PNG we just produced back into R as a
@@ -274,9 +278,9 @@ remove_env(env_name = "wsi-magick-env")
   dependency graph, so there’s no solver conflict to fight and each can
   be upgraded independently.
 - **True binary pipes**: data moves between the two Conda environments
-  as raw bytes over a kernel pipe, exactly like a shell `|`. R handles
-  only the first command’s stdin, the last command’s stdout, and each
-  command’s stderr.
+  as raw bytes over an operating system pipe, exactly like a shell `|`.
+  R handles only the first command’s stdin, the last command’s stdout,
+  and each command’s stderr.
 - **Reproducibility**: the whole toolchain, from slide to plotted
   region, is defined in this article. Anyone who runs it gets
   environments built from the same package specs. Pin the versions of

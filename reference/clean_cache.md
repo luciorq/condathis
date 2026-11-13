@@ -1,4 +1,4 @@
-# Clean Conda cache
+# Clean the package caches of condathis
 
 Removes the package and metadata caches of condathis and of every
 registered backend, and nothing else:
@@ -32,7 +32,7 @@ clean_cache(verbose = c("output", "silent", "cmd", "spinner", "full"))
   Character string that controls the console output. One of:
 
   - `"output"`: show the output of the command and the messages of
-    condathis.
+    `condathis`.
 
   - `"silent"`: show nothing.
 
@@ -44,10 +44,23 @@ clean_cache(verbose = c("output", "silent", "cmd", "spinner", "full"))
     log.
 
   `TRUE` means `"output"` and `FALSE` means `"silent"`. Every level
-  except `"silent"` shows a spinner in interactive sessions. Invalid
-  values abort with class `condathis_invalid_verbose` (see
-  [condathis-conditions](https://luciorq.github.io/condathis/reference/condathis-conditions.md)).
-  The default is shown in Usage.
+  except `"silent"` shows a spinner in interactive sessions. It also
+  shows these messages and this warning when they occur (see
+  [condathis-conditions](https://luciorq.github.io/condathis/reference/condathis-conditions.md)):
+
+  - `condathis_micromamba_downloading` (a message): no usable
+    `micromamba` was found, so it is downloaded. Queries, such as
+    [`list_envs()`](https://luciorq.github.io/condathis/reference/list_envs.md),
+    never download it.
+
+  - `condathis_env_lock_waiting` and `condathis_cache_lock_waiting`
+    (messages): the call waits for another R session.
+
+  - `condathis_install_micromamba_checksum_unavailable` (a warning): the
+    checksum of the downloaded `micromamba` could not be checked.
+
+  Invalid values abort with class `condathis_invalid_verbose`. The
+  default is shown in Usage.
 
   The command line shown, the `cmd` of a result and the messages of
   `condathis` show the password and the token of a URL as `*****`.
@@ -95,6 +108,41 @@ aborts with the first failure. That error has the classes
 error of the backend as its parent. When `clean_cache()` cannot delete a
 directory itself, it aborts with class `condathis_clean_cache_failed`
 the same way.
+
+## Removing everything
+
+`clean_cache()` keeps micromamba and the environments. To remove
+everything that `condathis` installed, delete its data and cache
+directories, in an R session that runs no `condathis` command at the
+same time:
+
+    unlink(condathis::get_install_dir()$path, recursive = TRUE)
+    unlink(tools::R_user_dir("condathis", "cache"), recursive = TRUE)
+
+The condathis data directory, the `path` of the `"micromamba"` row of
+[`get_install_dir()`](https://luciorq.github.io/condathis/reference/get_install_dir.md),
+holds the micromamba binary that
+[`install_micromamba()`](https://luciorq.github.io/condathis/reference/install_micromamba.md)
+downloaded, every environment, the package and repodata caches, the lock
+files and the configuration file that `condathis` writes for micromamba.
+The data directories of the other backends that use
+[`backend_root_dir()`](https://luciorq.github.io/condathis/reference/backend_root_dir.md)
+are inside it.
+[`get_install_dir()`](https://luciorq.github.io/condathis/reference/get_install_dir.md)
+also lists the data directory of a registered backend that chose its
+own.
+
+This leaves alone what `condathis` did not install: a micromamba that
+`condathis` found elsewhere (see *micromamba discovery* in
+[condathis-options](https://luciorq.github.io/condathis/reference/condathis-options.md)),
+environments that you passed as
+[`env_path()`](https://luciorq.github.io/condathis/reference/env_path.md),
+the lines that micromamba added to `~/.conda/environments.txt`, the pip
+cache on macOS and Windows (see
+[`get_install_dir()`](https://luciorq.github.io/condathis/reference/get_install_dir.md)),
+and on Windows the Start Menu shortcuts that `condathis` 0.1.4 and
+earlier added (see
+[`remove_env()`](https://luciorq.github.io/condathis/reference/remove_env.md)).
 
 ## See also
 

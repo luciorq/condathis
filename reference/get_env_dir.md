@@ -29,15 +29,15 @@ get_env_dir(env_name = "condathis-env", method = "auto")
     [`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md)).
 
   Invalid values abort with class `condathis_invalid_env_name`.
-  Functions that take only names reject an
-  [`env_path()`](https://luciorq.github.io/condathis/reference/env_path.md)
-  value with class `condathis_env_path_read_only`.
   [`run()`](https://luciorq.github.io/condathis/reference/run.md),
   [`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md),
   [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md)
   and
   [`run_step()`](https://luciorq.github.io/condathis/reference/run_step.md)
-  accept one.
+  also accept an
+  [`env_path()`](https://luciorq.github.io/condathis/reference/env_path.md)
+  value. The other functions reject it with class
+  `condathis_env_path_read_only`.
 
 - method:
 
@@ -51,15 +51,26 @@ get_env_dir(env_name = "condathis-env", method = "auto")
   selects that backend, and `"micromamba"` is built in. The name of a
   backend whose package `condathis` knows, such as `"rattler"` of the
   `rattlerthis` package, also selects it. `condathis` loads the package
-  on first use. It aborts with class `condathis_backend_not_installed`
-  when the package is not installed. `"native"` is a deprecated alias
-  for `"micromamba"` (warns once per session). If you name a backend
-  other than the owner, functions that change the environment abort with
-  class `condathis_backend_mismatch`. The others warn
-  (`condathis_backend_mismatch_warning`) and use the owner. An
-  environment found under several backends aborts with
-  `condathis_backend_ambiguous_env` unless `method` names one of them.
-  Invalid values abort with class `condathis_invalid_method`.
+  on first use. `"native"` is a deprecated alias for `"micromamba"`
+  (warns once per session). The 0.1.4 default `c("native", "auto")` is
+  read as `"native"`.
+
+  If you name a backend other than the owner, functions that change the
+  environment abort. The others warn and use the owner. The classes:
+
+  - `condathis_backend_not_installed`: the package of the named backend
+    is not installed.
+
+  - `condathis_backend_mismatch`: the named backend does not own the
+    environment, and the function changes it.
+
+  - `condathis_backend_mismatch_warning` (a warning): the same, for a
+    function that does not change the environment.
+
+  - `condathis_backend_ambiguous_env`: several backends have an
+    environment of that name, and `method` names none of them.
+
+  - `condathis_invalid_method`: an invalid value.
 
 ## Value
 
@@ -96,6 +107,6 @@ condathis::with_sandbox_dir({
   condathis::get_env_dir("my-env")
   #> <data dir>/R/condathis/envs/my-env
 })
-#> /tmp/Rtmpu60vo2/condathis-sandbox-2b123f875c5f/data/R/condathis/envs/condathis-env
-#> /tmp/Rtmpu60vo2/condathis-sandbox-2b123f875c5f/data/R/condathis/envs/my-env
+#> /tmp/RtmpJR5hQY/condathis-sandbox-2b4a7ecdeb3b/data/R/condathis/envs/condathis-env
+#> /tmp/RtmpJR5hQY/condathis-sandbox-2b4a7ecdeb3b/data/R/condathis/envs/my-env
 ```

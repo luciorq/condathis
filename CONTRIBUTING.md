@@ -33,12 +33,25 @@ advice.
 
 - Install all development dependencies with
   `devtools::install_dev_deps()`, and then make sure the package passes
-  R CMD check by running `devtools::check()`. If R CMD check doesn’t
-  pass cleanly, it’s a good idea to ask for help before continuing.
-  `devtools::check()` and `devtools::test()` set `NOT_CRAN=true`, so
-  they run the full test suite: it needs the internet to download
-  micromamba and Conda packages, and it runs in temporary sandboxes.
-  Without `NOT_CRAN=true`, only the tests that CRAN runs are run.
+  R CMD check by running `devtools::check()`. You need R 4.3 or later
+  and the [Quarto](https://quarto.org) command line tool, which builds
+  the vignettes. If R CMD check doesn’t pass cleanly, it’s a good idea
+  to ask for help before continuing. `devtools::check()`,
+  `devtools::test()` and
+  [`testthat::test_local()`](https://testthat.r-lib.org/reference/test_package.html)
+  set `NOT_CRAN=true` when it is unset, so they run the full test suite:
+  it needs the internet to download micromamba and Conda packages, and
+  it runs in temporary sandboxes. To run only the tests that CRAN runs,
+  set `NOT_CRAN=false`, for example with
+  `Sys.setenv(NOT_CRAN = "false")` before `devtools::test()`.
+
+- Run the tests in a UTF-8 locale: under the C locale, a pip test in
+  `test-list_packages_pypi.R` cannot read pip’s JSON output. Start R in
+  the foreground: an R started in the background (with `&`) ignores
+  interrupts, and the interrupt test in `test-env_lock.R` then skips.
+  [`testthat::skip_if_offline()`](https://testthat.r-lib.org/reference/skip.html)
+  looks up a host name itself: behind a proxy that looks up names for
+  you, the network tests skip although downloads work.
 
 - Create a Git branch for your pull request (PR). We recommend using
   `usethis::pr_init("brief-description-of-change")`.

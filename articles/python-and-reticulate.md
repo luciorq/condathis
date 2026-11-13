@@ -651,16 +651,16 @@ ml_info <- mirai::mirai(daemon_info(), daemon_info = daemon_info, .compute = "ml
 str(list(geo = geo_info[], ml = ml_info[], main = Sys.getpid()))
 #> List of 3
 #>  $ geo :List of 4
-#>   ..$ pid      : int 13870
+#>   ..$ pid      : int 13969
 #>   ..$ env      : chr "py-geo-env"
 #>   ..$ python   : chr "3.13"
 #>   ..$ PROJ_DATA: logi TRUE
 #>  $ ml  :List of 4
-#>   ..$ pid      : int 13880
+#>   ..$ pid      : int 13982
 #>   ..$ env      : chr "py-ml-env"
 #>   ..$ python   : chr "3.12"
 #>   ..$ PROJ_DATA: logi FALSE
-#>  $ main: int 12933
+#>  $ main: int 13026
 ```
 
 Each daemon is its own process with its own Python version. `PROJ_DATA`

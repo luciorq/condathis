@@ -23,15 +23,15 @@ get_install_dir(method = "auto")
   Character string naming the backend to report. `"auto"` (the default)
   covers every registered backend, in
   `getOption("condathis.backend_priority")` order, also a backend that
-  reports itself unavailable. Any name from
-  [`list_registered_backend_names()`](https://luciorq.github.io/condathis/reference/list_registered_backend_names.md)
+  reports itself unavailable. The name of a registered backend (see
+  [`list_registered_backend_names()`](https://luciorq.github.io/condathis/reference/list_registered_backend_names.md))
   reports only that backend, and `"micromamba"` is built in. The name of
   a backend whose package `condathis` knows, such as `"rattler"` of the
   `rattlerthis` package, also reports only that backend. `condathis`
-  loads the package. It aborts with class
-  `condathis_backend_not_installed` when the package is not installed.
-  `"native"` is a deprecated alias for `"micromamba"` (warns once per
-  session). Invalid values abort with class `condathis_invalid_method`.
+  loads that package. When it is not installed, the call aborts with
+  class `condathis_backend_not_installed`. `"native"` is a deprecated
+  alias for `"micromamba"` (warns once per session). Invalid values
+  abort with class `condathis_invalid_method`.
 
 ## Value
 
@@ -42,8 +42,8 @@ when it does not exist yet. `get_install_dir()` creates no environment
 and does not install micromamba. When the backend that `method` names
 fails, `get_install_dir()` aborts with class
 `condathis_get_install_dir_failed` (also `condathis_backend_error`).
-With `method = "auto"`, `get_install_dir()` skips a backend that fails,
-with a warning of class `condathis_backend_query_failed`.
+With `method = "auto"`, a backend that fails is skipped, with a warning
+of class `condathis_backend_query_failed`.
 
 ## Details
 
@@ -55,7 +55,9 @@ The data directories of the other backends that use
 [`backend_root_dir()`](https://luciorq.github.io/condathis/reference/backend_root_dir.md)
 are inside the condathis data directory. So deleting it deletes their
 environments and caches too. Each backend keeps its environments in the
-`envs` directory of its own data directory.
+`envs` directory of its own data directory. To remove everything that
+`condathis` installed, see *Removing everything* in
+[`clean_cache()`](https://luciorq.github.io/condathis/reference/clean_cache.md).
 
 `micromamba` adds each environment that it creates to
 `~/.conda/environments.txt` (in `%USERPROFILE%` on Windows), the list of
@@ -105,5 +107,5 @@ condathis::with_sandbox_dir({
 #> # A tibble: 1 × 2
 #>   backend    path                                                           
 #>   <chr>      <chr>                                                          
-#> 1 micromamba /tmp/Rtmpu60vo2/condathis-sandbox-2b1262d99dd7/data/R/condathis
+#> 1 micromamba /tmp/RtmpJR5hQY/condathis-sandbox-2b4a17373395/data/R/condathis
 ```

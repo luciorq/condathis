@@ -77,7 +77,7 @@ Other setup:
 
 ``` r
 condathis::with_sandbox_dir(print(fs::path_home()))
-#> /tmp/Rtmpu60vo2/condathis-sandbox-2b121c577899/home
+#> /tmp/RtmpJR5hQY/condathis-sandbox-2b4a2f732be5/home
 condathis::with_sandbox_dir(print(tools::R_user_dir("condathis")))
-#> [1] "/tmp/Rtmpu60vo2/condathis-sandbox-2b127290eced/data/R/condathis"
+#> [1] "/tmp/RtmpJR5hQY/condathis-sandbox-2b4a5ec8f79b/data/R/condathis"
 ```

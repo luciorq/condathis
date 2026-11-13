@@ -11,8 +11,9 @@ messages, the results and the condition classes.
 Two backends exist today:
 
 - **`"micromamba"`** is built in. `condathis` downloads the `micromamba`
-  binary the first time it needs it, and runs it as a separate process.
-  Every environment uses it unless you ask for another backend.
+  binary when it first needs it and finds no usable copy, and runs it as
+  a separate process. Every environment uses it unless you ask for
+  another backend.
 - **`"rattler"`** comes from the
   [`rattlerthis`](https://github.com/luciorq/rattlerthis) package. It
   uses [`rattler`](https://github.com/conda/rattler), the Rust library
@@ -22,30 +23,42 @@ Two backends exist today:
 Your code stays the same with either backend. The `method` argument of
 the environment functions, and of
 [`run()`](https://luciorq.github.io/condathis/reference/run.md),
-[`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md)
+[`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md),
+[`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md)
 and
-[`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md),
+[`run_step()`](https://luciorq.github.io/condathis/reference/run_step.md),
 picks the backend. Its default, `"auto"`, picks it for you.
 
 ## Installing rattlerthis
 
-`rattlerthis` is not on CRAN yet. It builds from source, so it needs a
-Rust toolchain (`rustc` \>= 1.88.0 and `cargo`, from
-<https://rustup.rs>). Linux also needs `pkg-config` and the OpenSSL
-headers, and Windows needs Rtools. The [`rattlerthis`
-README](https://github.com/luciorq/rattlerthis#installation) lists the
-requirements of each platform.
+`rattlerthis` is not on CRAN. Install it from
+[R-universe](https://luciorq.r-universe.dev/rattlerthis):
 
 ``` r
 
-# install.packages("pak")
-pak::pak("luciorq/rattlerthis")
+install.packages(
+  "rattlerthis",
+  repos = c("https://luciorq.r-universe.dev", getOption("repos"))
+)
 ```
+
+On Windows and macOS, this installs a binary package for the current and
+the previous R release. On Linux, it builds from source, unless you use
+the [Linux binary
+repository](https://docs.r-universe.dev/install/binaries.html) that
+R-universe has for Ubuntu. A build from source needs a Rust toolchain
+(`rustc` \>= 1.88.0 and `cargo`, from <https://rustup.rs>). Linux also
+needs `pkg-config` and the OpenSSL headers, and Windows needs Rtools.
+The [`rattlerthis`
+README](https://github.com/luciorq/rattlerthis#installation) lists the
+requirements of each platform.
 
 You never call
 [`library(rattlerthis)`](https://github.com/luciorq/rattlerthis). The
 package exports no functions: `condathis` loads it when `method` names
-`"rattler"`, and when rattler environments already exist.
+`"rattler"`, when rattler environments already exist, and, for a new
+environment, when the option `condathis.backend_priority` lists
+`"rattler"`.
 
 ## Choosing the Backend of a New Environment
 

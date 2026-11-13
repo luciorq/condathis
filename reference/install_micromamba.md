@@ -5,9 +5,11 @@ in the condathis data directory, at the path that
 [`micromamba_bin_path()`](https://luciorq.github.io/condathis/reference/micromamba_bin_path.md)
 returns. The functions that need micromamba call it when no usable
 binary is found (see *micromamba discovery* in
-[condathis-options](https://luciorq.github.io/condathis/reference/condathis-options.md)).
-You need to call it only to choose the version, or to install micromamba
-ahead of time.
+[condathis-options](https://luciorq.github.io/condathis/reference/condathis-options.md)),
+for the default version. They first show a message of class
+`condathis_micromamba_downloading` that names the version and the path,
+unless their `verbose` is `"silent"`. You need to call it only to choose
+the version, or to install micromamba ahead of time.
 
 ## Usage
 
@@ -28,14 +30,18 @@ install_micromamba(
 
   Character string with the micromamba version, in the format
   `"X.Y.Z-N"` (version and build number), for example `"2.10.0-0"`, the
-  default. Another format aborts with class
-  `condathis_install_micromamba_invalid_micromamba_version`. Versions
-  older than 2.8.1 abort with class
-  `condathis_install_micromamba_unsupported_version`, because
-  `condathis` does not use them. When you pass `micromamba_version` and
-  a binary is already installed, `install_micromamba()` keeps the binary
-  only when its version (`X.Y.Z`) is the requested one. When it reports
-  another version, or its version cannot be read, `install_micromamba()`
+  default. `condathis` does not use versions older than 2.8.1. Invalid
+  values abort with these classes:
+
+  - `condathis_install_micromamba_invalid_micromamba_version`: another
+    format.
+
+  - `condathis_install_micromamba_unsupported_version`: a version older
+    than 2.8.1.
+
+  With `micromamba_version`, an installed binary is kept only when its
+  version (`X.Y.Z`) is the requested one. When it reports another
+  version, or its version cannot be read, `install_micromamba()`
   installs the requested version. Without `micromamba_version`, it
   always keeps an installed binary, unless `force = TRUE`.
 
@@ -46,7 +52,7 @@ install_micromamba(
   larger of this value and `getOption("timeout")`, so `0` means no limit
   only when `getOption("timeout")` is `0` too. The function lowers
   values above 2147483 seconds (about 24.8 days) to 2147483. Other
-  values abort with class
+  values abort with class  
   `condathis_install_micromamba_invalid_timeout`.
 
 - download_method:
@@ -57,7 +63,7 @@ install_micromamba(
   `"curl"` or `"wininet"`. It is ignored when the `curl` package 5.0.0
   or later is installed, because then
   [`curl::curl_download()`](https://jeroen.r-universe.dev/curl/reference/curl_download.html)
-  is used. Other values abort with class
+  is used. Other values abort with class  
   `condathis_install_micromamba_invalid_download_method`.
 
 - force:
@@ -69,36 +75,26 @@ install_micromamba(
 
 - verbose:
 
-  Character string that controls the console output. One of:
-
-  - `"output"`: show the output of the command and the messages of
-    condathis.
-
-  - `"silent"`: show nothing.
-
-  - `"cmd"`: show the command line.
-
-  - `"spinner"`: show only a spinner.
-
-  - `"full"`: show the command line, the output, and the backend's own
-    log.
-
-  `TRUE` means `"output"` and `FALSE` means `"silent"`. Every level
-  except `"silent"` shows a spinner in interactive sessions. Invalid
-  values abort with class `condathis_invalid_verbose` (see
+  Character string that controls the console output. One of `"output"`,
+  `"silent"`, `"cmd"`, `"spinner"` or `"full"`. `"output"` and `"full"`
+  show the progress of the download and the messages of `condathis`, for
+  example that `micromamba` is already installed, that the file of a
+  mirror failed the checks, or that the download succeeded. The other
+  levels show none of them. Every level except `"silent"` shows the
+  warning of class `condathis_install_micromamba_checksum_unavailable`
+  (see Details and
   [condathis-conditions](https://luciorq.github.io/condathis/reference/condathis-conditions.md)).
-  The default is shown in Usage.
 
-  The command line shown, the `cmd` of a result and the messages of
-  `condathis` show the password and the token of a URL as `*****`.
-  `micromamba` does the same (`https://user:*****@host/channel`,
-  `https://host/t/*****/channel`). The command still gets them.
+  `TRUE` means `"output"` and `FALSE` means `"silent"`. Invalid values
+  abort with class `condathis_invalid_verbose`. The default is shown in
+  Usage.
 
 - timeout_limit:
 
   Deprecated. Use `timeout`. A value warns with class
   `condathis_deprecated_arg` and is used as `timeout`. Passing both
-  aborts with class `condathis_install_micromamba_conflicting_args`.
+  aborts with class  
+  `condathis_install_micromamba_conflicting_args`.
 
 ## Value
 
@@ -130,12 +126,19 @@ run, or does not match the SHA256 checksum published with the release.
 Then it tries the next mirror. It replaces an installed binary only with
 a download that passed these checks, also with `force = TRUE`.
 
-When no published checksum can be read, `install_micromamba()` installs
-the binary. It warns with class
-`condathis_install_micromamba_checksum_unavailable` when `verbose` is
-`"output"` or `"full"`. A checksum that does not match warns with class
-`condathis_install_micromamba_checksum_mismatch`, and that binary is not
-installed.
+The checksum is downloaded from the GitHub release when the binary is
+installed. When it cannot be downloaded or read, or the SHA256 hash of
+the binary cannot be computed, `install_micromamba()` still installs the
+binary, so that mirrors work when GitHub cannot be reached, but warns
+with class `condathis_install_micromamba_checksum_unavailable`. It warns
+for every `verbose` level except `"silent"`, also when a function that
+needs micromamba installs it. A checksum that does not match warns with
+class `condathis_install_micromamba_checksum_mismatch`, also when
+`verbose` is `"silent"`, and that binary is not installed. The hash is
+computed with
+[`tools::sha256sum()`](https://rdrr.io/r/tools/sha256sum.html) on R
+4.5.0 or later, else with the `digest` package when it is installed,
+else with the `sha256sum` or `shasum` program, or on Windows `certutil`.
 
 ## See also
 

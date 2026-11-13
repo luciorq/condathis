@@ -52,7 +52,7 @@ CPU architecture.
 - [`get_install_dir()`](https://luciorq.github.io/condathis/reference/get_install_dir.md)
   : Get the data directories of the backends
 - [`clean_cache()`](https://luciorq.github.io/condathis/reference/clean_cache.md)
-  : Clean Conda cache
+  : Clean the package caches of condathis
 - [`with_sandbox_dir()`](https://luciorq.github.io/condathis/reference/with_sandbox_dir.md)
   : Run code with temporary home and data directories
 - [`get_sys_arch()`](https://luciorq.github.io/condathis/reference/get_sys_arch.md)

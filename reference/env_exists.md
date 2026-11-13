@@ -28,23 +28,23 @@ env_exists(env_name = "condathis-env", method = "auto", verbose = "silent")
     [`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md)).
 
   Invalid values abort with class `condathis_invalid_env_name`.
-  Functions that take only names reject an
-  [`env_path()`](https://luciorq.github.io/condathis/reference/env_path.md)
-  value with class `condathis_env_path_read_only`.
   [`run()`](https://luciorq.github.io/condathis/reference/run.md),
   [`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md),
   [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md)
   and
   [`run_step()`](https://luciorq.github.io/condathis/reference/run_step.md)
-  accept one.
+  also accept an
+  [`env_path()`](https://luciorq.github.io/condathis/reference/env_path.md)
+  value. The other functions reject it with class
+  `condathis_env_path_read_only`.
 
 - method:
 
   Character string naming the backend to query. `"auto"` (the default)
   covers every registered backend, in
   `getOption("condathis.backend_priority")` order, also a backend that
-  reports itself unavailable. Any name from
-  [`list_registered_backend_names()`](https://luciorq.github.io/condathis/reference/list_registered_backend_names.md)
+  reports itself unavailable. The name of a registered backend (see
+  [`list_registered_backend_names()`](https://luciorq.github.io/condathis/reference/list_registered_backend_names.md))
   queries only that backend. `"micromamba"` is built in. The name of a
   backend whose package condathis knows, such as `"rattler"` of the
   `rattlerthis` package, also queries only that backend. condathis loads
@@ -58,7 +58,7 @@ env_exists(env_name = "condathis-env", method = "auto", verbose = "silent")
   Character string that controls the console output. One of:
 
   - `"output"`: show the output of the command and the messages of
-    condathis.
+    `condathis`.
 
   - `"silent"`: show nothing.
 
@@ -70,10 +70,23 @@ env_exists(env_name = "condathis-env", method = "auto", verbose = "silent")
     log.
 
   `TRUE` means `"output"` and `FALSE` means `"silent"`. Every level
-  except `"silent"` shows a spinner in interactive sessions. Invalid
-  values abort with class `condathis_invalid_verbose` (see
-  [condathis-conditions](https://luciorq.github.io/condathis/reference/condathis-conditions.md)).
-  The default is shown in Usage.
+  except `"silent"` shows a spinner in interactive sessions. It also
+  shows these messages and this warning when they occur (see
+  [condathis-conditions](https://luciorq.github.io/condathis/reference/condathis-conditions.md)):
+
+  - `condathis_micromamba_downloading` (a message): no usable
+    `micromamba` was found, so it is downloaded. Queries, such as
+    [`list_envs()`](https://luciorq.github.io/condathis/reference/list_envs.md),
+    never download it.
+
+  - `condathis_env_lock_waiting` and `condathis_cache_lock_waiting`
+    (messages): the call waits for another R session.
+
+  - `condathis_install_micromamba_checksum_unavailable` (a warning): the
+    checksum of the downloaded `micromamba` could not be checked.
+
+  Invalid values abort with class `condathis_invalid_verbose`. The
+  default is shown in Usage.
 
   The command line shown, the `cmd` of a result and the messages of
   `condathis` show the password and the token of a URL as `*****`.
@@ -86,9 +99,9 @@ env_exists(env_name = "condathis-env", method = "auto", verbose = "silent")
 every queried backend reports it absent. When the query fails for the
 backend that `method` names, `env_exists()` aborts with class
 `condathis_env_exists_failed` (also `condathis_backend_error`). With
-`method = "auto"`, `env_exists()` skips a backend whose query fails and
-warns with class `condathis_backend_query_failed`. It aborts only when
-every backend fails.
+`method = "auto"`, a backend whose query fails is skipped, with a
+warning of class `condathis_backend_query_failed`, and `env_exists()`
+aborts only when every backend fails.
 
 ## Details
 
@@ -118,6 +131,12 @@ Other environments:
 ## Examples
 
 ``` r
+condathis::with_sandbox_dir({
+  # A query: it creates nothing and needs no micromamba
+  condathis::env_exists("non-existent-env")
+})
+#> [1] FALSE
+
 if (FALSE) { # \dontrun{
 condathis::with_sandbox_dir({
   # A local channel shipped with condathis, with `polyglot`: a

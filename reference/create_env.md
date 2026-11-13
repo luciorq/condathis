@@ -33,8 +33,9 @@ create_env(
   empty environment. Any other value aborts with class
   `condathis_create_env_invalid_packages`. Such values are:
 
-  - A named argument that `create_env()` does not have. The error names
-    the closest argument.
+  - A named argument that `create_env()` does not have. Names are never
+    abbreviated: `env =` and `pack =` abort too. The error names the
+    closest argument.
 
   - A value that is not a character vector.
 
@@ -42,11 +43,18 @@ create_env(
 
   - A file name that ends in `.yml` or `.yaml`. Pass it as `env_file`.
 
-  `packages = <specs>` still works. It is deprecated and warns once per
-  session (class `condathis_deprecated_packages_arg`). `create_env()`
-  aborts with class `condathis_create_env_positional_env_name` when
-  `env_name` is not given and the last of two or more specs names an
-  existing environment. Name the argument, as in `env_name = "my-env"`.
+  `packages = <specs>` still works, and `packages = NULL` creates an
+  empty environment. It is deprecated. It warns once per session (class
+  `condathis_deprecated_packages_arg`) when the call comes from the
+  console, a script or the tests of the package that makes it. Calls
+  made inside other packages do not warn.
+
+  `create_env()` aborts with class
+  `condathis_create_env_positional_env_name` when `env_name` is not
+  given, the specs are two or more unnamed arguments, and the last of
+  them is one string that names an existing environment. Name the
+  argument, as in `env_name = "my-env"`. Specs given with `packages =`
+  or as one vector are never checked this way.
 
 - env_name:
 
@@ -64,15 +72,15 @@ create_env(
     names* in `create_env()`).
 
   Invalid values abort with class `condathis_invalid_env_name`.
-  Functions that take only names reject an
-  [`env_path()`](https://luciorq.github.io/condathis/reference/env_path.md)
-  value with class `condathis_env_path_read_only`.
   [`run()`](https://luciorq.github.io/condathis/reference/run.md),
   [`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md),
   [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md)
   and
   [`run_step()`](https://luciorq.github.io/condathis/reference/run_step.md)
-  accept one.
+  also accept an
+  [`env_path()`](https://luciorq.github.io/condathis/reference/env_path.md)
+  value. The other functions reject it with class
+  `condathis_env_path_read_only`.
 
 - method:
 
@@ -86,22 +94,33 @@ create_env(
   selects that backend, and `"micromamba"` is built in. The name of a
   backend whose package `condathis` knows, such as `"rattler"` of the
   `rattlerthis` package, also selects it. `condathis` loads the package
-  on first use. It aborts with class `condathis_backend_not_installed`
-  when the package is not installed. `"native"` is a deprecated alias
-  for `"micromamba"` (warns once per session). If you name a backend
-  other than the owner, functions that change the environment abort with
-  class `condathis_backend_mismatch`. The others warn
-  (`condathis_backend_mismatch_warning`) and use the owner. An
-  environment found under several backends aborts with
-  `condathis_backend_ambiguous_env` unless `method` names one of them.
-  Invalid values abort with class `condathis_invalid_method`.
+  on first use. `"native"` is a deprecated alias for `"micromamba"`
+  (warns once per session). The 0.1.4 default `c("native", "auto")` is
+  read as `"native"`.
+
+  If you name a backend other than the owner, functions that change the
+  environment abort. The others warn and use the owner. The classes:
+
+  - `condathis_backend_not_installed`: the package of the named backend
+    is not installed.
+
+  - `condathis_backend_mismatch`: the named backend does not own the
+    environment, and the function changes it.
+
+  - `condathis_backend_mismatch_warning` (a warning): the same, for a
+    function that does not change the environment.
+
+  - `condathis_backend_ambiguous_env`: several backends have an
+    environment of that name, and `method` names none of them.
+
+  - `condathis_invalid_method`: an invalid value.
 
 - verbose:
 
   Character string that controls the console output. One of:
 
   - `"output"`: show the output of the command and the messages of
-    condathis.
+    `condathis`.
 
   - `"silent"`: show nothing.
 
@@ -113,10 +132,23 @@ create_env(
     log.
 
   `TRUE` means `"output"` and `FALSE` means `"silent"`. Every level
-  except `"silent"` shows a spinner in interactive sessions. Invalid
-  values abort with class `condathis_invalid_verbose` (see
-  [condathis-conditions](https://luciorq.github.io/condathis/reference/condathis-conditions.md)).
-  The default is shown in Usage.
+  except `"silent"` shows a spinner in interactive sessions. It also
+  shows these messages and this warning when they occur (see
+  [condathis-conditions](https://luciorq.github.io/condathis/reference/condathis-conditions.md)):
+
+  - `condathis_micromamba_downloading` (a message): no usable
+    `micromamba` was found, so it is downloaded. Queries, such as
+    [`list_envs()`](https://luciorq.github.io/condathis/reference/list_envs.md),
+    never download it.
+
+  - `condathis_env_lock_waiting` and `condathis_cache_lock_waiting`
+    (messages): the call waits for another R session.
+
+  - `condathis_install_micromamba_checksum_unavailable` (a warning): the
+    checksum of the downloaded `micromamba` could not be checked.
+
+  Invalid values abort with class `condathis_invalid_verbose`. The
+  default is shown in Usage.
 
   The command line shown, the `cmd` of a result and the messages of
   `condathis` show the password and the token of a URL as `*****`.
@@ -130,14 +162,19 @@ create_env(
   the spec (`"bioconda::samtools"`) or add it here, as in
   `channels = c("conda-forge", "bioconda")`. Invalid values, such as
   `NULL`, `NA` or `""`, abort with class
-  `condathis_create_env_invalid_channels`.
+  `condathis_create_env_invalid_channels`. condathis 0.1.4 also used
+  `"bioconda"` by default. When `channels` is not given and the backend
+  finds no package for a spec, the error says that the default changed.
 
 - additional_channels:
 
   `NULL` (the default) or a non-empty character vector of channel names
-  or URLs, used after `channels`. Invalid values abort with class
-  `condathis_create_env_invalid_channels` (also
-  `condathis_invalid_additional_channels`).
+  or URLs, used after `channels`. Invalid values abort with these
+  classes:
+
+  - `condathis_create_env_invalid_channels`
+
+  - `condathis_invalid_additional_channels`
 
 - channel_priority:
 
@@ -206,18 +243,18 @@ create_env(
 
 A `condathis_result` object, invisibly: a classed list with `status`,
 `stdout`, `stderr`, `timeout`, `pid`, `cmd` and `env_name`. `cmd` is the
-command line that the backend ran. It is `NA` when the backend reports
-none or when nothing ran (an existing environment that already has the
-requested packages). `stdout`, `stderr` and `pid` are `NA` when the
-backend reports none, and `pid` always is with micromamba. A backend
-failure aborts with class `condathis_create_env_failed` (also
-`condathis_backend_error`), with the backend's error as the parent.
-micromamba runs the link scripts of packages (`pre-link` and
-`post-link`). A backend that does not, such as `"rattler"` of the
-`rattlerthis` package, makes `create_env()` warn with class
-`condathis_create_env_link_scripts_skipped` (also
-`condathis_link_scripts_skipped`). The warning names the packages, which
-may not work.
+command line that the backend ran, or `NA` when the backend reports
+none. `cmd`, `stdout` and `stderr` are `NA` when nothing ran (an
+existing environment that already has the requested packages). `stdout`,
+`stderr` and `pid` are `NA` when the backend reports none, and `pid`
+always is with micromamba. A backend failure aborts with class
+`condathis_create_env_failed` (also `condathis_backend_error`), with the
+backend's error as the parent. micromamba runs the link scripts of
+packages (`pre-link` and `post-link`). A backend that does not, such as
+`"rattler"` of the `rattlerthis` package, makes `create_env()` warn. The
+warning names the packages, which may not work. Its classes are
+`condathis_link_scripts_skipped` and  
+`condathis_create_env_link_scripts_skipped`.
 
 ## Details
 
@@ -245,6 +282,19 @@ constraints: `version`, `build`, `build_number` and `channel`. `>=1.2.*`
 is read as `>=1.2`, as micromamba does. A build string matches with `*`
 as its only wildcard.
 
+A package from another channel does not satisfy a spec without a
+channel. An environment built with condathis 0.1.4, which also used
+`"bioconda"` by default, can have such packages. The error then names
+the channel of the package. Add that channel to `channels`, or name it
+in the spec, as in `"bioconda::samtools"`.
+
+Specs for virtual packages, whose names start with `__`, such as
+`"__cuda=12"`, `"__unix"` or `"__glibc>=2.17"`, are not compared. They
+describe the host, not the environment, and are never installed. The
+solver checked them when it created the environment. `create_env()` and
+[`install_packages()`](https://luciorq.github.io/condathis/reference/install_packages.md)
+still pass them to the backend.
+
 A spec that condathis cannot compare, or that micromamba, rattler and
 conda read differently, never counts as satisfied. `create_env()` then
 aborts for it with class `condathis_create_env_exists`. These are specs
@@ -270,13 +320,16 @@ with:
 - A build string with a character other than a letter, a digit, `_`, `.`
   and `*`, such as a regular expression (`"zlib=1.3.1=^h4.*$"`) or `?`.
 
-A spec that condathis cannot read, such as `"::"`, aborts with class
-`condathis_parse_match_spec_invalid_name`. The URL of a package file
-whose name is not `<name>-<version>-<build>` aborts with class
-`condathis_parse_match_spec_invalid_url`. Both errors also have class
-`condathis_invalid_arg`. For a new environment, only the backend reads
-the specs. A spec it cannot read aborts with class
-`condathis_create_env_failed`.
+A spec that condathis cannot read aborts with one of these classes, and
+also with class `condathis_invalid_arg`:
+
+- `condathis_parse_match_spec_invalid_name`: a spec such as `"::"`.
+
+- `condathis_parse_match_spec_invalid_url`: the URL of a package file
+  whose name is not `<name>-<version>-<build>`.
+
+For a new environment, only the backend reads the specs. A spec it
+cannot read aborts with class `condathis_create_env_failed`.
 
 When `platform` is given, the platform of the installed packages must be
 `platform` (`noarch` packages match any platform). A different platform
