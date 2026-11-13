@@ -13,6 +13,14 @@ implementation plan for each. Nothing here blocks the v0.2.0 release
 says which branch's devdoc it came from so the original reasoning can be
 found.
 
+Updated 2026-11-13, after the 0.2.0 CRAN preparation of 2026-11-12 and
+2026-11-13 (`feat-strict-defaults/PLAN.md`, "Addendum 2026-11-13") and
+the `env_definition()` work (`feat-env-file/PLAN.md`). Items 0, 4, 9a,
+14 and 15 are updated in place, each with the date. Items 17 to 20 are
+new. Follow-ups of `env_definition()` itself are in
+`feat-env-file/TODO.md`; only the ones that live in rattlerthis are
+repeated here (item 18).
+
 Stale bookkeeping fixed in the same pass: three items in
 `feat-backend-abstraction/TODO.md`'s "rattlerthis as a conforming backend"
 milestone were still unchecked although the work had landed (the vtable is
@@ -24,23 +32,27 @@ there with a pointer to this file.
 
 | # | Item | Origin | State | Needs a decision? |
 |---|------|--------|-------|-------------------|
-| 0 | 0.1.4 GitHub release + two uncommitted CRAN tarball edits | CRAN tarball audit | tag exists, release and edits missing | no |
+| 0 | 0.1.4 GitHub release + two uncommitted CRAN tarball edits | CRAN tarball audit | done; `CRAN-SUBMISSION` handled by `just git-tag` (2026-11-13) | no |
 | 1 | `run()` convergence onto resolve-once + direct spawn | feat-pipeline, feat-strict-defaults | designed, not started | yes: hook semantics |
 | 2 | `rattlerthis` end-to-end smoke test via `condathis` | feat-backend-abstraction, rattlerthis | verified by hand 2026-11-05, test not written | no |
 | 3 | `list_packages()` cross-backend column schema | rattlerthis "flag upward" | decided (minimal subset), unflagged | maybe: coercion |
-| 4 | README cross-links between the two packages | both | link to the backends article (PR #38) | no |
+| 4 | README cross-links between the two packages | both | condathis side done 2026-11-13; rattlerthis side not checked | no |
 | 5 | Package-wide supervisor escape hatch | feat-pipeline | not decided | yes: option vs env var |
 | 6 | Nested-activation artifacts in `get_micromamba_activation_envvars()` | feat-pipeline | known limitation | no, needs investigation |
 | 7 | Windows MinGW runtime pins in tests | HANDOFF | waiting on conda-forge | no |
 | 8 | jarl lint baseline (30 findings) | HANDOFF | decided: fix, do not suppress | no |
-| 9 | In-code `TODO: @luciorq` comments (3) | code | open | one: env_file + packages mixing |
+| 9 | In-code `TODO: @luciorq` comments (3) | code | 9a decided (abort), superseded by `env_definition()`; 9b, 9c open | no |
 | 10 | `backend_status()` diagnostics | feat-backend-abstraction "later ideas" | idea | no |
 | 11 | Container backend package | feat-backend-abstraction "later ideas" | idea | yes: whether at all |
 | 12 | `verbose` on `run_pipeline()` | feat-pipeline "intentional divergences" | explicitly not planned | no |
 | 13 | Issue #12 (inner double quotes on Windows) | GitHub issue | fixed in 0.2.0, issue still open | no |
-| 14 | Tests that need a UTF-8 locale or direct DNS | local run 2026-11-05 | open | no |
-| 15 | r-universe: condathis and rattlerthis | r-universe research 2026-11-05 | open | no |
+| 14 | Tests that need a UTF-8 locale or direct DNS | local run 2026-11-05 | done 2026-11-13 | no |
+| 15 | r-universe: condathis and rattlerthis | r-universe research 2026-11-05 | article done 2026-11-13; pkgdown workflow open | no |
 | 16 | condathis on WebAssembly (webR) | r-universe research 2026-11-05 | idea | yes: whether to abort early |
+| 17 | Optional `packages =` compatibility leftovers (6) | `packages =` review 2026-11-13 | left out of 0.2.0 on purpose | one: positional `channels` |
+| 18 | rattlerthis follow-ups of `env_definition()` | feat-env-file 2026-11-13 | open, two tests expected to fail | no |
+| 19 | Empty `LICENSE` in the upstream `polyglot` repository | CRAN docs review 2026-11-13 | open, maintainer only | no |
+| 20 | Small leftovers of the 2026-11-13 reviews | CRAN preparation reviews | open | no |
 
 ## 0. Before 0.2.0: the 0.1.4 release was never recorded on GitHub
 
@@ -99,9 +111,18 @@ there is no recorded SHA for the submission.
 3. Add `CRAN-SUBMISSION` handling to the release sequence: commit it (or
    at least note the SHA in the release notes) so the next release leaves
    a record.
+   (Done 2026-11-13, in `8cffc25`, without committing the file:
+   `just git-tag` now tags the commit named in the `SHA:` field of
+   `CRAN-SUBMISSION`, and aborts when its `Version:` differs from
+   `DESCRIPTION`. The tag is the record. `just release-github` runs
+   `usethis::use_github_release()`, which removes the file, so
+   `git-tag` must run first; the recipe comments say so.)
 4. Fix the `git-tag` recipe's message typo risk: the commit message
    "prepare for v1.4.0" was hand-typed. The recipe itself reads the
    version from DESCRIPTION and is fine.
+   (2026-11-13: the recipe now reads the version with `read.dcf()` from
+   `DESCRIPTION` instead of loading the package. Commit messages stay
+   hand-typed.)
 
 ## 1. Converge `run()` onto the resolve-once + direct-spawn model
 
@@ -262,6 +283,15 @@ and `create_env(..., method = "rattler")`, and links to
 `?register_backend` for authors. Keep it explicitly experimental, matching
 the `register_backend()` lifecycle text.
 
+**Update 2026-11-13.** The condathis side is done, in the docs sweep of
+the CRAN preparation. "How It Works" in `README.qmd` says that
+`micromamba` is the built-in backend, that other packages add backends
+with the experimental `register_backend()`, that `method = "rattler"`
+uses the optional rattlerthis, which is not on CRAN but on R-universe,
+and links to the backends article. It names
+`options(condathis.backend_priority = ...)`. No separate section was
+added. Left: the cross-link check in rattlerthis's README.
+
 ## 5. Package-wide supervisor escape hatch
 
 **Origin.** `feat-pipeline/PLAN.md` "Possible follow-up, not yet decided
@@ -379,6 +409,16 @@ are the gates.
   (`-f file pkg1 pkg2`, which micromamba accepts) and add tests plus docs,
   or abort with a clear message when both are supplied. Recommended: pass
   both, since the comment says this was the intent since 0.1.3-dev.
+  **Decided: abort.** The backend work (`0e60288`, 2026-11-04) removed
+  the comment and made `create_env()` abort when package specs and an
+  environment file are both given (class
+  `condathis_create_env_conflicting_args`, NEWS 0.2.0 "Breaking
+  changes"). In 0.1.4 the specs were ignored. **Superseded 2026-11-13**
+  by `env_definition()` (`feat-env-file/`): specs together with an
+  `env_definition()` abort the same way, and so do `env_definition()`
+  together with the deprecated `env_file =`
+  (`resolve_create_definition()`, `R/create_env.R`). Passing both to the
+  backend stays out of scope.
 - b. `tests/testthat/test-rethrow_error.R:68`: "Improve tests". Fold into
   item 8's unused-object cleanup for that file.
 - c. `tests/testthat/test-check_micromamba_version.R:48`: bump the mocked
@@ -464,6 +504,16 @@ marked), and note both in `.github/CONTRIBUTING.md`: run the suite in a
 UTF-8 locale, and expect network tests to skip behind a proxy unless the
 DNS check works there.
 
+**Done 2026-11-13** (CRAN preparation, `8cffc25`). The pip test of
+`test-list_packages_pypi.R` skips with "The R session is not in a UTF-8
+locale: run the tests in one." when `l10n_info()[["UTF-8"]]` is not
+`TRUE`; it no longer errors. `.github/CONTRIBUTING.md` asks for a UTF-8
+locale and explains the DNS check of `skip_if_offline()` behind a proxy,
+and `.github/AGENTS.md` ("Testing rules") asks for a UTF-8 locale too.
+The skip only
+applies to a non-UTF-8 session, so it does not break the zero-skip rule
+of developer runs.
+
 ## 15. r-universe: condathis and rattlerthis
 
 **Origin.** Research on 2026-11-05 (see rattlerthis's `PLAN.md`,
@@ -497,6 +547,14 @@ universe in the pkgdown workflow (with `dependencies = FALSE`, so the
 local condathis stays).
 Show the universe in the article's install section.
 
+**Update 2026-11-13.** The article part is done: the backends article
+installs rattlerthis from R-universe and mentions its Linux binary
+repository (`vignettes/articles/backends.qmd`), and `README.qmd` points
+to R-universe too. `cran-comments.md` explains why help pages mention
+rattlerthis although `DESCRIPTION` does not. Still open:
+`.github/workflows/pkgdown.yaml` clones rattlerthis and builds it from
+source with Rust.
+
 ## 16. condathis on WebAssembly (webR)
 
 **Origin.** Research on 2026-11-05.
@@ -516,16 +574,155 @@ start a process, when `R.version$platform` is
 `wasm32-unknown-emscripten`. The queries (`list_envs()`, `env_exists()`)
 would keep working.
 
+## 17. Optional `packages =` compatibility leftovers
+
+**Origin.** The `packages =` compatibility review of 2026-11-13
+(`feat-strict-defaults/PLAN.md`, addendum sections 5 and 6). The
+adversarial review re-ran 72 call shapes of 0.1.4 against the final
+tree and rated these optional. They were left out of 0.2.0 because each
+needed another full check on Linux, macOS and Windows, and none breaks
+a 0.1.4 call that works today.
+
+**Items, with the fix the review proposed.**
+
+- a. `install_packages("pkg", "env", <channels>)`, channels as the 0.1.4
+  third positional argument. The positional guard looks only at the last
+  spec, which is a channel, so the call creates an empty
+  `"condathis-env"` and fails in the solver. In 0.1.4 it worked. NEWS
+  ("Old positional calls no longer work") describes the outcome.
+  Fix: in `install_packages()`, when there are three or more unnamed
+  arguments, all strings, also check `dots[[2L]]` (the 0.1.4 `env_name`
+  slot) with `abort_on_positional_env_name()` and abort with
+  `condathis_install_packages_positional_env_name` before anything is
+  created. Test: with `"my-env"` present,
+  `install_packages("x", "my-env", "conda-forge")` aborts and
+  `"condathis-env"` is not created. Decision needed: worth the extra
+  rule, or leave it to NEWS.
+- b. The hint for `packages =` plus one unnamed string suggests
+  `env_name = "<value>"` also when `env_name` is already in the call
+  (following it gives "matched by multiple actual arguments"). Fix: give
+  `collect_package_specs()` a `given_args` argument and add the hint
+  only for an argument that was not given.
+- c. `create_env(NULL, "env.yml", env_name = ...)`, 0.1.4's positional
+  `env_file`. Since `env_definition()`, the "must be named" hint also
+  says to use `env_definition()`, but with the example name
+  `"environment.yml"`, not the user's file. The `NULL` abort runs before
+  the file-name check. Fix: in the `NULL` branch of
+  `collect_package_specs()`, look for a later string that
+  `is_env_file_name()` accepts and name it in the hint. Also, for a
+  `NULL` in first position, do not say "after the package specs".
+- d. `method = "native"` is not a soft deprecation in `env_exists()`,
+  `list_envs()`, `get_install_dir()`, `list_packages()`, `get_env_dir()`
+  and `run_pipeline()`: they warn also for calls made inside other
+  packages. 0.1.4 had `method` only in `create_env()` and `run()`, so no
+  0.1.4 call is affected. Fix: pass `user_env = rlang::caller_env()` to
+  `resolve_method_alias()` in `R/env_exists.R`, `R/list_envs.R` and
+  `R/get_install_dir.R`, to `resolve_backend()` in `R/list_packages.R`
+  and `R/get_env_dir.R`, and capture it in `run_pipeline()` for the
+  per-step alias. Then shorten the NEWS bullet and the
+  `?condathis-conditions` entry, which list the six soft functions.
+- e. testthat's 3rd edition sets `lifecycle_verbosity = "warning"` in
+  `test_that()` (`local_reproducible_output()`), so other packages'
+  tests see `condathis_deprecated_packages_arg` and
+  `condathis_deprecated_env_file_arg` even for calls inside their own
+  `R/` code. `lifecycle::deprecate_soft()` behaves the same, so the
+  behavior is right; the docs do not mention it. Fix: one sentence in
+  the `...` docs and in NEWS, with the way out
+  (`withr::local_options(lifecycle_verbosity = "quiet")`).
+- f. `install_packages(packages = NULL)` returns status 0 also when the
+  environment probe failed (`NA`), which skips both the `env_not_found`
+  abort and the creation. Rule R5 says a failed probe is not "absent"
+  and the backend should report its own error. Found by reading
+  `R/install_packages.R`, not reproduced (it needs a backend whose probe
+  fails). Fix: return early only when the probe was `TRUE` or the
+  default environment was just created; otherwise let the backend run.
+
+## 18. rattlerthis follow-ups of `env_definition()`
+
+**Origin.** `feat-env-file/` (2026-11-13), items 16 to 19 of its
+`PLAN.md`, which has the details. rattlerthis was not changed, built or
+run in that work: the build on the Linux host failed (no `pkg-config`;
+with a shim, the Rust release build ran out of disk), so compatibility
+rests on reading its code, on condathis's stub backend with
+rattlerthis's exact arguments, and on a replay of the micromamba half
+of its parity fixtures. Listed here because the work happens in
+the rattlerthis repository.
+
+- a. **Run rattlerthis's tests against the new condathis** on a machine
+  that can build it (feat-env-file item 16), before or soon after the
+  CRAN submission. It does not block CRAN: `DESCRIPTION` does not name
+  rattlerthis.
+- b. **Expected failures** (feat-env-file item 17): rattlerthis's
+  `test-parity-envfile.R:98`
+  (`expect_identical(seen[[method]]$warnings, list())`) and
+  `test-parity-linkscripts.R` (about line 320) assert that `env_file =`
+  calls give no warnings. Run first or alone, they now see
+  `condathis_deprecated_env_file_arg`: the tests run under
+  `TESTTHAT_PKG = "rattlerthis"` and testthat's 3rd edition, which both
+  count as direct use (item 17e). Fix in rattlerthis: set
+  `lifecycle_verbosity = "quiet"` for those calls, or move them to
+  `env_definition()`. condathis does not change.
+- c. **Opt in to the new backend contract** (feat-env-file item 18):
+  accept the optional `definition` argument and implement
+  `backend_describe_definition()` on top of `rt_read_env_file()`, so the
+  rattler backend says which files it reads and which are locks. Until
+  then condathis passes the plain path, as before.
+- d. **pixi.lock** (feat-env-file item 19): rattlerthis cannot read it,
+  although the `rattler_lock` crate reads v1 to v7. The micromamba
+  backend refuses it with a reason. See also `feat-pixi-backend/PLAN.md`.
+- e. Do item 2 (smoke test) and item 3 with the same build.
+
+## 19. Empty `LICENSE` in the upstream `polyglot` repository
+
+**Origin.** The docs review of 2026-11-13.
+`inst/extdata/README.md` says that the `polyglot` test package
+(`inst/extdata/polyglot-channel/`) is the maintainer's own work,
+distributed under the MIT license of condathis. Its source repository,
+https://github.com/luciorq/polyglot, has an empty `LICENSE` file. The
+statement in condathis is correct; the upstream repository should say
+the same. Maintainer only: add a license file there. Nothing changes
+in condathis.
+
+## 20. Small leftovers of the 2026-11-13 reviews
+
+**Origin.** The reviews of the CRAN preparation rounds. None blocks the
+release.
+
+- a. On Windows, the relative branch of `resolve_env_bin_path()` (a
+  command found inside the environment) still returns `fs::path()` with
+  `/`. Only the absolute branch uses `native_command_path()` since
+  2026-11-13. It matters only for a program that reads its own path from
+  its command line, as `cmd.exe` does; no Windows test fails.
+- b. For a URL channel, the "installed from another channel" hint shows
+  the normalized form `host/path` (for example `example.org/chan`),
+  which does not work as a value of `channels`. Show the original URL
+  instead.
+- c. The bioconda default-channel hint also appears when a conda-forge
+  package exists but not in the requested version (for example
+  `python=1.0`). The text is conditional ("If ... is a bioconda
+  package"), so it was kept. A local mirror of bioconda under another
+  name also gets the hint.
+- d. CRAN-mode test time on Windows is about 120 s on kappa (Linux about
+  60 to 70 s, macOS about 35 s), against 76 to 88 s for the whole 0.1.4
+  check on CRAN's Windows flavors. Wait for win-builder's figure. If it
+  is too slow, the next candidates for `skip_on_cran()` are
+  `test-backend-packages.R`, `test-clean_cache.R` and
+  `test-with_sandbox_dir.R`.
+- e. `helper-env-lock.R`'s `sigint_ignored_in_proc()` has no unit test
+  of its own; it was checked by hand with synthetic status files. A test
+  in `test-env_lock.R` can use its `status_file` argument.
+
 ## Suggested ordering after the 0.2.0 release
 
 1. Item 8 + 9b + 9c (lint cleanup, mechanical, low risk) as one small PR.
 2. Item 7 (Windows pins) whenever conda-forge ships a fix. It is independent.
-3. Item 2, then 3, then 4 and 10 together (the rattlerthis integration
-   becomes real and documented).
+3. Item 18a/b first (rattlerthis must pass against 0.2.0), then item 2,
+   then 3, then 10 and the rattlerthis half of 4, then 18c/d (the
+   rattlerthis integration becomes real and documented).
 4. Item 5 (supervisor option) as its own small PR.
 5. Item 6, then item 1 (the `run()` convergence) as the headline of the
    next minor release.
-6. Item 9a (env_file + packages) can slot in anywhere. It touches
-   `create_env()` docs and tests only.
-7. Items 13 and 14 are small and independent. Item 15 starts with the
-   r-universe registration, item 16 with a decision.
+6. Item 17 as one PR (17d and 17e first: they are small and touch only
+   docs and argument plumbing), and item 20 alongside.
+7. Items 13 and 19 are maintainer actions. Item 15 needs only the
+   pkgdown workflow change, item 16 a decision.

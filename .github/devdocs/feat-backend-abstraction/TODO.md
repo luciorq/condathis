@@ -366,6 +366,95 @@ writable-stdin path round-trips input.
 The two remaining items above, and every other item deferred past 0.2.0,
 are tracked with implementation plans in `../post-0.2.0/`.
 
+## Milestone: environment definitions in the contract (done, 2026-11-13)
+
+In the working tree, not committed on 2026-11-13. Item numbers match
+PLAN.md decisions 13 to 18. The user-facing side and its verification
+runs are in `../feat-env-file/`.
+
+- [x] 13: the backend reads the formats. condathis keeps no format list
+      and acts only on the kind the backend reports (`"request"` or
+      `"lock"`)
+- [x] 14: optional `definition` on `backend_create_env()`,
+      `backend_install()` and `backend_can_solve()`, optional `env_file`
+      on `backend_install()`, listed in `backend_optional_args`
+- [x] 14: an install function without `env_file` and `definition`
+      cannot install from a file: `install_packages()` aborts before any
+      call (`condathis_install_packages_unsupported_definition`)
+- [x] 15: `backend_describe_definition()`, its default (`NA`, or `FALSE`
+      for a `format` or options that the create function cannot get), the
+      shape check (`condathis_backend_invalid_return`), errors counted as
+      `NA`
+- [x] 15: `create_env()` asks before any lock, move or solve. Request and
+      lock rules, record comparison in `create_env(overwrite = FALSE)` and
+      `validate_env()`, request-only `install_packages()`
+- [x] 15: `method = "auto"` skips a backend that refuses a definition for
+      a new environment (`accept`/`on_refused` of `resolve_backend()`)
+- [x] 16: `backend_definition_formats()`, its default, the micromamba
+      list, and the hint that names other registered backends
+- [x] 17: the generics keep their version 2 formals; `backend_call()`
+      passes optional arguments, `backend_s3_method()` registers a wrapper
+      for a function with extra arguments (fixes the R CMD check S3
+      WARNING)
+- [x] 18: rattlerthis compatibility: a stub backend with its exact
+      formals in `test-env_definition.R`; the deprecated `env_file =`
+      ignores channel arguments for a lock again, as in 0.1.4
+- [ ] 18: run rattlerthis's own test suite against this condathis (not
+      done: the Linux host could not build it, no `pkg-config` and too
+      little disk). Expect only the `condathis_deprecated_env_file_arg`
+      warning, once per session (`../feat-env-file/` items 16 and 17)
+- [ ] 15: add a test that the micromamba describe function starts no
+      process and never installs micromamba (the contract forbids it;
+      today it is pure R, but no test asserts it)
+- [ ] 15: backend-author guide: how to opt in (`definition`, describe
+      with `kind` and `records`, optional arguments only in the backend's
+      own functions). Today it is only in `?register_backend`; decide
+      whether the backends article needs a section
+
+## Milestone: contract changes in the 0.2.0 CRAN preparation (done, 2026-11-13)
+
+Commit `8cffc25`. Item numbers match PLAN.md decisions 19 to 21.
+
+- [x] 19: `validate_method_arg()` reads the 0.1.4 default vectors
+      `c("native", "auto")` and `c("auto", "native")` as their first
+      element; every caller uses the returned value
+- [x] 20: `resolve_method_alias(user_env)` and `resolve_backend(user_env)`:
+      the `"native"` warning is a soft deprecation
+      (`condathis_deprecate_soft()`), once per session and for direct use
+      only; the `condathis_native_warned` flag is gone
+- [x] 21: `?register_backend` has a *Lifecycle* section: experimental
+
+## Milestone: rattlerthis opts in to environment definitions (not started)
+
+Item numbers match PLAN.md decision 22. All of these are changes in the
+rattlerthis repository. condathis needs none.
+
+- [ ] 22: `backend_describe_definition` around `rt_read_env_file()`:
+      `kind`, `platforms` and `records` for YAML, plain, explicit,
+      conda-lock v1 and mambajs files
+- [ ] 22: `definition` on `rattler_backend_create_env()` and
+      `rattler_backend_can_solve()`; choose the reader by `format` when it
+      is given; refuse unknown options
+- [ ] 22: `env_file` and `definition` on `rattler_backend_install()`
+      (request files through `rt_install()`; refuse a lock)
+- [ ] 22: `backend_definition_formats` (for example `environment-yaml`,
+      `cep-24`, `requirements`, `explicit`, `conda-lock-v1`,
+      `mambajs-lock-v1`)
+- [ ] 22: update `tests/testthat/test-registration.R` for the new hooks
+      and for wrapped functions with optional arguments (PLAN.md
+      decision 17)
+- [ ] 22: move its `create_env(env_file = )` tests to `env_definition()`,
+      keeping a few for the deprecated path
+- [ ] 22: parity tests with the micromamba backend for each format and
+      for the lock rules (platform not locked, channels with a lock,
+      empty environment)
+- [ ] 22: pixi.lock through `rattler_lock` (see
+      `../feat-pixi-backend/TODO.md`)
+- [ ] 22: rattlerthis `PLAN.md` (the "Environment files" bullet) still
+      says that the R side refuses a file with pip steps; its code runs
+      them (`rattler_run_pip_steps()` in `R/condathis-backend.R`). Fix
+      the doc there
+
 ## Later ideas (not scheduled)
 
 - Container backend package (`docker`/`singularity`) implementing the same

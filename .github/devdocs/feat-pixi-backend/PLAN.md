@@ -19,6 +19,12 @@ condathis::run("python", "--version", env_name = p, method = "rattler")
 No backend is specific to pixi today.
 This folder records what works now and what a pixi backend would add.
 
+Since 2026-11-13, `create_env()` also takes an environment file through
+`env_definition()` (see `../feat-env-file/PLAN.md`, and the contract in
+`../feat-backend-abstraction/PLAN.md` decisions 13 to 18). The research
+for it covered pixi and pixi.lock. Its findings are in "Files and pixi
+(2026-11-13)" below.
+
 ## Findings (2026-11-11)
 
 Setup:
@@ -107,6 +113,129 @@ Not decided. Options for later:
   This conflicts with the condathis model of environments under
   `backend_root_dir()` with names as identity, so it needs its own
   design.
+- **pixi.lock in a rattler-based backend.** Added 2026-11-13. A backend
+  built on the `rattler_lock` crate, such as rattlerthis, can create an
+  environment from a pixi.lock without the pixi binary and without a
+  manifest (see "What a pixi-style backend would take" below). The
+  environment then belongs to condathis, under its own name, which fits
+  the condathis model. It does not run pixi activation (limit 2).
+
+## Files and pixi (2026-11-13)
+
+Research for `env_definition()`, on Linux, in isolated runs (`HOME`,
+the `XDG_*` variables and the package caches in a scratch directory)
+with pixi 0.84.2, micromamba 2.10.0, and conda 26.9.4 with the
+conda-lockfiles plugin 0.2.2. Also read: the docs of the `rattler_lock`
+crate, the sources of mamba 2.10.0 and of conda-lockfiles, and the
+rattlerthis sources.
+
+### pixi never reads a foreign file directly
+
+- `pixi init --import <file>` takes an environment YAML file only.
+  `pixi import` takes `--format conda-env` or `--format pypi-txt`, and
+  tries each in turn without `--format`. Both convert the file into a
+  pixi manifest (`pixi.toml`). They do not install from it.
+- `pixi import` of an `@EXPLICIT` file (pixi's own export) failed with
+  "Tried all formats for input file, but none were successful".
+- In pixi, `.txt` means pip requirements. micromamba reads a `.txt`
+  file as conda package specs.
+- `pixi init --import` turned the channel `nodefaults` of an
+  environment YAML file into the URL
+  `https://conda.anaconda.org/nodefaults/` in `pixi.toml` and
+  `pixi.lock`. Not followed up.
+- `pixi exec` and `pixi global install` take package specs on the
+  command line only, never a file.
+- `pixi install --frozen` installs `pixi.lock` without a solve. It did
+  so even when the manifest had drifted (it named a package that does
+  not exist), where `pixi install --locked` failed with "lock file not
+  up-to-date with the workspace". But it needs a manifest: in a
+  directory with only `pixi.lock`, it failed with "could not find
+  pixi.toml or pyproject.toml with tool.pixi".
+- pixi exports to formats that micromamba reads:
+  `pixi workspace export conda-explicit-spec` (an `@EXPLICIT` file with
+  a `# platform:` line and md5 hashes) and
+  `pixi workspace export conda-environment` (environment YAML). It has
+  no conda-lock export. micromamba 2.10.0 installed pixi's
+  `@EXPLICIT` export.
+
+### pixi.lock versions
+
+pixi 0.84.2 writes `version: 7`: a top-level `platforms:` list, the
+channels of each environment, and the packages of each platform with
+URL, sha256, md5 and size. pixi moved to version 7 in 0.68.0 (May 2026).
+
+| Reader | pixi.lock v6 | pixi.lock v7 |
+|---|---|---|
+| conda 26.9.4 + conda-lockfiles 0.2.2 | Yes. Format `rattler-lock-v6` (aliases `pixi`, `pixi-lock-v6`). Reads the `default` environment only. | No: "field 'version': Input should be less than or equal to 6". conda-lockfiles issue #178 and PR #143 ask for v7; their state was not checked. |
+| micromamba 2.10.0 | No. The mamba sources have no pixi.lock code. | No. Named `pixi.lock`: read as a spec list, and it fetched from conda.anaconda.org despite `--override-channels`. Renamed `pixi-lock.yml`: "unknown version '7'", and an empty prefix left behind. Renamed `pixi.lock.yml`: an empty environment, exit status 0. |
+| `rattler_lock` crate 0.34.x | Yes | Yes. `LockFile::from_path()`, `environment(name)`, `default_environment()`, and `Environment::conda_repodata_records(platform)`, whose records feed rattler's installer without a solve. Its docs list versions 1 to 7. Only the docs were read; nothing was run. |
+| rattlerthis (`rt_read_env_file()`) | No: `pixi.lock` is read as a plain spec list (`src/rust/src/envfile/tests.rs:30`). | No |
+| condathis micromamba backend | Refused, with a reason | Refused, with a reason |
+
+The conda-lockfiles names are versioned and never change meaning
+(`conda-lock-v1`, `rattler-lock-v6`). The unversioned aliases (`pixi`,
+`conda-lock`) follow the newest version. `?env_definition` lists
+`"rattler-lock-v6"`, `"rattler-lock-v7"` and `"pixi"` as the
+conventional `format` names for pixi.lock.
+
+### What the condathis micromamba backend does with pixi.lock
+
+It refuses it before anything runs, under any name and any of those
+format names:
+
+- It detects a pixi.lock from the contents: a top-level `version:` and
+  `environments:` (`micromamba_sniff_definition()`,
+  `R/backend-micromamba-definition.R:313-317`). The format names
+  `rattler-lock-v6`, `rattler-lock-v7` and `pixi` map to the same case
+  (`micromamba_format_aliases`, lines 37-49).
+- `backend_describe_definition()` returns `supported = FALSE` with the
+  reason "micromamba does not read pixi.lock files. Use a backend that
+  reads them, or export the environment to an @EXPLICIT or conda-lock
+  file." (line 121). `create_env()` aborts with class
+  `condathis_create_env_unsupported_definition` (also
+  `condathis_backend_unsupported` and `condathis_invalid_arg`). With
+  `method = "auto"`, the error lists each backend that was tried with
+  its reason.
+- A directory is refused too: "micromamba reads an environment file,
+  not a directory." (lines 122-124).
+- `create_env("pixi.lock")`, with the file name as a package spec,
+  aborts with a hint to use `env_definition()` (`is_env_file_name()`,
+  `R/validate_args.R:308-310`).
+
+Tests: `test-backend-micromamba.R:1235-1247` (refused under its name and
+with `format = "pixi"` or `"rattler-lock-v7"`) and
+`test-backend-micromamba.R:1640-1646` (refused by `create_env()` before
+anything runs), and `test-create_env.R:136`.
+
+### What a pixi-style backend would take
+
+The pixi findings are one reason why `env_definition()` is not tied to
+one file of one extension (see `../feat-env-file/PLAN.md`):
+
+- **A backend that calls the pixi binary** needs a workspace: a
+  directory with `pixi.toml` (or `pyproject.toml`) and `pixi.lock`, and
+  the name of a pixi environment. `env_definition()` allows that:
+  `path` can be a directory (the existence check accepts one, and the
+  micromamba backend refuses it), and named options in `...` go to the
+  backend unread, as in
+  `env_definition("path/to/project", environment = "test")`.
+- **A backend that reads pixi.lock itself**, through `rattler_lock`,
+  needs only the lock and an environment name:
+  `env_definition("pixi.lock", environment = "test")`, with `"default"`
+  when the option is not given. It reports the lock as `kind = "lock"`,
+  with `platforms` from the lock and `records` from
+  `conda_repodata_records()`, so the condathis lock rules (platform
+  choice, no channel arguments, the empty-environment check) and the
+  lock comparison of `validate_env()` apply. It must refuse what it
+  cannot install: PyPI entries (or hand them to a pip step, as
+  rattlerthis does for YAML `pip:` sections) and source packages.
+- Relative paths in a v7 lock are relative to the lock file.
+  `env_definition()` keeps the path absolute but does not resolve
+  symbolic links, and `rattler_lock` reads with a base directory
+  (`LockFile::from_reader(reader, base_dir)`).
+- A backend that does not know the option `environment` must refuse it
+  (contract rule, `../feat-backend-abstraction/PLAN.md` decision 15).
+  The micromamba backend does: it takes only `categories`.
 
 ## Reproduce
 
