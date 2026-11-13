@@ -100,6 +100,10 @@ backend_list_packages_columns <- c(
 #'   without attributes.
 #' * `"backend_quiesce"` and `"backend_available"`: a single `TRUE` or
 #'   `FALSE`. Returns it without attributes.
+#' * `"backend_describe_definition"`: a list, see
+#'   `validate_definition_description()`.
+#' * `"backend_definition_formats"`: `NULL` or a character vector without
+#'   `NA`. Returns a unique, unnamed character vector.
 #'
 #' A value that breaks its rule aborts with
 #' `c("condathis_backend_invalid_return",
@@ -174,6 +178,20 @@ validate_backend_return <- function(
       invalid("It must return {.code TRUE}, {.code FALSE} or {.code NA}.")
     }
     return(as.logical(unname(c(value))))
+  }
+  if (identical(generic, "backend_describe_definition")) {
+    return(validate_definition_description(value, invalid = invalid))
+  }
+  if (identical(generic, "backend_definition_formats")) {
+    if (is.null(value)) {
+      return(character(0L))
+    }
+    if (isFALSE(is.character(value)) || isTRUE(anyNA(value))) {
+      invalid(
+        "It must return a character vector of format names, without {.val {NA}}."
+      )
+    }
+    return(unique(unname(as.character(value))))
   }
   if (generic %in% c("backend_quiesce", "backend_available")) {
     if (isFALSE(rlang::is_bool(value))) {
@@ -367,6 +385,8 @@ backend_native_platform_checked <- function(
 #' @param ... Passed to `backend_can_solve()` by name: `packages`,
 #'   `env_file`, `channels`, `channel_priority`, `additional_channels` and
 #'   `platform`.
+#' @param .optional Named list: `definition`, or nothing (see
+#'   `backend_call()`).
 #' @param call Environment of the function an invalid value is reported
 #'   for.
 #'
@@ -377,15 +397,186 @@ backend_native_platform_checked <- function(
 backend_can_solve_checked <- function(
   backend,
   ...,
+  .optional = list(),
   call = rlang::caller_env()
 ) {
-  value <- probe_or_na(backend_can_solve(backend, ...), na = NA)
+  value <- probe_or_na(
+    backend_call("backend_can_solve", backend, ..., .optional = .optional),
+    na = NA
+  )
   return(validate_backend_return(
     value,
     generic = "backend_can_solve",
     backend_name = backend_display_name(backend),
     call = call
   ))
+}
+
+#' Check the value of `backend_describe_definition()`
+#'
+#' The rules of ?register_backend. Missing elements get their defaults
+#' (see `definition_description()`), so a backend may return only
+#' `supported` and `kind`.
+#'
+#' @param value The returned value.
+#' @param invalid A function that aborts, given the rule as a cli text.
+#'
+#' @returns A list with `supported` (`TRUE`, `FALSE` or `NA`), `format`
+#'   (`NA` or a string), `kind` (`"request"`, `"lock"` or `NA`; always `NA`
+#'   unless `supported` is `TRUE`), `platforms` (`NULL` or a unique
+#'   character vector), `reason` (`NA` or a string) and `records` (`NULL`
+#'   or a data frame with the character columns `name`, `version`,
+#'   `build_string` and `platform`).
+#'
+#' @keywords internal
+#' @noRd
+validate_definition_description <- function(value, invalid) {
+  if (isFALSE(is.list(value)) || isTRUE(is.data.frame(value))) {
+    invalid(
+      "It must return a list with {.field supported}, {.field format}, {.field kind}, {.field platforms}, {.field reason} and {.field records}."
+    )
+  }
+  is_na_or_string <- function(x) {
+    return(
+      is.null(x) ||
+        (isTRUE(rlang::is_scalar_atomic(x)) && isTRUE(is.na(x))) ||
+        (isTRUE(rlang::is_string(x)) && isTRUE(nzchar(x)))
+    )
+  }
+  as_na_or_string <- function(x) {
+    if (is.null(x) || isTRUE(is.na(x))) {
+      return(NA_character_)
+    }
+    return(as.character(x))
+  }
+  supported <- value[["supported"]]
+  if (isFALSE(rlang::is_scalar_logical(supported))) {
+    invalid("Its {.field supported} must be {.code TRUE}, {.code FALSE} or {.code NA}.")
+  }
+  if (isFALSE(is_na_or_string(value[["format"]]))) {
+    invalid("Its {.field format} must be {.code NA} or a non-empty string.")
+  }
+  if (isFALSE(is_na_or_string(value[["reason"]]))) {
+    invalid("Its {.field reason} must be {.code NA} or a non-empty string.")
+  }
+  kind <- as_na_or_string(value[["kind"]])
+  if (isFALSE(is_na_or_string(value[["kind"]])) ||
+    isFALSE(is.na(kind) || kind %in% c("request", "lock"))) {
+    invalid("Its {.field kind} must be {.val request}, {.val lock} or {.code NA}.")
+  }
+  platforms <- value[["platforms"]]
+  if (
+    isFALSE(is.null(platforms)) &&
+      (isFALSE(is.character(platforms)) ||
+        isTRUE(anyNA(platforms)) ||
+        isFALSE(all(nzchar(platforms))))
+  ) {
+    invalid(
+      "Its {.field platforms} must be {.code NULL} or a character vector of platform names."
+    )
+  }
+  records <- value[["records"]]
+  record_columns <- c("name", "version", "build_string", "platform")
+  if (
+    isFALSE(is.null(records)) &&
+      (isFALSE(is.data.frame(records)) ||
+        isFALSE(all(record_columns %in% names(records))))
+  ) {
+    invalid(
+      "Its {.field records} must be {.code NULL} or a data frame with the columns {.field {record_columns}}."
+    )
+  }
+  supported <- as.logical(unname(c(supported)))
+  if (isFALSE(isTRUE(supported))) {
+    kind <- NA_character_
+  }
+  if (isFALSE(is.null(platforms))) {
+    platforms <- unique(unname(as.character(platforms)))
+  }
+  if (isFALSE(is.null(records))) {
+    records <- as.data.frame(records, stringsAsFactors = FALSE)
+    for (column in record_columns) {
+      records[[column]] <- as.character(records[[column]])
+    }
+  }
+  return(definition_description(
+    supported = supported,
+    format = as_na_or_string(value[["format"]]),
+    kind = kind,
+    platforms = platforms,
+    reason = as_na_or_string(value[["reason"]]),
+    records = records
+  ))
+}
+
+#' `backend_describe_definition()`, with failures read as "cannot tell"
+#'
+#' An error from the backend counts as `NA` for `supported` and `kind`
+#' (see `probe_or_na()`). A value that breaks the contract aborts.
+#'
+#' @param backend An already-resolved backend object.
+#' @param definition A valid `condathis_env_definition` object.
+#' @param platform `NULL` or the requested platform.
+#' @param call Environment of the function an invalid value is reported
+#'   for.
+#'
+#' @returns A list, see `validate_definition_description()`.
+#'
+#' @keywords internal
+#' @noRd
+backend_describe_definition_checked <- function(
+  backend,
+  definition,
+  platform = NULL,
+  call = rlang::caller_env()
+) {
+  failed <- structure(list(), class = "condathis_describe_failed")
+  value <- probe_or_na(
+    backend_describe_definition(
+      backend,
+      definition = definition,
+      platform = platform
+    ),
+    na = failed
+  )
+  if (inherits(value, "condathis_describe_failed")) {
+    return(definition_description())
+  }
+  return(validate_backend_return(
+    value,
+    generic = "backend_describe_definition",
+    backend_name = backend_display_name(backend),
+    call = call
+  ))
+}
+
+#' The format names that the registered backends read
+#'
+#' For messages only (see `backend_definition_formats()` in
+#' ?register_backend). A backend whose function fails or returns an
+#' invalid value is left out.
+#'
+#' @returns A named list: one character vector per registered backend name,
+#'   possibly empty.
+#'
+#' @keywords internal
+#' @noRd
+registered_definition_formats <- function() {
+  backend_names <- list_registered_backend_names()
+  formats <- lapply(backend_names, function(backend_name) {
+    backend <- get_backend(backend_name)
+    value <- tryCatch(
+      validate_backend_return(
+        backend_definition_formats(backend),
+        generic = "backend_definition_formats",
+        backend_name = backend_name
+      ),
+      error = function(e) character(0L)
+    )
+    return(value)
+  })
+  names(formats) <- backend_names
+  return(formats)
 }
 
 #' Evaluate a platform probe, with its errors read as "cannot tell"

@@ -444,7 +444,16 @@ testthat::test_that("collect_package_specs() names the closest formal for a miss
 })
 
 testthat::test_that("collect_package_specs() rejects an environment file as a spec", {
-  for (spec in c("environment.yml", "env.yaml", "ENV.YML")) {
+  for (spec in c(
+    "environment.yml",
+    "env.yaml",
+    "ENV.YML",
+    "conda-lock.yml",
+    "ci-lock.yaml",
+    "env.json",
+    "pixi.lock",
+    "CI.LOCK"
+  )) {
     cnd <- catch_error(d6_create_env(spec))
     testthat::expect_identical(
       class(cnd),
@@ -453,10 +462,11 @@ testthat::test_that("collect_package_specs() rejects an environment file as a sp
     )
     testthat::expect_match(
       conditionMessage(cnd),
-      "env_file = ",
+      paste0("env_definition(\"", spec, "\")"),
       fixed = TRUE,
       info = spec
     )
+    testthat::expect_no_match(conditionMessage(cnd), "env_file", fixed = TRUE)
   }
   cnd <- catch_error(d6_install_packages("python", "env.yml"))
   testthat::expect_identical(
@@ -465,7 +475,33 @@ testthat::test_that("collect_package_specs() rejects an environment file as a sp
   )
   testthat::expect_match(
     conditionMessage(cnd),
-    "create_env(env_file = ",
+    "env_definition(\"env.yml\")",
+    fixed = TRUE
+  )
+  # Specs that only look similar are specs.
+  testthat::expect_identical(
+    d6_create_env("python-lockfile", "yaml-cpp", "json-c", "flock"),
+    c("python-lockfile", "yaml-cpp", "json-c", "flock")
+  )
+})
+
+testthat::test_that("collect_package_specs() rejects an env_definition() object", {
+  definition <- env_definition("environment.yml")
+  cnd <- catch_error(d6_install_packages(definition))
+  testthat::expect_identical(
+    class(cnd),
+    invalid_packages_class("install_packages")
+  )
+  message <- cli::ansi_strip(conditionMessage(cnd))
+  testthat::expect_match(message, "environment definition", fixed = TRUE)
+  testthat::expect_match(message, "unnamed", fixed = TRUE)
+  # create_env() takes the unnamed ones out first; a named one stays.
+  withr::local_options(lifecycle_verbosity = "quiet")
+  cnd <- catch_error(d6_create_env(packages = definition))
+  testthat::expect_identical(class(cnd), invalid_packages_class("create_env"))
+  testthat::expect_match(
+    cli::ansi_strip(conditionMessage(cnd)),
+    "environment definition",
     fixed = TRUE
   )
 })
@@ -619,14 +655,16 @@ testthat::test_that("collect_package_specs() points 0.1.4 positional values to t
     "env_name = \"my-env\"",
     fixed = TRUE
   )
-  # create_env(packages = x, "env.yml"): 0.1.4's positional env_file.
+  # create_env(packages = x, "env.yml"): 0.1.4's positional env_file,
+  # which is now an env_definition().
   cnd <- catch_error(d6_create_env(packages = "a", "env.yml"))
   testthat::expect_identical(class(cnd), invalid_packages_class("create_env"))
   testthat::expect_match(
     conditionMessage(cnd),
-    "env_file = \"env.yml\"",
+    "env_definition(\"env.yml\")",
     fixed = TRUE
   )
+  testthat::expect_no_match(conditionMessage(cnd), "env_file", fixed = TRUE)
   cnd <- catch_error(d6_create_env(packages = "a", "my-env"))
   testthat::expect_match(
     conditionMessage(cnd),
@@ -643,11 +681,13 @@ testthat::test_that("collect_package_specs() points 0.1.4 positional values to t
   testthat::expect_identical(class(cnd), invalid_packages_class("create_env"))
   message <- cli::ansi_strip(conditionMessage(cnd))
   testthat::expect_match(message, "must be named", fixed = TRUE)
-  testthat::expect_match(message, "env_file = NULL", fixed = TRUE)
+  testthat::expect_match(message, "env_definition(", fixed = TRUE)
+  testthat::expect_no_match(message, "env_file", fixed = TRUE)
   cnd <- catch_error(d6_install_packages("a", NULL, "my-env"))
   message <- cli::ansi_strip(conditionMessage(cnd))
   testthat::expect_match(message, "must be named", fixed = TRUE)
   testthat::expect_no_match(message, "env_file", fixed = TRUE)
+  testthat::expect_no_match(message, "env_definition", fixed = TRUE)
   # A NULL at the end keeps the "no packages" hint.
   cnd <- catch_error(d6_create_env(NULL))
   testthat::expect_match(

@@ -805,8 +805,11 @@ vapply(daemon_procs, function(proc) proc$is_alive(), logical(1))
 In every case, `condathis` owns the environment.
 The same `create_env()` call reproduces it on any machine.
 To share the environment as a file, write its package specs, with versions
-pinned, to an environment YAML file and pass it as `env_file` to
-`create_env()`.
+pinned, to an environment YAML file and pass it to `create_env()` with
+`env_definition()`, as in
+`create_env(env_definition("environment.yml"), env_name = "py-data-env")`.
+A lock file, such as an `@EXPLICIT` or conda-lock file, gives the same
+packages on every machine of a platform it lists.
 
 ## Cleaning Up
 

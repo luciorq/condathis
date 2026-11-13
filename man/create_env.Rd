@@ -22,6 +22,22 @@ create_env(
 strings or character vectors, in order. Examples: \code{"python=3.13"},
 \code{"bioconda::fastqc==0.12.1"}. With no specs, \code{create_env()} creates an
 empty environment.
+
+Or one environment file, given by \code{\link[=env_definition]{env_definition()}}, such as
+\code{env_definition("environment.yml")}, without package specs. Package
+specs and a definition together, or two definitions, abort with class
+\code{condathis_create_env_conflicting_args}. A file that does not exist
+aborts with class \code{condathis_create_env_missing_env_file}. With
+\code{method = "auto"}, a new environment uses the first available backend
+in \code{condathis.backend_priority} order that does not say it cannot read
+the file. A file that the backend cannot read (any of them, with
+\code{"auto"}) aborts with class
+\code{condathis_create_env_unsupported_definition} (also
+\code{condathis_backend_unsupported}). See \code{\link[=env_definition]{env_definition()}} for the
+formats, and for the rules of lock files. No backend applies the
+\verb{variables:} of a YAML file: the commands that run in the environment
+do not get them.
+
 Any other value aborts with class
 \code{condathis_create_env_invalid_packages}. Such values are:
 \itemize{
@@ -30,7 +46,8 @@ abbreviated: \verb{env =} and \verb{pack =} abort too. The error names the
 closest argument.
 \item A value that is not a character vector.
 \item \code{NA} or \code{""}.
-\item A file name that ends in \code{.yml} or \code{.yaml}. Pass it as \code{env_file}.
+\item A file name that ends in \code{.yml}, \code{.yaml}, \code{.json} or \code{.lock}. Pass
+it with \code{\link[=env_definition]{env_definition()}}.
 }
 
 \verb{packages = <specs>} still works, and \code{packages = NULL} creates an
@@ -158,10 +175,11 @@ for \code{"linux-arm64"}. When the channels have no packages for a known
 platform, the backend fails. Then \code{create_env()} aborts with class
 \code{condathis_create_env_failed}.
 With \code{NULL}, condathis can fall back to an emulated platform. This
-happens when the package specs or the \code{env_file} cannot be installed
-for the native platform, dependencies included, but can for the
-emulated one. This works with every backend that can tell whether a
-request solves for a platform, micromamba included. On Apple Silicon,
+happens when the package specs or the environment file cannot be
+installed for the native platform, dependencies included, but can for
+the emulated one. This works with every backend that can tell whether
+a request solves for a platform, micromamba included. A lock file is
+never solved (see \code{\link[=env_definition]{env_definition()}}). On Apple Silicon,
 condathis uses \code{"osx-64"} when Rosetta 2 is available. With a backend
 that solves for \code{"win-arm64"}, condathis uses \code{"win-64"} through x64
 emulation. The \code{win-arm64} micromamba, which a native ARM64 R on
@@ -170,21 +188,29 @@ installs packages for the platform that the environment was created
 for, given or emulated.
 For an existing environment, see \emph{Existing environments}.}
 
-\item{env_file}{\code{NULL} (the default) or the path of an environment YAML
-file. With the micromamba backend, condathis passes it to
-\verb{micromamba create -f}. No backend applies the \verb{variables:} of a YAML
-file: the commands that run in the environment do not get them. Do not
-use both package specs and \code{env_file}: that aborts with class
+\item{env_file}{\code{NULL} (the default) or the path of an environment
+file. Deprecated: pass \verb{env_definition(<path>)} in \code{...} instead.
+\code{env_file = path} still works the same way. It warns once per session
+(class \code{condathis_deprecated_env_file_arg}) when the call comes from
+the console, a script or the tests of the package that makes it.
+Calls made inside other packages do not warn. \code{env_file} and an
+\code{\link[=env_definition]{env_definition()}} together abort with class
 \code{condathis_create_env_conflicting_args}. A file that does not exist
-aborts with class \code{condathis_create_env_missing_env_file}.}
+aborts with class \code{condathis_create_env_missing_env_file}. With a lock
+file, \code{channels}, \code{additional_channels} and \code{channel_priority} are
+ignored, as in 0.1.4.}
 
 \item{overwrite}{\code{TRUE} or \code{FALSE} (the default).
 With \code{FALSE}, \code{create_env()} never replaces an existing environment.
 \code{create_env()} keeps the environment and runs nothing when it has every
 requested package (see \emph{Existing environments}) or when no package is
-requested. It returns status 0.
-Otherwise, and always when \code{env_file} is set, \code{create_env()} aborts with
-class \code{condathis_create_env_exists}. Use \code{\link[=install_packages]{install_packages()}} to add
+requested. For a lock file whose packages the backend reports, such as
+an \verb{@EXPLICIT}, conda-lock or mambajs file with micromamba, it keeps the
+environment when it has exactly those packages (see \emph{Existing
+environments}). It returns status 0.
+Otherwise, and always for an environment file that is solved, such as
+\code{environment.yml}, \code{create_env()} aborts with class
+\code{condathis_create_env_exists}. Use \code{\link[=install_packages]{install_packages()}} to add
 packages to an existing environment. Use \code{\link[=validate_env]{validate_env()}} to check one.
 With \code{TRUE}, \code{create_env()} creates the environment again from scratch,
 also when it exists or was built for another \code{platform}. When
@@ -214,9 +240,10 @@ the packages, which may not work. Its classes are
 }
 \description{
 Creates a Conda environment from package specs or from an environment
-file. With \code{overwrite = FALSE} (the default), \code{create_env()} never replaces
-an existing environment. It keeps the environment when it already has the
-requested packages. Otherwise, it aborts (see \emph{Existing environments}).
+file given by \code{\link[=env_definition]{env_definition()}}. With \code{overwrite = FALSE} (the default),
+\code{create_env()} never replaces an existing environment. It keeps the
+environment when it already has the requested packages. Otherwise, it
+aborts (see \emph{Existing environments}).
 }
 \details{
 With the micromamba backend, \code{create_env()} adds the new environment to
@@ -291,6 +318,16 @@ When \code{platform} is given, the platform of the installed packages must be
 aborts with class \code{condathis_create_env_platform_mismatch}, and
 \code{create_env()} keeps the environment. With \code{platform = NULL}, the
 platform is not compared.
+
+A lock file is compared by its packages, not by specs. The environment
+must have exactly the packages that the lock lists for its platform (see
+\code{\link[=env_definition]{env_definition()}}): the same names, versions and build strings, none
+missing and none more. Packages that pip installed are left out. A
+difference aborts with class \code{condathis_create_env_exists}, and the
+message names a few of the packages that differ. An environment file
+that is solved, such as \code{environment.yml}, or a lock whose packages the
+backend does not report, is never compared: an existing environment
+aborts with class \code{condathis_create_env_exists}.
 }
 
 \section{Other R sessions}{
@@ -364,6 +401,7 @@ condathis::with_sandbox_dir({
 \link{condathis-options} for the options that choose the backend.
 
 Other environments:
+\code{\link[=env_definition]{env_definition()}},
 \code{\link[=env_exists]{env_exists()}},
 \code{\link[=env_path]{env_path()}},
 \code{\link[=get_env_dir]{get_env_dir()}},

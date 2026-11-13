@@ -11,9 +11,10 @@
 Runs command line interface (CLI) tools in isolated and reproducible 'Conda' environments from R. Environments are created and managed with 'micromamba', which is downloaded when no usable copy is found. Commands run with their environment activated, alone or as pipelines connected by pipes. Other packages can provide other tools to create and run environments.
 }
 \details{
-Create an environment with \code{\link[=create_env]{create_env()}}. Run a command line tool in it
-with \code{\link[=run]{run()}}, or run several tools connected by pipes with
-\code{\link[=run_pipeline]{run_pipeline()}}. Read the output with \code{\link[=parse_output]{parse_output()}}.
+Create an environment with \code{\link[=create_env]{create_env()}}, from package specs or from a
+file such as \code{environment.yml} or a lock file (\code{\link[=env_definition]{env_definition()}}). Run a
+command line tool in it with \code{\link[=run]{run()}}, or run several tools connected by
+pipes with \code{\link[=run_pipeline]{run_pipeline()}}. Read the output with \code{\link[=parse_output]{parse_output()}}.
 
 \code{condathis} downloads \code{micromamba} when it first needs it and finds no
 usable copy (see \emph{micromamba discovery} in \link{condathis-options}). A

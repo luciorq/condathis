@@ -292,6 +292,23 @@ describe_value <- function(x) {
   return(gsub("}", "}}", gsub("{", "{{", text, fixed = TRUE), fixed = TRUE))
 }
 
+#' Does a string look like the name of an environment file?
+#'
+#' A spec never ends in `.yml`, `.yaml`, `.json` or `.lock`, so such a
+#' value is a file that belongs in `env_definition()`. This also covers
+#' lock files such as `conda-lock.yml`, `ci-lock.yaml`, `env.json` and
+#' `pixi.lock`.
+#'
+#' @param x Character vector.
+#'
+#' @returns A logical vector.
+#'
+#' @keywords internal
+#' @noRd
+is_env_file_name <- function(x) {
+  return(grepl("\\.(ya?ml|json|lock)$", x, ignore.case = TRUE))
+}
+
 #' Describe why a value is not a vector of package specs
 #'
 #' @param x The value to check.
@@ -303,6 +320,9 @@ describe_value <- function(x) {
 #' @keywords internal
 #' @noRd
 package_specs_problem <- function(x) {
+  if (isTRUE(is_env_definition(x))) {
+    return("is an environment definition from {.fn env_definition}")
+  }
   if (isFALSE(is.character(x))) {
     return(paste("is", describe_value(x)))
   }
@@ -466,8 +486,9 @@ validate_channels_arg <- function(
 #'   `packages = NULL` and `packages = character(0)` mean no specs.
 #'   `packages =` together with unnamed specs aborts, and so does
 #'   `packages =` given twice. When the other value is one string, the hint
-#'   names it as `env_name =` (or `env_file =` for a `.yml` or `.yaml`
-#'   file), its 0.1.4 positional meaning.
+#'   names it as `env_name =`, its 0.1.4 positional meaning, or for a
+#'   file name (see `is_env_file_name()`) as `env_definition()`, the
+#'   successor of the 0.1.4 positional `env_file`.
 #' * Any other named value aborts: the name is a misspelled or unknown
 #'   argument. The message names the closest formal of the caller, for
 #'   example `chanels = ` gives "Did you mean `channels`?". A name that
@@ -476,9 +497,14 @@ validate_channels_arg <- function(
 #' * A value that is not a character vector (`NULL`, a number, a logical,
 #'   a list, a factor), `NA` and `""` abort. A `NULL` before other
 #'   unnamed values gets a hint that the arguments after the specs must be
-#'   named, as in 0.1.4's positional `create_env("pkg", NULL, "env")`.
-#' * A spec that ends in `.yml` or `.yaml` aborts with a hint to pass it as
-#'   `env_file =` to `create_env()`.
+#'   named, as in 0.1.4's positional `create_env("pkg", NULL, "env")`, and
+#'   that a file goes in `env_definition()`. An `env_definition()` object
+#'   aborts too: `create_env()`, `install_packages()` and `validate_env()`
+#'   take the unnamed ones out of `...` before this function runs, so only
+#'   a named one, such as `packages = env_definition(...)`, gets here. Its
+#'   hint says to pass it unnamed.
+#' * A spec that looks like a file name (see `is_env_file_name()`) aborts
+#'   with a hint to pass it as `env_definition()`.
 #' * No specs at all abort with `missing_class` when `allow_empty` is
 #'   `FALSE`, unless they came from `packages = NULL` or
 #'   `packages = character(0)`.
@@ -618,18 +644,15 @@ collect_package_specs <- function(
         # second argument of create_env(), `env_name` the second of
         # install_packages().
         extra_value <- extra[[1L]]
-        extra_arg <- if (
-          isTRUE(grepl("\\.ya?ml$", extra_value, ignore.case = TRUE)) &&
+        extra_hint <- if (
+          isTRUE(is_env_file_name(extra_value)) &&
             isTRUE("env_file" %in% formal_names)
         ) {
-          "env_file"
+          "If {.val {extra_value}} is an environment file, pass it as {.code env_definition(\"{extra_value}\")}."
         } else {
-          "env_name"
+          "If {.val {extra_value}} is not a package spec, name its argument: {.code env_name = \"{extra_value}\"}."
         }
-        hint <- c(
-          `i` = "If {.val {extra_value}} is not a package spec, name its argument: {.code {extra_arg} = \"{extra_value}\"}.",
-          hint
-        )
+        hint <- c(`i` = extra_hint, hint)
       }
       condathis_abort(
         message = c(
@@ -668,23 +691,26 @@ collect_package_specs <- function(
         )
         if (is.null(dots[[i]]) && isTRUE(i < length(dots))) {
           # 0.1.4's positional `create_env("pkg", NULL, "env")`.
-          named_example <- if (isTRUE("env_file" %in% formal_names)) {
-            "{.code env_file = NULL} or {.code env_name = \"my-env\"}"
-          } else {
-            "{.code env_name = \"my-env\"}"
-          }
           message <- c(
             message,
-            `i` = paste0(
-              "Arguments after the package specs must be named, as in ",
-              named_example,
-              "."
-            )
+            `i` = "Arguments after the package specs must be named, as in {.code env_name = \"my-env\"}."
           )
+          if (isTRUE("env_file" %in% formal_names)) {
+            message <- c(
+              message,
+              `i` = "Pass an environment file with {.fn env_definition}, as in {.code create_env(env_definition(\"environment.yml\"), env_name = \"my-env\")}."
+            )
+          }
         } else if (is.null(dots[[i]]) && isTRUE(allow_empty)) {
           message <- c(
             message,
             `i` = "For no packages, pass no package specs."
+          )
+        } else if (isTRUE(is_env_definition(dots[[i]]))) {
+          # The functions that take a definition take it unnamed only.
+          message <- c(
+            message,
+            `i` = "Pass {.fn env_definition} unnamed, in {.arg ...}."
           )
         }
         condathis_abort(message = message, class = invalid_class, call = call)
@@ -693,18 +719,13 @@ collect_package_specs <- function(
     }
   }
 
-  file_like <- specs[grepl("\\.ya?ml$", specs, ignore.case = TRUE)]
+  file_like <- specs[is_env_file_name(specs)]
   if (isTRUE(length(file_like) > 0L)) {
     env_file_spec <- file_like[[1L]]
-    hint <- if (isTRUE("env_file" %in% formal_names)) {
-      c(
-        `i` = "Pass an environment file as {.code env_file = \"{env_file_spec}\"}."
-      )
-    } else {
-      c(
-        `i` = "Create an environment from a file with {.code create_env(env_file = \"{env_file_spec}\")}."
-      )
-    }
+    # create_env(), install_packages() and validate_env() all take one.
+    hint <- c(
+      `i` = "Pass an environment file as {.code env_definition(\"{env_file_spec}\")}."
+    )
     condathis_abort(
       message = c(
         `x` = "{.val {env_file_spec}} looks like an environment file, not a package spec.",

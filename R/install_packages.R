@@ -1,6 +1,7 @@
 #' Install packages in a Conda environment
 #'
-#' Installs packages into an existing environment.
+#' Installs packages into an existing environment, from package specs or
+#' from an environment file given by [env_definition()].
 #' `install_packages()` creates the default environment `"condathis-env"`,
 #' empty, when it does not exist. Any other environment that does not exist
 #' aborts with class `condathis_install_packages_env_not_found` (also
@@ -23,6 +24,26 @@
 #'   character strings or character vectors, in order. Examples:
 #'   `"python=3.13"`, `"bioconda::samtools"`. At least one spec is required.
 #'
+#'   Or one environment file that is solved, given by [env_definition()],
+#'   such as `env_definition("environment.yml")` or a list of specs,
+#'   without package specs. Its packages are installed into the
+#'   environment, solved with the packages it has. With micromamba, this is
+#'   `micromamba install -f <file>`, which also uses the channels that the
+#'   file names. Without package specs, `install_packages()` does not warn
+#'   about the channels in `conda-meta/history`. These abort before anything
+#'   runs, with class `condathis_install_packages_unsupported_definition`
+#'   (also `condathis_invalid_arg`):
+#'   * A lock file, such as an `@EXPLICIT` or conda-lock file. It lists
+#'     every package of an environment: create the environment again with
+#'     `create_env(env_definition(<file>), overwrite = TRUE)`.
+#'   * A file that the backend cannot read, or a backend that cannot
+#'     install from a file (also `condathis_backend_unsupported`).
+#'
+#'   Package specs and a definition together, or two definitions, abort
+#'   with class `condathis_install_packages_conflicting_args`. A file that
+#'   does not exist aborts with class
+#'   `condathis_install_packages_missing_env_file`.
+#'
 #'   `packages = <specs>` still works. It is deprecated. It warns once per
 #'   session (class `condathis_deprecated_packages_arg`) when the call comes
 #'   from the console, a script or the tests of the package that makes it.
@@ -31,13 +52,15 @@
 #'   0.1.4.
 #'
 #'   Invalid specs abort with these classes:
-#'   * `condathis_install_packages_missing_packages`: no specs, unless
-#'     `packages = NULL` or `packages = character(0)` was given.
+#'   * `condathis_install_packages_missing_packages`: no specs and no
+#'     [env_definition()], unless `packages = NULL` or
+#'     `packages = character(0)` was given.
 #'   * `condathis_install_packages_invalid_packages`: a named argument that
 #'     `install_packages()` does not have (the error names the closest
 #'     argument; names are never abbreviated, so `p =` aborts too), a value
 #'     that is not a character vector, `NA` or `""`, or a file name that
-#'     ends in `.yml` or `.yaml`.
+#'     ends in `.yml`, `.yaml`, `.json` or `.lock` (pass it with
+#'     [env_definition()]).
 #'   * `condathis_install_packages_positional_env_name`: `env_name` is not
 #'     given, the specs are two or more unnamed arguments, and the last of
 #'     them is one string that names an existing environment. Name the
@@ -149,10 +172,13 @@ install_packages <- function(
   default_channels <- missing(channels)
   # Rule R2: every argument is checked before the first backend call.
   dots <- rlang::list2(...)
+  # An `env_definition()` of a request file is installed with the file.
+  split_dots <- split_env_definitions(dots)
+  dots <- split_dots$dots
   packages <- collect_package_specs(
     dots,
     fn = "install_packages",
-    allow_empty = FALSE,
+    allow_empty = isTRUE(length(split_dots$definitions) > 0L),
     user_env = user_env
   )
   validate_env_name(
@@ -177,10 +203,28 @@ install_packages <- function(
     ),
     arg_name = "channel_priority"
   )
+  definition <- resolve_call_definition(
+    split_dots$definitions,
+    packages = packages,
+    fn = "install_packages"
+  )
   if (missing(env_name) && isTRUE(positional_env_name_possible(dots))) {
     abort_on_positional_env_name(packages, fn = "install_packages")
   }
   method <- resolve_method_alias(method, user_env = user_env)
+
+  # The backend says what it makes of a definition before anything is
+  # locked or created (rule R2): a lock, or a file it cannot read, aborts.
+  described_by <- NULL
+  if (isFALSE(is.null(definition))) {
+    pre_resolved <- resolve_backend(
+      env_name = env_name,
+      method = method,
+      mutating = TRUE
+    )
+    check_install_definition(pre_resolved, definition = definition)
+    described_by <- pre_resolved$name
+  }
 
   # One R session at a time changes an environment (see
   # `local_env_lock()`), so a removal or a replacement in another session
@@ -195,6 +239,14 @@ install_packages <- function(
     method = method,
     mutating = TRUE
   )
+  # Another session created the environment with another backend in
+  # between: ask that backend.
+  if (
+    isFALSE(is.null(described_by)) &&
+      isFALSE(identical(described_by, resolved$name))
+  ) {
+    check_install_definition(resolved, definition = definition)
+  }
 
   # Decision D3: only the default environment is created. A failed probe
   # (`NA`, rule R5) is not read as "absent": the backend gets the call and
@@ -219,7 +271,7 @@ install_packages <- function(
     )
   }
 
-  if (identical(length(packages), 0L)) {
+  if (identical(length(packages), 0L) && is.null(definition)) {
     # `packages = NULL` or `character(0)` (the deprecated alias): 0.1.4 ran
     # an empty install with status 0. Nothing to install, so nothing runs.
     if (isTRUE(verbose_list$strategy %in% c("full", "output"))) {
@@ -241,13 +293,24 @@ install_packages <- function(
   # backend again and probe every backend.
   env_dir <- env_dir_for_backend(resolved$backend, env_name)
   # For every backend: one that writes no `conda-meta/history` gets no
-  # warning.
-  warn_on_missing_previous_channels(
-    env_dir = env_dir,
-    env_name = env_name,
-    packages = packages,
-    channels = c(channels, additional_channels)
-  )
+  # warning. Not for a file: it can name its own channels.
+  if (is.null(definition)) {
+    warn_on_missing_previous_channels(
+      env_dir = env_dir,
+      env_name = env_name,
+      packages = packages,
+      channels = c(channels, additional_channels)
+    )
+  }
+  packages <- if (isTRUE(length(packages) > 0L)) packages
+  env_file <- if (isFALSE(is.null(definition))) definition$path
+  # `env_file` and `definition` go only to a backend function that takes
+  # them (see `backend_call()`).
+  install_optional <- if (isFALSE(is.null(definition))) {
+    list(env_file = env_file, definition = definition)
+  } else {
+    list()
+  }
   # The platform of the environment, or the emulation fallback of
   # create_env() for one without packages of a platform. The caller's
   # verbose level, so the emulation messages show. The probes are backend
@@ -261,7 +324,9 @@ install_packages <- function(
         channels = channels,
         channel_priority = channel_priority,
         additional_channels = additional_channels,
-        verbose = verbose_list$strategy
+        verbose = verbose_list$strategy,
+        env_file = env_file,
+        definition = definition
       ),
       fn = "install_packages",
       backend_name = resolved$name,
@@ -276,7 +341,8 @@ install_packages <- function(
   env_lock_before_change(env_lock, cache_lock)
   px_res <- with_default_channels_hint(
     with_backend_errors(
-      backend_install(
+      backend_call(
+        "backend_install",
         resolved$backend,
         packages = packages,
         env_name = env_name,
@@ -284,7 +350,8 @@ install_packages <- function(
         channel_priority = channel_priority,
         additional_channels = additional_channels,
         platform = platform,
-        verbose = verbose_list$strategy
+        verbose = verbose_list$strategy,
+        .optional = install_optional
       ),
       fn = "install_packages",
       backend_name = resolved$name,
@@ -308,11 +375,16 @@ install_packages <- function(
   )
 
   if (isTRUE(verbose_list$strategy %in% c("full", "output"))) {
-    condathis_inform(
-      message = c(
+    message <- if (is.null(definition)) {
+      c(
         `v` = "{cli::qty(packages)}Package{?s} {.field {packages}} successfully installed in environment {.field {env_name}}."
       )
-    )
+    } else {
+      c(
+        `v` = "Packages of {.path {env_file}} successfully installed in environment {.field {env_name}}."
+      )
+    }
+    condathis_inform(message = message)
   }
   warn_link_scripts_skipped(
     link_scripts,
@@ -383,4 +455,64 @@ warn_on_missing_previous_channels <- function(
     )
   }
   return(invisible(NULL))
+}
+
+#' Check that `install_packages()` can install from an environment
+#' definition
+#'
+#' Only a request, such as an environment YAML file or a list of specs, is
+#' installed: it is solved with the packages of the environment. A lock is
+#' a whole environment, so it goes to `create_env()`. The backend's
+#' `backend_install()` must take `env_file` or `definition`, and
+#' `definition` for a `format` or options (see
+#' `definition_formal_problem()`). Then `backend_describe_definition()`
+#' answers; `NA` passes the file on, as `create_env()` does.
+#'
+#' @param resolved The list from `resolve_backend()`.
+#' @param definition A valid `condathis_env_definition` object.
+#' @param call Environment of the function the error is reported for.
+#'
+#' @returns The description (see `validate_definition_description()`),
+#'   invisibly. Aborts with class
+#'   `condathis_install_packages_unsupported_definition` (also
+#'   `condathis_invalid_arg`, and `condathis_backend_unsupported` when the
+#'   backend cannot read or install the file).
+#'
+#' @keywords internal
+#' @noRd
+check_install_definition <- function(
+  resolved,
+  definition,
+  call = rlang::caller_env()
+) {
+  description <- describe_definition(
+    resolved$backend,
+    definition = definition,
+    generic = "backend_install",
+    call = call
+  )
+  if (isFALSE(description$supported)) {
+    abort_unsupported_definition(
+      backend_name = resolved$name,
+      definition = definition,
+      reason = description$reason,
+      fn = "install_packages",
+      call = call
+    )
+  }
+  if (identical(description$kind, "lock")) {
+    path <- definition$path
+    condathis_abort(
+      message = c(
+        `x` = "{.fn install_packages} does not install a lock file: {.path {path}}.",
+        `i` = "A lock file lists every package of an environment. Create the environment again from it with {.code create_env(env_definition(...), env_name = ..., overwrite = TRUE)}."
+      ),
+      class = c(
+        "condathis_install_packages_unsupported_definition",
+        "condathis_invalid_arg"
+      ),
+      call = call
+    )
+  }
+  return(invisible(description))
 }

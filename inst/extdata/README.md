@@ -48,7 +48,7 @@ and `pandas` and no channels, so `create_env()` uses its `channels`
 argument.
 
 - Used by: the test "Create conda env from file"
-  (`tests/testthat/test-create_env.R`), through `env_file`.
+  (`tests/testthat/test-create_env.R`), through `env_definition()`.
 - License: written for `condathis`, distributed under its license (MIT).
 
 ## `polyglot-channel/`

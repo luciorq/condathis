@@ -35,6 +35,20 @@ deprecated. It warns once per session (class
 console, a script or the tests of the package that makes it. Calls
 made inside other packages do not warn.
 
+Or one lock file, given by \code{\link[=env_definition]{env_definition()}}, such as
+\code{env_definition("conda-lock.yml")}, without package specs. Then the
+environment must have exactly the packages that the lock lists for its
+platform, as \code{\link[=create_env]{create_env()}} compares them (see \emph{Existing environments}
+there): \code{platform} when it is given, else any platform of the lock.
+Only a lock whose packages the backend reports can be compared, such
+as an \verb{@EXPLICIT}, conda-lock or mambajs file with micromamba. Any
+other file, such as \code{environment.yml}, or a lock that has no packages
+for \code{platform}, aborts with class
+\code{condathis_validate_env_unsupported_definition} (also
+\code{condathis_invalid_arg}), with either value of \code{error}. Package specs
+and a definition together, or two definitions, abort with class
+\code{condathis_validate_env_conflicting_args}.
+
 These values abort with class
 \code{condathis_validate_env_invalid_packages}:
 \itemize{
@@ -42,7 +56,8 @@ These values abort with class
 never abbreviated.
 \item A value that is not a character vector.
 \item \code{NA} or \code{""}.
-\item A file name that ends in \code{.yml} or \code{.yaml}.
+\item A file name that ends in \code{.yml}, \code{.yaml}, \code{.json} or \code{.lock}. Pass
+a lock file with \code{\link[=env_definition]{env_definition()}}.
 }
 
 These classes abort too:
@@ -178,6 +193,10 @@ With \code{error = "continue"}, it returns \code{FALSE} with two attributes.
 \code{"unsatisfied"}. \code{unsatisfied} is a character vector of the specs that
 are not satisfied (every spec when the environment does not exist).
 \code{validate_env()} reports a platform mismatch before unsatisfied specs.
+For a lock file, \code{unsatisfied} lists the packages of the lock that the
+environment does not have, as \code{"<name>-<version>-<build>"}, and a
+third attribute, \code{unexpected}, lists the packages of the environment
+that the lock does not list.
 
 A backend failure aborts with either value of \code{error}, with the class
 \code{condathis_validate_env_failed} (also \code{condathis_backend_error}).
@@ -266,6 +285,7 @@ condathis::with_sandbox_dir({
 
 Other environments:
 \code{\link[=create_env]{create_env()}},
+\code{\link[=env_definition]{env_definition()}},
 \code{\link[=env_exists]{env_exists()}},
 \code{\link[=env_path]{env_path()}},
 \code{\link[=get_env_dir]{get_env_dir()}},

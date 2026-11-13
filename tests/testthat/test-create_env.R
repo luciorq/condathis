@@ -123,23 +123,34 @@ testthat::test_that("create_env() names the closest argument for a misspelled op
   testthat::expect_match(message, "Did you mean `channels`?", fixed = TRUE)
 })
 
-testthat::test_that("create_env() points an environment file in ... to env_file", {
+testthat::test_that("create_env() points an environment file in ... to env_definition()", {
   # The old positional `create_env(NULL, "environment.yml")` and
-  # `create_env("environment.yml")` both end here.
+  # `create_env("environment.yml")` both end here, and so do lock files.
   local_no_backend()
   for (call in list(
     quote(create_env("environment.yml")),
-    quote(create_env(NULL, "environment.yml"))
+    quote(create_env(NULL, "environment.yml")),
+    quote(create_env("conda-lock.yml")),
+    quote(create_env("ci-lock.yaml")),
+    quote(create_env("env.json")),
+    quote(create_env("pixi.lock"))
   )) {
     cnd <- catch_error(eval(call))
     testthat::expect_s3_class(cnd, "condathis_create_env_invalid_packages")
+    testthat::expect_match(
+      conditionMessage(cnd),
+      "env_definition(",
+      fixed = TRUE,
+      info = deparse(call)
+    )
   }
   cnd <- catch_error(create_env("environment.yml"))
   testthat::expect_match(
     conditionMessage(cnd),
-    "env_file = \"environment.yml\"",
+    "env_definition(\"environment.yml\")",
     fixed = TRUE
   )
+  testthat::expect_no_match(conditionMessage(cnd), "env_file", fixed = TRUE)
 })
 
 testthat::test_that("create_env() rejects a non-logical overwrite, with the old and new class", {
@@ -773,7 +784,7 @@ testthat::test_that("create_env(overwrite = FALSE) aborts instead of replacing a
   )
   testthat::expect_error(
     create_env(
-      env_file = env_file,
+      env_definition(env_file),
       env_name = "exists-env",
       verbose = "silent"
     ),
@@ -1154,7 +1165,7 @@ testthat::test_that("create_env aborts instead of rebuilding an environment of a
   )
 
   # The platform check comes first: also for a spec that is not installed,
-  # and for env_file.
+  # and for an environment file.
   testthat::expect_error(
     create_env(
       "other-pkg",
@@ -1170,7 +1181,7 @@ testthat::test_that("create_env aborts instead of rebuilding an environment of a
   )
   testthat::expect_error(
     create_env(
-      env_file = env_file,
+      env_definition(env_file),
       env_name = "mismatch-env",
       platform = "osx-arm64",
       verbose = "silent"
@@ -1732,7 +1743,8 @@ testthat::test_that("create_env returns a condathis_result when dependencies are
     "condathis-already-satisfied-test-env"
   )
 
-  # A missing `env_file` aborts before the satisfaction check.
+  # A missing `env_file` aborts before the satisfaction check, and before
+  # its deprecation warning.
   testthat::expect_error(
     object = {
       create_env(
@@ -1936,7 +1948,7 @@ testthat::test_that("Create conda env from file", {
   # conda-forge has no win-arm64 build of pandas: with the win-arm64
   # micromamba, the file falls back to win-64, through x64 emulation.
   px_res <- create_env(
-    env_file = fs::path_package("condathis", "extdata", "stat-env.yml"),
+    env_definition(fs::path_package("condathis", "extdata", "stat-env.yml")),
     method = "micromamba",
     env_name = "condathis-create-file-test-env",
     verbose = "silent"
@@ -2090,7 +2102,11 @@ testthat::test_that("create_env() adds the default-channels hint only when it ap
     fileext = ".yml",
     lines = c("dependencies:", "  - samtools=1.17")
   )
-  no_hint(create_env(env_file = env_file, env_name = "e6", verbose = "silent"))
+  no_hint(create_env(
+    env_definition(env_file),
+    env_name = "e6",
+    verbose = "silent"
+  ))
 })
 
 testthat::test_that("create_env() reads the not-found text of micromamba and rattler only", {

@@ -1,7 +1,8 @@
 #' @details
-#' Create an environment with [create_env()]. Run a command line tool in it
-#' with [run()], or run several tools connected by pipes with
-#' [run_pipeline()]. Read the output with [parse_output()].
+#' Create an environment with [create_env()], from package specs or from a
+#' file such as `environment.yml` or a lock file ([env_definition()]). Run a
+#' command line tool in it with [run()], or run several tools connected by
+#' pipes with [run_pipeline()]. Read the output with [parse_output()].
 #'
 #' `condathis` downloads `micromamba` when it first needs it and finds no
 #' usable copy (see *micromamba discovery* in [condathis-options]). A

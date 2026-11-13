@@ -14,6 +14,9 @@
 # `local_stub_backend("stub-a", backend_remove_env = NULL)`.
 # `backend_resolve_run_in_dir()` is left out unless `...` gives it, so a
 # stub cannot run an environment given by `env_path()` by default.
+# `backend_describe_definition()` and `backend_definition_formats()` are
+# left out too, so the defaults of condathis answer, unless `...` gives
+# them.
 #
 # `available` is what `backend_available()` returns. `envs` names
 # environments that exist from the start.
@@ -144,7 +147,12 @@ local_stub_backend <- function(
   )
   unknown <- setdiff(
     names(overrides),
-    c(names(defaults), "backend_resolve_run_in_dir")
+    c(
+      names(defaults),
+      "backend_resolve_run_in_dir",
+      "backend_describe_definition",
+      "backend_definition_formats"
+    )
   )
   if (length(unknown) > 0L) {
     stop("Unknown generic(s) for the stub: ", paste(unknown, collapse = ", "))

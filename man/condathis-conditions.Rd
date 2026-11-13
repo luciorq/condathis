@@ -199,6 +199,9 @@ console, a script or the tests of the calling package. Calls made
 inside other packages do not warn.
 \code{options(lifecycle_verbosity = "warning")} makes those calls warn
 too, and \code{"quiet"} turns the warning off.
+\item \code{condathis_deprecated_env_file_arg}\cr
+for \verb{env_file =} in \code{\link[=create_env]{create_env()}}: pass an \code{\link[=env_definition]{env_definition()}} in
+\code{...} instead. The same rule as for \verb{packages =}.
 \item \code{condathis_deprecated_method_native}\cr
 for \code{method = "native"} (once per session). \code{\link[=create_env]{create_env()}},
 \code{\link[=install_packages]{install_packages()}}, \code{\link[=validate_env]{validate_env()}}, \code{\link[=remove_env]{remove_env()}}, \code{\link[=run]{run()}} and
@@ -242,23 +245,37 @@ The classes of \code{\link[=create_env]{create_env()}}. Arguments:
 \item \code{condathis_create_env_invalid_channels}
 \item \code{condathis_create_env_invalid_channel_priority}
 \item \code{condathis_create_env_invalid_platform}
-\item \code{condathis_create_env_invalid_env_file}
-\item \code{condathis_create_env_missing_env_file}
+\item \code{condathis_create_env_invalid_env_file}\cr
+an invalid value of the deprecated \code{env_file}.
+\item \code{condathis_create_env_missing_env_file}\cr
+the file of an \code{\link[=env_definition]{env_definition()}} or of \code{env_file} does not exist.
 \item \code{condathis_create_env_invalid_overwrite}
 \item \code{condathis_create_env_conflicting_args}\cr
-package specs and \code{env_file}.
+package specs and an \code{\link[=env_definition]{env_definition()}}, two definitions, a definition
+and \code{env_file}, or \code{channels}, \code{additional_channels} or
+\code{channel_priority} with a lock file given by \code{\link[=env_definition]{env_definition()}}. The
+deprecated \code{env_file} ignores them, as in 0.1.4.
+\item \code{condathis_create_env_unsupported_definition}\cr
+the backend cannot read the \code{\link[=env_definition]{env_definition()}}, or no available
+backend can with \code{method = "auto"}. Also
+\code{condathis_backend_unsupported}.
 }
 
 The environment:
 \itemize{
 \item \code{condathis_create_env_exists}\cr
-it exists, and \code{overwrite = FALSE} cannot keep it.
+it exists, and \code{overwrite = FALSE} cannot keep it. A lock file keeps
+it only when the environment has exactly the packages of the lock.
 \item \code{condathis_create_env_platform_mismatch}
+\item \code{condathis_create_env_platform_not_locked}\cr
+a lock file lists none of the platforms that \code{create_env()} can use.
+Also \code{condathis_create_env_platform_mismatch}.
 }
 
 The backend:
 \itemize{
-\item \code{condathis_create_env_failed}
+\item \code{condathis_create_env_failed}\cr
+also when a lock file that lists packages gives an empty environment.
 \item \code{condathis_create_env_link_scripts_skipped} (a warning)
 }
 }
@@ -273,6 +290,13 @@ The classes of \code{\link[=install_packages]{install_packages()}}. Arguments:
 \item \code{condathis_install_packages_invalid_env_name}
 \item \code{condathis_install_packages_invalid_channels}
 \item \code{condathis_install_packages_invalid_channel_priority}
+\item \code{condathis_install_packages_conflicting_args}\cr
+package specs and an \code{\link[=env_definition]{env_definition()}}, or two definitions.
+\item \code{condathis_install_packages_missing_env_file}\cr
+the file of an \code{\link[=env_definition]{env_definition()}} does not exist.
+\item \code{condathis_install_packages_unsupported_definition}\cr
+a lock file, or a file that the backend cannot read or install from
+(then also \code{condathis_backend_unsupported}).
 }
 
 The environment:
@@ -335,12 +359,23 @@ The classes of \code{\link[=validate_env]{validate_env()}}. Arguments:
 \item \code{condathis_validate_env_invalid_env_name}
 \item \code{condathis_validate_env_invalid_channels}
 \item \code{condathis_validate_env_invalid_platform}
+\item \code{condathis_validate_env_conflicting_args}\cr
+package specs and an \code{\link[=env_definition]{env_definition()}}, or two definitions.
+\item \code{condathis_validate_env_missing_env_file}\cr
+the file of an \code{\link[=env_definition]{env_definition()}} does not exist.
+\item \code{condathis_validate_env_unsupported_definition}\cr
+a file that cannot be compared: a request such as \code{environment.yml},
+a lock whose packages the backend does not report, or a lock without
+packages for \code{platform}. Also \code{condathis_backend_unsupported} when the
+backend cannot read the file.
 }
 
 The environment:
 \itemize{
 \item \code{condathis_validate_env_env_not_found}
-\item \code{condathis_validate_env_unsatisfied}
+\item \code{condathis_validate_env_unsatisfied}\cr
+a spec is not satisfied, or the environment does not have exactly the
+packages of a lock file.
 }
 
 The backend:
@@ -527,6 +562,24 @@ environment, also \code{condathis_backend_unsupported}.
 \code{condathis_env_path_not_conda_env}\cr
 also \code{condathis_env_not_found}.
 }
+}
+
+\subsection{env_definition()}{
+
+The classes of \code{\link[=env_definition]{env_definition()}}:
+\itemize{
+\item \code{condathis_env_definition_invalid_path}\cr
+the \code{path} argument, also a URL. Also \code{condathis_invalid_path}.
+\item \code{condathis_env_definition_invalid_format}
+\item \code{condathis_env_definition_invalid_options}\cr
+an unnamed or repeated option in \code{...}.
+\item \code{condathis_env_definition_invalid}\cr
+a malformed \code{env_definition()} object, found by the function that gets
+it.
+}
+
+A definition passed to a function that takes only package specs or
+names aborts with the class of the invalid argument of that function.
 }
 
 \subsection{parse_output()}{

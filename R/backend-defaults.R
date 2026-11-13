@@ -299,6 +299,44 @@ backend_can_solve.default <- function(
   return(NA)
 }
 
+#' The default `backend_describe_definition()`
+#'
+#' A backend without the function cannot tell what a file is. Without a
+#' `format` or `options`, it gets the file as `env_file`, as before the
+#' function existed: `NA`. With them, it can honor them only through the
+#' `definition` argument of its `backend_create_env()`: `FALSE` when that
+#' function lacks it.
+#'
+#' @keywords internal
+#' @noRd
+#' @exportS3Method
+backend_describe_definition.default <- function(
+  backend,
+  definition,
+  platform = NULL
+) {
+  has_details <- isFALSE(is.null(definition[["format"]])) ||
+    isTRUE(length(definition[["options"]]) > 0L)
+  if (
+    isTRUE(has_details) &&
+      isFALSE(backend_fn_takes_arg(backend, "backend_create_env", "definition"))
+  ) {
+    return(definition_description(
+      supported = FALSE,
+      format = definition[["format"]] %||% NA_character_,
+      reason = "The backend does not read the format or options of an environment definition."
+    ))
+  }
+  return(definition_description())
+}
+
+#' @keywords internal
+#' @noRd
+#' @exportS3Method
+backend_definition_formats.default <- function(backend) {
+  return(character(0L))
+}
+
 # --- Environments as conda prefixes ----------------------------------------
 
 #' Does a backend root have any environment directory?

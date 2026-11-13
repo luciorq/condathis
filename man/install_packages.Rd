@@ -19,6 +19,28 @@ install_packages(
 character strings or character vectors, in order. Examples:
 \code{"python=3.13"}, \code{"bioconda::samtools"}. At least one spec is required.
 
+Or one environment file that is solved, given by \code{\link[=env_definition]{env_definition()}},
+such as \code{env_definition("environment.yml")} or a list of specs,
+without package specs. Its packages are installed into the
+environment, solved with the packages it has. With micromamba, this is
+\verb{micromamba install -f <file>}, which also uses the channels that the
+file names. Without package specs, \code{install_packages()} does not warn
+about the channels in \code{conda-meta/history}. These abort before anything
+runs, with class \code{condathis_install_packages_unsupported_definition}
+(also \code{condathis_invalid_arg}):
+\itemize{
+\item A lock file, such as an \verb{@EXPLICIT} or conda-lock file. It lists
+every package of an environment: create the environment again with
+\verb{create_env(env_definition(<file>), overwrite = TRUE)}.
+\item A file that the backend cannot read, or a backend that cannot
+install from a file (also \code{condathis_backend_unsupported}).
+}
+
+Package specs and a definition together, or two definitions, abort
+with class \code{condathis_install_packages_conflicting_args}. A file that
+does not exist aborts with class
+\code{condathis_install_packages_missing_env_file}.
+
 \verb{packages = <specs>} still works. It is deprecated. It warns once per
 session (class \code{condathis_deprecated_packages_arg}) when the call comes
 from the console, a script or the tests of the package that makes it.
@@ -28,13 +50,15 @@ Calls made inside other packages do not warn. \code{packages = NULL} and
 
 Invalid specs abort with these classes:
 \itemize{
-\item \code{condathis_install_packages_missing_packages}: no specs, unless
-\code{packages = NULL} or \code{packages = character(0)} was given.
+\item \code{condathis_install_packages_missing_packages}: no specs and no
+\code{\link[=env_definition]{env_definition()}}, unless \code{packages = NULL} or
+\code{packages = character(0)} was given.
 \item \code{condathis_install_packages_invalid_packages}: a named argument that
 \code{install_packages()} does not have (the error names the closest
 argument; names are never abbreviated, so \verb{p =} aborts too), a value
 that is not a character vector, \code{NA} or \code{""}, or a file name that
-ends in \code{.yml} or \code{.yaml}.
+ends in \code{.yml}, \code{.yaml}, \code{.json} or \code{.lock} (pass it with
+\code{\link[=env_definition]{env_definition()}}).
 \item \code{condathis_install_packages_positional_env_name}: \code{env_name} is not
 given, the specs are two or more unnamed arguments, and the last of
 them is one string that names an existing environment. Name the
@@ -171,7 +195,8 @@ makes \code{install_packages()} warn with class
 \code{condathis_link_scripts_skipped}). The warning names the packages.
 }
 \description{
-Installs packages into an existing environment.
+Installs packages into an existing environment, from package specs or
+from an environment file given by \code{\link[=env_definition]{env_definition()}}.
 \code{install_packages()} creates the default environment \code{"condathis-env"},
 empty, when it does not exist. Any other environment that does not exist
 aborts with class \code{condathis_install_packages_env_not_found} (also
@@ -252,6 +277,7 @@ condathis::with_sandbox_dir({
 
 Other environments:
 \code{\link[=create_env]{create_env()}},
+\code{\link[=env_definition]{env_definition()}},
 \code{\link[=env_exists]{env_exists()}},
 \code{\link[=env_path]{env_path()}},
 \code{\link[=get_env_dir]{get_env_dir()}},

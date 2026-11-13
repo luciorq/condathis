@@ -896,7 +896,19 @@ testthat::test_that("the generics declare the contract defaults", {
     )
   }
   # The micromamba backend implements exactly the generic signatures, and
-  # so do the defaults.
+  # so do the defaults, plus optional arguments at the end (see
+  # `backend_optional_args`), which the generics never get.
+  same_signature <- function(fn, generic) {
+    fn_formals <- as.list(formals(fn))
+    generic_formals <- as.list(formals(get(generic)))
+    n <- length(generic_formals)
+    extra <- names(fn_formals)[-seq_len(n)]
+    testthat::expect_identical(fn_formals[seq_len(n)], generic_formals, info = generic)
+    testthat::expect_true(
+      all(extra %in% backend_optional_args[[generic]]),
+      info = generic
+    )
+  }
   backend <- micromamba_backend()
   testthat::expect_true(all(names(backend) %in% backend_contract_names))
   testthat::expect_identical(
@@ -904,18 +916,10 @@ testthat::test_that("the generics declare the contract defaults", {
     "backend_quiesce"
   )
   for (generic in names(backend)) {
-    testthat::expect_identical(
-      formals(backend[[generic]]),
-      formals(get(generic)),
-      info = generic
-    )
+    same_signature(backend[[generic]], generic)
   }
   for (generic in backend_optional_hooks) {
-    testthat::expect_identical(
-      formals(get(paste0(generic, ".default"))),
-      formals(get(generic)),
-      info = generic
-    )
+    same_signature(get(paste0(generic, ".default")), generic)
   }
   for (generic in backend_required_hooks) {
     testthat::expect_false(
@@ -928,6 +932,47 @@ testthat::test_that("the generics declare the contract defaults", {
   testthat::expect_identical(
     utils::tail(names(formals(backend_install)), 2L),
     c("platform", "verbose")
+  )
+  # `definition` (and `env_file` of backend_install()) came after contract
+  # version 2. The generics keep the version 2 signatures, which backends
+  # such as rattlerthis copy exactly and compare in their own tests:
+  # condathis passes these arguments only to a function that takes them
+  # (see `backend_call()`).
+  testthat::expect_identical(
+    backend_optional_args[c("backend_create_env", "backend_install", "backend_can_solve")],
+    list(
+      backend_create_env = "definition",
+      backend_install = c("env_file", "definition"),
+      backend_can_solve = "definition"
+    )
+  )
+  for (generic in c("backend_create_env", "backend_install", "backend_can_solve")) {
+    testthat::expect_false(
+      any(backend_optional_args[[generic]] %in% names(formals(get(generic)))),
+      info = generic
+    )
+  }
+  testthat::expect_identical(
+    names(formals(backend_create_env)),
+    c(
+      "backend", "packages", "env_file", "env_name", "channels",
+      "channel_priority", "additional_channels", "platform", "overwrite",
+      "verbose"
+    )
+  )
+  testthat::expect_identical(
+    names(formals(backend_install)),
+    c(
+      "backend", "packages", "env_name", "channels", "channel_priority",
+      "additional_channels", "platform", "verbose"
+    )
+  )
+  testthat::expect_identical(
+    names(formals(backend_can_solve)),
+    c(
+      "backend", "packages", "env_file", "channels", "channel_priority",
+      "additional_channels", "platform"
+    )
   )
   testthat::expect_identical(
     utils::tail(names(formals(backend_resolve_run)), 2L),

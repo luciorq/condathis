@@ -140,9 +140,24 @@ path.
 \item \code{packages}: a character vector of package match specs, such as
 \code{"python>=3.12"}, without \code{NA} or \code{""}. \code{backend_create_env()} gets
 \code{NULL} when the request has no packages: an empty environment, or one
-built from \code{env_file}.
-\item \code{env_file}: \code{NULL}, or the path of an existing environment file. When
-it is set, \code{packages} is \code{NULL}.
+built from \code{env_file}. \code{backend_install()} gets \code{NULL} when it
+installs from \code{env_file}.
+\item \code{env_file}: \code{NULL}, or the absolute path of an existing environment
+file (or directory) from an \code{\link[=env_definition]{env_definition()}}. When it is set,
+\code{packages} is \code{NULL}.
+\item \code{definition}: the \code{\link[=env_definition]{env_definition()}} object that \code{env_file} comes
+from, a list with \code{path} (the same path as \code{env_file}), \code{format}
+(\code{NULL} or a string) and \code{options} (a named list). It came after the
+first functions of version 2 of this contract, so it is not in the
+signatures below, and a function written without it keeps working.
+\code{condathis} passes it only to a function that has a \code{definition}
+argument (or \code{...}), and only when \code{env_file} is set. \code{condathis} never reads \code{format} or
+\code{options}: the backend does. A backend function without the argument
+gets only \code{env_file}. Then a definition with a \code{format} or \code{options}
+aborts before any call, with class
+\code{condathis_create_env_unsupported_definition} or
+\code{condathis_install_packages_unsupported_definition} (also
+\code{condathis_backend_unsupported}).
 \item \code{channels}: a non-empty character vector of channel names or URLs,
 without \code{NA} or \code{""}, in priority order.
 \item \code{additional_channels}: \code{NULL}, or a character vector like \code{channels}.
@@ -186,10 +201,11 @@ against those sessions.
 
 \itemize{
 \item \code{backend_create_env(backend, packages = NULL, env_file = NULL, env_name = "condathis-env", channels = "conda-forge", channel_priority = c("strict", "flexible", "disabled"), additional_channels = NULL, platform = NULL, overwrite = FALSE, verbose = c("output", "silent", "cmd", "spinner", "full"))} creates
-the environment. Its directory is the one that \code{backend_get_env_dir()}
-returns, and \code{condathis} calls it only when that directory does not
-exist. That is
-the case for a new environment. It is also the case with
+the environment. It can also take the optional argument
+\code{definition = NULL} (see \emph{What condathis passes}). Its directory is
+the one that \code{backend_get_env_dir()} returns, and \code{condathis} calls it
+only when that directory does not exist. That is the case for a new
+environment. It is also the case with
 \code{overwrite = TRUE}, after \code{condathis} moved the existing environment
 aside or deleted a directory that was not an environment (one left by
 a failed create). When the call fails, \code{condathis} deletes what it left
@@ -197,7 +213,9 @@ and moves the old environment back. A call fails also when it returns a
 non-zero \code{status} or an invalid \code{link_scripts_skipped} (see \emph{Results}).
 So a misspelled spec with \code{overwrite = TRUE} does not cost the user the
 environment. \code{overwrite} tells the backend which of the two cases
-applies. With \code{env_file}, build the environment from that file. With
+applies. With \code{env_file}, build the environment from that file (read
+\code{definition} for its \code{format} and \code{options}, when the function takes
+it). With
 \code{platform}, build it for that platform. The platform can be one that
 \code{condathis} chose because the request does not solve for the native
 platform of the backend (see \code{backend_can_solve()}). After a successful
@@ -227,6 +245,18 @@ package records of an environment without a recorded one. For an
 environment without packages of a platform, it passes the platform
 that it would choose for a new environment. Otherwise, \code{platform} is
 \code{NULL}. It must not create a missing environment.
+
+It can also take the optional arguments \code{env_file = NULL} and
+\code{definition = NULL}. With \code{env_file}, install the packages that the
+file requests, solved
+together with the packages of the environment, as \verb{micromamba install -f} does. \code{\link[=install_packages]{install_packages()}} passes a file only when
+\code{backend_describe_definition()} did not say that it is a lock (or that
+the backend cannot read it). A function that takes neither argument
+cannot install from a file, and
+\code{\link[=install_packages]{install_packages()}} then aborts before any call with class
+\code{condathis_install_packages_unsupported_definition}. A function that
+takes \code{env_file} but not \code{definition} gets only the path, as
+\code{backend_create_env()} does.
 \item \code{backend_resolve_run(backend, cmd, args = character(0L), env_name = "condathis-env", verbose = "silent", base_env = NULL, timeout = Inf)} describes, without running \code{cmd}, how to run \code{cmd}
 with \code{args} in the activated environment. \code{base_env} is the
 environment that the command gets without activation: the session's
@@ -365,7 +395,8 @@ that only starts processes has nothing to wait for. Default: \code{TRUE}.
 \item \code{backend_native_platform(backend)} returns the platform (subdir) that
 the backend solves for when it gets no \code{platform}, such as
 \code{"osx-arm64"}, or \code{NA} when it cannot tell. Default: \code{NA}.
-\item \code{backend_can_solve(backend, packages = NULL, env_file = NULL, channels = "conda-forge", channel_priority = c("strict", "flexible", "disabled"), additional_channels = NULL, platform)} returns \code{TRUE} when the request
+\item \code{backend_can_solve(backend, packages = NULL, env_file = NULL, channels = "conda-forge", channel_priority = c("strict", "flexible", "disabled"), additional_channels = NULL, platform)} returns \code{TRUE} when the
+request
 solves for \code{platform}, \code{FALSE} when it does not, and \code{NA} when it
 cannot tell, for example without network access or for a missing
 channel. It must not create an environment. \code{condathis} asks it when
@@ -373,7 +404,67 @@ it chooses the platform of a new environment. A request that does not
 solve for the native platform uses an emulated one when it solves
 there: \code{"osx-64"} on Apple Silicon with Rosetta 2, and \code{"win-64"} on
 Windows on ARM. An error counts as \code{NA}. Default: \code{NA}, so \code{condathis}
-never chooses an emulated platform.
+never chooses an emulated platform. \code{condathis} never asks it about a
+lock (see \code{backend_describe_definition()}). It can also take the
+optional argument \code{definition = NULL}.
+\item \code{backend_describe_definition(backend, definition, platform = NULL)}
+tells \code{condathis} what the backend makes of an \code{\link[=env_definition]{env_definition()}}:
+whether it reads it, and whether it is a request or a lock.
+\code{platform} is the \code{platform} of \code{\link[=create_env]{create_env()}}. \code{\link[=create_env]{create_env()}} calls
+it before it locks, moves or creates anything, so it must be cheap:
+read the file, but do not download, install or solve anything, and do
+not change any environment. It returns a list:
+\itemize{
+\item \code{supported}: \code{TRUE} (the backend reads it), \code{FALSE} (it does not) or
+\code{NA} (it cannot tell). \code{FALSE} aborts with class
+\code{condathis_create_env_unsupported_definition} (also
+\code{condathis_backend_unsupported}), with \code{reason} in the message.
+Refuse an option of \code{definition$options} that you do not
+understand: never ignore it.
+\item \code{format}: \code{NA}, or the name of the format that the backend detected
+or was given, such as \code{"conda-lock-v1"}.
+\item \code{kind}: \code{"request"} (the backend solves it, as package specs),
+\code{"lock"} (it installs exact packages, without a solve) or \code{NA}.
+\item \code{platforms}: \code{NULL}, or the platforms that a lock has packages for.
+\item \code{reason}: \code{NA}, or one sentence: why \code{supported} is \code{FALSE}.
+\item \code{records}: \code{NULL}, or for a lock a data frame with the character
+columns \code{name}, \code{version}, \code{build_string} and \code{platform} (the
+platform the record is for), one row per package that the backend
+installs from it.
+}
+
+For a request, \code{condathis} goes on as for package specs: it asks
+\code{backend_can_solve()} about the platform. For a lock, it picks the
+platform from \code{platforms} and never calls \code{backend_can_solve()},
+since a dry run says nothing about a lock. It aborts when
+\code{channels}, \code{additional_channels} or \code{channel_priority} were given
+with an \code{\link[=env_definition]{env_definition()}} (the deprecated \code{env_file} of
+\code{\link[=create_env]{create_env()}} passes them on, as in 0.1.4). Records of \code{noarch}
+packages install on any platform: leave \code{noarch} out of \code{platforms}.
+When \code{records} has rows for the platform and the new environment has
+no package, the create fails with \code{condathis_create_env_failed}. With
+\code{NA} as \code{kind}, \code{condathis} passes the file on and makes no other
+check, as for every backend before this function existed. An error
+counts as \code{NA}.
+
+\code{records} also lets \code{condathis} compare an existing environment with
+a lock: \code{create_env(overwrite = FALSE)} keeps the environment when
+its packages are exactly the records for the platform, and
+\code{\link[=validate_env]{validate_env()}} gives \code{TRUE}. Records with \code{NA} in \code{name},
+\code{version} or \code{build_string} are not compared. \code{\link[=install_packages]{install_packages()}}
+calls this function too, and installs from a request only.
+
+With \code{method = "auto"}, a new environment from a definition goes to
+the first available backend in \code{condathis.backend_priority} order
+whose \code{supported} is not \code{FALSE}.
+Default: \code{NA}, or \code{FALSE} when the definition has a \code{format} or
+\code{options} and \code{backend_create_env()} has no \code{definition} argument.
+\item \code{backend_definition_formats(backend)} returns the names of the
+formats that the backend reads, as a character vector, such as
+\code{c("environment-yaml", "explicit")}. It is used only in messages: an
+error for a definition with a \code{format} names the registered backends
+that list it. \code{condathis} never decides from it. Default:
+\code{character(0)}.
 \item \code{backend_resolve_run_in_dir(backend, cmd, args = character(0L), env_dir, verbose = "silent", base_env = NULL, timeout = Inf)}
 describes how to run \code{cmd} with \code{args} in the activated environment
 whose directory (its prefix) is \code{env_dir}. This is an environment

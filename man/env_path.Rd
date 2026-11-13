@@ -89,6 +89,7 @@ condathis::with_sandbox_dir({
 
 Other environments:
 \code{\link[=create_env]{create_env()}},
+\code{\link[=env_definition]{env_definition()}},
 \code{\link[=env_exists]{env_exists()}},
 \code{\link[=get_env_dir]{get_env_dir()}},
 \code{\link[=install_packages]{install_packages()}},

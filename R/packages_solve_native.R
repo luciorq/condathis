@@ -97,6 +97,9 @@ packages_solve_native <- function(
 #' @param backend The micromamba backend object.
 #' @param packages Character vector of package specs, or `NULL`.
 #' @param env_file `NULL`, or the path of an environment file.
+#' @param definition `NULL`, or the `condathis_env_definition` object of
+#'   `env_file`: its file is passed as `micromamba_backend_create_env()`
+#'   passes it (see `micromamba_definition_file()`).
 #' @param channels,channel_priority,additional_channels,platform As in
 #'   `packages_solve_native()`.
 #'
@@ -111,11 +114,18 @@ micromamba_backend_can_solve <- function(
   channels = "conda-forge",
   channel_priority = c("strict", "flexible", "disabled"),
   additional_channels = NULL,
-  platform
+  platform,
+  definition = NULL
 ) {
   packages_arg <- packages
-  if (isFALSE(rlang::is_null(env_file))) {
-    packages_arg <- c("-f", fs::path(env_file))
+  # As `micromamba_backend_create_env()` passes the file.
+  definition_file <- micromamba_definition_file(definition, env_file)
+  if (isFALSE(rlang::is_null(definition_file$path))) {
+    packages_arg <- c(
+      definition_file$extra_args,
+      "-f",
+      fs::path(definition_file$path)
+    )
   }
   return(packages_solve_native(
     packages_arg = packages_arg,

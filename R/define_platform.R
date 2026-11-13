@@ -5,7 +5,7 @@
 #' the environment for it. See `define_platform()`.
 #'
 #' @param backend An already-resolved backend object.
-#' @param packages,platform,channels,channel_priority,additional_channels,verbose,env_file
+#' @param packages,platform,channels,channel_priority,additional_channels,verbose,env_file,definition
 #'   As in `define_platform()`.
 #' @param call Environment of the function that an invalid value of the
 #'   backend is reported for.
@@ -24,6 +24,7 @@ resolve_create_platform <- function(
   additional_channels,
   verbose = "silent",
   env_file = NULL,
+  definition = NULL,
   call = rlang::caller_env()
 ) {
   # An empty environment solves for every platform: nothing to choose.
@@ -41,6 +42,7 @@ resolve_create_platform <- function(
     additional_channels = additional_channels,
     verbose = verbose,
     env_file = env_file,
+    definition = definition,
     call = call
   ))
 }
@@ -64,9 +66,10 @@ resolve_create_platform <- function(
 #'
 #' @param backend An already-resolved backend object.
 #' @param env_dir Character string, the directory of the environment.
-#' @param packages Character vector of package MatchSpec strings.
-#' @param channels,channel_priority,additional_channels,verbose As in
-#'   `define_platform()`.
+#' @param packages Character vector of package MatchSpec strings, or
+#'   `NULL` when `env_file` is given.
+#' @param channels,channel_priority,additional_channels,verbose,env_file,definition
+#'   As in `define_platform()`.
 #' @param call Environment of the function that an invalid value of the
 #'   backend is reported for.
 #'
@@ -84,6 +87,8 @@ resolve_install_platform <- function(
   channel_priority,
   additional_channels,
   verbose = "silent",
+  env_file = NULL,
+  definition = NULL,
   call = rlang::caller_env()
 ) {
   if (isFALSE(fs::dir_exists(env_dir))) {
@@ -110,6 +115,8 @@ resolve_install_platform <- function(
     channel_priority = channel_priority,
     additional_channels = additional_channels,
     verbose = verbose,
+    env_file = env_file,
+    definition = definition,
     call = call
   ))
 }
@@ -148,6 +155,11 @@ resolve_install_platform <- function(
 #'   messages are never shown.
 #' @param env_file `NULL` (the default) or the path of an environment file.
 #'   When given, it is solved instead of `packages`.
+#' @param definition `NULL` (the default) or the `condathis_env_definition`
+#'   object of `env_file`, a request. It is passed to `backend_can_solve()`
+#'   only when the backend's function takes it (see
+#'   `backend_resolve_args()`). A lock never gets here: `create_env()`
+#'   picks its platform from the platforms it lists.
 #' @param call Environment of the function that an invalid value of the
 #'   backend is reported for.
 #'
@@ -166,6 +178,7 @@ define_platform <- function(
   additional_channels = NULL,
   verbose = "silent",
   env_file = NULL,
+  definition = NULL,
   call = rlang::caller_env()
 ) {
   if (isFALSE(rlang::is_null(platform))) {
@@ -186,6 +199,13 @@ define_platform <- function(
   # dependency `r-base` has no build. A result of `NA` is a failure that is
   # not about the packages, such as a missing channel: no fallback, so the
   # create or install reports the backend's own error.
+  # `definition` goes only to a backend function that takes it (see
+  # `backend_call()`).
+  optional <- if (isFALSE(is.null(definition))) {
+    list(definition = definition)
+  } else {
+    list()
+  }
   solves_for <- function(target_platform) {
     return(backend_can_solve_checked(
       backend,
@@ -195,6 +215,7 @@ define_platform <- function(
       channel_priority = channel_priority,
       additional_channels = additional_channels,
       platform = target_platform,
+      .optional = optional,
       call = call
     ))
   }

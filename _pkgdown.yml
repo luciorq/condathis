@@ -17,6 +17,7 @@ reference:
     desc: Create, change, check, list and remove Conda environments.
     contents:
       - create_env
+      - env_definition
       - install_packages
       - remove_env
       - validate_env

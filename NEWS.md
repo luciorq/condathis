@@ -18,6 +18,10 @@ write instead.
   script or the tests of your own package, it warns once per session and
   function (class `condathis_deprecated_packages_arg`). Calls made inside
   other packages do not warn.
+  `env_file =` of `create_env()` is deprecated in the same way (class
+  `condathis_deprecated_env_file_arg`): pass the file in `...` with the new
+  `env_definition()`, as in
+  `create_env(env_definition("environment.yml"), env_name = "tools")`.
 
 * Old positional calls no longer work: name every argument after the
   package specs, as in `install_packages("pkg", env_name = "my-env")`.
@@ -27,7 +31,8 @@ write instead.
   Any other name is read as one more package spec, so the call fails
   unless a package has that name (`install_packages()` first creates a
   missing `"condathis-env"`, empty).
-  A spec that ends in `.yml` or `.yaml` asks for `env_file =`.
+  A spec that ends in `.yml`, `.yaml`, `.json` or `.lock` aborts with a
+  hint to pass the file with `env_definition()`.
   A misspelled argument such as `chanels =` names the closest argument.
   Argument names are no longer abbreviated: abbreviations that 0.1.4
   matched, such as `pack =`, `over =` or, in `install_packages()`,
@@ -56,15 +61,21 @@ write instead.
 * `create_env(overwrite = FALSE)` never replaces an existing environment.
   It keeps it, with status 0, when it already has the requested packages or
   when nothing is requested.
-  Otherwise, and always with `env_file`, it aborts with class
+  With an environment file, it keeps it only for a lock file whose packages
+  it has exactly (see New features).
+  Otherwise, it aborts with class
   `condathis_create_env_exists`: use `install_packages()` to add packages,
   or `overwrite = TRUE` to rebuild.
   In 0.1.4, it deleted and rebuilt the environment, which lost the packages
   added later.
 
-* `create_env()` aborts when package specs and `env_file` are both given
-  (class `condathis_create_env_conflicting_args`).
-  In 0.1.4, it ignored the specs.
+* `create_env()` aborts when package specs and an environment file are
+  both given, and when `channels`, `additional_channels` or
+  `channel_priority` is given with a lock file passed with
+  `env_definition()`, such as an `@EXPLICIT` or conda-lock file (class
+  `condathis_create_env_conflicting_args`).
+  In 0.1.4, it ignored them.
+  The deprecated `env_file =` still ignores them, as in 0.1.4.
   It also aborts, with `platform` and `overwrite = FALSE`, on an existing
   environment built for another platform
   (class `condathis_create_env_platform_mismatch`): pass `overwrite = TRUE`
@@ -204,6 +215,46 @@ write instead.
   `run_step()`:
   `run("python", "--version", env_name = env_path("/opt/envs/py"))`.
   condathis never changes such an environment.
+
+* New `env_definition()` gives `create_env()` an environment file, in
+  `...`: `create_env(env_definition("environment.yml"), env_name = "tools")`.
+  The backend reads the file and detects its format from the contents, or
+  takes it from `format`, as in
+  `env_definition("ci.lock", format = "conda-lock-v1")`.
+  The micromamba backend reads environment YAML files, lists of package
+  specs, `@EXPLICIT` files, conda-lock files (version 1, with the option
+  `categories`) and mambajs lock files.
+  The name of the file does not matter, except that an environment YAML
+  file must end in `.yml` or `.yaml`, and not in `-lock.yml` or
+  `-lock.yaml`.
+  A file that the backend cannot read, such as `pixi.lock` with
+  micromamba, aborts before anything runs (class
+  `condathis_create_env_unsupported_definition`).
+  Other backends can read other formats (see `?register_backend`).
+  With `method = "auto"`, a new environment goes to the first available
+  backend that can read the file.
+
+* A lock file (`@EXPLICIT`, conda-lock or mambajs) is installed as it is,
+  without a solve, and only for a platform it lists: `platform`, else the
+  native platform, else the emulated one.
+  When it lists none of them, `create_env()` aborts before anything runs
+  (class `condathis_create_env_platform_not_locked`).
+  A lock file of `noarch` packages installs on any platform.
+  `create_env(overwrite = FALSE)` keeps an existing environment that has
+  exactly the packages of the lock: the same names, versions and build
+  strings.
+  `validate_env(env_definition(<lock>), env_name = ...)` makes the same
+  check.
+  With `error = "continue"`, its `FALSE` has the new attribute
+  `unexpected`.
+
+* `install_packages(env_definition("environment.yml"), env_name = ...)`
+  installs the packages of an environment file that is solved, such as an
+  environment YAML file or a list of specs (with micromamba,
+  `micromamba install -f`).
+  A lock file aborts with class
+  `condathis_install_packages_unsupported_definition`: create the
+  environment again with `create_env(..., overwrite = TRUE)`.
 
 * New `validate_env()` checks that an environment exists and has the
   requested package specs, using the same check as
@@ -463,11 +514,19 @@ write instead.
   packages.
 
 * On Apple Silicon, the Rosetta 2 fallback of `create_env()` checks the
-  whole request, with its dependencies and `env_file`, and its messages
-  follow `verbose`.
+  whole request, with its dependencies and its environment file, and its
+  messages follow `verbose`.
   The first install into an environment with only
   `noarch` packages, such as a new `"condathis-env"`, gets the same
   fallback.
+
+* With micromamba, a conda-lock file whose name did not end in `-lock.yml`
+  or `-lock.yaml`, or a conda-lock file without packages for the platform,
+  gave an empty environment and reported success.
+  condathis now reads the format from the contents of the file, and
+  checks its platforms before anything runs.
+  A lock file that lists packages but gives an empty environment aborts
+  with class `condathis_create_env_failed`.
 
 * `list_envs()`:
   * lists an environment named `"condathis"` (it was hidden, and

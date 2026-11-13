@@ -37,7 +37,9 @@ backend_optional_hooks <- c(
   "backend_quiesce",
   "backend_native_platform",
   "backend_can_solve",
-  "backend_resolve_run_in_dir"
+  "backend_resolve_run_in_dir",
+  "backend_describe_definition",
+  "backend_definition_formats"
 )
 
 #' Every generic of the backend contract
@@ -235,9 +237,24 @@ shared_backend_first_classes <- c(
 #' * `packages`: a character vector of package match specs, such as
 #'   `"python>=3.12"`, without `NA` or `""`. `backend_create_env()` gets
 #'   `NULL` when the request has no packages: an empty environment, or one
-#'   built from `env_file`.
-#' * `env_file`: `NULL`, or the path of an existing environment file. When
-#'   it is set, `packages` is `NULL`.
+#'   built from `env_file`. `backend_install()` gets `NULL` when it
+#'   installs from `env_file`.
+#' * `env_file`: `NULL`, or the absolute path of an existing environment
+#'   file (or directory) from an [env_definition()]. When it is set,
+#'   `packages` is `NULL`.
+#' * `definition`: the [env_definition()] object that `env_file` comes
+#'   from, a list with `path` (the same path as `env_file`), `format`
+#'   (`NULL` or a string) and `options` (a named list). It came after the
+#'   first functions of version 2 of this contract, so it is not in the
+#'   signatures below, and a function written without it keeps working.
+#'   `condathis` passes it only to a function that has a `definition`
+#'   argument (or `...`), and only when `env_file` is set. `condathis` never reads `format` or
+#'   `options`: the backend does. A backend function without the argument
+#'   gets only `env_file`. Then a definition with a `format` or `options`
+#'   aborts before any call, with class
+#'   `condathis_create_env_unsupported_definition` or
+#'   `condathis_install_packages_unsupported_definition` (also
+#'   `condathis_backend_unsupported`).
 #' * `channels`: a non-empty character vector of channel names or URLs,
 #'   without `NA` or `""`, in priority order.
 #' * `additional_channels`: `NULL`, or a character vector like `channels`.
@@ -281,10 +298,11 @@ shared_backend_first_classes <- c(
 #'   channel_priority = c("strict", "flexible", "disabled"),
 #'   additional_channels = NULL, platform = NULL, overwrite = FALSE,
 #'   verbose = c("output", "silent", "cmd", "spinner", "full"))` creates
-#'   the environment. Its directory is the one that `backend_get_env_dir()`
-#'   returns, and `condathis` calls it only when that directory does not
-#'   exist. That is
-#'   the case for a new environment. It is also the case with
+#'   the environment. It can also take the optional argument
+#'   `definition = NULL` (see *What condathis passes*). Its directory is
+#'   the one that `backend_get_env_dir()` returns, and `condathis` calls it
+#'   only when that directory does not exist. That is the case for a new
+#'   environment. It is also the case with
 #'   `overwrite = TRUE`, after `condathis` moved the existing environment
 #'   aside or deleted a directory that was not an environment (one left by
 #'   a failed create). When the call fails, `condathis` deletes what it left
@@ -292,7 +310,9 @@ shared_backend_first_classes <- c(
 #'   non-zero `status` or an invalid `link_scripts_skipped` (see *Results*).
 #'   So a misspelled spec with `overwrite = TRUE` does not cost the user the
 #'   environment. `overwrite` tells the backend which of the two cases
-#'   applies. With `env_file`, build the environment from that file. With
+#'   applies. With `env_file`, build the environment from that file (read
+#'   `definition` for its `format` and `options`, when the function takes
+#'   it). With
 #'   `platform`, build it for that platform. The platform can be one that
 #'   `condathis` chose because the request does not solve for the native
 #'   platform of the backend (see `backend_can_solve()`). After a successful
@@ -326,6 +346,19 @@ shared_backend_first_classes <- c(
 #'   environment without packages of a platform, it passes the platform
 #'   that it would choose for a new environment. Otherwise, `platform` is
 #'   `NULL`. It must not create a missing environment.
+#'
+#'   It can also take the optional arguments `env_file = NULL` and
+#'   `definition = NULL`. With `env_file`, install the packages that the
+#'   file requests, solved
+#'   together with the packages of the environment, as `micromamba install
+#'   -f` does. [install_packages()] passes a file only when
+#'   `backend_describe_definition()` did not say that it is a lock (or that
+#'   the backend cannot read it). A function that takes neither argument
+#'   cannot install from a file, and
+#'   [install_packages()] then aborts before any call with class
+#'   `condathis_install_packages_unsupported_definition`. A function that
+#'   takes `env_file` but not `definition` gets only the path, as
+#'   `backend_create_env()` does.
 #' * `backend_resolve_run(backend, cmd, args = character(0L),
 #'   env_name = "condathis-env", verbose = "silent", base_env = NULL,
 #'   timeout = Inf)` describes, without running `cmd`, how to run `cmd`
@@ -467,7 +500,8 @@ shared_backend_first_classes <- c(
 #' * `backend_can_solve(backend, packages = NULL, env_file = NULL,
 #'   channels = "conda-forge",
 #'   channel_priority = c("strict", "flexible", "disabled"),
-#'   additional_channels = NULL, platform)` returns `TRUE` when the request
+#'   additional_channels = NULL, platform)` returns `TRUE` when the
+#'   request
 #'   solves for `platform`, `FALSE` when it does not, and `NA` when it
 #'   cannot tell, for example without network access or for a missing
 #'   channel. It must not create an environment. `condathis` asks it when
@@ -475,7 +509,65 @@ shared_backend_first_classes <- c(
 #'   solve for the native platform uses an emulated one when it solves
 #'   there: `"osx-64"` on Apple Silicon with Rosetta 2, and `"win-64"` on
 #'   Windows on ARM. An error counts as `NA`. Default: `NA`, so `condathis`
-#'   never chooses an emulated platform.
+#'   never chooses an emulated platform. `condathis` never asks it about a
+#'   lock (see `backend_describe_definition()`). It can also take the
+#'   optional argument `definition = NULL`.
+#' * `backend_describe_definition(backend, definition, platform = NULL)`
+#'   tells `condathis` what the backend makes of an [env_definition()]:
+#'   whether it reads it, and whether it is a request or a lock.
+#'   `platform` is the `platform` of [create_env()]. [create_env()] calls
+#'   it before it locks, moves or creates anything, so it must be cheap:
+#'   read the file, but do not download, install or solve anything, and do
+#'   not change any environment. It returns a list:
+#'   * `supported`: `TRUE` (the backend reads it), `FALSE` (it does not) or
+#'     `NA` (it cannot tell). `FALSE` aborts with class
+#'     `condathis_create_env_unsupported_definition` (also
+#'     `condathis_backend_unsupported`), with `reason` in the message.
+#'     Refuse an option of `definition$options` that you do not
+#'     understand: never ignore it.
+#'   * `format`: `NA`, or the name of the format that the backend detected
+#'     or was given, such as `"conda-lock-v1"`.
+#'   * `kind`: `"request"` (the backend solves it, as package specs),
+#'     `"lock"` (it installs exact packages, without a solve) or `NA`.
+#'   * `platforms`: `NULL`, or the platforms that a lock has packages for.
+#'   * `reason`: `NA`, or one sentence: why `supported` is `FALSE`.
+#'   * `records`: `NULL`, or for a lock a data frame with the character
+#'     columns `name`, `version`, `build_string` and `platform` (the
+#'     platform the record is for), one row per package that the backend
+#'     installs from it.
+#'
+#'   For a request, `condathis` goes on as for package specs: it asks
+#'   `backend_can_solve()` about the platform. For a lock, it picks the
+#'   platform from `platforms` and never calls `backend_can_solve()`,
+#'   since a dry run says nothing about a lock. It aborts when
+#'   `channels`, `additional_channels` or `channel_priority` were given
+#'   with an [env_definition()] (the deprecated `env_file` of
+#'   [create_env()] passes them on, as in 0.1.4). Records of `noarch`
+#'   packages install on any platform: leave `noarch` out of `platforms`.
+#'   When `records` has rows for the platform and the new environment has
+#'   no package, the create fails with `condathis_create_env_failed`. With
+#'   `NA` as `kind`, `condathis` passes the file on and makes no other
+#'   check, as for every backend before this function existed. An error
+#'   counts as `NA`.
+#'
+#'   `records` also lets `condathis` compare an existing environment with
+#'   a lock: `create_env(overwrite = FALSE)` keeps the environment when
+#'   its packages are exactly the records for the platform, and
+#'   [validate_env()] gives `TRUE`. Records with `NA` in `name`,
+#'   `version` or `build_string` are not compared. [install_packages()]
+#'   calls this function too, and installs from a request only.
+#'
+#'   With `method = "auto"`, a new environment from a definition goes to
+#'   the first available backend in `condathis.backend_priority` order
+#'   whose `supported` is not `FALSE`.
+#'   Default: `NA`, or `FALSE` when the definition has a `format` or
+#'   `options` and `backend_create_env()` has no `definition` argument.
+#' * `backend_definition_formats(backend)` returns the names of the
+#'   formats that the backend reads, as a character vector, such as
+#'   `c("environment-yaml", "explicit")`. It is used only in messages: an
+#'   error for a definition with a `format` names the registered backends
+#'   that list it. `condathis` never decides from it. Default:
+#'   `character(0)`.
 #' * `backend_resolve_run_in_dir(backend, cmd, args = character(0L),
 #'   env_dir, verbose = "silent", base_env = NULL, timeout = Inf)`
 #'   describes how to run `cmd` with `args` in the activated environment
@@ -769,7 +861,7 @@ register_backend_impl <- function(name, backend, call = rlang::caller_env()) {
     base::registerS3method(
       genname = generic_name,
       class = backend_class,
-      method = backend[[generic_name]],
+      method = backend_s3_method(backend[[generic_name]], generic_name),
       envir = asNamespace("condathis")
     )
   }
@@ -1101,16 +1193,20 @@ validate_backend_object <- function(name, backend, call = rlang::caller_env()) {
 
 #' Arguments that a backend function may leave out
 #'
-#' `timeout` of `backend_resolve_run()` and `backend_resolve_run_in_dir()`
-#' came after the first functions of version 2 of the contract: condathis
-#' passes it only to a function that takes it (see
-#' `backend_resolve_args()`).
+#' `timeout` of `backend_resolve_run()` and `backend_resolve_run_in_dir()`,
+#' `definition` of `backend_create_env()`, `backend_install()` and
+#' `backend_can_solve()`, and `env_file` of `backend_install()`, came after
+#' the first functions of version 2 of the contract: condathis passes them
+#' only to a function that takes them (see `backend_resolve_args()`).
 #'
 #' @keywords internal
 #' @noRd
 backend_optional_args <- list(
   backend_resolve_run = "timeout",
-  backend_resolve_run_in_dir = "timeout"
+  backend_resolve_run_in_dir = "timeout",
+  backend_create_env = "definition",
+  backend_install = c("env_file", "definition"),
+  backend_can_solve = "definition"
 )
 
 #' The optional arguments a backend function takes
@@ -1136,6 +1232,118 @@ backend_resolve_args <- function(backend, generic_name, ...) {
     return(values)
   }
   return(values[intersect(names(values), fn_args)])
+}
+
+#' The S3 method that `register_backend()` registers for a backend function
+#'
+#' A function with optional arguments that its generic lacks (see
+#' `backend_optional_args`), such as `definition`, gets a method with
+#' exactly the formals of the generic that calls it: S3 methods must match
+#' their generic. `condathis` passes the optional arguments by calling the
+#' function itself (see `backend_call()`). Any other function is its own
+#' method.
+#'
+#' @param fn The function of the backend object.
+#' @param generic_name Character string, the contract function.
+#'
+#' @returns A function.
+#'
+#' @keywords internal
+#' @noRd
+backend_s3_method <- function(fn, generic_name) {
+  generic_formals <- formals(backend_generic_fn(generic_name))
+  fn_args <- names(formals(args(fn)))
+  extra <- setdiff(fn_args, c(names(generic_formals), "..."))
+  if (identical(length(extra), 0L)) {
+    return(fn)
+  }
+  arg_names <- names(generic_formals)
+  call_args <- rlang::syms(arg_names)
+  names(call_args) <- arg_names
+  # The function is a variable of the method's environment, not a value
+  # in its body: the S3 checks of R CMD check read the body.
+  method_env <- new.env(parent = baseenv())
+  method_env$backend_fn <- fn
+  method <- function() NULL
+  formals(method) <- generic_formals
+  body(method) <- rlang::call2("{", rlang::call2("backend_fn", !!!call_args))
+  environment(method) <- method_env
+  return(method)
+}
+
+#' A contract generic of the `condathis` namespace
+#'
+#' @param generic_name Character string.
+#'
+#' @returns The function.
+#'
+#' @keywords internal
+#' @noRd
+backend_generic_fn <- function(generic_name) {
+  return(get(
+    generic_name,
+    envir = asNamespace("condathis"),
+    mode = "function",
+    inherits = FALSE
+  ))
+}
+
+#' Call a contract function, with the optional arguments it takes
+#'
+#' The generics keep the signatures of version 2 of the contract, so the
+#' functions of a backend written for it, such as the rattlerthis backend,
+#' still have exactly the formals of the generics. The arguments that came
+#' later (see `backend_optional_args`) are passed by calling the backend's
+#' own function, and only when that function takes them by name or
+#' through `...`. Without such arguments, or for a function that the
+#' object leaves out (the defaults of `condathis` take none), the generic
+#' is called as usual.
+#'
+#' @param generic_name Character string, the contract function.
+#' @param backend A backend object.
+#' @param ... Arguments of the generic, by name.
+#' @param .optional Named list of optional arguments.
+#'
+#' @returns The value of the backend function.
+#'
+#' @keywords internal
+#' @noRd
+backend_call <- function(generic_name, backend, ..., .optional = list()) {
+  fn <- backend[[generic_name]]
+  if (isFALSE(is.function(fn))) {
+    # The default of condathis, which takes no optional argument.
+    fn <- backend_generic_fn(paste0(generic_name, ".default"))
+  }
+  fn_args <- names(formals(args(fn)))
+  if (isFALSE("..." %in% fn_args)) {
+    .optional <- .optional[intersect(names(.optional), fn_args)]
+  }
+  if (identical(length(.optional), 0L)) {
+    return(backend_generic_fn(generic_name)(backend, ...))
+  }
+  return(rlang::exec(fn, backend, ..., !!!.optional))
+}
+
+#' Does a backend function take an argument?
+#'
+#' @param backend A backend object.
+#' @param generic_name Character string, the contract function.
+#' @param arg Character string, the argument name.
+#'
+#' @returns `TRUE` when the backend's function has `arg` or `...` among its
+#'   arguments, or when the object leaves the function out: the default of
+#'   condathis then takes every argument of the generic. `FALSE`
+#'   otherwise.
+#'
+#' @keywords internal
+#' @noRd
+backend_fn_takes_arg <- function(backend, generic_name, arg) {
+  fn <- backend[[generic_name]]
+  if (isFALSE(is.function(fn))) {
+    return(TRUE)
+  }
+  fn_args <- names(formals(args(fn)))
+  return(isTRUE("..." %in% fn_args) || isTRUE(arg %in% fn_args))
 }
 
 #' Argument names of a contract generic
@@ -1496,9 +1704,29 @@ resolve_method_alias <- function(method, user_env = NULL) {
 #' backend of a new environment depended on what ran earlier in the
 #' session.
 #'
+#' With `accept`, `"auto"` also skips an available backend that `accept`
+#' refuses, as the routing of an environment given by [env_path()] skips a
+#' backend that cannot run it. `create_env()` uses it for an
+#' [env_definition()] that a backend says it cannot read. An explicit
+#' `method` is never rerouted.
+#'
+#' @param method Character string, `"auto"` or a registered backend name.
+#' @param accept `NULL`, or a function of `backend` and `name` that returns
+#'   `TRUE` to accept the backend, or a character string, the reason it
+#'   refuses it.
+#' @param on_refused A function of a named character vector (the reasons,
+#'   named by backend) that aborts. Called when `accept` refused every
+#'   available backend.
+#' @param call Environment of the function the error is reported for.
+#'
 #' @keywords internal
 #' @noRd
-resolve_backend_by_priority <- function(method, call = rlang::caller_env()) {
+resolve_backend_by_priority <- function(
+  method,
+  accept = NULL,
+  on_refused = NULL,
+  call = rlang::caller_env()
+) {
   if (isFALSE(identical(method, "auto"))) {
     backend <- get_backend(method, call = call)
     return(list(backend = backend, name = method))
@@ -1507,6 +1735,7 @@ resolve_backend_by_priority <- function(method, call = rlang::caller_env()) {
   # option decides, not what an earlier call happened to load.
   load_known_backends(priority = TRUE, call = call)
   candidates <- backend_names_by_priority()
+  refused <- character(0L)
   for (candidate in candidates) {
     backend <- get_backend(candidate, call = call)
     available <- validate_backend_return(
@@ -1515,9 +1744,20 @@ resolve_backend_by_priority <- function(method, call = rlang::caller_env()) {
       backend_name = candidate,
       call = call
     )
-    if (isTRUE(available)) {
-      return(list(backend = backend, name = candidate))
+    if (isFALSE(available)) {
+      next
     }
+    if (is.function(accept)) {
+      verdict <- accept(backend, candidate)
+      if (isFALSE(isTRUE(verdict))) {
+        refused[[candidate]] <- as.character(verdict)
+        next
+      }
+    }
+    return(list(backend = backend, name = candidate))
+  }
+  if (isTRUE(length(refused) > 0L) && is.function(on_refused)) {
+    on_refused(refused)
   }
   condathis_abort(
     message = c(`x` = "No registered backend is currently available."),
@@ -1605,6 +1845,9 @@ resolve_backend_ambiguous_env <- function(
 #' @param user_env The environment the exported function was called from
 #'   (`rlang::caller_env()` there), for the soft deprecation of `"native"`
 #'   (see `resolve_method_alias()`). `NULL` counts the call as direct.
+#' @param accept,on_refused For an environment that no backend has, with
+#'   `method = "auto"`: see `resolve_backend_by_priority()`. An existing
+#'   environment always gets its own backend.
 #' @param call Calling environment, passed to `condathis_abort()`.
 #'
 #' @returns A list with `backend` (the resolved backend object) and `name`
@@ -1617,6 +1860,8 @@ resolve_backend <- function(
   method = "auto",
   mutating = FALSE,
   user_env = NULL,
+  accept = NULL,
+  on_refused = NULL,
   call = rlang::caller_env()
 ) {
   method <- resolve_method_alias(
@@ -1634,7 +1879,12 @@ resolve_backend <- function(
   owners <- find_owning_backends(env_name, mutating = mutating, call = call)
 
   if (identical(length(owners), 0L)) {
-    return(resolve_backend_by_priority(method, call = call))
+    return(resolve_backend_by_priority(
+      method,
+      accept = accept,
+      on_refused = on_refused,
+      call = call
+    ))
   }
   if (identical(length(owners), 1L)) {
     return(resolve_backend_existing_env(
@@ -1801,6 +2051,18 @@ backend_can_solve <- function(
   platform
 ) {
   UseMethod("backend_can_solve")
+}
+
+#' @keywords internal
+#' @noRd
+backend_describe_definition <- function(backend, definition, platform = NULL) {
+  UseMethod("backend_describe_definition")
+}
+
+#' @keywords internal
+#' @noRd
+backend_definition_formats <- function(backend) {
+  UseMethod("backend_definition_formats")
 }
 
 #' Registered backend names, in `condathis.backend_priority` order

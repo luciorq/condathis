@@ -23,7 +23,9 @@ new_backend_micromamba <- function() {
       backend_available = micromamba_backend_available,
       backend_clean_cache = micromamba_backend_clean_cache,
       backend_native_platform = micromamba_backend_native_platform,
-      backend_can_solve = micromamba_backend_can_solve
+      backend_can_solve = micromamba_backend_can_solve,
+      backend_describe_definition = micromamba_backend_describe_definition,
+      backend_definition_formats = micromamba_backend_definition_formats
     ),
     class = c("condathis_backend_micromamba", "condathis_backend")
   )
@@ -71,7 +73,7 @@ micromamba_backend_get_env_dir <- function(
 #' `micromamba create` argument
 #'
 #' @param packages Character vector of package MatchSpec strings, or `NULL`.
-#' @param env_file Path to an environment YAML file, or `NULL`.
+#' @param env_file Path to an environment file, or `NULL`.
 #'
 #' @returns `packages` when `env_file` is `NULL`; otherwise
 #'   `c("-f", env_file)`. `~` at the start of a package path or of
@@ -141,12 +143,16 @@ micromamba_backend_create_env <- function(
   additional_channels = NULL,
   platform = NULL,
   overwrite = FALSE,
-  verbose = c("output", "silent", "cmd", "spinner", "full")
+  verbose = c("output", "silent", "cmd", "spinner", "full"),
+  definition = NULL
 ) {
   verbose_list <- parse_strategy_verbose(verbose = verbose)
+  # The file of the definition, or a copy under a name that micromamba
+  # reads as its format, deleted when this function exits.
+  definition_file <- micromamba_definition_file(definition, env_file)
   packages_arg <- resolve_create_env_packages_arg(
     packages = packages,
-    env_file = env_file
+    env_file = definition_file$path
   )
   channels_arg <- format_channels_args(channels, additional_channels)
   channel_priority_args <- parse_strategy_channel_priority(
@@ -175,7 +181,8 @@ micromamba_backend_create_env <- function(
           "--override-channels",
           channel_priority_args,
           channels_arg,
-          platform_args
+          platform_args,
+          definition_file$extra_args
         ),
         packages_arg,
         verbose = verbose_list,
@@ -201,9 +208,26 @@ micromamba_backend_install <- function(
   channel_priority = c("strict", "flexible", "disabled"),
   additional_channels = NULL,
   platform = NULL,
-  verbose = c("output", "silent", "cmd", "spinner", "full")
+  verbose = c("output", "silent", "cmd", "spinner", "full"),
+  env_file = NULL,
+  definition = NULL
 ) {
   verbose_list <- parse_strategy_verbose(verbose = verbose)
+  # `micromamba install -f`, never `micromamba update -f`, which ignores
+  # lock files. A request only: install_packages() sends a lock to
+  # create_env().
+  definition_file <- micromamba_definition_file(
+    definition,
+    env_file,
+    kinds = "request"
+  )
+  if (isFALSE(is.null(definition_file$path))) {
+    packages <- c(
+      definition_file$extra_args,
+      "-f",
+      micromamba_expand_home(as.character(fs::path(definition_file$path)))
+    )
+  }
   channels_arg <- format_channels_args(channels, additional_channels)
   channel_priority_args <- parse_strategy_channel_priority(
     channel_priority = channel_priority

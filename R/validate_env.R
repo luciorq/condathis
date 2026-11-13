@@ -45,13 +45,28 @@
 #'   console, a script or the tests of the package that makes it. Calls
 #'   made inside other packages do not warn.
 #'
+#'   Or one lock file, given by [env_definition()], such as
+#'   `env_definition("conda-lock.yml")`, without package specs. Then the
+#'   environment must have exactly the packages that the lock lists for its
+#'   platform, as [create_env()] compares them (see *Existing environments*
+#'   there): `platform` when it is given, else any platform of the lock.
+#'   Only a lock whose packages the backend reports can be compared, such
+#'   as an `@EXPLICIT`, conda-lock or mambajs file with micromamba. Any
+#'   other file, such as `environment.yml`, or a lock that has no packages
+#'   for `platform`, aborts with class
+#'   `condathis_validate_env_unsupported_definition` (also
+#'   `condathis_invalid_arg`), with either value of `error`. Package specs
+#'   and a definition together, or two definitions, abort with class
+#'   `condathis_validate_env_conflicting_args`.
+#'
 #'   These values abort with class
 #'   `condathis_validate_env_invalid_packages`:
 #'   * A named argument that `validate_env()` does not have. Names are
 #'     never abbreviated.
 #'   * A value that is not a character vector.
 #'   * `NA` or `""`.
-#'   * A file name that ends in `.yml` or `.yaml`.
+#'   * A file name that ends in `.yml`, `.yaml`, `.json` or `.lock`. Pass
+#'     a lock file with [env_definition()].
 #'
 #'   These classes abort too:
 #'   * `condathis_validate_env_positional_env_name`\cr
@@ -102,6 +117,10 @@
 #'   `"unsatisfied"`. `unsatisfied` is a character vector of the specs that
 #'   are not satisfied (every spec when the environment does not exist).
 #'   `validate_env()` reports a platform mismatch before unsatisfied specs.
+#'   For a lock file, `unsatisfied` lists the packages of the lock that the
+#'   environment does not have, as `"<name>-<version>-<build>"`, and a
+#'   third attribute, `unexpected`, lists the packages of the environment
+#'   that the lock does not list.
 #'
 #'   A backend failure aborts with either value of `error`, with the class
 #'   `condathis_validate_env_failed` (also `condathis_backend_error`).
@@ -173,6 +192,9 @@ validate_env <- function(
   user_env <- rlang::caller_env()
   # Rule R2: every argument is checked before the first backend call.
   dots <- rlang::list2(...)
+  # An `env_definition()` of a lock is compared by its records.
+  split_dots <- split_env_definitions(dots)
+  dots <- split_dots$dots
   packages <- collect_package_specs(
     dots,
     fn = "validate_env",
@@ -197,6 +219,11 @@ validate_env <- function(
     class = "condathis_invalid_error",
     arg_name = "error"
   )
+  definition <- resolve_call_definition(
+    split_dots$definitions,
+    packages = packages,
+    fn = "validate_env"
+  )
   if (missing(env_name) && isTRUE(positional_env_name_possible(dots))) {
     abort_on_positional_env_name(packages, fn = "validate_env")
   }
@@ -207,6 +234,16 @@ validate_env <- function(
     method = method,
     mutating = FALSE
   )
+  # Before the environment is probed: a definition that cannot be compared
+  # aborts also for a missing environment.
+  lock_records <- NULL
+  if (isFALSE(is.null(definition))) {
+    lock_records <- validate_env_lock_records(
+      resolved,
+      definition = definition,
+      platform = platform
+    )
+  }
 
   env_probe <- backend_probe_env(
     resolved$backend,
@@ -220,7 +257,12 @@ validate_env <- function(
         class = "condathis_validate_env_env_not_found"
       )
     }
-    return(validate_env_failure("env_not_found", unsatisfied = packages))
+    unsatisfied <- if (is.null(lock_records)) {
+      packages
+    } else {
+      unique(package_dist_strings(lock_records))
+    }
+    return(validate_env_failure("env_not_found", unsatisfied = unsatisfied))
   }
 
   # A failed probe (`NA`, rule R5) is not read as "absent": the listing
@@ -229,7 +271,8 @@ validate_env <- function(
   if (
     isTRUE(is.na(env_probe)) ||
       isFALSE(is.null(platform)) ||
-      isTRUE(length(packages) > 0L)
+      isTRUE(length(packages) > 0L) ||
+      isFALSE(is.null(lock_records))
   ) {
     installed_pkgs_df <- list_env_packages_checked(
       backend = resolved$backend,
@@ -244,6 +287,17 @@ validate_env <- function(
     channels = channels,
     platform = platform
   )
+  if (isFALSE(is.null(lock_records)) && isTRUE(check$satisfied)) {
+    return(validate_env_lock(
+      installed_pkgs_df,
+      records = lock_records,
+      platform = platform,
+      definition = definition,
+      env_name = env_name,
+      error = error,
+      verbose_list = verbose_list
+    ))
+  }
 
   if (isTRUE(check$satisfied)) {
     if (isTRUE(verbose_list$strategy %in% c("full", "output"))) {
@@ -299,15 +353,172 @@ validate_env <- function(
 #' @param reason Character string: `"env_not_found"`, `"platform_mismatch"`
 #'   or `"unsatisfied"`.
 #' @param unsatisfied Character vector of the specs that are not satisfied.
+#' @param unexpected `NULL`, or for a lock file the packages of the
+#'   environment that the lock does not list.
 #'
-#' @returns `FALSE` with the attributes `reason` and `unsatisfied`.
+#' @returns `FALSE` with the attributes `reason` and `unsatisfied`, and
+#'   `unexpected` when it is not `NULL`.
 #'
 #' @keywords internal
 #' @noRd
-validate_env_failure <- function(reason, unsatisfied) {
-  return(structure(
+validate_env_failure <- function(reason, unsatisfied, unexpected = NULL) {
+  value <- structure(
     FALSE,
     reason = reason,
     unsatisfied = as.character(unsatisfied)
-  ))
+  )
+  if (isFALSE(is.null(unexpected))) {
+    attr(value, "unexpected") <- as.character(unexpected)
+  }
+  return(value)
+}
+
+#' The records that `validate_env()` compares an environment with
+#'
+#' Only a lock whose records the backend reports can be compared (see
+#' `lock_records_comparable()`). A request, such as an environment YAML
+#' file, depends on the channels and on the day.
+#'
+#' @param resolved The list from `resolve_backend()`.
+#' @param definition A valid `condathis_env_definition` object.
+#' @param platform `NULL` or the `platform` of `validate_env()`.
+#' @param call Environment of the function the error is reported for.
+#'
+#' @returns The records of the lock: a data frame with `name`, `version`,
+#'   `build_string` and `platform`, for `platform` when it is given. Aborts
+#'   with class `condathis_validate_env_unsupported_definition` (also
+#'   `condathis_invalid_arg`, and `condathis_backend_unsupported` when the
+#'   backend cannot read the file).
+#'
+#' @keywords internal
+#' @noRd
+validate_env_lock_records <- function(
+  resolved,
+  definition,
+  platform = NULL,
+  call = rlang::caller_env()
+) {
+  description <- describe_definition(
+    resolved$backend,
+    definition = definition,
+    platform = platform,
+    generic = "backend_create_env",
+    call = call
+  )
+  if (isFALSE(description$supported)) {
+    abort_unsupported_definition(
+      backend_name = resolved$name,
+      definition = definition,
+      reason = description$reason,
+      fn = "validate_env",
+      call = call
+    )
+  }
+  target <- platform %||% NA_character_
+  path <- definition$path
+  listed <- setdiff(as.character(description$platforms), "noarch")
+  if (
+    identical(description$kind, "lock") &&
+      isFALSE(is.null(platform)) &&
+      isTRUE(length(listed) > 0L) &&
+      isFALSE(platform %in% listed)
+  ) {
+    condathis_abort(
+      message = c(
+        `x` = "Lock file {.path {path}} has no packages for platform {.val {platform}}.",
+        `i` = "It has packages for {.or {.val {listed}}}."
+      ),
+      class = c(
+        "condathis_validate_env_unsupported_definition",
+        "condathis_invalid_arg"
+      ),
+      call = call
+    )
+  }
+  if (isTRUE(lock_records_comparable(description, target))) {
+    records <- description$records
+    if (isFALSE(is.null(platform))) {
+      records <- lock_records_for(records, platform)
+    }
+    return(records)
+  }
+  reason <- if (identical(description$kind, "lock")) {
+    "Backend {.field {resolved$name}} does not report the packages of lock file {.path {path}}."
+  } else {
+    "{.fn validate_env} compares an environment only with a lock file that lists its packages, such as an {.code @EXPLICIT} or conda-lock file, not with {.path {path}}."
+  }
+  condathis_abort(
+    message = c(
+      `x` = "Environment definition {.path {path}} cannot be compared with an environment.",
+      `i` = reason,
+      `i` = "Pass the package specs to check instead, or use {.code create_env(env_definition(...), overwrite = TRUE)} to create the environment again from the file."
+    ),
+    class = c(
+      "condathis_validate_env_unsupported_definition",
+      "condathis_invalid_arg"
+    ),
+    call = call
+  )
+}
+
+#' The answer of `validate_env()` for a lock
+#'
+#' @param installed_pkgs_df Data frame from `list_env_packages_checked()`.
+#' @param records The records from `validate_env_lock_records()`.
+#' @param platform `NULL` or the `platform` of `validate_env()`.
+#' @param definition The environment definition, for the message.
+#' @param env_name Character string.
+#' @param error `"cancel"` or `"continue"`.
+#' @param verbose_list Parsed verbose list.
+#' @param call Environment of the function the error is reported for.
+#'
+#' @returns `TRUE`, invisibly, when the environment has exactly the
+#'   packages of the lock (see `compare_lock_records()`). Otherwise `FALSE`
+#'   (see `validate_env_failure()`) or an abort with class
+#'   `condathis_validate_env_unsatisfied`.
+#'
+#' @keywords internal
+#' @noRd
+validate_env_lock <- function(
+  installed_pkgs_df,
+  records,
+  platform,
+  definition,
+  env_name,
+  error,
+  verbose_list,
+  call = rlang::caller_env()
+) {
+  comparison <- compare_lock_records(
+    installed_pkgs_df,
+    records = records,
+    target = platform %||% NA_character_
+  )
+  path <- definition$path
+  if (isTRUE(comparison$satisfied)) {
+    if (isTRUE(verbose_list$strategy %in% c("full", "output"))) {
+      condathis_inform(
+        message = c(
+          `v` = "Environment {.field {env_name}} has the packages of lock file {.path {path}}."
+        )
+      )
+    }
+    return(invisible(TRUE))
+  }
+  if (identical(error, "continue")) {
+    return(validate_env_failure(
+      "unsatisfied",
+      unsatisfied = comparison$missing,
+      unexpected = comparison$unexpected
+    ))
+  }
+  condathis_abort(
+    message = c(
+      `x` = "Environment {.field {env_name}} does not have the packages of lock file {.path {path}}.",
+      lock_difference_bullets(comparison),
+      `i` = "Use {.code create_env(env_definition(...), overwrite = TRUE)} to create it again from the lock file."
+    ),
+    class = "condathis_validate_env_unsatisfied",
+    call = call
+  )
 }

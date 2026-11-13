@@ -42,16 +42,16 @@
 #' micromamba needs something from there. It then adds the environment to
 #' your list. This happens for channel credentials that you saved (with
 #' `micromamba auth login`, an `anaconda-client` token, or a `.netrc`
-#' file), and for an `env_file` that names your home directory (`~/`,
-#' `$HOME`) or installs pip packages. Listing and removing environments
-#' never change the file, so the line of an environment that
-#' [remove_env()] deleted stays. Both conda and mamba drop such lines the
+#' file), and for an environment file ([env_definition()]) that names your
+#' home directory (`~/`, `$HOME`) or installs pip packages. Listing and
+#' removing environments never change the file, so the line of an
+#' environment that [remove_env()] deleted stays. Both conda and mamba drop such lines the
 #' next time they list environments. A `~` at the start of a channel, of a
-#' package path and of the path of `env_file` always means your own home
-#' directory.
+#' package path and of the path of an environment file always means your
+#' own home directory.
 #'
-#' The pip that installs the pip packages of an `env_file` keeps its cache
-#' in the `cache/` directory of the data directory on Linux, which
+#' The pip that installs the pip packages of an environment file keeps its
+#' cache in the `cache/` directory of the data directory on Linux, which
 #' [clean_cache()] deletes. On macOS and Windows, it keeps its cache in
 #' your own user cache (`~/Library/Caches/pip`,
 #' `%LOCALAPPDATA%\pip\Cache`).
