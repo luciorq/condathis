@@ -87,6 +87,7 @@ micromamba.
 
 Other environments:
 [`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md),
+[`env_definition()`](https://luciorq.github.io/condathis/reference/env_definition.md),
 [`env_exists()`](https://luciorq.github.io/condathis/reference/env_exists.md),
 [`env_path()`](https://luciorq.github.io/condathis/reference/env_path.md),
 [`install_packages()`](https://luciorq.github.io/condathis/reference/install_packages.md),
@@ -107,6 +108,6 @@ condathis::with_sandbox_dir({
   condathis::get_env_dir("my-env")
   #> <data dir>/R/condathis/envs/my-env
 })
-#> /tmp/RtmpJR5hQY/condathis-sandbox-2b4a7ecdeb3b/data/R/condathis/envs/condathis-env
-#> /tmp/RtmpJR5hQY/condathis-sandbox-2b4a7ecdeb3b/data/R/condathis/envs/my-env
+#> /tmp/Rtmp6wGB7j/condathis-sandbox-2aac535504eb/data/R/condathis/envs/condathis-env
+#> /tmp/Rtmp6wGB7j/condathis-sandbox-2aac535504eb/data/R/condathis/envs/my-env
 ```

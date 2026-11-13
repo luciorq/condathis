@@ -651,16 +651,16 @@ ml_info <- mirai::mirai(daemon_info(), daemon_info = daemon_info, .compute = "ml
 str(list(geo = geo_info[], ml = ml_info[], main = Sys.getpid()))
 #> List of 3
 #>  $ geo :List of 4
-#>   ..$ pid      : int 13969
+#>   ..$ pid      : int 13832
 #>   ..$ env      : chr "py-geo-env"
 #>   ..$ python   : chr "3.13"
 #>   ..$ PROJ_DATA: logi TRUE
 #>  $ ml  :List of 4
-#>   ..$ pid      : int 13982
+#>   ..$ pid      : int 13844
 #>   ..$ env      : chr "py-ml-env"
 #>   ..$ python   : chr "3.12"
 #>   ..$ PROJ_DATA: logi FALSE
-#>  $ main: int 13026
+#>  $ main: int 12879
 ```
 
 Each daemon is its own process with its own Python version. `PROJ_DATA`
@@ -862,8 +862,14 @@ In every case, `condathis` owns the environment. The same
 [`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md)
 call reproduces it on any machine. To share the environment as a file,
 write its package specs, with versions pinned, to an environment YAML
-file and pass it as `env_file` to
-[`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md).
+file and pass it to
+[`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md)
+with
+[`env_definition()`](https://luciorq.github.io/condathis/reference/env_definition.md),
+as in
+`create_env(env_definition("environment.yml"), env_name = "py-data-env")`.
+A lock file, such as an `@EXPLICIT` or conda-lock file, gives the same
+packages on every machine of a platform it lists.
 
 ## Cleaning Up
 

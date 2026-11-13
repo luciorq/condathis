@@ -202,9 +202,24 @@ path.</p></li>
 <li><p><code>packages</code>: a character vector of package match specs, such as
 <code>"python&gt;=3.12"</code>, without <code>NA</code> or <code>""</code>. <code>backend_create_env()</code> gets
 <code>NULL</code> when the request has no packages: an empty environment, or one
-built from <code>env_file</code>.</p></li>
-<li><p><code>env_file</code>: <code>NULL</code>, or the path of an existing environment file. When
-it is set, <code>packages</code> is <code>NULL</code>.</p></li>
+built from <code>env_file</code>. <code>backend_install()</code> gets <code>NULL</code> when it
+installs from <code>env_file</code>.</p></li>
+<li><p><code>env_file</code>: <code>NULL</code>, or the absolute path of an existing environment
+file (or directory) from an <code><a href="env_definition.html">env_definition()</a></code>. When it is set,
+<code>packages</code> is <code>NULL</code>.</p></li>
+<li><p><code>definition</code>: the <code><a href="env_definition.html">env_definition()</a></code> object that <code>env_file</code> comes
+from, a list with <code>path</code> (the same path as <code>env_file</code>), <code>format</code>
+(<code>NULL</code> or a string) and <code>options</code> (a named list). It came after the
+first functions of version 2 of this contract, so it is not in the
+signatures below, and a function written without it keeps working.
+<code>condathis</code> passes it only to a function that has a <code>definition</code>
+argument (or <code>...</code>), and only when <code>env_file</code> is set. <code>condathis</code> never reads <code>format</code> or
+<code>options</code>: the backend does. A backend function without the argument
+gets only <code>env_file</code>. Then a definition with a <code>format</code> or <code>options</code>
+aborts before any call, with class
+<code>condathis_create_env_unsupported_definition</code> or
+<code>condathis_install_packages_unsupported_definition</code> (also
+<code>condathis_backend_unsupported</code>).</p></li>
 <li><p><code>channels</code>: a non-empty character vector of channel names or URLs,
 without <code>NA</code> or <code>""</code>, in priority order.</p></li>
 <li><p><code>additional_channels</code>: <code>NULL</code>, or a character vector like <code>channels</code>.
@@ -246,10 +261,11 @@ against those sessions.</p>
 
 
 <ul><li><p><code>backend_create_env(backend, packages = NULL, env_file = NULL, env_name = "condathis-env", channels = "conda-forge", channel_priority = c("strict", "flexible", "disabled"), additional_channels = NULL, platform = NULL, overwrite = FALSE, verbose = c("output", "silent", "cmd", "spinner", "full"))</code> creates
-the environment. Its directory is the one that <code>backend_get_env_dir()</code>
-returns, and <code>condathis</code> calls it only when that directory does not
-exist. That is
-the case for a new environment. It is also the case with
+the environment. It can also take the optional argument
+<code>definition = NULL</code> (see <em>What condathis passes</em>). Its directory is
+the one that <code>backend_get_env_dir()</code> returns, and <code>condathis</code> calls it
+only when that directory does not exist. That is the case for a new
+environment. It is also the case with
 <code>overwrite = TRUE</code>, after <code>condathis</code> moved the existing environment
 aside or deleted a directory that was not an environment (one left by
 a failed create). When the call fails, <code>condathis</code> deletes what it left
@@ -257,7 +273,9 @@ and moves the old environment back. A call fails also when it returns a
 non-zero <code>status</code> or an invalid <code>link_scripts_skipped</code> (see <em>Results</em>).
 So a misspelled spec with <code>overwrite = TRUE</code> does not cost the user the
 environment. <code>overwrite</code> tells the backend which of the two cases
-applies. With <code>env_file</code>, build the environment from that file. With
+applies. With <code>env_file</code>, build the environment from that file (read
+<code>definition</code> for its <code>format</code> and <code>options</code>, when the function takes
+it). With
 <code>platform</code>, build it for that platform. The platform can be one that
 <code>condathis</code> chose because the request does not solve for the native
 platform of the backend (see <code>backend_can_solve()</code>). After a successful
@@ -282,7 +300,18 @@ and on Windows, <code>condathis</code> can choose an emulated platform (see
 package records of an environment without a recorded one. For an
 environment without packages of a platform, it passes the platform
 that it would choose for a new environment. Otherwise, <code>platform</code> is
-<code>NULL</code>. It must not create a missing environment.</p></li>
+<code>NULL</code>. It must not create a missing environment.</p>
+<p>It can also take the optional arguments <code>env_file = NULL</code> and
+<code>definition = NULL</code>. With <code>env_file</code>, install the packages that the
+file requests, solved
+together with the packages of the environment, as <code>micromamba install -f</code> does. <code><a href="install_packages.html">install_packages()</a></code> passes a file only when
+<code>backend_describe_definition()</code> did not say that it is a lock (or that
+the backend cannot read it). A function that takes neither argument
+cannot install from a file, and
+<code><a href="install_packages.html">install_packages()</a></code> then aborts before any call with class
+<code>condathis_install_packages_unsupported_definition</code>. A function that
+takes <code>env_file</code> but not <code>definition</code> gets only the path, as
+<code>backend_create_env()</code> does.</p></li>
 <li><p><code>backend_resolve_run(backend, cmd, args = character(0L), env_name = "condathis-env", verbose = "silent", base_env = NULL, timeout = Inf)</code> describes, without running <code>cmd</code>, how to run <code>cmd</code>
 with <code>args</code> in the activated environment. <code>base_env</code> is the
 environment that the command gets without activation: the session's
@@ -415,7 +444,8 @@ that only starts processes has nothing to wait for. Default: <code>TRUE</code>.<
 <li><p><code>backend_native_platform(backend)</code> returns the platform (subdir) that
 the backend solves for when it gets no <code>platform</code>, such as
 <code>"osx-arm64"</code>, or <code>NA</code> when it cannot tell. Default: <code>NA</code>.</p></li>
-<li><p><code>backend_can_solve(backend, packages = NULL, env_file = NULL, channels = "conda-forge", channel_priority = c("strict", "flexible", "disabled"), additional_channels = NULL, platform)</code> returns <code>TRUE</code> when the request
+<li><p><code>backend_can_solve(backend, packages = NULL, env_file = NULL, channels = "conda-forge", channel_priority = c("strict", "flexible", "disabled"), additional_channels = NULL, platform)</code> returns <code>TRUE</code> when the
+request
 solves for <code>platform</code>, <code>FALSE</code> when it does not, and <code>NA</code> when it
 cannot tell, for example without network access or for a missing
 channel. It must not create an environment. <code>condathis</code> asks it when
@@ -423,7 +453,61 @@ it chooses the platform of a new environment. A request that does not
 solve for the native platform uses an emulated one when it solves
 there: <code>"osx-64"</code> on Apple Silicon with Rosetta 2, and <code>"win-64"</code> on
 Windows on ARM. An error counts as <code>NA</code>. Default: <code>NA</code>, so <code>condathis</code>
-never chooses an emulated platform.</p></li>
+never chooses an emulated platform. <code>condathis</code> never asks it about a
+lock (see <code>backend_describe_definition()</code>). It can also take the
+optional argument <code>definition = NULL</code>.</p></li>
+<li><p><code>backend_describe_definition(backend, definition, platform = NULL)</code>
+tells <code>condathis</code> what the backend makes of an <code><a href="env_definition.html">env_definition()</a></code>:
+whether it reads it, and whether it is a request or a lock.
+<code>platform</code> is the <code>platform</code> of <code><a href="create_env.html">create_env()</a></code>. <code><a href="create_env.html">create_env()</a></code> calls
+it before it locks, moves or creates anything, so it must be cheap:
+read the file, but do not download, install or solve anything, and do
+not change any environment. It returns a list:</p><ul><li><p><code>supported</code>: <code>TRUE</code> (the backend reads it), <code>FALSE</code> (it does not) or
+<code>NA</code> (it cannot tell). <code>FALSE</code> aborts with class
+<code>condathis_create_env_unsupported_definition</code> (also
+<code>condathis_backend_unsupported</code>), with <code>reason</code> in the message.
+Refuse an option of <code>definition$options</code> that you do not
+understand: never ignore it.</p></li>
+<li><p><code>format</code>: <code>NA</code>, or the name of the format that the backend detected
+or was given, such as <code>"conda-lock-v1"</code>.</p></li>
+<li><p><code>kind</code>: <code>"request"</code> (the backend solves it, as package specs),
+<code>"lock"</code> (it installs exact packages, without a solve) or <code>NA</code>.</p></li>
+<li><p><code>platforms</code>: <code>NULL</code>, or the platforms that a lock has packages for.</p></li>
+<li><p><code>reason</code>: <code>NA</code>, or one sentence: why <code>supported</code> is <code>FALSE</code>.</p></li>
+<li><p><code>records</code>: <code>NULL</code>, or for a lock a data frame with the character
+columns <code>name</code>, <code>version</code>, <code>build_string</code> and <code>platform</code> (the
+platform the record is for), one row per package that the backend
+installs from it.</p></li>
+</ul><p>For a request, <code>condathis</code> goes on as for package specs: it asks
+<code>backend_can_solve()</code> about the platform. For a lock, it picks the
+platform from <code>platforms</code> and never calls <code>backend_can_solve()</code>,
+since a dry run says nothing about a lock. It aborts when
+<code>channels</code>, <code>additional_channels</code> or <code>channel_priority</code> were given
+with an <code><a href="env_definition.html">env_definition()</a></code> (the deprecated <code>env_file</code> of
+<code><a href="create_env.html">create_env()</a></code> passes them on, as in 0.1.4). Records of <code>noarch</code>
+packages install on any platform: leave <code>noarch</code> out of <code>platforms</code>.
+When <code>records</code> has rows for the platform and the new environment has
+no package, the create fails with <code>condathis_create_env_failed</code>. With
+<code>NA</code> as <code>kind</code>, <code>condathis</code> passes the file on and makes no other
+check, as for every backend before this function existed. An error
+counts as <code>NA</code>.</p>
+<p><code>records</code> also lets <code>condathis</code> compare an existing environment with
+a lock: <code>create_env(overwrite = FALSE)</code> keeps the environment when
+its packages are exactly the records for the platform, and
+<code><a href="validate_env.html">validate_env()</a></code> gives <code>TRUE</code>. Records with <code>NA</code> in <code>name</code>,
+<code>version</code> or <code>build_string</code> are not compared. <code><a href="install_packages.html">install_packages()</a></code>
+calls this function too, and installs from a request only.</p>
+<p>With <code>method = "auto"</code>, a new environment from a definition goes to
+the first available backend in <code>condathis.backend_priority</code> order
+whose <code>supported</code> is not <code>FALSE</code>.
+Default: <code>NA</code>, or <code>FALSE</code> when the definition has a <code>format</code> or
+<code>options</code> and <code>backend_create_env()</code> has no <code>definition</code> argument.</p></li>
+<li><p><code>backend_definition_formats(backend)</code> returns the names of the
+formats that the backend reads, as a character vector, such as
+<code>c("environment-yaml", "explicit")</code>. It is used only in messages: an
+error for a definition with a <code>format</code> names the registered backends
+that list it. <code>condathis</code> never decides from it. Default:
+<code>character(0)</code>.</p></li>
 <li><p><code>backend_resolve_run_in_dir(backend, cmd, args = character(0L), env_dir, verbose = "silent", base_env = NULL, timeout = Inf)</code>
 describes how to run <code>cmd</code> with <code>args</code> in the activated environment
 whose directory (its prefix) is <code>env_dir</code>. This is an environment

@@ -70,16 +70,19 @@ still runs micromamba with your home directory when micromamba needs
 something from there. It then adds the environment to your list. This
 happens for channel credentials that you saved (with
 `micromamba auth login`, an `anaconda-client` token, or a `.netrc`
-file), and for an `env_file` that names your home directory (`~/`,
-`$HOME`) or installs pip packages. Listing and removing environments
-never change the file, so the line of an environment that
+file), and for an environment file
+([`env_definition()`](https://luciorq.github.io/condathis/reference/env_definition.md))
+that names your home directory (`~/`, `$HOME`) or installs pip packages.
+Listing and removing environments never change the file, so the line of
+an environment that
 [`remove_env()`](https://luciorq.github.io/condathis/reference/remove_env.md)
 deleted stays. Both conda and mamba drop such lines the next time they
 list environments. A `~` at the start of a channel, of a package path
-and of the path of `env_file` always means your own home directory.
+and of the path of an environment file always means your own home
+directory.
 
-The pip that installs the pip packages of an `env_file` keeps its cache
-in the `cache/` directory of the data directory on Linux, which
+The pip that installs the pip packages of an environment file keeps its
+cache in the `cache/` directory of the data directory on Linux, which
 [`clean_cache()`](https://luciorq.github.io/condathis/reference/clean_cache.md)
 deletes. On macOS and Windows, it keeps its cache in your own user cache
 (`~/Library/Caches/pip`, `%LOCALAPPDATA%\pip\Cache`).
@@ -107,5 +110,5 @@ condathis::with_sandbox_dir({
 #> # A tibble: 1 × 2
 #>   backend    path                                                           
 #>   <chr>      <chr>                                                          
-#> 1 micromamba /tmp/RtmpJR5hQY/condathis-sandbox-2b4a17373395/data/R/condathis
+#> 1 micromamba /tmp/Rtmp6wGB7j/condathis-sandbox-2aac2a4517ab/data/R/condathis
 ```

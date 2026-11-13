@@ -55,9 +55,10 @@ Runs command line interface (CLI) tools in isolated and reproducible 'Conda' env
 
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-    <p>Create an environment with <code><a href="create_env.html">create_env()</a></code>. Run a command line tool in it
-with <code><a href="run.html">run()</a></code>, or run several tools connected by pipes with
-<code><a href="run_pipeline.html">run_pipeline()</a></code>. Read the output with <code><a href="parse_output.html">parse_output()</a></code>.</p>
+    <p>Create an environment with <code><a href="create_env.html">create_env()</a></code>, from package specs or from a
+file such as <code>environment.yml</code> or a lock file (<code><a href="env_definition.html">env_definition()</a></code>). Run a
+command line tool in it with <code><a href="run.html">run()</a></code>, or run several tools connected by
+pipes with <code><a href="run_pipeline.html">run_pipeline()</a></code>. Read the output with <code><a href="parse_output.html">parse_output()</a></code>.</p>
 <p><code>condathis</code> downloads <code>micromamba</code> when it first needs it and finds no
 usable copy (see <em>micromamba discovery</em> in <a href="condathis-options.html">condathis-options</a>). A
 message says so first, unless <code>verbose = "silent"</code>. It keeps the

@@ -62,5 +62,5 @@ condathis::with_sandbox_dir({
   condathis::backend_root_dir("rattler")
   #> <data dir>/R/condathis/rattler
 })
-#> /tmp/RtmpJR5hQY/condathis-sandbox-2b4a68f924c5/data/R/condathis/rattler
+#> /tmp/Rtmp6wGB7j/condathis-sandbox-2aac14adc2ac/data/R/condathis/rattler
 ```

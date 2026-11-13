@@ -1,10 +1,11 @@
 # Create a Conda environment
 
 Creates a Conda environment from package specs or from an environment
-file. With `overwrite = FALSE` (the default), `create_env()` never
-replaces an existing environment. It keeps the environment when it
-already has the requested packages. Otherwise, it aborts (see *Existing
-environments*).
+file given by
+[`env_definition()`](https://luciorq.github.io/condathis/reference/env_definition.md).
+With `overwrite = FALSE` (the default), `create_env()` never replaces an
+existing environment. It keeps the environment when it already has the
+requested packages. Otherwise, it aborts (see *Existing environments*).
 
 ## Usage
 
@@ -30,7 +31,26 @@ create_env(
   Package match specs (MatchSpec strings), unnamed: character strings or
   character vectors, in order. Examples: `"python=3.13"`,
   `"bioconda::fastqc==0.12.1"`. With no specs, `create_env()` creates an
-  empty environment. Any other value aborts with class
+  empty environment.
+
+  Or one environment file, given by
+  [`env_definition()`](https://luciorq.github.io/condathis/reference/env_definition.md),
+  such as `env_definition("environment.yml")`, without package specs.
+  Package specs and a definition together, or two definitions, abort
+  with class `condathis_create_env_conflicting_args`. A file that does
+  not exist aborts with class `condathis_create_env_missing_env_file`.
+  With `method = "auto"`, a new environment uses the first available
+  backend in `condathis.backend_priority` order that does not say it
+  cannot read the file. A file that the backend cannot read (any of
+  them, with `"auto"`) aborts with class
+  `condathis_create_env_unsupported_definition` (also
+  `condathis_backend_unsupported`). See
+  [`env_definition()`](https://luciorq.github.io/condathis/reference/env_definition.md)
+  for the formats, and for the rules of lock files. No backend applies
+  the `variables:` of a YAML file: the commands that run in the
+  environment do not get them.
+
+  Any other value aborts with class
   `condathis_create_env_invalid_packages`. Such values are:
 
   - A named argument that `create_env()` does not have. Names are never
@@ -41,7 +61,9 @@ create_env(
 
   - `NA` or `""`.
 
-  - A file name that ends in `.yml` or `.yaml`. Pass it as `env_file`.
+  - A file name that ends in `.yml`, `.yaml`, `.json` or `.lock`. Pass
+    it with
+    [`env_definition()`](https://luciorq.github.io/condathis/reference/env_definition.md).
 
   `packages = <specs>` still works, and `packages = NULL` creates an
   empty environment. It is deprecated. It warns once per session (class
@@ -197,11 +219,13 @@ create_env(
   platform, the backend fails. Then `create_env()` aborts with class
   `condathis_create_env_failed`. With `NULL`, condathis can fall back to
   an emulated platform. This happens when the package specs or the
-  `env_file` cannot be installed for the native platform, dependencies
-  included, but can for the emulated one. This works with every backend
-  that can tell whether a request solves for a platform, micromamba
-  included. On Apple Silicon, condathis uses `"osx-64"` when Rosetta 2
-  is available. With a backend that solves for `"win-arm64"`, condathis
+  environment file cannot be installed for the native platform,
+  dependencies included, but can for the emulated one. This works with
+  every backend that can tell whether a request solves for a platform,
+  micromamba included. A lock file is never solved (see
+  [`env_definition()`](https://luciorq.github.io/condathis/reference/env_definition.md)).
+  On Apple Silicon, condathis uses `"osx-64"` when Rosetta 2 is
+  available. With a backend that solves for `"win-arm64"`, condathis
   uses `"win-64"` through x64 emulation. The `win-arm64` micromamba,
   which a native ARM64 R on Windows installs, is such a backend.
   [`install_packages()`](https://luciorq.github.io/condathis/reference/install_packages.md)
@@ -211,22 +235,30 @@ create_env(
 
 - env_file:
 
-  `NULL` (the default) or the path of an environment YAML file. With the
-  micromamba backend, condathis passes it to `micromamba create -f`. No
-  backend applies the `variables:` of a YAML file: the commands that run
-  in the environment do not get them. Do not use both package specs and
-  `env_file`: that aborts with class
-  `condathis_create_env_conflicting_args`. A file that does not exist
-  aborts with class `condathis_create_env_missing_env_file`.
+  `NULL` (the default) or the path of an environment file. Deprecated:
+  pass `env_definition(<path>)` in `...` instead. `env_file = path`
+  still works the same way. It warns once per session (class
+  `condathis_deprecated_env_file_arg`) when the call comes from the
+  console, a script or the tests of the package that makes it. Calls
+  made inside other packages do not warn. `env_file` and an
+  [`env_definition()`](https://luciorq.github.io/condathis/reference/env_definition.md)
+  together abort with class `condathis_create_env_conflicting_args`. A
+  file that does not exist aborts with class
+  `condathis_create_env_missing_env_file`. With a lock file, `channels`,
+  `additional_channels` and `channel_priority` are ignored, as in 0.1.4.
 
 - overwrite:
 
   `TRUE` or `FALSE` (the default). With `FALSE`, `create_env()` never
   replaces an existing environment. `create_env()` keeps the environment
   and runs nothing when it has every requested package (see *Existing
-  environments*) or when no package is requested. It returns status 0.
-  Otherwise, and always when `env_file` is set, `create_env()` aborts
-  with class `condathis_create_env_exists`. Use
+  environments*) or when no package is requested. For a lock file whose
+  packages the backend reports, such as an `@EXPLICIT`, conda-lock or
+  mambajs file with micromamba, it keeps the environment when it has
+  exactly those packages (see *Existing environments*). It returns
+  status 0. Otherwise, and always for an environment file that is
+  solved, such as `environment.yml`, `create_env()` aborts with class
+  `condathis_create_env_exists`. Use
   [`install_packages()`](https://luciorq.github.io/condathis/reference/install_packages.md)
   to add packages to an existing environment. Use
   [`validate_env()`](https://luciorq.github.io/condathis/reference/validate_env.md)
@@ -337,6 +369,17 @@ aborts with class `condathis_create_env_platform_mismatch`, and
 `create_env()` keeps the environment. With `platform = NULL`, the
 platform is not compared.
 
+A lock file is compared by its packages, not by specs. The environment
+must have exactly the packages that the lock lists for its platform (see
+[`env_definition()`](https://luciorq.github.io/condathis/reference/env_definition.md)):
+the same names, versions and build strings, none missing and none more.
+Packages that pip installed are left out. A difference aborts with class
+`condathis_create_env_exists`, and the message names a few of the
+packages that differ. An environment file that is solved, such as
+`environment.yml`, or a lock whose packages the backend does not report,
+is never compared: an existing environment aborts with class
+`condathis_create_env_exists`.
+
 ## Other R sessions
 
 Only one R session at a time changes an environment. `create_env()`,
@@ -375,6 +418,7 @@ for every condition class, and
 for the options that choose the backend.
 
 Other environments:
+[`env_definition()`](https://luciorq.github.io/condathis/reference/env_definition.md),
 [`env_exists()`](https://luciorq.github.io/condathis/reference/env_exists.md),
 [`env_path()`](https://luciorq.github.io/condathis/reference/env_path.md),
 [`get_env_dir()`](https://luciorq.github.io/condathis/reference/get_env_dir.md),

@@ -258,6 +258,13 @@ function, and a handler for `condathis_error` catches every error of
     packages do not warn. `options(lifecycle_verbosity = "warning")`
     makes those calls warn too, and `"quiet"` turns the warning off.
 
+  - `condathis_deprecated_env_file_arg`  
+    for `env_file =` in
+    [`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md):
+    pass an
+    [`env_definition()`](https://luciorq.github.io/condathis/reference/env_definition.md)
+    in `...` instead. The same rule as for `packages =`.
+
   - `condathis_deprecated_method_native`  
     for `method = "native"` (once per session).
     [`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md),
@@ -324,25 +331,47 @@ Arguments:
 
 - `condathis_create_env_invalid_platform`
 
-- `condathis_create_env_invalid_env_file`
+- `condathis_create_env_invalid_env_file`  
+  an invalid value of the deprecated `env_file`.
 
-- `condathis_create_env_missing_env_file`
+- `condathis_create_env_missing_env_file`  
+  the file of an
+  [`env_definition()`](https://luciorq.github.io/condathis/reference/env_definition.md)
+  or of `env_file` does not exist.
 
 - `condathis_create_env_invalid_overwrite`
 
 - `condathis_create_env_conflicting_args`  
-  package specs and `env_file`.
+  package specs and an
+  [`env_definition()`](https://luciorq.github.io/condathis/reference/env_definition.md),
+  two definitions, a definition and `env_file`, or `channels`,
+  `additional_channels` or `channel_priority` with a lock file given by
+  [`env_definition()`](https://luciorq.github.io/condathis/reference/env_definition.md).
+  The deprecated `env_file` ignores them, as in 0.1.4.
+
+- `condathis_create_env_unsupported_definition`  
+  the backend cannot read the
+  [`env_definition()`](https://luciorq.github.io/condathis/reference/env_definition.md),
+  or no available backend can with `method = "auto"`. Also
+  `condathis_backend_unsupported`.
 
 The environment:
 
 - `condathis_create_env_exists`  
-  it exists, and `overwrite = FALSE` cannot keep it.
+  it exists, and `overwrite = FALSE` cannot keep it. A lock file keeps
+  it only when the environment has exactly the packages of the lock.
 
 - `condathis_create_env_platform_mismatch`
 
+- `condathis_create_env_platform_not_locked`  
+  a lock file lists none of the platforms that
+  [`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md)
+  can use. Also `condathis_create_env_platform_mismatch`.
+
 The backend:
 
-- `condathis_create_env_failed`
+- `condathis_create_env_failed`  
+  also when a lock file that lists packages gives an empty environment.
 
 - `condathis_create_env_link_scripts_skipped` (a warning)
 
@@ -363,6 +392,20 @@ Arguments:
 - `condathis_install_packages_invalid_channels`
 
 - `condathis_install_packages_invalid_channel_priority`
+
+- `condathis_install_packages_conflicting_args`  
+  package specs and an
+  [`env_definition()`](https://luciorq.github.io/condathis/reference/env_definition.md),
+  or two definitions.
+
+- `condathis_install_packages_missing_env_file`  
+  the file of an
+  [`env_definition()`](https://luciorq.github.io/condathis/reference/env_definition.md)
+  does not exist.
+
+- `condathis_install_packages_unsupported_definition`  
+  a lock file, or a file that the backend cannot read or install from
+  (then also `condathis_backend_unsupported`).
 
 The environment:
 
@@ -433,11 +476,29 @@ Arguments:
 
 - `condathis_validate_env_invalid_platform`
 
+- `condathis_validate_env_conflicting_args`  
+  package specs and an
+  [`env_definition()`](https://luciorq.github.io/condathis/reference/env_definition.md),
+  or two definitions.
+
+- `condathis_validate_env_missing_env_file`  
+  the file of an
+  [`env_definition()`](https://luciorq.github.io/condathis/reference/env_definition.md)
+  does not exist.
+
+- `condathis_validate_env_unsupported_definition`  
+  a file that cannot be compared: a request such as `environment.yml`, a
+  lock whose packages the backend does not report, or a lock without
+  packages for `platform`. Also `condathis_backend_unsupported` when the
+  backend cannot read the file.
+
 The environment:
 
 - `condathis_validate_env_env_not_found`
 
-- `condathis_validate_env_unsatisfied`
+- `condathis_validate_env_unsatisfied`  
+  a spec is not satisfied, or the environment does not have exactly the
+  packages of a lock file.
 
 The backend:
 
@@ -659,6 +720,27 @@ The classes of
 - `condathis_env_path_not_found`  
   `condathis_env_path_not_conda_env`  
   also `condathis_env_not_found`.
+
+### env_definition()
+
+The classes of
+[`env_definition()`](https://luciorq.github.io/condathis/reference/env_definition.md):
+
+- `condathis_env_definition_invalid_path`  
+  the `path` argument, also a URL. Also `condathis_invalid_path`.
+
+- `condathis_env_definition_invalid_format`
+
+- `condathis_env_definition_invalid_options`  
+  an unnamed or repeated option in `...`.
+
+- `condathis_env_definition_invalid`  
+  a malformed
+  [`env_definition()`](https://luciorq.github.io/condathis/reference/env_definition.md)
+  object, found by the function that gets it.
+
+A definition passed to a function that takes only package specs or names
+aborts with the class of the invalid argument of that function.
 
 ### parse_output()
 

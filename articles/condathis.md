@@ -146,6 +146,12 @@ By using `condathis`, you get:
   adds packages to an existing environment, and
   [`list_packages()`](https://luciorq.github.io/condathis/reference/list_packages.md)
   lists them.
+- [`env_definition()`](https://luciorq.github.io/condathis/reference/env_definition.md)
+  creates an environment from a file, such as an environment YAML file
+  or a lock file:
+  `create_env(env_definition("environment.yml"), env_name = "my-env")`.
+  A lock file, such as an `@EXPLICIT` or conda-lock file, installs the
+  exact packages it lists, without a solve.
 - [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md)
   connects commands with pipes, as `|` does in a shell, each in its own
   environment if needed.

@@ -123,15 +123,15 @@ with the <code>home/</code> directory of the data directory as their home.
 micromamba needs something from there. It then adds the environment to
 your list. This happens for channel credentials that you saved (with
 <code>micromamba auth login</code>, an <code>anaconda-client</code> token, or a <code>.netrc</code>
-file), and for an <code>env_file</code> that names your home directory (<code>~/</code>,
-<code>$HOME</code>) or installs pip packages. Listing and removing environments
-never change the file, so the line of an environment that
-<code><a href="remove_env.html">remove_env()</a></code> deleted stays. Both conda and mamba drop such lines the
+file), and for an environment file (<code><a href="env_definition.html">env_definition()</a></code>) that names your
+home directory (<code>~/</code>, <code>$HOME</code>) or installs pip packages. Listing and
+removing environments never change the file, so the line of an
+environment that <code><a href="remove_env.html">remove_env()</a></code> deleted stays. Both conda and mamba drop such lines the
 next time they list environments. A <code>~</code> at the start of a channel, of a
-package path and of the path of <code>env_file</code> always means your own home
-directory.</p>
-<p>The pip that installs the pip packages of an <code>env_file</code> keeps its cache
-in the <code>cache/</code> directory of the data directory on Linux, which
+package path and of the path of an environment file always means your
+own home directory.</p>
+<p>The pip that installs the pip packages of an environment file keeps its
+cache in the <code>cache/</code> directory of the data directory on Linux, which
 <code><a href="clean_cache.html">clean_cache()</a></code> deletes. On macOS and Windows, it keeps its cache in
 your own user cache (<code>~/Library/Caches/pip</code>,
 <code>%LOCALAPPDATA%\pip\Cache</code>).</p>
@@ -157,7 +157,7 @@ your own user cache (<code>~/Library/Caches/pip</code>,
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #949494;"># A tibble: 1 × 2</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   backend    path                                                           </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>      <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>                                                          </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">1</span> micromamba /tmp/RtmpJR5hQY/condathis-sandbox-2b4a17373395/data/R/condathis</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">1</span> micromamba /tmp/Rtmp6wGB7j/condathis-sandbox-2aac2a4517ab/data/R/condathis</span>
 <span class="r-in"><span></span></span>
 </code></pre></div>
     </div>

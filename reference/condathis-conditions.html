@@ -219,6 +219,9 @@ console, a script or the tests of the calling package. Calls made
 inside other packages do not warn.
 <code>options(lifecycle_verbosity = "warning")</code> makes those calls warn
 too, and <code>"quiet"</code> turns the warning off.</p></li>
+<li><p><code>condathis_deprecated_env_file_arg</code><br>
+for <code>env_file =</code> in <code><a href="create_env.html">create_env()</a></code>: pass an <code><a href="env_definition.html">env_definition()</a></code> in
+<code>...</code> instead. The same rule as for <code>packages =</code>.</p></li>
 <li><p><code>condathis_deprecated_method_native</code><br>
 for <code>method = "native"</code> (once per session). <code><a href="create_env.html">create_env()</a></code>,
 <code><a href="install_packages.html">install_packages()</a></code>, <code><a href="validate_env.html">validate_env()</a></code>, <code><a href="remove_env.html">remove_env()</a></code>, <code><a href="run.html">run()</a></code> and
@@ -258,15 +261,29 @@ not captured.</p></li>
 <li><p><code>condathis_create_env_invalid_channels</code></p></li>
 <li><p><code>condathis_create_env_invalid_channel_priority</code></p></li>
 <li><p><code>condathis_create_env_invalid_platform</code></p></li>
-<li><p><code>condathis_create_env_invalid_env_file</code></p></li>
-<li><p><code>condathis_create_env_missing_env_file</code></p></li>
+<li><p><code>condathis_create_env_invalid_env_file</code><br>
+an invalid value of the deprecated <code>env_file</code>.</p></li>
+<li><p><code>condathis_create_env_missing_env_file</code><br>
+the file of an <code><a href="env_definition.html">env_definition()</a></code> or of <code>env_file</code> does not exist.</p></li>
 <li><p><code>condathis_create_env_invalid_overwrite</code></p></li>
 <li><p><code>condathis_create_env_conflicting_args</code><br>
-package specs and <code>env_file</code>.</p></li>
+package specs and an <code><a href="env_definition.html">env_definition()</a></code>, two definitions, a definition
+and <code>env_file</code>, or <code>channels</code>, <code>additional_channels</code> or
+<code>channel_priority</code> with a lock file given by <code><a href="env_definition.html">env_definition()</a></code>. The
+deprecated <code>env_file</code> ignores them, as in 0.1.4.</p></li>
+<li><p><code>condathis_create_env_unsupported_definition</code><br>
+the backend cannot read the <code><a href="env_definition.html">env_definition()</a></code>, or no available
+backend can with <code>method = "auto"</code>. Also
+<code>condathis_backend_unsupported</code>.</p></li>
 </ul><p>The environment:</p><ul><li><p><code>condathis_create_env_exists</code><br>
-it exists, and <code>overwrite = FALSE</code> cannot keep it.</p></li>
+it exists, and <code>overwrite = FALSE</code> cannot keep it. A lock file keeps
+it only when the environment has exactly the packages of the lock.</p></li>
 <li><p><code>condathis_create_env_platform_mismatch</code></p></li>
-</ul><p>The backend:</p><ul><li><p><code>condathis_create_env_failed</code></p></li>
+<li><p><code>condathis_create_env_platform_not_locked</code><br>
+a lock file lists none of the platforms that <code><a href="create_env.html">create_env()</a></code> can use.
+Also <code>condathis_create_env_platform_mismatch</code>.</p></li>
+</ul><p>The backend:</p><ul><li><p><code>condathis_create_env_failed</code><br>
+also when a lock file that lists packages gives an empty environment.</p></li>
 <li><p><code>condathis_create_env_link_scripts_skipped</code> (a warning)</p></li>
 </ul></div>
 
@@ -280,6 +297,13 @@ it exists, and <code>overwrite = FALSE</code> cannot keep it.</p></li>
 <li><p><code>condathis_install_packages_invalid_env_name</code></p></li>
 <li><p><code>condathis_install_packages_invalid_channels</code></p></li>
 <li><p><code>condathis_install_packages_invalid_channel_priority</code></p></li>
+<li><p><code>condathis_install_packages_conflicting_args</code><br>
+package specs and an <code><a href="env_definition.html">env_definition()</a></code>, or two definitions.</p></li>
+<li><p><code>condathis_install_packages_missing_env_file</code><br>
+the file of an <code><a href="env_definition.html">env_definition()</a></code> does not exist.</p></li>
+<li><p><code>condathis_install_packages_unsupported_definition</code><br>
+a lock file, or a file that the backend cannot read or install from
+(then also <code>condathis_backend_unsupported</code>).</p></li>
 </ul><p>The environment:</p><ul><li><p><code>condathis_install_packages_env_not_found</code></p></li>
 </ul><p>The backend:</p><ul><li><p><code>condathis_install_packages_failed</code></p></li>
 <li><p><code>condathis_install_packages_link_scripts_skipped</code> (a warning)</p></li>
@@ -329,8 +353,19 @@ name a backend whose caches were not cleaned.</p></li>
 <li><p><code>condathis_validate_env_invalid_env_name</code></p></li>
 <li><p><code>condathis_validate_env_invalid_channels</code></p></li>
 <li><p><code>condathis_validate_env_invalid_platform</code></p></li>
+<li><p><code>condathis_validate_env_conflicting_args</code><br>
+package specs and an <code><a href="env_definition.html">env_definition()</a></code>, or two definitions.</p></li>
+<li><p><code>condathis_validate_env_missing_env_file</code><br>
+the file of an <code><a href="env_definition.html">env_definition()</a></code> does not exist.</p></li>
+<li><p><code>condathis_validate_env_unsupported_definition</code><br>
+a file that cannot be compared: a request such as <code>environment.yml</code>,
+a lock whose packages the backend does not report, or a lock without
+packages for <code>platform</code>. Also <code>condathis_backend_unsupported</code> when the
+backend cannot read the file.</p></li>
 </ul><p>The environment:</p><ul><li><p><code>condathis_validate_env_env_not_found</code></p></li>
-<li><p><code>condathis_validate_env_unsatisfied</code></p></li>
+<li><p><code>condathis_validate_env_unsatisfied</code><br>
+a spec is not satisfied, or the environment does not have exactly the
+packages of a lock file.</p></li>
 </ul><p>The backend:</p><ul><li><p><code>condathis_validate_env_failed</code></p></li>
 </ul></div>
 
@@ -474,6 +509,22 @@ environment, also <code>condathis_backend_unsupported</code>.</p></li>
 <li><p><code>condathis_env_path_not_found</code><br><code>condathis_env_path_not_conda_env</code><br>
 also <code>condathis_env_not_found</code>.</p></li>
 </ul></div>
+
+<div class="section">
+<h3 id="env-definition-">env_definition()<a class="anchor" aria-label="anchor" href="#env-definition-"></a></h3>
+
+
+<p>The classes of <code><a href="env_definition.html">env_definition()</a></code>:</p><ul><li><p><code>condathis_env_definition_invalid_path</code><br>
+the <code>path</code> argument, also a URL. Also <code>condathis_invalid_path</code>.</p></li>
+<li><p><code>condathis_env_definition_invalid_format</code></p></li>
+<li><p><code>condathis_env_definition_invalid_options</code><br>
+an unnamed or repeated option in <code>...</code>.</p></li>
+<li><p><code>condathis_env_definition_invalid</code><br>
+a malformed <code><a href="env_definition.html">env_definition()</a></code> object, found by the function that gets
+it.</p></li>
+</ul><p>A definition passed to a function that takes only package specs or
+names aborts with the class of the invalid argument of that function.</p>
+</div>
 
 <div class="section">
 <h3 id="parse-output-">parse_output()<a class="anchor" aria-label="anchor" href="#parse-output-"></a></h3>

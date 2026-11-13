@@ -154,10 +154,28 @@ are never used. The values are:
 - `packages`: a character vector of package match specs, such as
   `"python>=3.12"`, without `NA` or `""`. `backend_create_env()` gets
   `NULL` when the request has no packages: an empty environment, or one
-  built from `env_file`.
+  built from `env_file`. `backend_install()` gets `NULL` when it
+  installs from `env_file`.
 
-- `env_file`: `NULL`, or the path of an existing environment file. When
-  it is set, `packages` is `NULL`.
+- `env_file`: `NULL`, or the absolute path of an existing environment
+  file (or directory) from an
+  [`env_definition()`](https://luciorq.github.io/condathis/reference/env_definition.md).
+  When it is set, `packages` is `NULL`.
+
+- `definition`: the
+  [`env_definition()`](https://luciorq.github.io/condathis/reference/env_definition.md)
+  object that `env_file` comes from, a list with `path` (the same path
+  as `env_file`), `format` (`NULL` or a string) and `options` (a named
+  list). It came after the first functions of version 2 of this
+  contract, so it is not in the signatures below, and a function written
+  without it keeps working. `condathis` passes it only to a function
+  that has a `definition` argument (or `...`), and only when `env_file`
+  is set. `condathis` never reads `format` or `options`: the backend
+  does. A backend function without the argument gets only `env_file`.
+  Then a definition with a `format` or `options` aborts before any call,
+  with class `condathis_create_env_unsupported_definition` or
+  `condathis_install_packages_unsupported_definition` (also
+  `condathis_backend_unsupported`).
 
 - `channels`: a non-empty character vector of channel names or URLs,
   without `NA` or `""`, in priority order.
@@ -214,21 +232,24 @@ needs no lock of its own against those sessions.
 ## Required functions
 
 - `backend_create_env(backend, packages = NULL, env_file = NULL, env_name = "condathis-env", channels = "conda-forge", channel_priority = c("strict", "flexible", "disabled"), additional_channels = NULL, platform = NULL, overwrite = FALSE, verbose = c("output", "silent", "cmd", "spinner", "full"))`
-  creates the environment. Its directory is the one that
-  `backend_get_env_dir()` returns, and `condathis` calls it only when
-  that directory does not exist. That is the case for a new environment.
-  It is also the case with `overwrite = TRUE`, after `condathis` moved
-  the existing environment aside or deleted a directory that was not an
-  environment (one left by a failed create). When the call fails,
-  `condathis` deletes what it left and moves the old environment back. A
-  call fails also when it returns a non-zero `status` or an invalid
-  `link_scripts_skipped` (see *Results*). So a misspelled spec with
-  `overwrite = TRUE` does not cost the user the environment. `overwrite`
-  tells the backend which of the two cases applies. With `env_file`,
-  build the environment from that file. With `platform`, build it for
-  that platform. The platform can be one that `condathis` chose because
-  the request does not solve for the native platform of the backend (see
-  `backend_can_solve()`). After a successful call, `condathis` writes
+  creates the environment. It can also take the optional argument
+  `definition = NULL` (see *What condathis passes*). Its directory is
+  the one that `backend_get_env_dir()` returns, and `condathis` calls it
+  only when that directory does not exist. That is the case for a new
+  environment. It is also the case with `overwrite = TRUE`, after
+  `condathis` moved the existing environment aside or deleted a
+  directory that was not an environment (one left by a failed create).
+  When the call fails, `condathis` deletes what it left and moves the
+  old environment back. A call fails also when it returns a non-zero
+  `status` or an invalid `link_scripts_skipped` (see *Results*). So a
+  misspelled spec with `overwrite = TRUE` does not cost the user the
+  environment. `overwrite` tells the backend which of the two cases
+  applies. With `env_file`, build the environment from that file (read
+  `definition` for its `format` and `options`, when the function takes
+  it). With `platform`, build it for that platform. The platform can be
+  one that `condathis` chose because the request does not solve for the
+  native platform of the backend (see `backend_can_solve()`). After a
+  successful call, `condathis` writes
   `<env_dir>/.condathis/backend.json`. It uses this marker as a
   cross-check, and the marker records the platform when one was given or
   chosen.
@@ -257,6 +278,20 @@ needs no lock of its own against those sessions.
   environment without packages of a platform, it passes the platform
   that it would choose for a new environment. Otherwise, `platform` is
   `NULL`. It must not create a missing environment.
+
+  It can also take the optional arguments `env_file = NULL` and
+  `definition = NULL`. With `env_file`, install the packages that the
+  file requests, solved together with the packages of the environment,
+  as `micromamba install -f` does.
+  [`install_packages()`](https://luciorq.github.io/condathis/reference/install_packages.md)
+  passes a file only when `backend_describe_definition()` did not say
+  that it is a lock (or that the backend cannot read it). A function
+  that takes neither argument cannot install from a file, and
+  [`install_packages()`](https://luciorq.github.io/condathis/reference/install_packages.md)
+  then aborts before any call with class
+  `condathis_install_packages_unsupported_definition`. A function that
+  takes `env_file` but not `definition` gets only the path, as
+  `backend_create_env()` does.
 
 - `backend_resolve_run(backend, cmd, args = character(0L), env_name = "condathis-env", verbose = "silent", base_env = NULL, timeout = Inf)`
   describes, without running `cmd`, how to run `cmd` with `args` in the
@@ -439,7 +474,79 @@ files are its package records.
   A request that does not solve for the native platform uses an emulated
   one when it solves there: `"osx-64"` on Apple Silicon with Rosetta 2,
   and `"win-64"` on Windows on ARM. An error counts as `NA`. Default:
-  `NA`, so `condathis` never chooses an emulated platform.
+  `NA`, so `condathis` never chooses an emulated platform. `condathis`
+  never asks it about a lock (see `backend_describe_definition()`). It
+  can also take the optional argument `definition = NULL`.
+
+- `backend_describe_definition(backend, definition, platform = NULL)`
+  tells `condathis` what the backend makes of an
+  [`env_definition()`](https://luciorq.github.io/condathis/reference/env_definition.md):
+  whether it reads it, and whether it is a request or a lock. `platform`
+  is the `platform` of
+  [`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md).
+  [`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md)
+  calls it before it locks, moves or creates anything, so it must be
+  cheap: read the file, but do not download, install or solve anything,
+  and do not change any environment. It returns a list:
+
+  - `supported`: `TRUE` (the backend reads it), `FALSE` (it does not) or
+    `NA` (it cannot tell). `FALSE` aborts with class
+    `condathis_create_env_unsupported_definition` (also
+    `condathis_backend_unsupported`), with `reason` in the message.
+    Refuse an option of `definition$options` that you do not understand:
+    never ignore it.
+
+  - `format`: `NA`, or the name of the format that the backend detected
+    or was given, such as `"conda-lock-v1"`.
+
+  - `kind`: `"request"` (the backend solves it, as package specs),
+    `"lock"` (it installs exact packages, without a solve) or `NA`.
+
+  - `platforms`: `NULL`, or the platforms that a lock has packages for.
+
+  - `reason`: `NA`, or one sentence: why `supported` is `FALSE`.
+
+  - `records`: `NULL`, or for a lock a data frame with the character
+    columns `name`, `version`, `build_string` and `platform` (the
+    platform the record is for), one row per package that the backend
+    installs from it.
+
+  For a request, `condathis` goes on as for package specs: it asks
+  `backend_can_solve()` about the platform. For a lock, it picks the
+  platform from `platforms` and never calls `backend_can_solve()`, since
+  a dry run says nothing about a lock. It aborts when `channels`,
+  `additional_channels` or `channel_priority` were given with an
+  [`env_definition()`](https://luciorq.github.io/condathis/reference/env_definition.md)
+  (the deprecated `env_file` of
+  [`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md)
+  passes them on, as in 0.1.4). Records of `noarch` packages install on
+  any platform: leave `noarch` out of `platforms`. When `records` has
+  rows for the platform and the new environment has no package, the
+  create fails with `condathis_create_env_failed`. With `NA` as `kind`,
+  `condathis` passes the file on and makes no other check, as for every
+  backend before this function existed. An error counts as `NA`.
+
+  `records` also lets `condathis` compare an existing environment with a
+  lock: `create_env(overwrite = FALSE)` keeps the environment when its
+  packages are exactly the records for the platform, and
+  [`validate_env()`](https://luciorq.github.io/condathis/reference/validate_env.md)
+  gives `TRUE`. Records with `NA` in `name`, `version` or `build_string`
+  are not compared.
+  [`install_packages()`](https://luciorq.github.io/condathis/reference/install_packages.md)
+  calls this function too, and installs from a request only.
+
+  With `method = "auto"`, a new environment from a definition goes to
+  the first available backend in `condathis.backend_priority` order
+  whose `supported` is not `FALSE`. Default: `NA`, or `FALSE` when the
+  definition has a `format` or `options` and `backend_create_env()` has
+  no `definition` argument.
+
+- `backend_definition_formats(backend)` returns the names of the formats
+  that the backend reads, as a character vector, such as
+  `c("environment-yaml", "explicit")`. It is used only in messages: an
+  error for a definition with a `format` names the registered backends
+  that list it. `condathis` never decides from it. Default:
+  `character(0)`.
 
 - `backend_resolve_run_in_dir(backend, cmd, args = character(0L), env_dir, verbose = "silent", base_env = NULL, timeout = Inf)`
   describes how to run `cmd` with `args` in the activated environment

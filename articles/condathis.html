@@ -178,6 +178,8 @@
 <li>
 <code><a href="../reference/install_packages.html">install_packages()</a></code> adds packages to an existing environment, and <code><a href="../reference/list_packages.html">list_packages()</a></code> lists them.</li>
 <li>
+<code><a href="../reference/env_definition.html">env_definition()</a></code> creates an environment from a file, such as an environment YAML file or a lock file: <code>create_env(env_definition("environment.yml"), env_name = "my-env")</code>. A lock file, such as an <code>@EXPLICIT</code> or conda-lock file, installs the exact packages it lists, without a solve.</li>
+<li>
 <code><a href="../reference/run_pipeline.html">run_pipeline()</a></code> connects commands with pipes, as <code>|</code> does in a shell, each in its own environment if needed.</li>
 <li>
 <code><a href="../reference/env_path.html">env_path()</a></code> lets <code><a href="../reference/run.html">run()</a></code> use an environment created outside <code>condathis</code>.</li>

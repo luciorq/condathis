@@ -1,9 +1,11 @@
 # Install packages in a Conda environment
 
-Installs packages into an existing environment. `install_packages()`
-creates the default environment `"condathis-env"`, empty, when it does
-not exist. Any other environment that does not exist aborts with class
-`condathis_install_packages_env_not_found` (also
+Installs packages into an existing environment, from package specs or
+from an environment file given by
+[`env_definition()`](https://luciorq.github.io/condathis/reference/env_definition.md).
+`install_packages()` creates the default environment `"condathis-env"`,
+empty, when it does not exist. Any other environment that does not exist
+aborts with class `condathis_install_packages_env_not_found` (also
 `condathis_env_not_found`). Create it with
 [`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md)
 first.
@@ -30,6 +32,30 @@ install_packages(
   strings or character vectors, in order. Examples: `"python=3.13"`,
   `"bioconda::samtools"`. At least one spec is required.
 
+  Or one environment file that is solved, given by
+  [`env_definition()`](https://luciorq.github.io/condathis/reference/env_definition.md),
+  such as `env_definition("environment.yml")` or a list of specs,
+  without package specs. Its packages are installed into the
+  environment, solved with the packages it has. With micromamba, this is
+  `micromamba install -f <file>`, which also uses the channels that the
+  file names. Without package specs, `install_packages()` does not warn
+  about the channels in `conda-meta/history`. These abort before
+  anything runs, with class
+  `condathis_install_packages_unsupported_definition` (also
+  `condathis_invalid_arg`):
+
+  - A lock file, such as an `@EXPLICIT` or conda-lock file. It lists
+    every package of an environment: create the environment again with
+    `create_env(env_definition(<file>), overwrite = TRUE)`.
+
+  - A file that the backend cannot read, or a backend that cannot
+    install from a file (also `condathis_backend_unsupported`).
+
+  Package specs and a definition together, or two definitions, abort
+  with class `condathis_install_packages_conflicting_args`. A file that
+  does not exist aborts with class
+  `condathis_install_packages_missing_env_file`.
+
   `packages = <specs>` still works. It is deprecated. It warns once per
   session (class `condathis_deprecated_packages_arg`) when the call
   comes from the console, a script or the tests of the package that
@@ -39,14 +65,16 @@ install_packages(
 
   Invalid specs abort with these classes:
 
-  - `condathis_install_packages_missing_packages`: no specs, unless
-    `packages = NULL` or `packages = character(0)` was given.
+  - `condathis_install_packages_missing_packages`: no specs and no
+    [`env_definition()`](https://luciorq.github.io/condathis/reference/env_definition.md),
+    unless `packages = NULL` or `packages = character(0)` was given.
 
   - `condathis_install_packages_invalid_packages`: a named argument that
     `install_packages()` does not have (the error names the closest
     argument; names are never abbreviated, so `p =` aborts too), a value
     that is not a character vector, `NA` or `""`, or a file name that
-    ends in `.yml` or `.yaml`.
+    ends in `.yml`, `.yaml`, `.json` or `.lock` (pass it with
+    [`env_definition()`](https://luciorq.github.io/condathis/reference/env_definition.md)).
 
   - `condathis_install_packages_positional_env_name`: `env_name` is not
     given, the specs are two or more unnamed arguments, and the last of
@@ -263,6 +291,7 @@ for every condition class.
 
 Other environments:
 [`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md),
+[`env_definition()`](https://luciorq.github.io/condathis/reference/env_definition.md),
 [`env_exists()`](https://luciorq.github.io/condathis/reference/env_exists.md),
 [`env_path()`](https://luciorq.github.io/condathis/reference/env_path.md),
 [`get_env_dir()`](https://luciorq.github.io/condathis/reference/get_env_dir.md),

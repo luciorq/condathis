@@ -79,6 +79,7 @@ specific to one machine.
 
 Other environments:
 [`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md),
+[`env_definition()`](https://luciorq.github.io/condathis/reference/env_definition.md),
 [`env_exists()`](https://luciorq.github.io/condathis/reference/env_exists.md),
 [`get_env_dir()`](https://luciorq.github.io/condathis/reference/get_env_dir.md),
 [`install_packages()`](https://luciorq.github.io/condathis/reference/install_packages.md),

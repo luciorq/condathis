@@ -527,16 +527,16 @@
 <span><span class="fu"><a href="https://rdrr.io/r/utils/str.html" class="external-link">str</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>geo <span class="op">=</span> <span class="va">geo_info</span><span class="op">[</span><span class="op">]</span>, ml <span class="op">=</span> <span class="va">ml_info</span><span class="op">[</span><span class="op">]</span>, main <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Sys.getpid.html" class="external-link">Sys.getpid</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; List of 3</span></span>
 <span><span class="co">#&gt;  $ geo :List of 4</span></span>
-<span><span class="co">#&gt;   ..$ pid      : int 13969</span></span>
+<span><span class="co">#&gt;   ..$ pid      : int 13832</span></span>
 <span><span class="co">#&gt;   ..$ env      : chr "py-geo-env"</span></span>
 <span><span class="co">#&gt;   ..$ python   : chr "3.13"</span></span>
 <span><span class="co">#&gt;   ..$ PROJ_DATA: logi TRUE</span></span>
 <span><span class="co">#&gt;  $ ml  :List of 4</span></span>
-<span><span class="co">#&gt;   ..$ pid      : int 13982</span></span>
+<span><span class="co">#&gt;   ..$ pid      : int 13844</span></span>
 <span><span class="co">#&gt;   ..$ env      : chr "py-ml-env"</span></span>
 <span><span class="co">#&gt;   ..$ python   : chr "3.12"</span></span>
 <span><span class="co">#&gt;   ..$ PROJ_DATA: logi FALSE</span></span>
-<span><span class="co">#&gt;  $ main: int 13026</span></span></code></pre></div>
+<span><span class="co">#&gt;  $ main: int 12879</span></span></code></pre></div>
 </div>
 <p>Each daemon is its own process with its own Python version. <code>PROJ_DATA</code> is set only in the geo daemon. The <code>proj</code> package sets it in its activation script, and <code>pyproj</code> needs it to find its projection database. That is the activation step the embedded interpreter in the main session skips.</p>
 </section><section class="level3"><h3 id="sharing-input-data-with-mori">Sharing Input Data with mori<a class="anchor" aria-label="anchor" href="#sharing-input-data-with-mori"></a>
@@ -728,7 +728,7 @@
 </tr>
 </tbody>
 </table>
-<p>In every case, <code>condathis</code> owns the environment. The same <code><a href="../reference/create_env.html">create_env()</a></code> call reproduces it on any machine. To share the environment as a file, write its package specs, with versions pinned, to an environment YAML file and pass it as <code>env_file</code> to <code><a href="../reference/create_env.html">create_env()</a></code>.</p>
+<p>In every case, <code>condathis</code> owns the environment. The same <code><a href="../reference/create_env.html">create_env()</a></code> call reproduces it on any machine. To share the environment as a file, write its package specs, with versions pinned, to an environment YAML file and pass it to <code><a href="../reference/create_env.html">create_env()</a></code> with <code><a href="../reference/env_definition.html">env_definition()</a></code>, as in <code>create_env(env_definition("environment.yml"), env_name = "py-data-env")</code>. A lock file, such as an <code>@EXPLICIT</code> or conda-lock file, gives the same packages on every machine of a platform it lists.</p>
 </section><section class="level2"><h2 id="cleaning-up">Cleaning Up<a class="anchor" aria-label="anchor" href="#cleaning-up"></a>
 </h2>
 <div class="cell">

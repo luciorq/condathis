@@ -10,7 +10,10 @@ environments.
 ## Details
 
 Create an environment with
-[`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md).
+[`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md),
+from package specs or from a file such as `environment.yml` or a lock
+file
+([`env_definition()`](https://luciorq.github.io/condathis/reference/env_definition.md)).
 Run a command line tool in it with
 [`run()`](https://luciorq.github.io/condathis/reference/run.md), or run
 several tools connected by pipes with

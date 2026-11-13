@@ -107,12 +107,26 @@ deprecated. It warns once per session (class
 <code>condathis_deprecated_packages_arg</code>) when the call comes from the
 console, a script or the tests of the package that makes it. Calls
 made inside other packages do not warn.</p>
+<p>Or one lock file, given by <code><a href="env_definition.html">env_definition()</a></code>, such as
+<code>env_definition("conda-lock.yml")</code>, without package specs. Then the
+environment must have exactly the packages that the lock lists for its
+platform, as <code><a href="create_env.html">create_env()</a></code> compares them (see <em>Existing environments</em>
+there): <code>platform</code> when it is given, else any platform of the lock.
+Only a lock whose packages the backend reports can be compared, such
+as an <code>@EXPLICIT</code>, conda-lock or mambajs file with micromamba. Any
+other file, such as <code>environment.yml</code>, or a lock that has no packages
+for <code>platform</code>, aborts with class
+<code>condathis_validate_env_unsupported_definition</code> (also
+<code>condathis_invalid_arg</code>), with either value of <code>error</code>. Package specs
+and a definition together, or two definitions, abort with class
+<code>condathis_validate_env_conflicting_args</code>.</p>
 <p>These values abort with class
 <code>condathis_validate_env_invalid_packages</code>:</p><ul><li><p>A named argument that <code>validate_env()</code> does not have. Names are
 never abbreviated.</p></li>
 <li><p>A value that is not a character vector.</p></li>
 <li><p><code>NA</code> or <code>""</code>.</p></li>
-<li><p>A file name that ends in <code>.yml</code> or <code>.yaml</code>.</p></li>
+<li><p>A file name that ends in <code>.yml</code>, <code>.yaml</code>, <code>.json</code> or <code>.lock</code>. Pass
+a lock file with <code><a href="env_definition.html">env_definition()</a></code>.</p></li>
 </ul><p>These classes abort too:</p><ul><li><p><code>condathis_validate_env_positional_env_name</code><br><code>env_name</code> is not given, the specs are two or more unnamed
 arguments, and the last of them is one string that names an existing
 environment. Specs given with <code>packages =</code> or as one vector are never
@@ -234,7 +248,11 @@ each spec that is not satisfied.</p></li>
 <code>reason</code> is one of <code>"env_not_found"</code>, <code>"platform_mismatch"</code> and
 <code>"unsatisfied"</code>. <code>unsatisfied</code> is a character vector of the specs that
 are not satisfied (every spec when the environment does not exist).
-<code>validate_env()</code> reports a platform mismatch before unsatisfied specs.</p>
+<code>validate_env()</code> reports a platform mismatch before unsatisfied specs.
+For a lock file, <code>unsatisfied</code> lists the packages of the lock that the
+environment does not have, as <code>"&lt;name&gt;-&lt;version&gt;-&lt;build&gt;"</code>, and a
+third attribute, <code>unexpected</code>, lists the packages of the environment
+that the lock does not list.</p>
 <p>A backend failure aborts with either value of <code>error</code>, with the class
 <code>condathis_validate_env_failed</code> (also <code>condathis_backend_error</code>).</p>
     </div>
@@ -260,6 +278,7 @@ error if it fails. In that case, <code><a href="create_env.html">create_env()</a
     <div class="dont-index"><p><a href="condathis-conditions.html">condathis-conditions</a> for every condition class.</p>
 <p>Other environments:
 <code><a href="create_env.html">create_env()</a></code>,
+<code><a href="env_definition.html">env_definition()</a></code>,
 <code><a href="env_exists.html">env_exists()</a></code>,
 <code><a href="env_path.html">env_path()</a></code>,
 <code><a href="get_env_dir.html">get_env_dir()</a></code>,

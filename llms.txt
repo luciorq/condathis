@@ -336,6 +336,8 @@ Create, change, check, list and remove Conda environments.
 
 - [`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md)
   : Create a Conda environment
+- [`env_definition()`](https://luciorq.github.io/condathis/reference/env_definition.md)
+  : Create an environment from a file
 - [`install_packages()`](https://luciorq.github.io/condathis/reference/install_packages.md)
   : Install packages in a Conda environment
 - [`remove_env()`](https://luciorq.github.io/condathis/reference/remove_env.md)

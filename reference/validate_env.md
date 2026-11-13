@@ -49,6 +49,22 @@ validate_env(
   console, a script or the tests of the package that makes it. Calls
   made inside other packages do not warn.
 
+  Or one lock file, given by
+  [`env_definition()`](https://luciorq.github.io/condathis/reference/env_definition.md),
+  such as `env_definition("conda-lock.yml")`, without package specs.
+  Then the environment must have exactly the packages that the lock
+  lists for its platform, as
+  [`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md)
+  compares them (see *Existing environments* there): `platform` when it
+  is given, else any platform of the lock. Only a lock whose packages
+  the backend reports can be compared, such as an `@EXPLICIT`,
+  conda-lock or mambajs file with micromamba. Any other file, such as
+  `environment.yml`, or a lock that has no packages for `platform`,
+  aborts with class `condathis_validate_env_unsupported_definition`
+  (also `condathis_invalid_arg`), with either value of `error`. Package
+  specs and a definition together, or two definitions, abort with class
+  `condathis_validate_env_conflicting_args`.
+
   These values abort with class
   `condathis_validate_env_invalid_packages`:
 
@@ -59,7 +75,9 @@ validate_env(
 
   - `NA` or `""`.
 
-  - A file name that ends in `.yml` or `.yaml`.
+  - A file name that ends in `.yml`, `.yaml`, `.json` or `.lock`. Pass a
+    lock file with
+    [`env_definition()`](https://luciorq.github.io/condathis/reference/env_definition.md).
 
   These classes abort too:
 
@@ -226,6 +244,10 @@ With `error = "continue"`, it returns `FALSE` with two attributes.
 `"unsatisfied"`. `unsatisfied` is a character vector of the specs that
 are not satisfied (every spec when the environment does not exist).
 `validate_env()` reports a platform mismatch before unsatisfied specs.
+For a lock file, `unsatisfied` lists the packages of the lock that the
+environment does not have, as `"<name>-<version>-<build>"`, and a third
+attribute, `unexpected`, lists the packages of the environment that the
+lock does not list.
 
 A backend failure aborts with either value of `error`, with the class
 `condathis_validate_env_failed` (also `condathis_backend_error`).
@@ -260,6 +282,7 @@ for every condition class.
 
 Other environments:
 [`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md),
+[`env_definition()`](https://luciorq.github.io/condathis/reference/env_definition.md),
 [`env_exists()`](https://luciorq.github.io/condathis/reference/env_exists.md),
 [`env_path()`](https://luciorq.github.io/condathis/reference/env_path.md),
 [`get_env_dir()`](https://luciorq.github.io/condathis/reference/get_env_dir.md),
