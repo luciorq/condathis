@@ -37,12 +37,12 @@
 #'   `*****`, as micromamba does (`https://user:*****@host/channel`,
 #'   `https://host/t/*****/channel`).
 #'
-#'   A missing environment aborts with class
-#'   `condathis_list_packages_env_not_found` (also
-#'   `condathis_env_not_found`). A failed listing aborts with class
-#'   `condathis_list_packages_failed` (also `condathis_backend_error`).
-#'   A listing without the six columns also has the class
-#'   `condathis_backend_invalid_return`.
+#'   It aborts with these classes:
+#'   * `condathis_list_packages_env_not_found` (also
+#'     `condathis_env_not_found`): a missing environment.
+#'   * `condathis_list_packages_failed` (also `condathis_backend_error`): a
+#'     failed listing. A listing without the six columns also has the class
+#'     `condathis_backend_invalid_return`.
 #'
 #' @family environments
 #' @seealso [condathis-conditions] for every condition class.
@@ -57,13 +57,13 @@
 #'     package = "condathis"
 #'   )
 #'
-#'   # Creates a Conda environment with `polyglot`
+#'   # Create a Conda environment with `polyglot`
 #'   condathis::create_env(
 #'     "polyglot",
 #'     env_name = "polyglot-env",
 #'     channels = channel
 #'   )
-#'   # Lists the packages in env `polyglot-env`
+#'   # List the packages of the environment `polyglot-env`
 #'   dat <- condathis::list_packages("polyglot-env")
 #'   print(dat[, c("name", "version", "channel")])
 #' })

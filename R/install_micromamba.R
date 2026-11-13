@@ -4,42 +4,59 @@
 #' in the condathis data directory, at the path that
 #' [micromamba_bin_path()] returns. The functions that need micromamba call
 #' it when no usable binary is found (see *micromamba discovery* in
-#' [condathis-options]). You need to call it only to choose the version, or
-#' to install micromamba ahead of time.
+#' [condathis-options]), for the default version. They first show a message
+#' of class `condathis_micromamba_downloading` that names the version and
+#' the path, unless their `verbose` is `"silent"`. You need to call it only
+#' to choose the version, or to install micromamba ahead of time.
 #'
-#' @inheritParams condathis-params
 #' @param micromamba_version Character string with the micromamba version,
 #'   in the format `"X.Y.Z-N"` (version and build number), for example
-#'   `"2.10.0-0"`, the default. Another format aborts with class
-#'   `condathis_install_micromamba_invalid_micromamba_version`. Versions
-#'   older than 2.8.1 abort with class
-#'   `condathis_install_micromamba_unsupported_version`, because
-#'   `condathis` does not use them. When you pass `micromamba_version` and a
-#'   binary is already installed, `install_micromamba()` keeps the binary
-#'   only when its version (`X.Y.Z`) is the requested one. When it reports
-#'   another version, or its version cannot be read, `install_micromamba()`
-#'   installs the requested version. Without `micromamba_version`, it
-#'   always keeps an installed binary, unless `force = TRUE`.
+#'   `"2.10.0-0"`, the default. `condathis` does not use versions older
+#'   than 2.8.1. Invalid values abort with these classes:
+#'   * `condathis_install_micromamba_invalid_micromamba_version`: another
+#'     format.
+#'   * `condathis_install_micromamba_unsupported_version`: a version older
+#'     than 2.8.1.
+#'
+#'   With `micromamba_version`, an installed binary is kept only when its
+#'   version (`X.Y.Z`) is the requested one. When it reports another
+#'   version, or its version cannot be read, `install_micromamba()` installs
+#'   the requested version. Without `micromamba_version`, it always keeps an
+#'   installed binary, unless `force = TRUE`.
 #' @param timeout Numeric download timeout in seconds, a single
 #'   non-negative number. `Inf` means no limit. Defaults to `3600`. Each
 #'   download uses the larger of this value and `getOption("timeout")`, so
 #'   `0` means no limit only when `getOption("timeout")` is `0` too. The
 #'   function lowers values above 2147483 seconds (about 24.8 days) to
-#'   2147483. Other values abort with class
+#'   2147483. Other values abort with class\cr
 #'   `condathis_install_micromamba_invalid_timeout`.
 #' @param download_method Character string with the download method of
 #'   [utils::download.file()]: one of `"auto"` (the default), `"internal"`,
 #'   `"libcurl"`, `"wget"`, `"curl"` or `"wininet"`. It is ignored when the
 #'   `curl` package 5.0.0 or later is installed, because then
-#'   [curl::curl_download()] is used. Other values abort with class
+#'   [curl::curl_download()] is used. Other values abort with class\cr
 #'   `condathis_install_micromamba_invalid_download_method`.
 #' @param force Logical value. `TRUE` downloads micromamba also when a
 #'   binary is already installed. Defaults to `FALSE`. A value that is not
 #'   `TRUE` or `FALSE` aborts with class
 #'   `condathis_install_micromamba_invalid_force`.
+#' @param verbose Character string that controls the console output. One
+#'   of `"output"`, `"silent"`, `"cmd"`, `"spinner"` or `"full"`.
+#'   `"output"` and `"full"` show the progress of the download and the
+#'   messages of `condathis`, for example that `micromamba` is already
+#'   installed, that the file of a mirror failed the checks, or that the
+#'   download succeeded. The other levels show none of them.
+#'   Every level except `"silent"` shows the warning of class
+#'   `condathis_install_micromamba_checksum_unavailable` (see Details and
+#'   [condathis-conditions]).
+#'
+#'   `TRUE` means `"output"` and `FALSE` means `"silent"`. Invalid values
+#'   abort with class `condathis_invalid_verbose`. The default is shown in
+#'   Usage.
 #' @param timeout_limit Deprecated. Use `timeout`. A value warns with class
 #'   `condathis_deprecated_arg` and is used as `timeout`. Passing both
-#'   aborts with class `condathis_install_micromamba_conflicting_args`.
+#'   aborts with class\cr
+#'   `condathis_install_micromamba_conflicting_args`.
 #'
 #' @returns The path of the micromamba binary, an `fs_path`, invisibly: the
 #'   path that [micromamba_bin_path()] returns. A failed download aborts
@@ -65,12 +82,18 @@
 #' Then it tries the next mirror. It replaces an installed binary only with
 #' a download that passed these checks, also with `force = TRUE`.
 #'
-#' When no published checksum can be read, `install_micromamba()` installs
-#' the binary. It warns with class
-#' `condathis_install_micromamba_checksum_unavailable` when `verbose` is
-#' `"output"` or `"full"`. A checksum that does not match warns with class
-#' `condathis_install_micromamba_checksum_mismatch`, and that binary is not
-#' installed.
+#' The checksum is downloaded from the GitHub release when the binary is
+#' installed. When it cannot be downloaded or read, or the SHA256 hash of
+#' the binary cannot be computed, `install_micromamba()` still installs the
+#' binary, so that mirrors work when GitHub cannot be reached, but warns
+#' with class `condathis_install_micromamba_checksum_unavailable`. It warns
+#' for every `verbose` level except `"silent"`, also when a function that
+#' needs micromamba installs it. A checksum that does not match warns with
+#' class `condathis_install_micromamba_checksum_mismatch`, also when
+#' `verbose` is `"silent"`, and that binary is not installed. The hash is
+#' computed with `tools::sha256sum()` on R 4.5.0 or later, else with the
+#' `digest` package when it is installed, else with the `sha256sum` or
+#' `shasum` program, or on Windows `certutil`.
 #'
 #' @examples
 #' \dontrun{
@@ -277,6 +300,18 @@ install_micromamba <- function(
 
   return(invisible(umamba_bin_path))
 }
+
+#' The micromamba version that `install_micromamba()` installs by default
+#'
+#' The same string as the default of its `micromamba_version` argument,
+#' which stays a literal so that the usage in `?install_micromamba` shows
+#' the version. A test checks that the two agree. `native_cmd()` names this
+#' version when it installs micromamba (see
+#' `install_micromamba_for_command()`).
+#'
+#' @keywords internal
+#' @noRd
+micromamba_default_version <- "2.10.0-0"
 
 #' Check the `micromamba_version` argument of `install_micromamba()`
 #'
@@ -720,9 +755,10 @@ candidate_micromamba_runs <- function(path) {
 #'
 #' Downloads the published SHA256 checksum from GitHub releases and compares
 #' it against a candidate binary. Emits a warning if the checksums do not
-#' match. It never aborts: `install_candidate_micromamba()` decides, and it
-#' refuses a mismatching candidate but installs one that could not be
-#' verified.
+#' match, and, unless `verbose$strategy` is `"silent"`, when the candidate
+#' could not be verified. It never aborts: `install_candidate_micromamba()`
+#' decides, and it refuses a mismatching candidate but installs one that
+#' could not be verified.
 #'
 #' The SHA256 checksum files on GitHub releases always contain the hash of the
 #' standalone binary (not the archive). This means the same checksum works
@@ -771,8 +807,13 @@ verify_micromamba_checksum <- function(
   if (isFALSE(fs::file_exists(bin_path))) {
     return(invisible(NA))
   }
+  # An unverified binary is still installed (mirrors without a checksum
+  # file, and hosts that block GitHub, must keep working), so the warning
+  # is the only sign of it: it shows at every level but `"silent"`. It
+  # showed only for `"output"` and `"full"`, so the automatic install of
+  # `native_cmd()`, at the internal level `"spinner"`, gave no warning.
   warn_unverified <- function(problem) {
-    if (verbose$strategy %in% c("full", "output")) {
+    if (isFALSE(identical(verbose$strategy, "silent"))) {
       condathis_warn(
         message = c(
           `!` = problem,
@@ -851,10 +892,8 @@ verify_micromamba_checksum <- function(
   }
   expected_hash <- published$hash
 
-  # Compute SHA256 of the installed binary.
-  # R base does not have a built-in SHA256 function.
-  # Try the digest package first, then fall back to system commands
-  # (sha256sum on Linux, shasum on macOS).
+  # Compute SHA256 of the candidate binary (see `compute_sha256()` for the
+  # methods it tries).
   actual_hash <- compute_sha256(bin_path)
 
   if (is.na(actual_hash)) {
@@ -967,9 +1006,11 @@ has_tools_sha256sum <- function() {
 #' different tool, a broken build, or a shadowing binary. This runs the
 #' command against the standard SHA-256 test vector for the ASCII string
 #' `"abc"` (`ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad`)
-#' and trusts the command only if it reproduces that exact hash.
+#' and trusts the command only if it reproduces that exact hash. On Linux,
+#' a `certutil` on `PATH` is the unrelated NSS tool, which fails this test.
 #'
-#' @param sha_cmd Character string. `"sha256sum"` or `"shasum"`.
+#' @param sha_cmd Character string. `"sha256sum"`, `"shasum"` or
+#'   `"certutil"`.
 #'
 #' @returns Logical. `TRUE` only if the command exists, runs successfully,
 #'   and reproduces the known-answer hash.
@@ -977,7 +1018,7 @@ has_tools_sha256sum <- function() {
 #' @keywords internal
 #' @noRd
 sha256_command_is_trustworthy <- function(sha_cmd) {
-  if (isFALSE(nzchar(Sys.which(sha_cmd)))) {
+  if (isFALSE(nzchar(sha256_command_path(sha_cmd)))) {
     return(FALSE)
   }
   known_answer <- "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
@@ -993,9 +1034,43 @@ sha256_command_is_trustworthy <- function(sha_cmd) {
   return(isTRUE(identical(actual, known_answer)))
 }
 
+#' Where a system SHA256 command is
+#'
+#' `certutil` is looked up in `%SystemRoot%\System32` first, where Windows
+#' always has it, so a program of that name earlier on `PATH` is not used.
+#' The other commands, and `certutil` when that file does not exist, are
+#' looked up on `PATH`.
+#'
+#' @param sha_cmd Character string. `"sha256sum"`, `"shasum"` or
+#'   `"certutil"`.
+#'
+#' @returns Character string, the path of the program, or `""` when it was
+#'   not found.
+#'
+#' @keywords internal
+#' @noRd
+sha256_command_path <- function(sha_cmd) {
+  if (identical(sha_cmd, "certutil") && isTRUE(is_windows())) {
+    system_root <- Sys.getenv("SystemRoot", unset = "")
+    if (isTRUE(nzchar(system_root))) {
+      system_certutil <- file.path(system_root, "System32", "certutil.exe")
+      if (isTRUE(file.exists(system_certutil))) {
+        return(system_certutil)
+      }
+    }
+  }
+  return(unname(Sys.which(sha_cmd)))
+}
+
 #' Run a system SHA256 command and extract a validated hash from its output
 #'
-#' @param sha_cmd Character string. `"sha256sum"` or `"shasum"`.
+#' `sha256sum` and `shasum -a 256` print `<hash>  <file name>`.
+#' `certutil -hashfile <file> SHA256`, which every Windows has, prints a
+#' header line, the hash, and a line that says the command succeeded (see
+#' `parse_certutil_sha256()`).
+#'
+#' @param sha_cmd Character string. `"sha256sum"`, `"shasum"` or
+#'   `"certutil"`.
 #' @param file_path Character string. Path to the file to hash.
 #'
 #' @returns Character string with the lowercase hex SHA256 hash, or
@@ -1006,14 +1081,22 @@ sha256_command_is_trustworthy <- function(sha_cmd) {
 #' @keywords internal
 #' @noRd
 run_sha256_command <- function(sha_cmd, file_path) {
-  sha_args <- if (identical(sha_cmd, "shasum")) {
-    c("-a", "256", file_path)
-  } else {
+  sha_args <- switch(
+    sha_cmd,
+    shasum = c("-a", "256", file_path),
+    certutil = c("-hashfile", file_path, "SHA256"),
     file_path
+  )
+  # `certutil` runs from its full path (see `sha256_command_path()`). The
+  # other commands run by name, as before.
+  sha_program <- if (identical(sha_cmd, "certutil")) {
+    sha256_command_path(sha_cmd)
+  } else {
+    sha_cmd
   }
   sha_result <- base::tryCatch(
     {
-      processx::run(sha_cmd, sha_args, error_on_status = FALSE)
+      processx::run(sha_program, sha_args, error_on_status = FALSE)
     },
     error = function(e) {
       list(status = 1L, stdout = "")
@@ -1021,6 +1104,9 @@ run_sha256_command <- function(sha_cmd, file_path) {
   )
   if (isFALSE(identical(sha_result$status, 0L))) {
     return(NA_character_)
+  }
+  if (identical(sha_cmd, "certutil")) {
+    return(parse_certutil_sha256(sha_result$stdout))
   }
   # Output format: "hash  filename\n". GNU coreutils prefixes the hash with
   # a backslash ("\hash  filename\n") when the filename contains a backslash
@@ -1035,6 +1121,48 @@ run_sha256_command <- function(sha_cmd, file_path) {
   return(tolower(hash_field))
 }
 
+#' Read the hash from the output of `certutil -hashfile <file> SHA256`
+#'
+#' The output is, on Windows 10 and 11:
+#'
+#' ```
+#' SHA256 hash of C:\path\file:
+#' ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad
+#' CertUtil: -hashfile command completed successfully.
+#' ```
+#'
+#' Older Windows separate the bytes of the hash with spaces, and the first
+#' and last lines are in the language of the system, in its code page. So
+#' the hash is the one line that is 64 hexadecimal digits once its white
+#' space is removed. The first line cannot be one: it has a colon.
+#'
+#' @param stdout Character string, the standard output of `certutil`.
+#'
+#' @returns The lower-case 64-digit hex hash, or `NA_character_` when no
+#'   line, or more than one line, holds a hash.
+#'
+#' @keywords internal
+#' @noRd
+parse_certutil_sha256 <- function(stdout) {
+  if (isFALSE(rlang::is_string(stdout)) || isTRUE(is.na(stdout))) {
+    return(NA_character_)
+  }
+  # `useBytes`: the localized lines need not be valid in the session's
+  # encoding.
+  hashes <- base::tryCatch(
+    {
+      lines <- strsplit(stdout, "\r\n|\r|\n", useBytes = TRUE)[[1L]]
+      lines <- gsub("[[:space:]]", "", lines, useBytes = TRUE)
+      lines[grepl("^[0-9a-fA-F]{64}$", lines, useBytes = TRUE)]
+    },
+    error = function(e) character(0L)
+  )
+  if (isFALSE(identical(length(hashes), 1L))) {
+    return(NA_character_)
+  }
+  return(tolower(hashes[[1L]]))
+}
+
 #' Compute SHA256 Hash of a File
 #'
 #' Computes the SHA256 hash of a file using the best available method, in
@@ -1047,6 +1175,10 @@ run_sha256_command <- function(sha_cmd, file_path) {
 #'    the least reliable option, since it shells out to whatever binary
 #'    happens to be on `PATH`, so it's tried last and only trusted after
 #'    passing `sha256_command_is_trustworthy()`'s known-answer test.
+#' 4. On Windows, `certutil -hashfile <file> SHA256`, which every Windows
+#'    has, also only after the known-answer test. On R 4.3 and 4.4 without
+#'    `digest`, and without Rtools or Git on `PATH`, nothing else works
+#'    there.
 #'
 #' Never errors: any failure at any step falls through to the next, and
 #' returns `NA_character_` if every method is unavailable or untrustworthy.
@@ -1089,7 +1221,11 @@ compute_sha256 <- function(file_path) {
     }
   }
 
-  for (sha_cmd in c("sha256sum", "shasum")) {
+  sha_cmds <- c("sha256sum", "shasum")
+  if (isTRUE(is_windows())) {
+    sha_cmds <- c(sha_cmds, "certutil")
+  }
+  for (sha_cmd in sha_cmds) {
     if (isTRUE(sha256_command_is_trustworthy(sha_cmd))) {
       result <- run_sha256_command(sha_cmd, file_path)
       if (isFALSE(is.na(result))) {

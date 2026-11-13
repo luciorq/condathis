@@ -11,8 +11,8 @@ Description: Runs command line interface (CLI) tools in isolated and
     reproducible 'Conda' environments from R. Environments are created and
     managed with 'micromamba', which is downloaded when no usable copy is
     found. Commands run with their environment activated, alone or as
-    pipelines connected by pipes, and other packages can add backends that
-    create and run environments.
+    pipelines connected by pipes. Other packages can provide other tools
+    to create and run environments.
 License: MIT + file LICENSE
 URL: https://github.com/luciorq/condathis,
     https://luciorq.github.io/condathis/
@@ -38,12 +38,12 @@ Suggests:
     knitr,
     pkgload,
     quarto,
-    testthat (>= 3.0.0)
+    testthat (>= 3.2.1)
 VignetteBuilder:
     quarto
 Config/Needs/dev: devtools, pkgload, remotes, rcmdcheck, covr, testthat,
     usethis, pak, knitr, quarto, pkgdown, roxygen2, roxygen2md, lintr,
-    cyclocomp
+    cyclocomp, urlchecker
 Config/Needs/website: quarto, png, reticulate, mirai, mori, arrow
 Config/roxygen2/markdown: TRUE
 Config/roxygen2/version: 8.1.0

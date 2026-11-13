@@ -225,3 +225,120 @@ testthat::test_that("the default micromamba version publishes a valid checksum",
   )
   testthat::expect_match(parse_sha256_file(sha_file), "^[0-9a-f]{64}$")
 })
+
+testthat::test_that("parse_certutil_sha256 reads the hash from certutil output", {
+  # Windows 10 and 11.
+  modern <- paste0(
+    "SHA256 hash of C:\\Users\\me\\AppData\\Local\\Temp\\Rtmp\\file1a2b:\r\n",
+    abc_sha256,
+    "\r\nCertUtil: -hashfile command completed successfully.\r\n"
+  )
+  testthat::expect_identical(parse_certutil_sha256(modern), abc_sha256)
+  # Older Windows: the bytes separated by spaces, the hash in upper case.
+  spaced <- paste0(
+    "SHA256 hash of file C:\\tmp\\file:\n",
+    paste(
+      substring(toupper(abc_sha256), seq(1, 63, 2), seq(2, 64, 2)),
+      collapse = " "
+    ),
+    "\nCertUtil: -hashfile command completed successfully.\n"
+  )
+  testthat::expect_identical(parse_certutil_sha256(spaced), abc_sha256)
+  # A localized header and footer, in a code page that is not UTF-8, and a
+  # path with a hex-looking file name.
+  localized <- paste0(
+    "SHA256-Hash von C:\\Temp\\",
+    strrep("a", 64),
+    ":\r\n",
+    abc_sha256,
+    "\r\nCertUtil: -hashfile-Befehl wurde erfolgreich ausgef\xfchrt.\r\n"
+  )
+  testthat::expect_identical(parse_certutil_sha256(localized), abc_sha256)
+  # No hash, two different hashes, or no output at all.
+  testthat::expect_identical(
+    parse_certutil_sha256(
+      "CertUtil: -hashfile command FAILED: 0x80070002 (WIN32: 2)\r\n"
+    ),
+    NA_character_
+  )
+  testthat::expect_identical(
+    parse_certutil_sha256(paste(abc_sha256, strrep("0", 64), sep = "\n")),
+    NA_character_
+  )
+  testthat::expect_identical(parse_certutil_sha256(""), NA_character_)
+  testthat::expect_identical(
+    parse_certutil_sha256(NA_character_),
+    NA_character_
+  )
+  testthat::expect_identical(parse_certutil_sha256(NULL), NA_character_)
+})
+
+testthat::test_that("run_sha256_command runs certutil -hashfile and parses its output", {
+  seen <- new.env(parent = emptyenv())
+  testthat::local_mocked_bindings(
+    sha256_command_path = function(sha_cmd) "C:/Windows/System32/certutil.exe"
+  )
+  testthat::local_mocked_bindings(
+    run = function(command, args, ...) {
+      seen$command <- command
+      seen$args <- args
+      list(
+        status = 0L,
+        stdout = paste0(
+          "SHA256 hash of C:\\file:\r\n",
+          abc_sha256,
+          "\r\nCertUtil: -hashfile command completed successfully.\r\n"
+        )
+      )
+    },
+    .package = "processx"
+  )
+  testthat::expect_identical(
+    run_sha256_command("certutil", "C:/file"),
+    abc_sha256
+  )
+  testthat::expect_identical(seen$command, "C:/Windows/System32/certutil.exe")
+  testthat::expect_identical(seen$args, c("-hashfile", "C:/file", "SHA256"))
+})
+
+testthat::test_that("compute_sha256 falls back to certutil on Windows only", {
+  # R 4.3 or 4.4 on Windows, without digest and without Rtools on PATH.
+  testthat::local_mocked_bindings(has_tools_sha256sum = function() FALSE)
+  testthat::local_mocked_bindings(
+    requireNamespace = function(...) FALSE,
+    .package = "base"
+  )
+  tried <- character(0L)
+  testthat::local_mocked_bindings(
+    sha256_command_is_trustworthy = function(sha_cmd) {
+      tried <<- c(tried, sha_cmd)
+      identical(sha_cmd, "certutil")
+    },
+    run_sha256_command = function(sha_cmd, file_path) {
+      if (identical(sha_cmd, "certutil")) abc_sha256 else NA_character_
+    }
+  )
+  testthat::local_mocked_bindings(is_windows = function() TRUE)
+  testthat::expect_identical(compute_sha256(abc_test_file()), abc_sha256)
+  testthat::expect_identical(tried, c("sha256sum", "shasum", "certutil"))
+
+  tried <- character(0L)
+  testthat::local_mocked_bindings(is_windows = function() FALSE)
+  testthat::expect_identical(compute_sha256(abc_test_file()), NA_character_)
+  testthat::expect_identical(tried, c("sha256sum", "shasum"))
+})
+
+testthat::test_that("certutil is trusted exactly where it is the Windows tool", {
+  # On Windows it is always there and passes the known-answer test. Where
+  # a `certutil` exists elsewhere, it is the NSS tool, which fails it.
+  testthat::expect_identical(
+    sha256_command_is_trustworthy("certutil"),
+    is_windows()
+  )
+  if (isTRUE(is_windows())) {
+    testthat::expect_identical(
+      run_sha256_command("certutil", abc_test_file()),
+      abc_sha256
+    )
+  }
+})

@@ -107,6 +107,7 @@ mirror_urls <- c(
 )
 
 testthat::test_that("download_compressed_and_extract() moves on from a mirror with a bad file", {
+  testthat::skip_on_cran()
   rel_path <- fs::path("bin", "micromamba")
   good_archive <- local_mirror_archive(rel_path, "working micromamba")
   bad_files <- list(
@@ -440,5 +441,207 @@ testthat::test_that("an archive that does not match its published checksum is no
         per_mirror
       )
     )
+  })
+})
+
+# Records the conditions of `expr` and muffles them. Errors of class
+# `test_install_stop` end `expr`.
+record_conditions <- function(expr) {
+  out <- new.env(parent = emptyenv())
+  out$messages <- list()
+  out$warnings <- list()
+  out$value <- withCallingHandlers(
+    tryCatch(expr, test_install_stop = function(e) "stopped"),
+    message = function(m) {
+      out$messages <- c(out$messages, list(m))
+      invokeRestart("muffleMessage")
+    },
+    warning = function(w) {
+      out$warnings <- c(out$warnings, list(w))
+      invokeRestart("muffleWarning")
+    }
+  )
+  return(out)
+}
+
+# The text of a condition on one line: no ANSI styles, and the
+# non-breaking spaces of cli and the line breaks of the wrapping turned
+# into single spaces.
+plain_message_text <- function(cnd) {
+  text <- cli::ansi_strip(conditionMessage(cnd))
+  text <- gsub("\u00a0", " ", text, fixed = TRUE)
+  return(gsub("[[:space:]]+", " ", text))
+}
+
+testthat::test_that("a command that installs micromamba says so unless silent", {
+  # Regression test: with no usable micromamba, the first create_env() or
+  # run() downloaded and installed it without a message at the default
+  # verbose level, because native_cmd() passes the internal level
+  # "spinner" to install_micromamba().
+  condathis::with_sandbox_dir({
+    calls <- list()
+    testthat::local_mocked_bindings(
+      get_best_micromamba_path = function(...) NULL,
+      install_micromamba = function(...) {
+        calls <<- c(calls, list(list(...)))
+        rlang::abort("no download in tests", class = "test_install_stop")
+      },
+      execute_command = function(...) stop("No process may start here.")
+    )
+    internal <- c(
+      output = "spinner",
+      cmd = "spinner",
+      spinner = "spinner",
+      full = "full"
+    )
+    for (level in names(internal)) {
+      calls <- list()
+      res <- record_conditions(native_cmd(
+        conda_cmd = "create",
+        verbose = level
+      ))
+      testthat::expect_identical(res$value, "stopped")
+      testthat::expect_length(res$messages, 1L)
+      cnd <- res$messages[[1L]]
+      testthat::expect_s3_class(cnd, "condathis_micromamba_downloading")
+      text <- plain_message_text(cnd)
+      testthat::expect_match(
+        text,
+        "No usable micromamba binary was found.",
+        fixed = TRUE
+      )
+      testthat::expect_match(
+        text,
+        paste0("Downloading micromamba \"", micromamba_default_version, "\""),
+        fixed = TRUE
+      )
+      testthat::expect_match(
+        text,
+        as.character(micromamba_bin_path()),
+        fixed = TRUE
+      )
+      testthat::expect_length(calls, 1L)
+      testthat::expect_identical(calls[[1L]]$verbose, internal[[level]])
+      testthat::expect_true(calls[[1L]]$force)
+    }
+
+    calls <- list()
+    res <- record_conditions(native_cmd(
+      conda_cmd = "create",
+      verbose = "silent"
+    ))
+    testthat::expect_identical(res$value, "stopped")
+    testthat::expect_length(res$messages, 0L)
+    testthat::expect_length(calls, 1L)
+    testthat::expect_identical(calls[[1L]]$verbose, "silent")
+  })
+})
+
+testthat::test_that("the automatic install announces itself and warns when unverified", {
+  # End to end through install_micromamba(), with the downloads mocked:
+  # the archive is served, but no published checksum can be downloaded (a
+  # host that blocks GitHub). At the default verbose level, the command
+  # says that it downloads micromamba, installs the binary, and warns that
+  # it was not verified. Silent stays silent and still installs.
+  condathis::with_sandbox_dir({
+    bin_path <- micromamba_bin_path()
+    rel_path <- fs::path_rel(
+      bin_path,
+      fs::path(install_dir_for_backend(micromamba_backend()), "micromamba")
+    )
+    good_archive <- local_mirror_archive(rel_path, "working micromamba")
+    urls <- get_micromamba_urls(
+      sys_arch_str = is_micromamba_available_for_arch(),
+      micromamba_version = micromamba_default_version
+    )
+    log <- local_mirror_downloads(function(url) {
+      if (isTRUE(identical(url, urls$compressed[[1L]]))) {
+        return(good_archive)
+      }
+      return(NULL)
+    })
+    testthat::local_mocked_bindings(
+      get_best_micromamba_path = function(...) NULL,
+      candidate_micromamba_runs = function(path) {
+        return(identical(read_first_line(path), "working micromamba"))
+      },
+      execute_command = function(...) {
+        list(status = 0L, stdout = "", stderr = "", timeout = FALSE)
+      }
+    )
+
+    res <- record_conditions(native_cmd(conda_cmd = "info"))
+    testthat::expect_identical(readLines(bin_path), "working micromamba")
+    testthat::expect_identical(
+      vapply(res$messages, function(m) class(m)[[1L]], character(1L)),
+      "condathis_micromamba_downloading"
+    )
+    testthat::expect_identical(
+      vapply(res$warnings, function(w) class(w)[[1L]], character(1L)),
+      "condathis_install_micromamba_checksum_unavailable"
+    )
+    testthat::expect_identical(
+      log$urls,
+      c(urls$compressed[[1L]], urls$sha256, urls$archive_sha256)
+    )
+
+    fs::file_delete(bin_path)
+    res <- record_conditions(native_cmd(conda_cmd = "info", verbose = "silent"))
+    testthat::expect_identical(readLines(bin_path), "working micromamba")
+    testthat::expect_length(res$messages, 0L)
+    testthat::expect_length(res$warnings, 0L)
+  })
+})
+
+testthat::test_that("a silent probe of a call installs micromamba at the level of the call", {
+  # Regression test: on macOS arm64 and Windows, the first micromamba
+  # command of create_env() is a silent probe (the dry-run solves of
+  # define_platform(), the platform query of micromamba_native_platform()),
+  # so the automatic install happened there, without a message and without
+  # the warning about an unverified binary.
+  condathis::with_sandbox_dir({
+    calls <- character(0L)
+    testthat::local_mocked_bindings(
+      get_best_micromamba_path = function(...) NULL,
+      install_micromamba = function(..., verbose) {
+        calls <<- c(calls, verbose)
+        rlang::abort("no download in tests", class = "test_install_stop")
+      },
+      execute_command = function(...) stop("No process may start here.")
+    )
+    # An exported function records its level, as create_env() does.
+    exported_call <- function(verbose) {
+      parse_verbose_arg(verbose)
+      expected <- parse_strategy_verbose(verbose)$strategy
+      testthat::expect_identical(call_verbose(), expected)
+      native_cmd(conda_cmd = "create", verbose = "silent")
+    }
+    res <- record_conditions(exported_call("output"))
+    testthat::expect_identical(res$value, "stopped")
+    testthat::expect_identical(
+      vapply(res$messages, function(m) class(m)[[1L]], character(1L)),
+      "condathis_micromamba_downloading"
+    )
+    testthat::expect_identical(calls, "spinner")
+
+    calls <- character(0L)
+    res <- record_conditions(exported_call("full"))
+    testthat::expect_length(res$messages, 1L)
+    testthat::expect_identical(calls, "full")
+
+    calls <- character(0L)
+    res <- record_conditions(exported_call("silent"))
+    testthat::expect_length(res$messages, 0L)
+    testthat::expect_identical(calls, "silent")
+
+    # The level is restored when the call exits, also on an error.
+    testthat::expect_null(call_verbose())
+    outer_call <- function() {
+      parse_verbose_arg("cmd")
+      try(exported_call("silent"), silent = TRUE)
+      testthat::expect_identical(call_verbose(), "cmd")
+    }
+    record_conditions(outer_call())
+    testthat::expect_null(call_verbose())
   })
 })

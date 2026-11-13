@@ -10,8 +10,8 @@ list_envs(method = "auto", verbose = "silent")
 \item{method}{Character string naming the backend to query. \code{"auto"} (the
 default) covers every registered backend, in
 \code{getOption("condathis.backend_priority")} order, also a backend that
-reports itself unavailable. Any name from
-\code{\link[=list_registered_backend_names]{list_registered_backend_names()}} queries only that backend.
+reports itself unavailable. The name of a registered backend (see
+\code{\link[=list_registered_backend_names]{list_registered_backend_names()}}) queries only that backend.
 \code{"micromamba"} is built in. The name of a backend whose package
 condathis knows, such as \code{"rattler"} of the \code{rattlerthis} package,
 also queries only that backend. condathis loads that package. When it
@@ -24,7 +24,7 @@ class \code{condathis_invalid_method}.}
 of:
 \itemize{
 \item \code{"output"}: show the output of the command and the messages of
-condathis.
+\code{condathis}.
 \item \code{"silent"}: show nothing.
 \item \code{"cmd"}: show the command line.
 \item \code{"spinner"}: show only a spinner.
@@ -33,9 +33,21 @@ log.
 }
 
 \code{TRUE} means \code{"output"} and \code{FALSE} means \code{"silent"}. Every level
-except \code{"silent"} shows a spinner in interactive sessions. Invalid
-values abort with class \code{condathis_invalid_verbose} (see
-\link{condathis-conditions}). The default is shown in Usage.
+except \code{"silent"} shows a spinner in interactive sessions. It also
+shows these messages and this warning when they occur (see
+\link{condathis-conditions}):
+\itemize{
+\item \code{condathis_micromamba_downloading} (a message): no usable
+\code{micromamba} was found, so it is downloaded. Queries, such as
+\code{\link[=list_envs]{list_envs()}}, never download it.
+\item \code{condathis_env_lock_waiting} and \code{condathis_cache_lock_waiting}
+(messages): the call waits for another R session.
+\item \code{condathis_install_micromamba_checksum_unavailable} (a warning): the
+checksum of the downloaded \code{micromamba} could not be checked.
+}
+
+Invalid values abort with class \code{condathis_invalid_verbose}. The
+default is shown in Usage.
 
 The command line shown, the \code{cmd} of a result and the messages of
 \code{condathis} show the password and the token of a URL as \verb{*****}.
@@ -66,6 +78,11 @@ the \code{envs} directory of its data directory and the package records in
 \verb{conda-meta/} instead. It never installs micromamba.
 }
 \examples{
+condathis::with_sandbox_dir({
+  # No environment yet: a data frame with no rows
+  print(condathis::list_envs())
+})
+
 \dontrun{
 condathis::with_sandbox_dir({
   # A local channel shipped with condathis, with `polyglot`: a

@@ -424,6 +424,7 @@ testthat::test_that("rethrow_error_cmd() errors carry the new class, the old cla
 })
 
 testthat::test_that("process errors of execute_command() can be formatted and printed", {
+  testthat::skip_on_cran()
   # Regression test: these errors had the class `system_command_error`,
   # whose `processx` format() and print() methods expect a processx error
   # object. format() failed with "invalid 'trim' argument", so a condathis

@@ -1,3 +1,7 @@
+# On CRAN, of the tests that use a sandbox (with_sandbox_dir()) or other R
+# sessions, only the one of the queries on a fresh root runs: each takes
+# about a second on Windows, where listing the processes is slow.
+
 # --- Cheap probes on a fresh root (micromamba-cheap-probe, decision D3) ---
 
 # Makes any micromamba process, or a micromamba install, fail the test.
@@ -40,6 +44,7 @@ env_list_json <- function(paths) {
 }
 
 testthat::test_that("micromamba probes start no process and create nothing on a fresh root", {
+  testthat::skip_on_cran()
   # Regression test (A2): every call that names an environment probed the
   # micromamba backend through `micromamba env list`, which created the
   # root and installed micromamba when no binary was found, also with
@@ -100,6 +105,7 @@ testthat::test_that("queries work on a fresh root without creating an environmen
 })
 
 testthat::test_that("an environment directory makes the probe ask micromamba", {
+  testthat::skip_on_cran()
   # The cheap probe answers only "no". With a directory, the listing
   # decides, so a real environment is never hidden.
   with_sandbox_dir({
@@ -146,6 +152,7 @@ write_package_record <- function(env_dir, record) {
 }
 
 testthat::test_that("listings without a micromamba binary read the file system", {
+  testthat::skip_on_cran()
   # Regression test (decision D3): with an environment directory under
   # `<root>/envs` and no usable micromamba binary, env_exists(), list_envs()
   # and list_packages() installed micromamba, also with another backend's
@@ -343,6 +350,7 @@ local_url_channel <- function(.local_envir = parent.frame()) {
 }
 
 testthat::test_that("the micromamba listing reports the channel of the package records", {
+  testthat::skip_on_cran()
   # Regression test: since micromamba 2.10.0, a package downloads from the
   # `url` that its channel's repodata gives, and `micromamba list --json`
   # derives the channel from that URL. A package from outside its channel
@@ -537,6 +545,7 @@ testthat::test_that("a package downloaded from outside its channel keeps that ch
 })
 
 testthat::test_that("micromamba_backend_list_envs() reports each environment once", {
+  testthat::skip_on_cran()
   # Regression test: one environment under two spellings (for example a
   # registry entry with a symbolic link in its path) gave a duplicate
   # name, which the backend contract forbids.
@@ -556,6 +565,7 @@ testthat::test_that("micromamba_backend_list_envs() reports each environment onc
 })
 
 testthat::test_that("micromamba_backend_list_envs() reads the file system when micromamba hides the paths", {
+  testthat::skip_on_cran()
   # Regression test: micromamba 2.9.0 and later hide every `/t/<word>` of
   # their JSON output as a channel token, paths included (see
   # `hide_secrets()`). Under a root with such a part, `micromamba env list
@@ -586,6 +596,7 @@ testthat::test_that("micromamba_backend_list_envs() reads the file system when m
 })
 
 testthat::test_that("micromamba_backend_list_envs() keeps the JSON listing off the console", {
+  testthat::skip_on_cran()
   # Regression test: `list_envs(verbose = "output")` echoed the raw JSON of
   # `micromamba env list`, because the listing passed no quiet arguments.
   with_sandbox_dir({
@@ -614,6 +625,7 @@ testthat::test_that("micromamba_backend_list_envs() keeps the JSON listing off t
 })
 
 testthat::test_that("failed micromamba listings have the new and the old class", {
+  testthat::skip_on_cran()
   with_sandbox_dir({
     root <- install_dir_for_backend(micromamba_backend())
     fs::dir_create(fs::path(root, "envs", "status-env", "conda-meta"))
@@ -713,6 +725,7 @@ testthat::test_that("a missing env_file names the file and has both classes", {
 })
 
 testthat::test_that("removing a missing micromamba environment has the shared class", {
+  testthat::skip_on_cran()
   local_no_micromamba_process()
   with_sandbox_dir({
     cnd <- rlang::catch_cnd(
@@ -785,7 +798,6 @@ testthat::test_that("create_env() shows the Rosetta 2 messages at the caller's v
       testthat::expect_identical(verbose, "silent")
       return(isFALSE(identical(platform, "osx-arm64")))
     },
-    ensure_libmamba_pkgs_dir_workaround = function(...) invisible(NULL),
     native_cmd = function(
       conda_cmd,
       conda_args = NULL,
@@ -843,12 +855,12 @@ testthat::test_that("create_env() shows the Rosetta 2 messages at the caller's v
 })
 
 testthat::test_that("micromamba's create and install pass the platform condathis chose, and solve nothing", {
+  testthat::skip_on_cran()
   # The front end chooses the platform (see define_platform()): the
   # micromamba backend only turns it into `--platform`, and solves for its
   # own platform without one.
   with_sandbox_dir({
     testthat::local_mocked_bindings(
-      ensure_libmamba_pkgs_dir_workaround = function(...) invisible(NULL),
       define_platform = function(...) stop("must not choose a platform"),
       packages_solve_native = function(...) stop("must not solve"),
       micromamba_native_platform = function(...) stop("must not ask")
@@ -901,17 +913,13 @@ testthat::test_that("micromamba's create and install pass the platform condathis
 })
 
 testthat::test_that("micromamba's create hook leaves the environment directory to the front end", {
+  testthat::skip_on_cran()
   # condathis gives every backend a free directory (see
-  # with_env_dir_replacement()), so the hook only runs `micromamba create`,
-  # after the libmamba workaround. It neither asks whether the environment
-  # exists nor moves or deletes anything, also when a directory is there.
+  # with_env_dir_replacement()), so the hook only runs `micromamba create`.
+  # It neither asks whether the environment exists nor moves or deletes
+  # anything, also when a directory is there.
   with_sandbox_dir({
-    workaround_calls <- 0L
     testthat::local_mocked_bindings(
-      ensure_libmamba_pkgs_dir_workaround = function(...) {
-        workaround_calls <<- workaround_calls + 1L
-        return(invisible(NULL))
-      },
       backend_env_exists = function(...) stop("must not ask"),
       micromamba_binary_in_env_dir = function(...) stop("must not look")
     )
@@ -931,7 +939,6 @@ testthat::test_that("micromamba's create hook leaves the environment directory t
       verbose = "silent"
     )
     testthat::expect_identical(res$status, 0L)
-    testthat::expect_identical(workaround_calls, 1L)
     testthat::expect_length(record$calls, 1L)
     testthat::expect_identical(record$calls[[1L]]$conda_cmd, "create")
     testthat::expect_true(all(

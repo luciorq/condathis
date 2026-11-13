@@ -662,6 +662,7 @@ testthat::test_that("a backend without backend_resolve_run_in_dir() cannot run a
 })
 
 testthat::test_that("a backend with backend_resolve_run_in_dir() runs an environment given by path", {
+  testthat::skip_on_cran()
   # A stub backend (helper-stub-backend.R) whose hook names the directory
   # it was given in the command's environment. No micromamba is needed.
   prefix <- fs::path(withr::local_tempdir(), "env-path-stub")
@@ -940,6 +941,7 @@ testthat::test_that("activate = FALSE keeps CONDA_ENVS_PATH at the condathis roo
 })
 
 testthat::test_that("a path environment of another backend gets that backend's own envs and package directories", {
+  testthat::skip_on_cran()
   # The parent of a foreign environment is not a directory condathis
   # manages: its `envs` directory must not make the `conda-pkgs` next to it
   # (in the root of another installation) the package cache of a command.

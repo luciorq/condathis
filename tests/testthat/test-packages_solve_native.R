@@ -90,6 +90,7 @@ testthat::test_that("packages_solve_native() tells a request that does not solve
 })
 
 testthat::test_that("packages_solve_native() reads the answers of the real micromamba", {
+  testthat::skip_on_cran()
   # The local `noarch` channel needs no network. It has no win-arm64
   # directory, which micromamba accepts as an empty one.
   skip_if_no_micromamba_offline()
@@ -321,6 +322,7 @@ testthat::test_that("micromamba_native_platform() gives NA when micromamba info 
 })
 
 testthat::test_that("micromamba_native_platform() reads the real micromamba as micromamba info does", {
+  testthat::skip_on_cran()
   # The ELF and Mach-O binaries of Linux and macOS have no PE header, so
   # the default asks `micromamba info` there; define_platform() asks only on
   # Windows.

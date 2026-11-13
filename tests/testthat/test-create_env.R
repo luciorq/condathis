@@ -597,6 +597,100 @@ testthat::test_that("create_env() catches an old positional env_name", {
   )
 })
 
+testthat::test_that("create_env() checks for a positional env_name only with two or more unnamed specs", {
+  # Regression test: `packages = c("x", "<env>")` and one vector aborted
+  # when "<env>" named an existing environment. 0.1.4 read both as specs.
+  id <- "deprecated_packages_arg_create_env"
+  reset_warn_once(id)
+  withr::defer(reset_warn_once(id))
+  stub <- local_env_stub("stub-create-positional-alias", envs = "my-env")
+  testthat::expect_warning(
+    res <- create_env(packages = c("python", "my-env"), verbose = FALSE),
+    class = "condathis_deprecated_packages_arg"
+  )
+  testthat::expect_identical(res$status, 0L)
+  testthat::expect_identical(
+    stub_calls(stub, "backend_create_env")[[1L]]$args$packages,
+    c("python", "my-env")
+  )
+  testthat::expect_identical(
+    stub_calls(stub, "backend_create_env")[[1L]]$args$env_name,
+    "condathis-env"
+  )
+  # The same through do.call() with a named list, and as one vector.
+  remove_env("condathis-env", verbose = "silent")
+  res <- do.call(
+    create_env,
+    list(packages = c("python", "my-env"), verbose = FALSE)
+  )
+  testthat::expect_identical(res$status, 0L)
+  remove_env("condathis-env", verbose = "silent")
+  res <- create_env(c("python", "my-env"), verbose = FALSE)
+  testthat::expect_identical(res$status, 0L)
+  testthat::expect_length(stub_calls(stub, "backend_create_env"), 3L)
+  # Two unnamed arguments still abort.
+  testthat::expect_error(
+    create_env("python", "my-env"),
+    class = "condathis_create_env_positional_env_name"
+  )
+  testthat::expect_error(
+    create_env(c("python"), "my-env"),
+    class = "condathis_create_env_positional_env_name"
+  )
+})
+
+testthat::test_that("create_env() reads the 0.1.4 default method vector", {
+  id <- "deprecated_method_native"
+  reset_warn_once(id)
+  withr::defer(reset_warn_once(id))
+  testthat::local_mocked_bindings(
+    resolve_backend = function(env_name = NULL, method = "auto", ...) {
+      rlang::abort(method, class = "stub_resolved")
+    }
+  )
+  # c("native", "auto") is "native": micromamba, with the deprecation.
+  testthat::expect_warning(
+    cnd <- rlang::catch_cnd(
+      create_env(env_name = "e", method = c("native", "auto")),
+      classes = "stub_resolved"
+    ),
+    class = "condathis_deprecated_method_native"
+  )
+  testthat::expect_identical(conditionMessage(cnd), "micromamba")
+  cnd <- rlang::catch_cnd(
+    create_env(env_name = "e", method = c("auto", "native")),
+    classes = "stub_resolved"
+  )
+  testthat::expect_identical(conditionMessage(cnd), "auto")
+})
+
+testthat::test_that("create_env() warns about packages = only for direct use", {
+  withr::local_options(lifecycle_verbosity = NULL)
+  id <- "deprecated_packages_arg_create_env"
+  reset_warn_once(id)
+  withr::defer(reset_warn_once(id))
+  stub <- local_env_stub("stub-create-soft")
+  # A function of another package's namespace, such as a wrapper in a
+  # package that depends on condathis.
+  pkg_env <- new.env(parent = asNamespace("tools"))
+  pkg_env$create_env <- create_env
+  pkg_fn <- function(env_name) {
+    return(create_env(packages = "zlib", env_name = env_name, verbose = FALSE))
+  }
+  environment(pkg_fn) <- pkg_env
+  testthat::expect_no_warning(res <- pkg_fn("soft-env"))
+  testthat::expect_identical(res$status, 0L)
+  testthat::expect_false(isTRUE(condathis_warn_once_state[[id]]))
+  # From the tests of this package, once.
+  testthat::expect_warning(
+    create_env(packages = "zlib", env_name = "soft-env-2", verbose = FALSE),
+    class = "condathis_deprecated_packages_arg"
+  )
+  testthat::expect_no_warning(
+    create_env(packages = "zlib", env_name = "soft-env-3", verbose = FALSE)
+  )
+})
+
 testthat::test_that("create_env() accepts packages = as a deprecated alias", {
   id <- "deprecated_packages_arg_create_env"
   reset_warn_once(id)
@@ -1360,6 +1454,7 @@ testthat::test_that("create_env() does not warn for a backend that ran every lin
 })
 
 testthat::test_that("create_env() aborts for an invalid link_scripts_skipped and keeps the old environment", {
+  testthat::skip_on_cran()
   bad_values <- list(
     "plink",
     data.frame(package = "plink", stringsAsFactors = FALSE),
@@ -1872,4 +1967,450 @@ testthat::test_that("Create conda env from file", {
   testthat::expect_false(env_exists(
     env_name = "condathis-create-file-test-env"
   ))
+})
+
+# A backend error with the text micromamba 2 gives for requested specs that
+# are on none of the channels. The tree characters are escaped, so the file
+# stays ASCII.
+micromamba_not_found_error <- function(...) {
+  stderr <- paste0(
+    "error    libmamba Could not solve for environment specs\n",
+    "    The following packages are incompatible\n",
+    "    \u251c\u2500 samtools =1.17 * does not exist ",
+    "(perhaps a typo or a missing channel);\n",
+    "    \u2514\u2500 x =* * does not exist ",
+    "(perhaps a typo or a missing channel).\n",
+    "critical libmamba Could not solve for environment specs\n"
+  )
+  rlang::abort(
+    "`micromamba` failed with status code 1.",
+    class = c(
+      "condathis_micromamba_status_error",
+      "condathis_cmd_status_error",
+      "condathis_error"
+    ),
+    status = 1L,
+    stderr = stderr
+  )
+}
+
+# The message of a condition on one line, so a match does not depend on
+# where cli wraps it.
+flat_message <- function(cnd) {
+  return(gsub("\\s+", " ", cli::ansi_strip(conditionMessage(cnd))))
+}
+
+default_channels_hint_text <- "Since condathis 0.2.0, the default `channels` is only"
+
+testthat::test_that("create_env() says that bioconda is no longer a default channel", {
+  stub <- local_env_stub(
+    "stub-default-channels",
+    backend_create_env = micromamba_not_found_error
+  )
+  cnd <- catch_error(create_env(
+    "samtools=1.17",
+    "conda-forge::x",
+    "python",
+    env_name = "bioc-env",
+    verbose = "silent"
+  ))
+  # The error keeps its classes, fields and parent.
+  testthat::expect_identical(
+    class(cnd),
+    c(
+      "condathis_create_env_failed",
+      "condathis_backend_error",
+      "condathis_micromamba_status_error",
+      "condathis_cmd_status_error",
+      "condathis_error",
+      rlang_tail
+    )
+  )
+  testthat::expect_identical(cnd$status, 1L)
+  testthat::expect_match(cnd$stderr, "does not exist", fixed = TRUE)
+  testthat::expect_s3_class(cnd$parent, "condathis_micromamba_status_error")
+  message <- flat_message(cnd)
+  testthat::expect_match(message, default_channels_hint_text, fixed = TRUE)
+  # Only the requested specs without a channel that were not found.
+  testthat::expect_match(message, "\"bioconda::samtools=1.17\"", fixed = TRUE)
+  testthat::expect_no_match(message, "bioconda::conda-forge::x", fixed = TRUE)
+  testthat::expect_no_match(message, "bioconda::python", fixed = TRUE)
+  testthat::expect_match(
+    message,
+    "channels = c(\"conda-forge\", \"bioconda\")",
+    fixed = TRUE
+  )
+  # The hint comes before the backend's own error.
+  testthat::expect_true(
+    regexpr("Since condathis", message, fixed = TRUE) <
+      regexpr("Caused by error", message, fixed = TRUE)
+  )
+})
+
+testthat::test_that("create_env() adds the default-channels hint only when it applies", {
+  stub <- local_env_stub(
+    "stub-default-channels-no",
+    backend_create_env = micromamba_not_found_error
+  )
+  no_hint <- function(expr) {
+    cnd <- catch_error(expr)
+    testthat::expect_s3_class(cnd, "condathis_create_env_failed")
+    testthat::expect_no_match(
+      flat_message(cnd),
+      "Since condathis 0.2.0",
+      fixed = TRUE
+    )
+  }
+  # `channels` given, also with its default value.
+  no_hint(create_env(
+    "samtools=1.17",
+    env_name = "e1",
+    channels = "conda-forge",
+    verbose = "silent"
+  ))
+  # bioconda among the channels, by name or by URL.
+  no_hint(create_env(
+    "samtools=1.17",
+    env_name = "e2",
+    additional_channels = "bioconda",
+    verbose = "silent"
+  ))
+  no_hint(create_env(
+    "samtools=1.17",
+    env_name = "e3",
+    additional_channels = "https://conda.anaconda.org/bioconda/",
+    verbose = "silent"
+  ))
+  # A spec that names its channel.
+  no_hint(create_env("conda-forge::x", env_name = "e4", verbose = "silent"))
+  # A spec that the error does not name.
+  no_hint(create_env("python", env_name = "e5", verbose = "silent"))
+  # An environment file names its own channels.
+  env_file <- withr::local_tempfile(
+    fileext = ".yml",
+    lines = c("dependencies:", "  - samtools=1.17")
+  )
+  no_hint(create_env(env_file = env_file, env_name = "e6", verbose = "silent"))
+})
+
+testthat::test_that("create_env() reads the not-found text of micromamba and rattler only", {
+  n_stubs <- 0L
+  hint_for <- function(message, stderr = NULL) {
+    stub_error <- function(...) {
+      rlang::abort(message, class = "stub_solve_error", stderr = stderr)
+    }
+    n_stubs <<- n_stubs + 1L
+    local_env_stub(
+      paste0("stub-not-found-text-", n_stubs),
+      backend_create_env = stub_error
+    )
+    cnd <- catch_error(
+      create_env("samtools", "zlib", env_name = "t-env", verbose = "silent")
+    )
+    testthat::expect_s3_class(cnd, "condathis_create_env_failed")
+    testthat::expect_s3_class(cnd$parent, "stub_solve_error")
+    return(grepl("Since condathis 0.2.0", flat_message(cnd), fixed = TRUE))
+  }
+  # rattler (resolvo), in the message.
+  testthat::expect_true(hint_for(paste0(
+    "failed to solve environment: Cannot solve the request because of: ",
+    "No candidates were found for samtools *."
+  )))
+  # micromamba, in the `stderr` field.
+  testthat::expect_true(hint_for(
+    "solve failed",
+    stderr = "samtools =* * does not exist (perhaps a typo or a missing channel)."
+  ))
+  # A missing dependency is not a missing requested spec.
+  testthat::expect_false(hint_for(
+    "solve failed",
+    stderr = paste0(
+      "samtools =* * is not installable because it requires\n",
+      "  htslib =* *, which does not exist (perhaps a missing channel)."
+    )
+  ))
+  # Any other error.
+  testthat::expect_false(hint_for("boom"))
+  testthat::expect_false(hint_for("samtools: download failed"))
+})
+
+testthat::test_that("missing_spec_names() reads every not-found spec of a backend error", {
+  stderr <- paste0(
+    "    \u251c\u2500 Fastp =* * does not exist ",
+    "(perhaps a typo or a missing channel);\n",
+    "    \u2514\u2500 samtools >=1.2 * does not exist ",
+    "(perhaps a typo or a missing channel).\n"
+  )
+  parent <- rlang::error_cnd(message = "failed", stderr = stderr)
+  cnd <- rlang::error_cnd(message = "outer", parent = parent)
+  testthat::expect_identical(missing_spec_names(cnd), c("fastp", "samtools"))
+  testthat::expect_identical(
+    missing_spec_names(rlang::error_cnd(
+      message = "No candidates were found for r-base ==9.9."
+    )),
+    "r-base"
+  )
+  testthat::expect_identical(
+    missing_spec_names(simpleError("boom")),
+    character(0L)
+  )
+})
+
+testthat::test_that("create_env() does not compare virtual package specs", {
+  # Regression test: a spec such as "__cuda=12" is never in the package
+  # listing, so the identical second call aborted with
+  # condathis_create_env_exists.
+  stub <- local_env_stub(
+    "stub-virtual",
+    envs = "cuda-env",
+    packages = pkgs_df(
+      c("pytorch-gpu", "cuda-version"),
+      version = c("2.5.1", "12.6")
+    )
+  )
+  res <- create_env(
+    "__cuda=12",
+    "pytorch-gpu",
+    "cuda-version>=12.4",
+    "__glibc>=2.17",
+    env_name = "cuda-env",
+    verbose = "silent"
+  )
+  testthat::expect_identical(res$status, 0L)
+  testthat::expect_identical(res$cmd, NA_character_)
+  testthat::expect_length(stub_calls(stub, "backend_create_env"), 0L)
+
+  # The other specs are still compared.
+  cnd <- catch_error(create_env(
+    "__cuda=12",
+    "zlib",
+    env_name = "cuda-env",
+    verbose = "silent"
+  ))
+  testthat::expect_s3_class(cnd, "condathis_create_env_exists")
+  message <- flat_message(cnd)
+  testthat::expect_match(message, "Not satisfied: \"zlib\".", fixed = TRUE)
+  testthat::expect_no_match(message, "__cuda", fixed = TRUE)
+
+  # A new environment: the backend gets the virtual specs.
+  create_env("__unix", "zlib", env_name = "new-env", verbose = "silent")
+  calls <- stub_calls(stub, "backend_create_env")
+  testthat::expect_length(calls, 1L)
+  testthat::expect_identical(calls[[1L]]$args$packages, c("__unix", "zlib"))
+})
+
+testthat::test_that("check_env_request() leaves out virtual package specs", {
+  installed <- pkgs_df("zlib", version = "1.3.1")
+  check <- check_env_request(
+    installed,
+    c("__unix", "__glibc>=2.17", "conda-forge::__cuda=12", "zlib"),
+    channels = "conda-forge"
+  )
+  testthat::expect_true(check$satisfied)
+  testthat::expect_identical(check$unsatisfied, character(0L))
+  check <- check_env_request(installed, c("__unix", "python"))
+  testthat::expect_identical(check$unsatisfied, "python")
+  testthat::expect_identical(
+    is_virtual_package_spec(c("__cuda=12", "_libgcc_mutex", "zlib", "__UNIX")),
+    c(TRUE, FALSE, FALSE, TRUE)
+  )
+})
+
+testthat::test_that("create_env() names the channel of an installed package outside channels", {
+  # An environment that condathis 0.1.4 built with its default channels,
+  # c("conda-forge", "bioconda").
+  stub <- local_env_stub(
+    "stub-other-channel",
+    envs = "old-env",
+    packages = pkgs_df(
+      c("samtools", "htslib"),
+      version = "1.17",
+      channel = "https://conda.anaconda.org/bioconda"
+    )
+  )
+  cnd <- catch_error(
+    create_env("samtools=1.17", env_name = "old-env", verbose = "silent")
+  )
+  testthat::expect_identical(
+    class(cnd),
+    c("condathis_create_env_exists", "condathis_error", rlang_tail)
+  )
+  message <- flat_message(cnd)
+  testthat::expect_match(
+    message,
+    "\"samtools\" is installed from \"bioconda\", which is not in `channels`.",
+    fixed = TRUE
+  )
+  testthat::expect_match(message, "\"bioconda::samtools\"", fixed = TRUE)
+  # `overwrite = TRUE` with the same channels would fail, so it is not
+  # suggested.
+  testthat::expect_no_match(message, "overwrite = TRUE", fixed = TRUE)
+
+  # Another spec that is not satisfied keeps the usual hint.
+  message <- flat_message(catch_error(
+    create_env("samtools", "zlib", env_name = "old-env", verbose = "silent")
+  ))
+  testthat::expect_match(
+    message,
+    "is installed from \"bioconda\"",
+    fixed = TRUE
+  )
+  testthat::expect_match(message, "overwrite = TRUE", fixed = TRUE)
+
+  # A version that the package does not have is not about the channel.
+  message <- flat_message(catch_error(
+    create_env("samtools=1.18", env_name = "old-env", verbose = "silent")
+  ))
+  testthat::expect_no_match(message, "is installed from", fixed = TRUE)
+  testthat::expect_match(message, "overwrite = TRUE", fixed = TRUE)
+
+  # The channel is still part of the request: with it, the environment is
+  # kept.
+  res <- create_env(
+    "samtools=1.17",
+    env_name = "old-env",
+    channels = c("conda-forge", "bioconda"),
+    verbose = "silent"
+  )
+  testthat::expect_identical(res$status, 0L)
+  testthat::expect_identical(res$cmd, NA_character_)
+  testthat::expect_length(stub_calls(stub, "backend_create_env"), 0L)
+})
+
+testthat::test_that("specs_from_other_channels() suggests a spec only for a channel name", {
+  installed <- rbind(
+    pkgs_df("samtools", version = "1.17", channel = "bioconda"),
+    pkgs_df("polyglot", channel = "file:///srv/channels/bioconda"),
+    pkgs_df("zlib", channel = "conda-forge")
+  )
+  check <- check_env_request(
+    installed,
+    c("samtools>=1", "polyglot", "zlib", "pkgs/main::zlib", "python"),
+    channels = "defaults"
+  )
+  other <- check$other_channels
+  testthat::expect_identical(other$spec, c("samtools>=1", "polyglot", "zlib"))
+  testthat::expect_identical(other$name, c("samtools", "polyglot", "zlib"))
+  testthat::expect_identical(
+    other$channel,
+    c("bioconda", "/srv/channels/bioconda", "conda-forge")
+  )
+  testthat::expect_identical(
+    other$spec_hint,
+    c("bioconda::samtools", NA, "conda-forge::zlib")
+  )
+  testthat::expect_false(unsatisfied_only_by_channel(check))
+  # Without `channels`, a spec without a channel matches any channel.
+  testthat::expect_identical(
+    nrow(check_env_request(installed, "polyglot")$other_channels),
+    0L
+  )
+})
+
+testthat::test_that("specs_from_other_channels() leaves out packages that pip installed", {
+  installed <- rbind(
+    pkgs_df("requests", version = "2.32.3", channel = "pypi"),
+    pkgs_df("samtools", version = "1.17", channel = "bioconda")
+  )
+  check <- check_env_request(
+    installed,
+    c("requests", "samtools"),
+    channels = "conda-forge"
+  )
+  testthat::expect_identical(check$unsatisfied, c("requests", "samtools"))
+  testthat::expect_identical(check$other_channels$spec, "samtools")
+  testthat::expect_false(unsatisfied_only_by_channel(check))
+})
+
+testthat::test_that("create_env() keeps an environment created with a virtual package spec", {
+  testthat::skip_on_cran()
+  skip_if_no_micromamba_offline()
+
+  # A virtual package that micromamba defines on this OS.
+  virtual <- if (isTRUE(is_windows())) "__win" else "__unix"
+  env_name <- "condathis-virtual-spec-env"
+  res <- create_env(
+    virtual,
+    "polyglot",
+    env_name = env_name,
+    channels = polyglot_channel(),
+    verbose = "silent"
+  )
+  withr::defer(remove_env(env_name, verbose = "silent"))
+  testthat::expect_identical(res$status, 0L)
+  # The solver got the virtual spec.
+  testthat::expect_match(res$cmd, virtual, fixed = TRUE)
+
+  res <- create_env(
+    virtual,
+    "polyglot",
+    env_name = env_name,
+    channels = polyglot_channel(),
+    verbose = "silent"
+  )
+  testthat::expect_identical(res$status, 0L)
+  testthat::expect_identical(res$cmd, NA_character_)
+  testthat::expect_true(validate_env(
+    virtual,
+    "polyglot",
+    env_name = env_name,
+    channels = polyglot_channel()
+  ))
+
+  res <- install_packages(
+    virtual,
+    "polyglot",
+    env_name = env_name,
+    channels = polyglot_channel(),
+    verbose = "silent"
+  )
+  testthat::expect_identical(res$status, 0L)
+  testthat::expect_match(res$cmd, virtual, fixed = TRUE)
+})
+
+testthat::test_that("create_env() names the channel an existing environment was built from", {
+  # An environment built from a channel that is not requested again, as
+  # one that condathis 0.1.4 built from bioconda. A copy of the polyglot
+  # channel stands in for bioconda.
+  testthat::skip_on_cran()
+  skip_if_no_micromamba_offline()
+
+  other <- polyglot_channel("bioconda")
+  env_name <- "condathis-other-channel-env"
+  create_polyglot_env(env_name, channel = other)
+  withr::defer(remove_env(env_name, verbose = "silent"))
+
+  # With the default channels: only the listing runs, no solver.
+  for (channels in list(NULL, polyglot_channel())) {
+    args <- list("polyglot", env_name = env_name, verbose = "silent")
+    if (isFALSE(is.null(channels))) {
+      args$channels <- channels
+    }
+    cnd <- catch_error(do.call(create_env, args))
+    testthat::expect_s3_class(cnd, "condathis_create_env_exists")
+    message <- flat_message(cnd)
+    testthat::expect_match(
+      message,
+      "\"polyglot\" is installed from",
+      fixed = TRUE
+    )
+    testthat::expect_match(message, "bioconda\", which is not in", fixed = TRUE)
+    testthat::expect_match(message, "to `channels`.", fixed = TRUE)
+    testthat::expect_no_match(message, "overwrite = TRUE", fixed = TRUE)
+  }
+  testthat::expect_false(validate_env(
+    "polyglot",
+    env_name = env_name,
+    channels = polyglot_channel(),
+    error = "continue"
+  ))
+
+  res <- create_env(
+    "polyglot",
+    env_name = env_name,
+    channels = c(polyglot_channel(), other),
+    verbose = "silent"
+  )
+  testthat::expect_identical(res$status, 0L)
+  testthat::expect_identical(res$cmd, NA_character_)
 })

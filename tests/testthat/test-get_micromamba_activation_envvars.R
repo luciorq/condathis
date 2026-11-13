@@ -386,6 +386,7 @@ testthat::test_that("the activation overlay carries no variable set by R's own s
 })
 
 testthat::test_that("the activation baseline starts once for two environments", {
+  testthat::skip_on_cran()
   # Regression test: every activation cache miss started its own baseline
   # `Rscript` process, although the baseline depends only on the session's
   # environment, not on the target environment. Two new environments cost
@@ -452,6 +453,7 @@ testthat::test_that("the activation baseline starts once for two environments", 
 })
 
 testthat::test_that("a failed activation command raises a condathis error", {
+  testthat::skip_on_cran()
   # Regression test: the `micromamba run` of the activation dump was not
   # wrapped, so its failure escaped as a bare process error without the
   # condathis classes.
@@ -521,6 +523,7 @@ testthat::test_that("the activation leaves out the variables of micromamba's own
 
   # The rest needs a micromamba binary, which may be downloaded.
   testthat::skip_on_cran()
+  skip_if_no_micromamba_offline()
   create_env(verbose = "silent")
   reset_micromamba_activation_cache("condathis-env")
   envvars <- get_micromamba_activation_envvars("condathis-env")
@@ -531,6 +534,7 @@ testthat::test_that("the activation leaves out the variables of micromamba's own
 })
 
 testthat::test_that("the activation leaves out micromamba's own TMP on Windows, not a TMP that a script sets", {
+  testthat::skip_on_cran()
   # Regression test: on Windows, every micromamba command that
   # `native_cmd()` starts gets `TMP` = a directory in its `TMPDIR` (see
   # `micromamba_cmd_overlay()`), which `micromamba run -e` cannot change,
@@ -723,6 +727,7 @@ testthat::test_that("a value built from micromamba's TMP names the command's TMP
 })
 
 testthat::test_that("an activation built from micromamba's TMP is cached on Windows, unless a script wrote there", {
+  testthat::skip_on_cran()
   # Regression test: on Windows, a value built from micromamba's own `TMP`
   # named the call's `TMPDIR`, so the activation was recorded again for
   # every command, and the command got a path in a deleted directory. When

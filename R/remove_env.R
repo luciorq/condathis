@@ -58,8 +58,9 @@ remove_env <- function(
 ) {
   # Rule R2: every argument is checked before the first backend call.
   validate_env_name(env_name, class = "condathis_remove_env_invalid_env_name")
-  validate_method_arg(method)
+  method <- validate_method_arg(method)
   verbose_list <- parse_verbose_arg(verbose)
+  method <- resolve_method_alias(method, user_env = rlang::caller_env())
 
   # One R session at a time changes an environment (see
   # `local_env_lock()`): an install in another session finishes before the

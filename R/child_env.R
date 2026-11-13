@@ -62,7 +62,10 @@ build_child_env <- function(
   if (isTRUE(length(path_prepend) > 0L)) {
     path_name <- match_env_name(names(env), "PATH")
     current_path <- if (is.na(path_name)) "" else env[[path_name]]
-    env[[path_name %|na|% "PATH"]] <- compose_path(path_prepend, current_path)
+    env[[path_name %|na|% "PATH"]] <- prepend_path_dirs(
+      path_prepend,
+      current_path
+    )
   }
   return(unlist(env))
 }
@@ -140,6 +143,69 @@ compose_path <- function(prepend, base_path, append = character(0L)) {
   )
   parts <- parts[nzchar(parts)]
   return(paste(unique(parts), collapse = sep))
+}
+
+#' The key under which two `PATH` entries name the same directory
+#'
+#' Off Windows, an entry is its own key: entries compare as written. On
+#' Windows, entries compare as Windows compares directories: without case,
+#' with `/` the same as `\\`, and without trailing separators (`C:\\x\\`
+#' is `C:\\x`). A drive root keeps its separator: `C:\\` is not `C:`,
+#' which names the current directory of drive `C:`.
+#'
+#' @param x Character vector of `PATH` entries.
+#' @param on_windows Logical. Whether to apply the Windows rule.
+#'
+#' @returns A character vector of the same length as `x`.
+#'
+#' @keywords internal
+#' @noRd
+path_entry_key <- function(x, on_windows = is_windows()) {
+  if (isTRUE(on_windows)) {
+    key <- tolower(gsub("/", "\\", x, fixed = TRUE))
+    trimmed <- sub("\\\\+$", "", key)
+    is_root <- grepl("^[a-z]:$", trimmed) | !nzchar(trimmed)
+    key[!is_root] <- trimmed[!is_root]
+    key[is_root] <- sub("\\\\+$", "\\\\", key[is_root])
+    return(key)
+  }
+  return(x)
+}
+
+#' Prepend directories to a `PATH` string, one entry per directory
+#'
+#' As `compose_path()`, but an entry of `base_path` that names one of the
+#' directories of `prepend` is dropped also when it is spelled differently
+#' (see `path_entry_key()`). On Windows, the activation of micromamba
+#' spells the environment's directories with `\\`, and
+#' `env_bin_search_dirs()` with `/`: `run_bin()` put both copies of each
+#' directory on the command's `PATH`. The first copy and its spelling are
+#' kept. Off Windows, the result is that of `compose_path()`.
+#'
+#' Only the entries of `base_path` that repeat a directory of `prepend`
+#' are dropped: the other entries of `base_path` stay as they are, as with
+#' `compose_path()`.
+#'
+#' @param prepend Character vector of directories.
+#' @param base_path Character string, the existing `PATH` value (may be
+#'   empty).
+#' @param on_windows Logical. Whether to apply the Windows rule.
+#'
+#' @returns A character string.
+#'
+#' @keywords internal
+#' @noRd
+prepend_path_dirs <- function(prepend, base_path, on_windows = is_windows()) {
+  sep <- .Platform$path.sep
+  prepend <- as.character(prepend)
+  prepend <- prepend[nzchar(prepend)]
+  prepend_keys <- path_entry_key(prepend, on_windows = on_windows)
+  prepend <- prepend[!duplicated(prepend_keys)]
+  base_parts <- strsplit(base_path %||% "", sep, fixed = TRUE)[[1L]]
+  base_parts <- base_parts[
+    !(path_entry_key(base_parts, on_windows = on_windows) %in% prepend_keys)
+  ]
+  return(compose_path(prepend, paste(base_parts, collapse = sep)))
 }
 
 #' `%|na|%`: fall back when the left-hand side is `NA`

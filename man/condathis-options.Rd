@@ -25,8 +25,9 @@ Set these with \code{\link[base:options]{base::options()}}, for example in an \c
 Character string. Path to a \code{micromamba} binary to use instead of
 the one managed by \code{condathis}. It has the highest priority in the
 \code{micromamba} discovery order (see \emph{micromamba discovery}).
-The binary must report a compatible version. Otherwise, \code{condathis}
-uses the next candidate. Default: \code{NULL} (unset).
+The binary must report a compatible version (2.8.1 or newer).
+Otherwise, \code{condathis} uses the next candidate. Default: \code{NULL}
+(unset).
 }
 \item{\code{condathis.backend_priority}}{
 Character vector. The order of the registered backends for
@@ -60,6 +61,17 @@ that is not a single, non-negative number. It restores the session
 value afterwards.
 }
 }
+
+For example, this call in an \code{.Rprofile} file uses a specific
+\code{micromamba} binary, and creates new environments with the \code{"rattler"}
+backend when the \code{rattlerthis} package is installed (\code{micromamba} stays
+the fallback):
+
+\if{html}{\out{<div class="sourceCode r">}}\preformatted{options(
+  condathis.micromamba_path = "/opt/micromamba/bin/micromamba",
+  condathis.backend_priority = c("rattler", "micromamba")
+)
+}\if{html}{\out{</div>}}
 }
 
 \section{Environment variables read by condathis}{
@@ -98,6 +110,12 @@ found or run, and uses \code{tar} on \code{PATH} instead. \code{TAR} does not
 support arguments.
 }
 }
+
+For example, this line of an \code{.Renviron} file names the same \code{micromamba}
+binary as the option above:
+
+\if{html}{\out{<div class="sourceCode">}}\preformatted{CONDATHIS_MICROMAMBA_PATH=/opt/micromamba/bin/micromamba
+}\if{html}{\out{</div>}}
 }
 
 \section{Environment variables that set data and cache directories}{
@@ -118,9 +136,9 @@ condathis data directory is its \code{R/condathis} subdirectory.
 \item{\code{XDG_DATA_HOME}}{
 Base data directory when \code{R_USER_DATA_DIR} is unset. On macOS, when
 both are unset, \code{condathis} uses \verb{~/.local/share} instead of the
-platform default under \verb{~/Library/Application Support}. The platform
-default contains a space, and \verb{micromamba run} can fail on paths
-with spaces.
+platform default. That default is under
+\verb{~/Library/Application Support}, which contains a space, and
+\verb{micromamba run} can fail on paths with spaces.
 }
 \item{\code{R_USER_CACHE_DIR}, \code{XDG_CACHE_HOME}}{
 Base cache directory, in that order. \code{\link[=clean_cache]{clean_cache()}} empties its
@@ -151,6 +169,11 @@ out of your own directories.
 \code{curl} 5.0.0 or later is installed, and with \code{\link[utils:download.file]{utils::download.file()}}
 otherwise. Both honor the standard proxy variables, such as
 \code{http_proxy}, \code{https_proxy}, and \code{no_proxy}.
+
+The processes that \code{condathis} starts, \code{micromamba} included, inherit
+these variables from the R session, so \code{micromamba} downloads packages
+through the same proxy. It ignores the proxy settings of your
+\code{.condarc} and \code{.mambarc} files (see \code{CONDARC} below).
 }
 
 \section{Environment variables set or cleared in child processes}{
@@ -183,20 +206,23 @@ those in \code{XDG_CONFIG_HOME}. They also read the \verb{MAMBA_*} variables
 that are not listed here.
 }
 \item{\code{CONDA_ROOT_PREFIX}, \code{MAMBA_ROOT_PREFIX}}{
-Set to \code{""} for every command of an environment.
-\code{MAMBA_ROOT_PREFIX} is set to \code{""} also when the activation of the
-micromamba backend sets it, as it does on Windows. \code{micromamba}
-itself gets the condathis data directory as its root prefix, with
-\code{-r} and in \code{MAMBA_ROOT_PREFIX}. Without \code{MAMBA_ROOT_PREFIX},
-micromamba (2.8.1 to 2.10.0 checked) refuses to start, even for
-\code{--version}, when its default root prefix exists but is not a Conda
-environment. The default root prefix is \verb{$XDG_DATA_HOME/mamba}, else
+Set to \code{""} for every command of an environment, also when the
+activation of the micromamba backend sets \code{MAMBA_ROOT_PREFIX}, as it
+does on Windows. \code{micromamba} itself gets the condathis data
+directory as its root prefix, with \code{-r} and in \code{MAMBA_ROOT_PREFIX}.
+Without \code{MAMBA_ROOT_PREFIX}, micromamba (2.8.1 to 2.10.0 checked)
+refuses to start, even for \code{--version}, when its default root prefix
+exists but is not a Conda environment. The default root prefix is \verb{$XDG_DATA_HOME/mamba}, else
 \verb{~/.local/share/mamba}, on Windows else \code{mamba} in the roaming
 application data folder.
 }
-\item{\code{CONDA_PREFIX}, \code{MAMBA_PREFIX}, \code{CONDA_DEFAULT_ENV},
-\code{MAMBA_DEFAULT_ENV}, \code{CONDA_PROMPT_MODIFIER},
-\code{MAMBA_PROMPT_MODIFIER}}{
+\item{\code{CONDA_PREFIX}, \code{MAMBA_PREFIX}}{
+Set to \code{""}.
+}
+\item{\code{CONDA_DEFAULT_ENV}, \code{MAMBA_DEFAULT_ENV}}{
+Set to \code{""}.
+}
+\item{\code{CONDA_PROMPT_MODIFIER}, \code{MAMBA_PROMPT_MODIFIER}}{
 Set to \code{""}.
 }
 \item{\code{CONDA_SHLVL}, \code{MAMBA_SHLVL}}{
@@ -336,37 +362,34 @@ compatible version:
 environment.
 \item A \code{micromamba} inside \code{CONDA_PREFIX}.
 \item A \code{micromamba} in the \code{micromamba-env} environment of the micromamba
-backend, \verb{<condathis data directory>/envs/micromamba-env}. \code{condathis}
-ignores an environment of that name that another backend created.
+backend, in the \code{envs} directory of the condathis data directory.
+\code{condathis} ignores an environment of that name that another backend
+created.
 \item A \code{micromamba} on \code{PATH}.
 }
 
-When no candidate is compatible, \code{\link[=install_micromamba]{install_micromamba()}} downloads the
-pinned version into the managed location.
+A compatible version is 2.8.1 or newer. When no candidate is
+compatible, the first function that needs \code{micromamba} calls
+\code{\link[=install_micromamba]{install_micromamba()}}, which downloads the default version into the
+managed location. That function says so first, unless its \code{verbose} is
+\code{"silent"}, with a message of class \code{condathis_micromamba_downloading}.
+Queries, such as \code{\link[=list_envs]{list_envs()}}, never download it.
 }
 
 \section{Interactive sessions}{
 
 
-\code{condathis} shows spinners for every \code{verbose} level except \code{"silent"},
-and only when \code{\link[rlang:is_interactive]{rlang::is_interactive()}} returns \code{TRUE}. The same holds
-for the download progress of \code{\link[=install_micromamba]{install_micromamba()}}. Set the
-\code{rlang_interactive} option to \code{FALSE} to turn them off in an interactive
-session.
+In interactive sessions, \code{condathis} shows spinners for every \code{verbose}
+level except \code{"silent"}. A session is interactive when
+\code{\link[rlang:is_interactive]{rlang::is_interactive()}} returns \code{TRUE}. \code{\link[=install_micromamba]{install_micromamba()}} shows
+the progress of its download only in interactive sessions, and only
+when its \code{verbose} is \code{"output"} or \code{"full"}. When another function
+installs micromamba because no usable binary was found, the progress
+shows only with \code{verbose = "full"}. Set the \code{rlang_interactive} option
+to \code{FALSE} to turn spinners and progress off in an interactive session.
 }
 
 \examples{
-# Set options in an .Rprofile file. For example, use a specific
-# micromamba binary, and create new environments with the "rattler"
-# backend when the rattlerthis package is installed (micromamba stays
-# the fallback):
-#   options(
-#     condathis.micromamba_path = "/opt/micromamba/bin/micromamba",
-#     condathis.backend_priority = c("rattler", "micromamba")
-#   )
-# The same binary, as a line of an .Renviron file:
-#   CONDATHIS_MICROMAMBA_PATH=/opt/micromamba/bin/micromamba
-
 # Redirect all condathis data to temporary directories
 condathis::with_sandbox_dir({
   print(condathis::get_install_dir()$path)

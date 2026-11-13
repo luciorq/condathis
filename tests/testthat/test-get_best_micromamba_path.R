@@ -100,6 +100,24 @@ testthat::test_that("a broken discovery candidate is skipped, not fatal", {
     )
   }
   withr::local_options(condathis.micromamba_path = NULL)
-  withr::local_envvar(CONDATHIS_MICROMAMBA_PATH = as.character(no_version))
+  # Without the micromamba binaries of this machine: after the broken
+  # candidate, discovery would run one that `CONDA_PREFIX` or `PATH` has,
+  # also on CRAN.
+  path_dirs <- strsplit(
+    Sys.getenv("PATH"),
+    .Platform$path.sep,
+    fixed = TRUE
+  )[[1L]]
+  umamba_names <- paste0("micromamba", c("", ".exe", ".bat", ".cmd", ".com"))
+  has_umamba <- vapply(
+    path_dirs,
+    function(dir) any(file.exists(file.path(dir, umamba_names))),
+    logical(1L)
+  )
+  withr::local_envvar(
+    CONDATHIS_MICROMAMBA_PATH = as.character(no_version),
+    CONDA_PREFIX = NA,
+    PATH = paste(path_dirs[!has_umamba], collapse = .Platform$path.sep)
+  )
   testthat::expect_no_error(get_best_micromamba_path())
 })

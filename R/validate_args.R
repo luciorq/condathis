@@ -459,20 +459,29 @@ validate_channels_arg <- function(
 #' * Unnamed character strings and character vectors are specs. They are
 #'   flattened in order: `("a", c("b", "c"))` gives `c("a", "b", "c")`.
 #'   `character(0)` adds nothing.
-#' * `packages = <specs>` is a deprecated alias. It warns once per session
-#'   and per function, with class
+#' * `packages = <specs>` is a deprecated alias. It is a soft deprecation
+#'   (see `condathis_deprecate_soft()`): for direct use only, it warns once
+#'   per session and per function, with class
 #'   `c("condathis_deprecated_packages_arg", "condathis_warning")`.
-#'   `packages = NULL` means no specs. `packages =` together with unnamed
-#'   specs aborts, and so does `packages =` given twice.
+#'   `packages = NULL` and `packages = character(0)` mean no specs.
+#'   `packages =` together with unnamed specs aborts, and so does
+#'   `packages =` given twice. When the other value is one string, the hint
+#'   names it as `env_name =` (or `env_file =` for a `.yml` or `.yaml`
+#'   file), its 0.1.4 positional meaning.
 #' * Any other named value aborts: the name is a misspelled or unknown
 #'   argument. The message names the closest formal of the caller, for
-#'   example `chanels = ` gives "Did you mean `channels`?".
+#'   example `chanels = ` gives "Did you mean `channels`?". A name that
+#'   abbreviates `packages` (`package =`, `pack =`, `p =`) gets a hint to
+#'   pass the specs unnamed: 0.1.4 matched such abbreviations.
 #' * A value that is not a character vector (`NULL`, a number, a logical,
-#'   a list, a factor), `NA` and `""` abort.
+#'   a list, a factor), `NA` and `""` abort. A `NULL` before other
+#'   unnamed values gets a hint that the arguments after the specs must be
+#'   named, as in 0.1.4's positional `create_env("pkg", NULL, "env")`.
 #' * A spec that ends in `.yml` or `.yaml` aborts with a hint to pass it as
 #'   `env_file =` to `create_env()`.
 #' * No specs at all abort with `missing_class` when `allow_empty` is
-#'   `FALSE`.
+#'   `FALSE`, unless they came from `packages = NULL` or
+#'   `packages = character(0)`.
 #'
 #' Every error has the classes
 #' `c("condathis_<fn>_invalid_packages", "condathis_invalid_packages",
@@ -494,6 +503,10 @@ validate_channels_arg <- function(
 #' @param formal_names Character vector, the formals of the exported
 #'   function, used for the closest-formal hint. `NULL` (the default) reads
 #'   them from the calling function.
+#' @param user_env The environment the exported function was called from,
+#'   `rlang::caller_env()` evaluated in the exported function, for the soft
+#'   deprecation of `packages =` (see `is_direct_use()`). `NULL` counts as
+#'   direct use.
 #' @param call Environment of the function the error is reported for.
 #'
 #' @returns An unnamed character vector of specs, `character(0)` when none
@@ -502,7 +515,13 @@ validate_channels_arg <- function(
 #' @examples
 #' \dontrun{
 #' create_env <- function(..., env_name = "condathis-env") {
-#'   packages <- collect_package_specs(rlang::list2(...), fn = "create_env")
+#'   user_env <- rlang::caller_env()
+#'   dots <- rlang::list2(...)
+#'   packages <- collect_package_specs(
+#'     dots,
+#'     fn = "create_env",
+#'     user_env = user_env
+#'   )
 #' }
 #' }
 #'
@@ -514,6 +533,7 @@ collect_package_specs <- function(
   allow_empty = TRUE,
   missing_class = paste0("condathis_", fn, "_missing_packages"),
   formal_names = NULL,
+  user_env = NULL,
   call = rlang::caller_env()
 ) {
   if (is.null(formal_names)) {
@@ -535,7 +555,28 @@ collect_package_specs <- function(
     bad_name <- unknown_names[[1L]]
     suggestion <- closest_names(bad_name, setdiff(formal_names, "..."))
     message <- c(`x` = "{.arg {bad_name}} is not an argument of {.fn {fn}}.")
-    if (
+    if (isTRUE(startsWith("packages", bad_name))) {
+      # 0.1.4 matched an abbreviation of `packages`, unless it abbreviated
+      # another formal too (`p` in create_env(), with `platform`).
+      other_matches <- setdiff(formal_names, c("...", "packages"))
+      other_matches <- other_matches[startsWith(other_matches, bad_name)]
+      unnamed_hint <- "Pass package specs unnamed, before the named arguments: {.code {fn}(\"pkg\", env_name = \"my-env\")}."
+      if (isTRUE(length(other_matches) > 0L)) {
+        message <- c(
+          message,
+          `i` = "Did you mean {.or {.arg {other_matches}}}?",
+          `i` = unnamed_hint
+        )
+      } else if (isTRUE(fn %in% c("create_env", "install_packages"))) {
+        message <- c(
+          message,
+          `i` = "In condathis 0.1.4, {.arg {bad_name}} abbreviated {.arg packages}.",
+          `i` = unnamed_hint
+        )
+      } else {
+        message <- c(message, `i` = unnamed_hint)
+      }
+    } else if (
       identical(bad_name, "additional_channels") &&
         isTRUE("channels" %in% formal_names)
     ) {
@@ -567,22 +608,46 @@ collect_package_specs <- function(
       )
     }
     if (isTRUE(any(!is_alias))) {
+      hint <- c(`i` = "Pass every spec unnamed, before the other arguments.")
+      extra <- dots[!is_alias]
+      if (
+        isTRUE(identical(length(extra), 1L)) &&
+          isTRUE(rlang::is_string(extra[[1L]]))
+      ) {
+        # The 0.1.4 positional meaning of the value: `env_file` was the
+        # second argument of create_env(), `env_name` the second of
+        # install_packages().
+        extra_value <- extra[[1L]]
+        extra_arg <- if (
+          isTRUE(grepl("\\.ya?ml$", extra_value, ignore.case = TRUE)) &&
+            isTRUE("env_file" %in% formal_names)
+        ) {
+          "env_file"
+        } else {
+          "env_name"
+        }
+        hint <- c(
+          `i` = "If {.val {extra_value}} is not a package spec, name its argument: {.code {extra_arg} = \"{extra_value}\"}.",
+          hint
+        )
+      }
       condathis_abort(
         message = c(
           `x` = "Use either {.arg packages} or unnamed package specs, not both.",
-          `i` = "Pass every spec unnamed, before the other arguments."
+          hint
         ),
         class = invalid_class,
         call = call
       )
     }
-    condathis_warn_once(
+    condathis_deprecate_soft(
       id = paste0("deprecated_packages_arg_", fn),
       message = c(
         `!` = "The {.arg packages} argument of {.fn {fn}} is deprecated.",
         `i` = "Pass package specs unnamed, before the named arguments: {.code {fn}(\"pkg\", env_name = \"my-env\")}."
       ),
-      class = "condathis_deprecated_packages_arg"
+      class = "condathis_deprecated_packages_arg",
+      user_env = user_env
     )
     alias_value <- dots[[which(is_alias)]]
     specs <- validate_packages_arg(
@@ -601,7 +666,22 @@ collect_package_specs <- function(
           `x` = "{.arg ...} must contain only package specs: character strings.",
           `x` = paste0("Element ", i, " ", problem, ".")
         )
-        if (is.null(dots[[i]]) && isTRUE(allow_empty)) {
+        if (is.null(dots[[i]]) && isTRUE(i < length(dots))) {
+          # 0.1.4's positional `create_env("pkg", NULL, "env")`.
+          named_example <- if (isTRUE("env_file" %in% formal_names)) {
+            "{.code env_file = NULL} or {.code env_name = \"my-env\"}"
+          } else {
+            "{.code env_name = \"my-env\"}"
+          }
+          message <- c(
+            message,
+            `i` = paste0(
+              "Arguments after the package specs must be named, as in ",
+              named_example,
+              "."
+            )
+          )
+        } else if (is.null(dots[[i]]) && isTRUE(allow_empty)) {
           message <- c(
             message,
             `i` = "For no packages, pass no package specs."
@@ -635,7 +715,13 @@ collect_package_specs <- function(
     )
   }
 
-  if (identical(length(specs), 0L) && isFALSE(allow_empty)) {
+  # Only an explicit `packages = NULL` or `character(0)` may be empty, as
+  # in 0.1.4. No specs at all still abort.
+  if (
+    identical(length(specs), 0L) &&
+      isFALSE(allow_empty) &&
+      isFALSE(any(is_alias))
+  ) {
     condathis_abort(
       message = c(
         `x` = "{.fn {fn}} needs at least one package spec in {.arg ...}.",

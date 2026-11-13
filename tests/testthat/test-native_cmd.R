@@ -560,32 +560,60 @@ test_that("micromamba starts when its default root prefix is not a Conda prefix"
   # that environment's root as its default, and never fails this way.
   umamba_path <- micromamba_bin_path()
   if (isFALSE(fs::file_exists(umamba_path))) {
+    # The managed binary is downloaded, whatever other micromamba there is.
+    testthat::skip_if_offline()
     suppressMessages(install_micromamba(verbose = "silent"))
   }
   withr::local_options(condathis.micromamba_path = as.character(umamba_path))
   condathis::with_sandbox_dir({
-    for (dir in c(
+    fixture_dirs <- c(
       fs::path(Sys.getenv("XDG_DATA_HOME"), "mamba"),
       fs::path_home("micromamba")
-    )) {
-      fs::dir_create(dir)
-      writeLines("not a conda prefix", fs::path(dir, "notes.txt"))
-    }
-    # micromamba itself refuses to start without the variable.
+    )
     raw_env <- Sys.getenv()
     raw_env <- raw_env[!names(raw_env) %in% "MAMBA_ROOT_PREFIX"]
-    raw <- processx::run(
+    # Without the variable, and before these directories exist, micromamba
+    # starts and names its default root prefix: one of them.
+    info <- processx::run(
       as.character(umamba_path),
-      c("--no-rc", "--no-env", "--version"),
+      c("--no-rc", "--no-env", "info", "--json"),
       env = raw_env,
       error_on_status = FALSE
     )
-    testthat::expect_false(identical(raw$status, 0L))
-    testthat::expect_match(
-      raw$stderr,
-      "not a conda prefix|Bad expected access",
-      ignore.case = TRUE
+    testthat::expect_identical(info$status, 0L)
+    real_path <- function(path) {
+      path <- fs::path_tidy(path)
+      return(as.character(
+        fs::path(fs::path_real(fs::path_dir(path)), fs::path_file(path))
+      ))
+    }
+    testthat::expect_true(
+      real_path(jsonlite::fromJSON(info$stdout)[["base environment"]]) %in%
+        vapply(fixture_dirs, real_path, character(1L), USE.NAMES = FALSE)
     )
+    for (dir in fixture_dirs) {
+      fs::dir_create(dir)
+      writeLines("not a conda prefix", fs::path(dir, "notes.txt"))
+    }
+    # micromamba itself then refuses to start without the variable. It
+    # aborts, and on macOS every abort writes a crash report to
+    # `~/Library/Logs/DiagnosticReports`, so this probe runs on the other
+    # systems only: the check above shows that the directories are the
+    # default root prefix on macOS too.
+    if (isFALSE(is_macos())) {
+      raw <- processx::run(
+        as.character(umamba_path),
+        c("--no-rc", "--no-env", "--version"),
+        env = raw_env,
+        error_on_status = FALSE
+      )
+      testthat::expect_false(identical(raw$status, 0L))
+      testthat::expect_match(
+        raw$stderr,
+        "not a conda prefix|Bad expected access",
+        ignore.case = TRUE
+      )
+    }
 
     testthat::expect_match(get_micromamba_version(umamba_path), "^2\\.")
     testthat::expect_identical(

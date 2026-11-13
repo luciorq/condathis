@@ -25,24 +25,41 @@ environments} in \code{\link[=create_env]{create_env()}} describes. The name mat
 from \code{channels} (see below). A spec with a channel, such as
 \code{"conda-forge::zlib"}, matches only a package from that channel. A spec
 that is not compared, such as \code{"zlib[md5=...]"} or \code{"zlib<2.*"}, never
-counts as satisfied.
+counts as satisfied. A spec for a virtual package, whose name starts
+with \verb{__} (\code{"__cuda=12"}, \code{"__unix"}), is not checked: it describes the
+host, and an environment never lists it.
+\verb{packages = <specs>} still works, as in \code{\link[=create_env]{create_env()}}, and
+\code{packages = NULL} only checks that the environment exists. It is
+deprecated. It warns once per session (class
+\code{condathis_deprecated_packages_arg}) when the call comes from the
+console, a script or the tests of the package that makes it. Calls
+made inside other packages do not warn.
+
 These values abort with class
 \code{condathis_validate_env_invalid_packages}:
 \itemize{
-\item A named argument that \code{validate_env()} does not have.
+\item A named argument that \code{validate_env()} does not have. Names are
+never abbreviated.
 \item A value that is not a character vector.
 \item \code{NA} or \code{""}.
 \item A file name that ends in \code{.yml} or \code{.yaml}.
 }
 
-\code{validate_env()} aborts with class
-\code{condathis_validate_env_positional_env_name} when \code{env_name} is not
-given and the last of two or more specs names an existing environment.
-A spec that condathis cannot read, such as \code{"::"}, aborts with class
-\code{condathis_parse_match_spec_invalid_name}. For the URL of a package
-file, the class is \code{condathis_parse_match_spec_invalid_url}. Both
-errors also have class \code{condathis_invalid_arg}. They abort with
-\code{error = "continue"} too.}
+These classes abort too:
+\itemize{
+\item \code{condathis_validate_env_positional_env_name}\cr
+\code{env_name} is not given, the specs are two or more unnamed
+arguments, and the last of them is one string that names an existing
+environment. Specs given with \verb{packages =} or as one vector are never
+checked this way.
+\item \code{condathis_parse_match_spec_invalid_name}\cr
+a spec that condathis cannot read, such as \code{"::"}.
+\item \code{condathis_parse_match_spec_invalid_url}\cr
+the URL of a package file that condathis cannot read.
+}
+
+Both parse errors also have class \code{condathis_invalid_arg}. They abort
+with \code{error = "continue"} too.}
 
 \item{env_name}{Character string with the environment name.
 It must be a plain directory name that is valid on Linux, macOS and
@@ -57,9 +74,9 @@ Windows:
 }
 
 Invalid values abort with class \code{condathis_invalid_env_name}.
-Functions that take only names reject an \code{\link[=env_path]{env_path()}} value with class
-\code{condathis_env_path_read_only}. \code{\link[=run]{run()}}, \code{\link[=run_bin]{run_bin()}}, \code{\link[=run_pipeline]{run_pipeline()}}
-and \code{\link[=run_step]{run_step()}} accept one.}
+\code{\link[=run]{run()}}, \code{\link[=run_bin]{run_bin()}}, \code{\link[=run_pipeline]{run_pipeline()}} and \code{\link[=run_step]{run_step()}} also accept an
+\code{\link[=env_path]{env_path()}} value. The other functions reject it with class
+\code{condathis_env_path_read_only}.}
 
 \item{method}{Character string naming the backend. \code{"auto"} (the
 default) uses the backend that owns \code{env_name} when it exists, and
@@ -69,21 +86,29 @@ otherwise the first available backend in
 selects that backend, and \code{"micromamba"} is built in. The name of a
 backend whose package \code{condathis} knows, such as \code{"rattler"} of the
 \code{rattlerthis} package, also selects it. \code{condathis} loads the package
-on first use. It aborts with class \code{condathis_backend_not_installed}
-when the package is not installed. \code{"native"} is a deprecated alias for
-\code{"micromamba"} (warns once per session).
+on first use. \code{"native"} is a deprecated alias for \code{"micromamba"}
+(warns once per session). The 0.1.4 default \code{c("native", "auto")} is
+read as \code{"native"}.
+
 If you name a backend other than the owner, functions that change the
-environment abort with class \code{condathis_backend_mismatch}. The others
-warn (\code{condathis_backend_mismatch_warning}) and use the owner.
-An environment found under several backends aborts with
-\code{condathis_backend_ambiguous_env} unless \code{method} names one of them.
-Invalid values abort with class \code{condathis_invalid_method}.}
+environment abort. The others warn and use the owner. The classes:
+\itemize{
+\item \code{condathis_backend_not_installed}: the package of the named backend
+is not installed.
+\item \code{condathis_backend_mismatch}: the named backend does not own the
+environment, and the function changes it.
+\item \code{condathis_backend_mismatch_warning} (a warning): the same, for a
+function that does not change the environment.
+\item \code{condathis_backend_ambiguous_env}: several backends have an
+environment of that name, and \code{method} names none of them.
+\item \code{condathis_invalid_method}: an invalid value.
+}}
 
 \item{verbose}{Character string that controls the console output. One
 of:
 \itemize{
 \item \code{"output"}: show the output of the command and the messages of
-condathis.
+\code{condathis}.
 \item \code{"silent"}: show nothing.
 \item \code{"cmd"}: show the command line.
 \item \code{"spinner"}: show only a spinner.
@@ -92,9 +117,21 @@ log.
 }
 
 \code{TRUE} means \code{"output"} and \code{FALSE} means \code{"silent"}. Every level
-except \code{"silent"} shows a spinner in interactive sessions. Invalid
-values abort with class \code{condathis_invalid_verbose} (see
-\link{condathis-conditions}). The default is shown in Usage.
+except \code{"silent"} shows a spinner in interactive sessions. It also
+shows these messages and this warning when they occur (see
+\link{condathis-conditions}):
+\itemize{
+\item \code{condathis_micromamba_downloading} (a message): no usable
+\code{micromamba} was found, so it is downloaded. Queries, such as
+\code{\link[=list_envs]{list_envs()}}, never download it.
+\item \code{condathis_env_lock_waiting} and \code{condathis_cache_lock_waiting}
+(messages): the call waits for another R session.
+\item \code{condathis_install_micromamba_checksum_unavailable} (a warning): the
+checksum of the downloaded \code{micromamba} could not be checked.
+}
+
+Invalid values abort with class \code{condathis_invalid_verbose}. The
+default is shown in Usage.
 
 The command line shown, the \code{cmd} of a result and the messages of
 \code{condathis} show the password and the token of a URL as \verb{*****}.
@@ -105,7 +142,9 @@ The command line shown, the \code{cmd} of a result and the messages of
 channel names or URLs. With \code{NULL}, a spec without a channel matches a
 package from any channel. Otherwise, a spec without a channel must
 match a package from one of \code{channels}, compared as in \code{\link[=create_env]{create_env()}}.
-A spec with a channel ignores \code{channels}. There is no
+A spec with a channel ignores \code{channels}. When a package matches a
+spec but comes from a channel that is not in \code{channels}, the error
+names that channel. There is no
 \code{additional_channels}: put those channels in \code{channels}. Invalid values
 abort with class \code{condathis_validate_env_invalid_channels}.}
 
@@ -123,18 +162,25 @@ aborts. Invalid values abort with class \code{condathis_invalid_error}.}
 \value{
 \code{TRUE}, invisibly, when the environment exists and has every
 requested package.
-Otherwise, with \code{error = "cancel"}, it aborts. The class is
-\code{condathis_validate_env_env_not_found} (also \code{condathis_env_not_found})
-when the environment does not exist. The class is
-\code{condathis_validate_env_unsatisfied} when a spec is not satisfied or the
-platform differs. The message lists each spec that is not satisfied.
+Otherwise, with \code{error = "cancel"}, it aborts with one of these
+classes:
+\itemize{
+\item \code{condathis_validate_env_env_not_found} (also
+\code{condathis_env_not_found})\cr
+the environment does not exist.
+\item \code{condathis_validate_env_unsatisfied}\cr
+a spec is not satisfied or the platform differs. The message lists
+each spec that is not satisfied.
+}
+
 With \code{error = "continue"}, it returns \code{FALSE} with two attributes.
 \code{reason} is one of \code{"env_not_found"}, \code{"platform_mismatch"} and
 \code{"unsatisfied"}. \code{unsatisfied} is a character vector of the specs that
 are not satisfied (every spec when the environment does not exist).
 \code{validate_env()} reports a platform mismatch before unsatisfied specs.
-A backend failure aborts with class \code{condathis_validate_env_failed}
-(also \code{condathis_backend_error}).
+
+A backend failure aborts with either value of \code{error}, with the class
+\code{condathis_validate_env_failed} (also \code{condathis_backend_error}).
 }
 \description{
 Checks that an environment exists, and that its installed packages
@@ -161,11 +207,21 @@ and checks the environment with its owner. \code{create_env()} aborts with
 class \code{condathis_backend_mismatch}.
 \item When a backend cannot tell whether the environment exists,
 \code{validate_env()} still lists its packages, and reports the listing's
-error if it fails. \code{create_env()} aborts with class
+error if it fails. In that case, \code{create_env()} aborts with the class
 \code{condathis_backend_probe_failed}.
 }
 }
 \examples{
+condathis::with_sandbox_dir({
+  # A missing environment: FALSE, with the reason
+  res <- condathis::validate_env(
+    "polyglot",
+    env_name = "no-such-env",
+    error = "continue"
+  )
+  print(res)
+})
+
 \dontrun{
 condathis::with_sandbox_dir({
   # A local channel shipped with condathis, with `polyglot`: a

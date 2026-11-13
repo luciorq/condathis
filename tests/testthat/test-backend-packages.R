@@ -3,6 +3,10 @@
 # makes every package read as not installed, and the tests here replace it
 # with a function that registers a stub backend named "rattler", as the
 # `.onLoad()` of rattlerthis does. No real package is ever loaded.
+#
+# On CRAN, of the tests that use a sandbox (with_sandbox_dir()) or other R
+# sessions, only the one of `method` naming a known backend runs: each takes
+# about a second on Windows, where listing the processes is slow.
 
 # A stub backend named "rattler" with the root that condathis assigns,
 # unregistered again, and a mock of `load_backend_namespace()` that
@@ -74,6 +78,7 @@ testthat::test_that("method names a known backend: its package is loaded", {
 })
 
 testthat::test_that("a known backend with environments is loaded for method = 'auto'", {
+  testthat::skip_on_cran()
   with_sandbox_dir({
     state <- local_known_rattler()
     make_known_env("rt-env")
@@ -106,6 +111,7 @@ testthat::test_that("a known backend with environments is loaded for method = 'a
 })
 
 testthat::test_that("an empty root of a known backend loads nothing", {
+  testthat::skip_on_cran()
   # get_install_dir() creates the root of every registered backend, so the
   # bare root must not load the package in every later session.
   with_sandbox_dir({
@@ -245,6 +251,7 @@ testthat::test_that("a known backend package that fails to load is tried once", 
 })
 
 testthat::test_that("a known backend package that does not register is reported", {
+  testthat::skip_on_cran()
   with_sandbox_dir({
     state <- local_known_rattler(register = FALSE)
     cnd <- rlang::catch_cnd(validate_method_arg("rattler"), classes = "error")
@@ -295,6 +302,7 @@ testthat::test_that("a loaded package whose backend was unregistered is not relo
 })
 
 testthat::test_that("the .onLoad() of a backend package does not load it again", {
+  testthat::skip_on_cran()
   with_sandbox_dir({
     state <- local_known_rattler()
     make_known_env("rt-env")
@@ -349,6 +357,7 @@ testthat::test_that("an invalid method names the installed known backends", {
 })
 
 testthat::test_that("an environment of a known backend that is not installed is not given a second owner", {
+  testthat::skip_on_cran()
   # Without rattlerthis, create_env("x", method = <another backend>) made a
   # second owner of `<root>/rattler/envs/x`, and once rattlerthis was
   # back every call on `x` aborted as ambiguous.
@@ -423,6 +432,7 @@ testthat::test_that("an environment of a known backend that is not installed is 
 })
 
 testthat::test_that("the positional env_name check finds an environment of a known backend that is not loaded", {
+  testthat::skip_on_cran()
   # Regression test: abort_on_positional_env_name() probed only the
   # registered backends, before resolve_backend() loaded any known one, so
   # `install_packages("pkga", "foo")` in a fresh session, with "foo" an
@@ -469,6 +479,7 @@ testthat::test_that("the positional env_name check finds an environment of a kno
 })
 
 testthat::test_that("the priority option loads a known backend for a new environment", {
+  testthat::skip_on_cran()
   # Regression test: with the package installed but not loaded,
   # `options(condathis.backend_priority = c("rattler", "micromamba"))` was
   # ignored until another call loaded the package, so the backend of a new
@@ -528,6 +539,7 @@ testthat::test_that("the priority option loads a known backend for a new environ
 })
 
 testthat::test_that("a package that loaded without registering is not called unloadable", {
+  testthat::skip_on_cran()
   # Regression test: these messages said that the package "could not be
   # loaded".
   with_sandbox_dir({
@@ -585,6 +597,7 @@ testthat::test_that("an invalid method does not offer a known backend that faile
 })
 
 testthat::test_that("the error for a missing environment names a known backend that owns it", {
+  testthat::skip_on_cran()
   # Regression test: once the once-per-session warning was used, run()
   # said that the environment does not exist, and create_env() that it
   # belongs to a backend whose package is not installed.

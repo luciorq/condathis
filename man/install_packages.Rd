@@ -18,30 +18,37 @@ install_packages(
 \item{...}{Package match specs (MatchSpec strings) to install, unnamed:
 character strings or character vectors, in order. Examples:
 \code{"python=3.13"}, \code{"bioconda::samtools"}. At least one spec is required.
-No specs abort with class \code{condathis_install_packages_missing_packages}.
-Any other value aborts with class
-\code{condathis_install_packages_invalid_packages}. Such values are:
-\itemize{
-\item A named argument that \code{install_packages()} does not have. The error
-names the closest argument.
-\item A value that is not a character vector.
-\item \code{NA} or \code{""}.
-\item A file name that ends in \code{.yml} or \code{.yaml}.
-}
 
-\verb{packages = <specs>} still works. It is deprecated and warns once per
-session (class \code{condathis_deprecated_packages_arg}).
-\code{install_packages()} aborts with class
-\code{condathis_install_packages_positional_env_name} when \code{env_name} is not
-given and the last of two or more specs names an existing environment.
-Name the argument, as in \code{env_name = "my-env"}.
-A spec that the backend cannot read, such as \code{"::"}, aborts with class
-\code{condathis_install_packages_failed}. When the \code{conda-meta/history} of
-the environment records channels, condathis reads the specs first. Then
-such a spec aborts with class
-\code{condathis_parse_match_spec_invalid_name}. For the URL of a package
-file, the class is \code{condathis_parse_match_spec_invalid_url}. Both
-errors also have class \code{condathis_invalid_arg}.}
+\verb{packages = <specs>} still works. It is deprecated. It warns once per
+session (class \code{condathis_deprecated_packages_arg}) when the call comes
+from the console, a script or the tests of the package that makes it.
+Calls made inside other packages do not warn. \code{packages = NULL} and
+\code{packages = character(0)} install nothing and return status 0, as in
+0.1.4.
+
+Invalid specs abort with these classes:
+\itemize{
+\item \code{condathis_install_packages_missing_packages}: no specs, unless
+\code{packages = NULL} or \code{packages = character(0)} was given.
+\item \code{condathis_install_packages_invalid_packages}: a named argument that
+\code{install_packages()} does not have (the error names the closest
+argument; names are never abbreviated, so \verb{p =} aborts too), a value
+that is not a character vector, \code{NA} or \code{""}, or a file name that
+ends in \code{.yml} or \code{.yaml}.
+\item \code{condathis_install_packages_positional_env_name}: \code{env_name} is not
+given, the specs are two or more unnamed arguments, and the last of
+them is one string that names an existing environment. Name the
+argument, as in \code{env_name = "my-env"}. Specs given with
+\verb{packages =} or as one vector are never checked this way.
+\item \code{condathis_install_packages_failed}: the backend cannot read a spec,
+such as \code{"::"}.
+\item \code{condathis_parse_match_spec_invalid_name} (also
+\code{condathis_invalid_arg}): the same, when the \code{conda-meta/history} of
+the environment records channels, because condathis then reads the
+specs first.
+\item \code{condathis_parse_match_spec_invalid_url} (also
+\code{condathis_invalid_arg}): the same, for the URL of a package file.
+}}
 
 \item{env_name}{Character string with the environment name.
 It must be a plain directory name that is valid on Linux, macOS and
@@ -56,9 +63,9 @@ Windows:
 }
 
 Invalid values abort with class \code{condathis_invalid_env_name}.
-Functions that take only names reject an \code{\link[=env_path]{env_path()}} value with class
-\code{condathis_env_path_read_only}. \code{\link[=run]{run()}}, \code{\link[=run_bin]{run_bin()}}, \code{\link[=run_pipeline]{run_pipeline()}}
-and \code{\link[=run_step]{run_step()}} accept one.}
+\code{\link[=run]{run()}}, \code{\link[=run_bin]{run_bin()}}, \code{\link[=run_pipeline]{run_pipeline()}} and \code{\link[=run_step]{run_step()}} also accept an
+\code{\link[=env_path]{env_path()}} value. The other functions reject it with class
+\code{condathis_env_path_read_only}.}
 
 \item{method}{Character string naming the backend. \code{"auto"} (the
 default) uses the backend that owns \code{env_name} when it exists, and
@@ -68,21 +75,29 @@ otherwise the first available backend in
 selects that backend, and \code{"micromamba"} is built in. The name of a
 backend whose package \code{condathis} knows, such as \code{"rattler"} of the
 \code{rattlerthis} package, also selects it. \code{condathis} loads the package
-on first use. It aborts with class \code{condathis_backend_not_installed}
-when the package is not installed. \code{"native"} is a deprecated alias for
-\code{"micromamba"} (warns once per session).
+on first use. \code{"native"} is a deprecated alias for \code{"micromamba"}
+(warns once per session). The 0.1.4 default \code{c("native", "auto")} is
+read as \code{"native"}.
+
 If you name a backend other than the owner, functions that change the
-environment abort with class \code{condathis_backend_mismatch}. The others
-warn (\code{condathis_backend_mismatch_warning}) and use the owner.
-An environment found under several backends aborts with
-\code{condathis_backend_ambiguous_env} unless \code{method} names one of them.
-Invalid values abort with class \code{condathis_invalid_method}.}
+environment abort. The others warn and use the owner. The classes:
+\itemize{
+\item \code{condathis_backend_not_installed}: the package of the named backend
+is not installed.
+\item \code{condathis_backend_mismatch}: the named backend does not own the
+environment, and the function changes it.
+\item \code{condathis_backend_mismatch_warning} (a warning): the same, for a
+function that does not change the environment.
+\item \code{condathis_backend_ambiguous_env}: several backends have an
+environment of that name, and \code{method} names none of them.
+\item \code{condathis_invalid_method}: an invalid value.
+}}
 
 \item{verbose}{Character string that controls the console output. One
 of:
 \itemize{
 \item \code{"output"}: show the output of the command and the messages of
-condathis.
+\code{condathis}.
 \item \code{"silent"}: show nothing.
 \item \code{"cmd"}: show the command line.
 \item \code{"spinner"}: show only a spinner.
@@ -91,9 +106,21 @@ log.
 }
 
 \code{TRUE} means \code{"output"} and \code{FALSE} means \code{"silent"}. Every level
-except \code{"silent"} shows a spinner in interactive sessions. Invalid
-values abort with class \code{condathis_invalid_verbose} (see
-\link{condathis-conditions}). The default is shown in Usage.
+except \code{"silent"} shows a spinner in interactive sessions. It also
+shows these messages and this warning when they occur (see
+\link{condathis-conditions}):
+\itemize{
+\item \code{condathis_micromamba_downloading} (a message): no usable
+\code{micromamba} was found, so it is downloaded. Queries, such as
+\code{\link[=list_envs]{list_envs()}}, never download it.
+\item \code{condathis_env_lock_waiting} and \code{condathis_cache_lock_waiting}
+(messages): the call waits for another R session.
+\item \code{condathis_install_micromamba_checksum_unavailable} (a warning): the
+checksum of the downloaded \code{micromamba} could not be checked.
+}
+
+Invalid values abort with class \code{condathis_invalid_verbose}. The
+default is shown in Usage.
 
 The command line shown, the \code{cmd} of a result and the messages of
 \code{condathis} show the password and the token of a URL as \verb{*****}.
@@ -104,22 +131,30 @@ The command line shown, the \code{cmd} of a result and the messages of
 in priority order. For a package from another channel, either name the
 channel in the spec (\code{"bioconda::samtools"}) or add it here, as in
 \code{channels = c("conda-forge", "bioconda")}. Invalid values, such as
-\code{NULL}, \code{NA} or \code{""}, abort with class
+\code{NULL}, \code{NA} or \code{""}, abort with class\cr
 \code{condathis_install_packages_invalid_channels}.
+condathis 0.1.4 also used \code{"bioconda"} by default. When \code{channels} is
+not given and the backend finds no package for a spec, the error says
+that the default changed.
+
 The \code{conda-meta/history} of the environment records the channels of its
-packages. When the call leaves out one of them, \code{install_packages()}
-warns with class \code{condathis_install_packages_missing_previous_channels}.
-Add that channel to \code{channels} or \code{additional_channels}. A channel
-named in a spec counts as included.}
+packages. Pass each of them in \code{channels} or \code{additional_channels}. A
+channel named in a spec counts as passed. When the call leaves out one
+of them, \code{install_packages()} warns with class\cr
+\code{condathis_install_packages_missing_previous_channels}.}
 
 \item{additional_channels}{\code{NULL} (the default) or a non-empty character
 vector of channel names or URLs, used after \code{channels}. Invalid values
-abort with class \code{condathis_install_packages_invalid_channels} (also
-\code{condathis_invalid_additional_channels}).}
+abort with these classes:
+\itemize{
+\item \code{condathis_install_packages_invalid_channels}
+\item \code{condathis_invalid_additional_channels}
+}}
 
 \item{channel_priority}{Channel priority mode: \code{"strict"} (the default),
 \code{"flexible"} or \code{"disabled"}, as in \code{\link[=create_env]{create_env()}}. Invalid values
-abort with class \code{condathis_install_packages_invalid_channel_priority}.}
+abort with class\cr
+\code{condathis_install_packages_invalid_channel_priority}.}
 }
 \value{
 A \code{condathis_result} object, invisibly: a classed list with
@@ -197,9 +232,9 @@ condathis::with_sandbox_dir({
     "bioconda::fastqc",
     env_name = "fastqc-env"
   )
-  # Install the package `python` in the `fastqc-env` environment.
-  # Keep unrelated tools in separate environments, so that their
-  # dependencies cannot conflict.
+  # Add `python` to the `fastqc-env` environment, for scripts that read
+  # the reports of `fastqc`. Keep unrelated tools in separate
+  # environments, so that their dependencies cannot conflict.
   # `bioconda` is passed again, because `fastqc` came from it: leaving out
   # a channel the environment was built from warns. `conda-forge` comes
   # first: with strict channel priority, the first channel wins.

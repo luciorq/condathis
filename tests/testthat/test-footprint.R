@@ -448,6 +448,7 @@ testthat::test_that("micromamba writes nothing outside the condathis root", {
 })
 
 testthat::test_that("create_env() registers its environment only when micromamba needs the user's home", {
+  testthat::skip_on_cran()
   # Regression test (footprint, R-12): `micromamba create` appended every
   # environment to `~/.conda/environments.txt`, and no setting stops it.
   # condathis now gives it another home, except when micromamba needs the

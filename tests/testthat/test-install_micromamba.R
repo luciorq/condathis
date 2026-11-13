@@ -900,3 +900,46 @@ testthat::test_that("verify_micromamba_checksum() warnings have classes", {
   testthat::expect_s3_class(cnd, "condathis_warning")
   testthat::expect_false(res)
 })
+
+testthat::test_that("an unverified binary warns at every verbose level but silent", {
+  # Regression test: the warning showed only for "output" and "full", so
+  # the automatic install of a command, at the internal level "spinner",
+  # installed an unverified binary without a word.
+  bin_path <- withr::local_tempfile()
+  writeLines("binary", bin_path)
+  testthat::local_mocked_bindings(try_download_from_mirrors = function(...) {
+    FALSE
+  })
+  for (level in c("output", "cmd", "spinner", "full")) {
+    verbose <- parse_strategy_verbose(level)
+    cnd <- testthat::expect_warning(
+      res <- verify_micromamba_checksum(bin_path, "u", verbose = verbose),
+      class = "condathis_install_micromamba_checksum_unavailable"
+    )
+    testthat::expect_s3_class(cnd, "condathis_warning")
+    testthat::expect_match(
+      conditionMessage(cnd),
+      "Could not download the SHA256 checksum",
+      fixed = TRUE
+    )
+    # It is still not a failure: the binary is installed.
+    testthat::expect_true(is.na(res))
+  }
+  testthat::expect_no_warning(
+    res <- verify_micromamba_checksum(
+      bin_path,
+      "u",
+      verbose = parse_strategy_verbose("silent")
+    )
+  )
+  testthat::expect_true(is.na(res))
+})
+
+testthat::test_that("the default version is written the same in both places", {
+  # The automatic install names `micromamba_default_version`, and the usage
+  # of ?install_micromamba shows the literal default.
+  testthat::expect_identical(
+    formals(install_micromamba)[["micromamba_version"]],
+    micromamba_default_version
+  )
+})

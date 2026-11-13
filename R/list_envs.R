@@ -15,8 +15,8 @@
 #' @param method Character string naming the backend to query. `"auto"` (the
 #'   default) covers every registered backend, in
 #'   `getOption("condathis.backend_priority")` order, also a backend that
-#'   reports itself unavailable. Any name from
-#'   [list_registered_backend_names()] queries only that backend.
+#'   reports itself unavailable. The name of a registered backend (see
+#'   [list_registered_backend_names()]) queries only that backend.
 #'   `"micromamba"` is built in. The name of a backend whose package
 #'   condathis knows, such as `"rattler"` of the `rattlerthis` package,
 #'   also queries only that backend. condathis loads that package. When it
@@ -38,6 +38,11 @@
 #' @seealso [condathis-conditions] for every condition class.
 #'
 #' @examples
+#' condathis::with_sandbox_dir({
+#'   # No environment yet: a data frame with no rows
+#'   print(condathis::list_envs())
+#' })
+#'
 #' \dontrun{
 #' condathis::with_sandbox_dir({
 #'   # A local channel shipped with condathis, with `polyglot`: a

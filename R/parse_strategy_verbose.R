@@ -22,10 +22,15 @@ condathis_verbose_values <- c("output", "silent", "cmd", "spinner", "full")
 #' generic (rule R4), and `verbose_list$internal_verbose` to internal
 #' probes and nested calls.
 #'
+#' It also records the level for the rest of the call (see
+#' `local_call_verbose()`).
+#'
 #' @param verbose The value of `verbose`: one of `"output"`, `"silent"`,
 #'   `"cmd"`, `"spinner"`, `"full"`, or the unchanged default vector of
 #'   choices; `TRUE` means `"output"` and `FALSE` means `"silent"`.
 #' @param call Environment of the function the error is reported for.
+#'   It must be the frame of that function, which is the default, because
+#'   the recorded level is restored when that frame exits.
 #'
 #' @returns The list of `parse_strategy_verbose()`.
 #'
@@ -41,7 +46,59 @@ parse_verbose_arg <- function(verbose, call = rlang::caller_env()) {
       call = call
     )
   }
-  return(parse_strategy_verbose(verbose = verbose, call = call))
+  verbose_list <- parse_strategy_verbose(verbose = verbose, call = call)
+  local_call_verbose(verbose_list$strategy, frame = call)
+  return(verbose_list)
+}
+
+#' The `verbose` level of the exported call that is running
+#'
+#' A package-level environment with one entry, `strategy`: the level that
+#' the innermost running exported function was given, or `NULL` outside of
+#' one. `parse_verbose_arg()` sets it with `local_call_verbose()`.
+#'
+#' @keywords internal
+#' @noRd
+condathis_call_verbose_state <- new.env(parent = emptyenv())
+
+#' Record the `verbose` level of an exported call while it runs
+#'
+#' The internal probes of a call run silently, whatever its `verbose`, for
+#' example the dry-run solves of `define_platform()` and the platform query
+#' of `micromamba_native_platform()`. On macOS arm64 and Windows they are
+#' the first micromamba commands of `create_env()`, so the automatic install
+#' of micromamba happened in them, and their `"silent"` hid it. With the
+#' level of the call recorded, `install_micromamba_for_command()` follows
+#' the user's level instead of the probe's.
+#'
+#' @param strategy Character string, one of the five verbose values.
+#' @param frame The frame of the exported function: the previous level is
+#'   restored when it exits, also on an error, so nested calls and later
+#'   calls see the right one.
+#'
+#' @returns `NULL`, invisibly.
+#'
+#' @keywords internal
+#' @noRd
+local_call_verbose <- function(strategy, frame = rlang::caller_env()) {
+  previous <- condathis_call_verbose_state$strategy
+  condathis_call_verbose_state$strategy <- strategy
+  withr::defer(
+    condathis_call_verbose_state$strategy <- previous,
+    envir = frame
+  )
+  return(invisible(NULL))
+}
+
+#' The `verbose` level of the running exported call
+#'
+#' @returns Character string, one of the five verbose values, or `NULL`
+#'   outside of an exported call (see `local_call_verbose()`).
+#'
+#' @keywords internal
+#' @noRd
+call_verbose <- function() {
+  return(condathis_call_verbose_state$strategy)
 }
 
 #' Parse verbosity strategy

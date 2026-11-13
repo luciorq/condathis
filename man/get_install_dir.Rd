@@ -10,15 +10,15 @@ get_install_dir(method = "auto")
 \item{method}{Character string naming the backend to report. \code{"auto"}
 (the default) covers every registered backend, in
 \code{getOption("condathis.backend_priority")} order, also a backend that
-reports itself unavailable. Any name from
-\code{\link[=list_registered_backend_names]{list_registered_backend_names()}} reports only that backend, and
+reports itself unavailable. The name of a registered backend (see
+\code{\link[=list_registered_backend_names]{list_registered_backend_names()}}) reports only that backend, and
 \code{"micromamba"} is built in. The name of a backend whose package
 \code{condathis} knows, such as \code{"rattler"} of the \code{rattlerthis} package,
-also reports only that backend. \code{condathis} loads the package. It
-aborts with class \code{condathis_backend_not_installed} when the package
-is not installed. \code{"native"} is a deprecated alias for \code{"micromamba"}
-(warns once per session). Invalid values abort with class
-\code{condathis_invalid_method}.}
+also reports only that backend. \code{condathis} loads that package. When
+it is not installed, the call aborts with class
+\code{condathis_backend_not_installed}. \code{"native"} is a deprecated alias
+for \code{"micromamba"} (warns once per session). Invalid values abort with
+class \code{condathis_invalid_method}.}
 }
 \value{
 A data frame (a tibble) with one row per backend covered by
@@ -28,8 +28,8 @@ created when it does not exist yet. \code{get_install_dir()} creates no
 environment and does not install micromamba. When the backend that
 \code{method} names fails, \code{get_install_dir()} aborts with class
 \code{condathis_get_install_dir_failed} (also \code{condathis_backend_error}).
-With \code{method = "auto"}, \code{get_install_dir()} skips a backend that
-fails, with a warning of class \code{condathis_backend_query_failed}.
+With \code{method = "auto"}, a backend that fails is skipped, with a
+warning of class \code{condathis_backend_query_failed}.
 }
 \description{
 Returns the data directory of each registered backend. The
@@ -48,7 +48,8 @@ spaces. \verb{micromamba run} can fail on paths that contain spaces.
 The data directories of the other backends that use \code{\link[=backend_root_dir]{backend_root_dir()}}
 are inside the condathis data directory. So deleting it deletes their
 environments and caches too. Each backend keeps its environments in the
-\code{envs} directory of its own data directory.
+\code{envs} directory of its own data directory. To remove everything that
+\code{condathis} installed, see \emph{Removing everything} in \code{\link[=clean_cache]{clean_cache()}}.
 
 \code{micromamba} adds each environment that it creates to
 \verb{~/.conda/environments.txt} (in \verb{\%USERPROFILE\%} on Windows), the list of

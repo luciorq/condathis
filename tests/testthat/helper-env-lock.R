@@ -81,22 +81,75 @@ interrupt_lock_session <- function(session) {
   return(invisible(session))
 }
 
-# Whether this process ignores SIGINT. R on Linux keeps SIGINT ignored when
-# it starts with it ignored, as a background job of a shell script does,
-# and its R children ignore it too, so `interrupt_lock_session()` cannot
-# reach them. Linux only (it reads `/proc/self/status`); `FALSE` elsewhere.
-sigint_ignored <- function() {
-  if (isFALSE(file.exists("/proc/self/status"))) {
-    return(FALSE)
+# Whether the R sessions that this process starts ignore the interrupt of
+# `interrupt_lock_session()`. R keeps SIGINT ignored when it starts with it
+# ignored, as a background job of a shell script does, and its R children
+# ignore it too, on Linux and macOS alike. On Linux, `/proc/self/status`
+# tells at once, and no session is started. Elsewhere, or when `/proc`
+# cannot tell, a throwaway session is interrupted while it runs R code:
+# when it is still busy `timeout` seconds later, it ignored the interrupt.
+# The code is a busy loop, not `Sys.sleep()`: R takes SIGINT while it
+# sleeps even when SIGINT is ignored, but not while it waits for a lock.
+lock_session_ignores_interrupt <- function(timeout = 3) {
+  in_proc <- sigint_ignored_in_proc()
+  if (isFALSE(is.na(in_proc))) {
+    return(in_proc)
   }
-  status <- readLines("/proc/self/status")
+  # The probe is killed when it ignored the interrupt, and a killed R
+  # process leaves its `tempdir()`.
+  local_child_tempdir()
+  probe_dir <- withr::local_tempdir(pattern = "interrupt-probe-")
+  started <- file.path(probe_dir, "started")
+  probe <- callr::r_session$new(
+    options = callr::r_session_options(libpath = .libPaths()),
+    wait = TRUE,
+    wait_timeout = 30000
+  )
+  withr::defer({
+    probe$close()
+    probe$wait(5000L)
+  })
+  probe$call(
+    function(started, seconds) {
+      file.create(started)
+      ends <- Sys.time() + seconds
+      while (Sys.time() < ends) {
+        NULL
+      }
+      return("done")
+    },
+    args = list(started = started, seconds = 30)
+  )
+  # Interrupted before the call runs, the session would run the loop anyway.
+  lock_wait_until(
+    function() file.exists(started),
+    timeout = 30,
+    what = "the interrupt probe to start"
+  )
+  interrupt_lock_session(probe)
+  return(isFALSE(identical(probe$poll_process(timeout * 1000), "ready")))
+}
+
+# Whether `/proc/self/status` says that this process ignores SIGINT:
+# `TRUE` or `FALSE`, or `NA` when it cannot tell (no such file, as on every
+# system but Linux, or no readable `SigIgn` line). R handles SIGINT itself
+# unless it started with SIGINT ignored, so `FALSE` means that the R
+# sessions this process starts take the interrupt.
+sigint_ignored_in_proc <- function(status_file = "/proc/self/status") {
+  if (isFALSE(file.exists(status_file))) {
+    return(NA)
+  }
+  status <- tryCatch(readLines(status_file), error = function(cnd) NULL)
   ign <- sub(
     "^SigIgn:[[:space:]]*",
     "",
     grep("^SigIgn:", status, value = TRUE)
   )
-  if (isFALSE(identical(length(ign), 1L))) {
-    return(FALSE)
+  if (
+    isFALSE(identical(length(ign), 1L)) ||
+      isFALSE(grepl("^[0-9A-Fa-f]+$", ign))
+  ) {
+    return(NA)
   }
   # The mask is hexadecimal; signal n is bit n - 1, so SIGINT (2) is 2 in
   # the last digit.

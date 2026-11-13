@@ -67,6 +67,7 @@ testthat::test_that("remove_env() and create_env() never delete outside the envs
 })
 
 testthat::test_that("validate_env_name rejects trailing dots and Windows device names on every OS", {
+  testthat::skip_on_cran()
   # Regression test: Windows drops a trailing dot from a path component, so
   # `<root>/envs/myenv.` opened `<root>/envs/myenv`. `remove_env("myenv.")`
   # and `create_env(env_name = "myenv.")` found no environment "myenv.",

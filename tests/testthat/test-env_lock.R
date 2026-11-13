@@ -5,6 +5,10 @@
 # inside its backend function, with the lock, until the test lets it go on,
 # and the second must wait without reaching its own backend function.
 # Environment names start with "lk-".
+#
+# On CRAN, of the tests that use a sandbox (with_sandbox_dir()) or other R
+# sessions, only the one of the lock file's place runs: each takes about a
+# second on Windows, where listing the processes is slow.
 
 testthat::test_that("the lock of an environment is a file in the data directory, outside every environment", {
   with_sandbox_dir({
@@ -31,6 +35,7 @@ testthat::test_that("the lock of an environment is a file in the data directory,
 })
 
 testthat::test_that("a session that holds the lock gets it again, and releases it when the call ends", {
+  testthat::skip_on_cran()
   testthat::skip_if_not_installed("callr")
   with_sandbox_dir({
     inner <- function() {
@@ -70,6 +75,7 @@ testthat::test_that("a session that holds the lock gets it again, and releases i
 })
 
 testthat::test_that("clean_cache() keeps the locks, also one that is held", {
+  testthat::skip_on_cran()
   testthat::skip_if_not_installed("callr")
   with_sandbox_dir({
     path <- env_lock_path("lk-clean")
@@ -89,6 +95,7 @@ testthat::test_that("clean_cache() keeps the locks, also one that is held", {
 })
 
 testthat::test_that("a call goes on without the lock where files cannot be locked", {
+  testthat::skip_on_cran()
   with_sandbox_dir({
     # A lock directory below a file cannot be created.
     blocker <- fs::path(get_condathis_path(), "not-a-directory")
@@ -315,6 +322,7 @@ run_env_lock_races <- function(a, b, env_name, backend, pkgs, channels) {
 }
 
 testthat::test_that("two sessions never change one environment at once (stub backend)", {
+  testthat::skip_on_cran()
   testthat::skip_if_not_installed("callr")
   register_lock_stub(env = environment())
   withr::defer({
@@ -406,12 +414,12 @@ testthat::test_that("two sessions never change one environment at once (stub bac
 testthat::test_that("an interrupt stops the wait for a lock, and of the session that holds it releases it", {
   # The interrupts are signals to other R sessions (see
   # `interrupt_lock_session()`), so whether they arrive depends on how the
-  # check was started (see `sigint_ignored()`).
+  # check was started (see `lock_session_ignores_interrupt()`).
   testthat::skip_on_cran()
   testthat::skip_if_not_installed("callr")
-  if (isTRUE(sigint_ignored())) {
+  if (isTRUE(lock_session_ignores_interrupt())) {
     testthat::skip(
-      "SIGINT is ignored in this process, so its R children cannot be interrupted."
+      "The R sessions of this process ignore interrupts (SIGINT is ignored)."
     )
   }
   register_lock_stub(env = environment())
@@ -531,6 +539,7 @@ testthat::test_that("an interrupt stops the wait for a lock, and of the session 
 })
 
 testthat::test_that("the lock of a session that is killed is free at once", {
+  testthat::skip_on_cran()
   testthat::skip_if_not_installed("callr")
   # The R children that this test kills cannot delete their temporary
   # directories.
@@ -594,6 +603,7 @@ testthat::test_that("the lock of a session that is killed is free at once", {
 })
 
 testthat::test_that("two sessions never change one environment at once (micromamba backend)", {
+  testthat::skip_on_cran()
   testthat::skip_if_not_installed("callr")
   skip_if_no_micromamba_offline()
   umamba_path <- get_best_micromamba_path()
@@ -627,6 +637,7 @@ testthat::test_that("two sessions never change one environment at once (micromam
 })
 
 testthat::test_that("a call that changes nothing does not warn that it could not lock", {
+  testthat::skip_on_cran()
   # Regression test: the warning came when the lock was taken, so a
   # create_env() of an environment that already has what it asks for, which
   # changes nothing, warned on a data directory that cannot be written.
@@ -661,6 +672,7 @@ testthat::test_that("a call that changes nothing does not warn that it could not
 })
 
 testthat::test_that("a session waits for a lock without a timed attempt, and says so", {
+  testthat::skip_on_cran()
   # Regression test: the wait tried once, then for 2 s, then without a
   # limit. A try that fails keeps its file open in filelock 1.0.3, which on
   # Windows kept the lock file from being deleted, and a timed try that ran
@@ -750,6 +762,7 @@ testthat::test_that("a session waits for a lock without a timed attempt, and say
 })
 
 testthat::test_that("a session that waited for a lock leaves no lock file open", {
+  testthat::skip_on_cran()
   # Regression test (Windows): every wait kept handles of the lock file open
   # for the rest of the session, so with_sandbox_dir() could not delete its
   # directory.
@@ -842,6 +855,7 @@ testthat::test_that("a session that waited for a lock leaves no lock file open",
 })
 
 testthat::test_that("clean_cache() and the creates and installs of other sessions wait for each other", {
+  testthat::skip_on_cran()
   # Regression test: clean_cache() took no lock, and deleted micromamba's
   # package cache, its lock files included, while another session
   # downloaded into it: that create failed.
@@ -965,6 +979,7 @@ testthat::test_that("clean_cache() and the creates and installs of other session
 })
 
 testthat::test_that("the owner entry of a process that has ended but was not reaped does not hold a lock", {
+  testthat::skip_on_cran()
   # Regression test: an owner that had ended but that its parent had not
   # reaped (a zombie) counted as running, so every session that took the
   # lock waited two seconds and said that it waited. In a container whose

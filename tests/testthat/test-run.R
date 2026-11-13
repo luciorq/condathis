@@ -25,7 +25,7 @@ testthat::test_that("Run with unexpected error argument", {
   )
 })
 
-testthat::test_that("Run with unexpected error argument", {
+testthat::test_that("Run with partial match error argument", {
   testthat::expect_error(
     object = {
       run("R", error = "co")
@@ -939,6 +939,7 @@ testthat::test_that("run() reports a missing custom environment with the shared 
 })
 
 testthat::test_that("run() creates condathis-env with the backend that method names", {
+  testthat::skip_on_cran()
   # Regression test: create_base_env() always used method = "auto", so with
   # another backend first in priority order, run(method = "a") created
   # condathis-env under that other backend and then warned that the
@@ -977,6 +978,7 @@ testthat::test_that("run() creates condathis-env with the backend that method na
 # --- Errors of a failed command ----------------------------------------------
 
 testthat::test_that("run() status errors carry the exit status and the output", {
+  testthat::skip_on_cran()
   # Regression test: the status was only in the message text.
   stub <- local_run_family_stub()
   rscript <- run_family_rscript()
@@ -1032,6 +1034,7 @@ testthat::test_that("run() status errors carry the exit status and the output", 
 })
 
 testthat::test_that("run() timeout errors carry the shared class and fields", {
+  testthat::skip_on_cran()
   stub <- local_run_family_stub()
   cnd <- testthat::expect_error(
     run(
@@ -1098,6 +1101,7 @@ testthat::test_that("run() checks the dir that backend_resolve_run() returns", {
 })
 
 testthat::test_that("run() runs in the dir that backend_resolve_run() returns", {
+  testthat::skip_on_cran()
   work_dir <- withr::local_tempdir()
   stub <- local_run_family_stub(
     backend_resolve_run = function(backend, cmd, args = character(0L), ...) {
@@ -1181,6 +1185,7 @@ testthat::test_that("cleanup_tree = FALSE keeps a daemon alive with stdin = '|'"
 })
 
 testthat::test_that("linux_pdeathsig = TRUE reaches processx on Linux only, on every path that starts a command", {
+  testthat::skip_on_cran()
   # processx warns about a `linux_pdeathsig` other than FALSE on platforms
   # other than Linux, where it ignores it. condathis passes FALSE there.
   stub <- local_run_family_stub()
@@ -1603,6 +1608,7 @@ testthat::test_that("resolve_direct_run_command() follows the micromamba backend
 })
 
 testthat::test_that("run() reports a command killed by a signal as 128 + n off Windows", {
+  testthat::skip_on_cran()
   # Regression test: `micromamba run` reports a command killed by signal n
   # as 128 + n (137 for SIGKILL), but a command of another backend, started
   # directly, gave -n. run_bin() starts the command directly for every
@@ -1661,6 +1667,7 @@ testthat::test_that("signal_exit_status() maps only a negative status off Window
 
 testthat::test_that("run() starts the command of a micromamba environment itself, on every OS", {
   testthat::skip_on_cran()
+  skip_if_no_micromamba_offline()
   # Regression test (R-4): on Linux and macOS, run() started the command
   # through `micromamba run`, unlike run() on Windows, run_bin(),
   # run_pipeline() and every other backend: `timeout` covered the
@@ -1762,6 +1769,7 @@ testthat::test_that("run() starts the command of a micromamba environment itself
 
 testthat::test_that("run() activates micromamba environments also without basename on PATH", {
   testthat::skip_on_cran()
+  skip_if_no_micromamba_offline()
   # Regression test (R-4 g): micromamba's shell hook runs `basename`, so
   # with a PATH that has only `sh`, `micromamba run` activated nothing and
   # the command ran without activation. On Windows, cmd.exe activates.
@@ -1770,6 +1778,12 @@ testthat::test_that("run() activates micromamba environments also without basena
   reset_micromamba_activation_cache(env_name)
   sh_only <- withr::local_tempdir()
   if (isFALSE(is_windows())) {
+    # The binary that created the environment: one that is found only on
+    # `PATH` is not found with the new `PATH`, and run() would download
+    # another.
+    withr::local_options(
+      condathis.micromamba_path = as.character(get_best_micromamba_path())
+    )
     fs::link_create(Sys.which("sh"), fs::path(sh_only, "sh"))
     withr::local_envvar(PATH = sh_only)
   }
@@ -1796,6 +1810,7 @@ testthat::test_that("run() activates micromamba environments also without basena
 
 testthat::test_that("run() finds the environment's program first, also when the session's PATH has its directory further back", {
   testthat::skip_on_cran()
+  skip_if_no_micromamba_offline()
   # Regression test: the activation's PATH was reduced to the directories
   # that the session's PATH lacks, so an environment directory that the
   # session's PATH has at its end stayed there, and a program of the same
@@ -1866,6 +1881,7 @@ testthat::test_that("run() finds the environment's program first, also when the 
 
 testthat::test_that("activate.d scripts get the TMPDIR, user cache and working directory of the command", {
   testthat::skip_on_cran()
+  skip_if_no_micromamba_offline()
   # Regression test: the scripts ran with the TMPDIR of micromamba's own
   # process, deleted after the activation was recorded, and with
   # `XDG_CACHE_HOME=<root>/cache`, and the recorded values were reused for
@@ -1954,6 +1970,7 @@ testthat::test_that("activate.d scripts get the TMPDIR, user cache and working d
 
 testthat::test_that("run() keeps the session's TMP, unless an activate.d script sets one", {
   testthat::skip_on_cran()
+  skip_if_no_micromamba_offline()
   # Regression test: on Windows, micromamba's own processes get `TMP` = a
   # directory in their `TMPDIR`, and the activation dump inherits it. Recorded
   # as an activation variable, it gave every later command of the
@@ -2035,6 +2052,7 @@ testthat::test_that("run() keeps the session's TMP, unless an activate.d script 
 
 testthat::test_that("run() gets a value that an activate.d script builds from TMP", {
   testthat::skip_on_cran()
+  skip_if_no_micromamba_offline()
   # Regression test: on Windows, an `activate.d` script that built a value
   # from `%TMP%` got micromamba's own `TMP`, a directory in the call's
   # `TMPDIR` that was deleted before the command started. The command got
@@ -2130,6 +2148,7 @@ testthat::test_that("run() gets a value that an activate.d script builds from TM
 
 testthat::test_that("run(timeout =) also bounds a slow activation", {
   testthat::skip_on_cran()
+  skip_if_no_micromamba_offline()
   # Regression test: `timeout` covered only the command, so an activate.d
   # script that hangs made run() hang too.
   env_name <- "run-slow-activation-env"

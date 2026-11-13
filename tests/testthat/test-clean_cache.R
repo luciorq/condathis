@@ -1,3 +1,7 @@
+# On CRAN, of the tests that use a sandbox (with_sandbox_dir()) or other R
+# sessions, only the one of `verbose` and the success message runs: each
+# takes about a second on Windows, where listing the processes is slow.
+
 testthat::test_that("clean_cache outputs are captured", {
   testthat::skip_if_offline()
   testthat::skip_on_cran()
@@ -94,7 +98,12 @@ testthat::test_that("clean_cache() never touches the user's ~/.mamba/pkgs", {
   testthat::skip_if_offline()
   testthat::skip_on_cran()
   condathis::with_sandbox_dir({
-    user_pkgs <- libmamba_default_pkgs_dir()
+    # libmamba's fallback package cache (`%APPDATA%/.mamba/pkgs` on Windows).
+    user_pkgs <- if (isTRUE(is_windows())) {
+      fs::path(Sys.getenv("APPDATA"), ".mamba", "pkgs")
+    } else {
+      fs::path_home(".mamba", "pkgs")
+    }
     fs::dir_create(user_pkgs)
     sentinel <- fs::path(user_pkgs, "keep-me.txt")
     writeLines("user cache", sentinel)
@@ -110,6 +119,7 @@ testthat::test_that("clean_cache() never touches the user's ~/.mamba/pkgs", {
 })
 
 testthat::test_that("clean_cache() starts no process when there is no micromamba cache", {
+  testthat::skip_on_cran()
   # Regression test: clean_cache() always ran `micromamba clean`, which
   # downloaded micromamba when none was installed, only to clean an empty
   # cache.
@@ -143,6 +153,7 @@ testthat::test_that("clean_cache() starts no process when there is no micromamba
 })
 
 testthat::test_that("clean_cache() reports the command that native_cmd() ran", {
+  testthat::skip_on_cran()
   # Regression test: `cmd` was a hard-coded summary without the flags
   # that really ran.
   condathis::with_sandbox_dir({
@@ -283,6 +294,7 @@ testthat::test_that("clean_cache() keeps the user's conda cache directory", {
 # --- Every registered backend (backend contract v2) -------------------------
 
 testthat::test_that("clean_cache() runs every backend's hook, then raises the first failure", {
+  testthat::skip_on_cran()
   # Regression test: clean_cache() cleaned only the micromamba caches, and
   # a failure would have stopped the backends after it.
   condathis::with_sandbox_dir({
@@ -395,6 +407,7 @@ testthat::test_that("clean_cache() runs every backend's hook, then raises the fi
 })
 
 testthat::test_that("a micromamba failure keeps the micromamba status classes", {
+  testthat::skip_on_cran()
   condathis::with_sandbox_dir({
     fs::dir_create(fs::path(get_condathis_path(), "pkgs"))
     testthat::local_mocked_bindings(
@@ -448,6 +461,7 @@ testthat::test_that("a micromamba failure keeps the micromamba status classes", 
 })
 
 testthat::test_that("clean_cache() checks what backend_clean_cache() returns", {
+  testthat::skip_on_cran()
   condathis::with_sandbox_dir({
     status <- NULL
     stub <- local_stub_backend(
@@ -504,6 +518,7 @@ testthat::test_that("clean_cache() checks what backend_clean_cache() returns", {
 })
 
 testthat::test_that("clean_cache() empties the conda-pkgs of every backend root", {
+  testthat::skip_on_cran()
   # Regression test (Q9): children of a backend other than micromamba get
   # `<root>/conda-pkgs` as their package cache, and nothing emptied it.
   condathis::with_sandbox_dir({
@@ -546,6 +561,7 @@ testthat::test_that("clean_cache() empties the conda-pkgs of every backend root"
 })
 
 testthat::test_that("clean_cache() keeps a conda-pkgs directory outside the backend's root", {
+  testthat::skip_on_cran()
   # Regression test: for a backend that keeps its environments in
   # `<dir>/envs` outside its root, clean_cache() deleted `<dir>/conda-pkgs`,
   # which can belong to another tool.
@@ -570,6 +586,7 @@ testthat::test_that("clean_cache() keeps a conda-pkgs directory outside the back
 })
 
 testthat::test_that("clean_cache() warns about the caches of a known backend that is not installed", {
+  testthat::skip_on_cran()
   reset_known_backend_state()
   withr::defer(reset_known_backend_state())
   condathis::with_sandbox_dir({
@@ -614,6 +631,7 @@ testthat::test_that("clean_cache() warns about the caches of a known backend tha
 })
 
 testthat::test_that("a known backend whose package fails to load gets one warning per call", {
+  testthat::skip_on_cran()
   reset_known_backend_state()
   reset_warn_once(known_backend_warn_id("rattler"))
   withr::defer(reset_known_backend_state())
@@ -648,6 +666,7 @@ testthat::test_that("a known backend whose package fails to load gets one warnin
 })
 
 testthat::test_that("clean_cache() waits for every backend before it deletes anything", {
+  testthat::skip_on_cran()
   condathis::with_sandbox_dir({
     testthat::local_mocked_bindings(
       native_cmd = function(...) stop("no micromamba cache, no process")
@@ -674,6 +693,7 @@ testthat::test_that("clean_cache() waits for every backend before it deletes any
 })
 
 testthat::test_that("an invalid value of backend_quiesce() names clean_cache()", {
+  testthat::skip_on_cran()
   # Regression test: the warning's error named the internal
   # `quiesce_registered_backends()`.
   condathis::with_sandbox_dir({
@@ -698,6 +718,7 @@ testthat::test_that("an invalid value of backend_quiesce() names clean_cache()",
 })
 
 testthat::test_that("clean_cache() creates no root", {
+  testthat::skip_on_cran()
   # Regression test: nothing may be created to clean nothing, not the
   # condathis data directory and not the root of any backend.
   condathis::with_sandbox_dir({

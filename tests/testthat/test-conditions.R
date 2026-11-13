@@ -90,6 +90,94 @@ testthat::test_that("condathis_warn_once() warns once per id until reset", {
   )
 })
 
+testthat::test_that("is_direct_use() follows the soft deprecation rule", {
+  withr::local_options(lifecycle_verbosity = NULL)
+  withr::local_envvar(TESTTHAT_PKG = "condathis")
+  api <- function() is_direct_use(rlang::caller_env())
+  # Direct: the global environment, a function defined there, do.call().
+  testthat::expect_true(is_direct_use(globalenv()))
+  testthat::expect_true(is_direct_use(NULL))
+  testthat::expect_true(is_direct_use(new.env(parent = globalenv())))
+  global_env <- new.env(parent = globalenv())
+  global_env$api <- api
+  global_fn <- function() api()
+  environment(global_fn) <- global_env
+  testthat::expect_true(global_fn())
+  testthat::expect_true(evalq(do.call(api, list()), global_env))
+  # Indirect: a function of another package's namespace.
+  pkg_env <- new.env(parent = asNamespace("tools"))
+  pkg_env$api <- api
+  pkg_fn <- function() api()
+  environment(pkg_fn) <- pkg_env
+  testthat::expect_false(pkg_fn())
+  testthat::expect_false(is_direct_use(asNamespace("tools")))
+  # Direct again in the tests of that package.
+  withr::with_envvar(
+    c(TESTTHAT_PKG = "tools"),
+    testthat::expect_true(pkg_fn())
+  )
+  withr::with_envvar(
+    c(TESTTHAT_PKG = NA),
+    testthat::expect_false(is_direct_use(asNamespace("condathis")))
+  )
+  testthat::expect_true(is_direct_use(asNamespace("condathis")))
+  # The lifecycle_verbosity option.
+  for (verbosity in c("warning", "error")) {
+    withr::with_options(
+      list(lifecycle_verbosity = verbosity),
+      testthat::expect_true(pkg_fn())
+    )
+  }
+  withr::with_options(list(lifecycle_verbosity = "quiet"), {
+    testthat::expect_false(is_direct_use(globalenv()))
+    testthat::expect_false(is_direct_use(NULL))
+  })
+  withr::with_options(
+    list(lifecycle_verbosity = "default"),
+    testthat::expect_false(pkg_fn())
+  )
+})
+
+testthat::test_that("condathis_deprecate_soft() warns once, only for direct use", {
+  withr::local_options(lifecycle_verbosity = NULL)
+  id <- "test_conditions_soft"
+  reset_warn_once(id)
+  withr::defer(reset_warn_once(id))
+  # Indirect: no warning, and the id is not used up.
+  testthat::expect_no_warning(
+    testthat::expect_false(condathis_deprecate_soft(
+      id,
+      "Old.",
+      class = "x_soft",
+      user_env = asNamespace("tools")
+    ))
+  )
+  testthat::expect_false(isTRUE(condathis_warn_once_state[[id]]))
+  testthat::expect_warning(
+    testthat::expect_true(condathis_deprecate_soft(
+      id,
+      "Old.",
+      class = "x_soft",
+      user_env = globalenv()
+    )),
+    class = "x_soft"
+  )
+  testthat::expect_no_warning(
+    condathis_deprecate_soft(id, "Old.", class = "x_soft", user_env = NULL)
+  )
+  # Recorded before it is signaled: a handler that stops at the warning,
+  # as `options(warn = 2)` does, still uses it up.
+  reset_warn_once(id)
+  cnd <- rlang::catch_cnd(
+    condathis_deprecate_soft(id, "Old.", class = "x_soft"),
+    classes = "warning"
+  )
+  testthat::expect_s3_class(cnd, "x_soft")
+  testthat::expect_no_warning(
+    condathis_deprecate_soft(id, "Old.", class = "x_soft")
+  )
+})
+
 testthat::test_that("arg_error_class() builds the rule R1 class vector", {
   testthat::expect_identical(
     arg_error_class(

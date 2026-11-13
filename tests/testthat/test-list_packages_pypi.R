@@ -329,6 +329,15 @@ testthat::test_that("the platform of a PyPI row is pip's", {
 })
 
 testthat::test_that("micromamba and the default listing give one frame for an environment with pip packages", {
+  testthat::skip_on_cran()
+  # pip's JSON output has text that is not ASCII (names of maintainers),
+  # which jsonlite cannot read in a session that is not UTF-8, such as one
+  # in the C locale.
+  if (isFALSE(isTRUE(l10n_info()[["UTF-8"]]))) {
+    testthat::skip(
+      "The R session is not in a UTF-8 locale: run the tests in one."
+    )
+  }
   # A real environment: python and pip from conda-forge, and a package that
   # pip installs from a wheel built here, with no index.
   testthat::skip_if_offline()
@@ -475,10 +484,14 @@ testthat::test_that("micromamba and the default listing give one frame for an en
 })
 
 testthat::test_that("micromamba and the default listing give one frame for an environment with uv and no pip", {
+  testthat::skip_on_cran()
   # micromamba asks uv when the environment has no pip: the names are
   # normalized, and the platform is a Conda one, the one of python (also in
   # an emulated environment, such as win-64 on Windows ARM).
   testthat::skip_if_offline()
+  # uv locks the environment with a file in the temporary directory of the
+  # system (`TMP` on Windows, which the commands keep), and leaves it there.
+  local_child_tempdir()
   env_name <- "pypi-uv-env"
   withr::defer({
     if (isTRUE(env_exists(env_name, method = "micromamba"))) {

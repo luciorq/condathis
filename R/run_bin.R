@@ -88,7 +88,7 @@
 #'     env_name = "my-env"
 #'   )
 #'
-#'   # Run 'python' with a script in 'my-env' environment
+#'   # Run Python code with the 'python' of the 'my-env' environment
 #'   condathis::run_bin(
 #'     "python", "-c", "import sys; print(sys.version)",
 #'     env_name = "my-env"
@@ -189,7 +189,10 @@ run_bin <- function(
   )
   # `rethrow_error_run()` reads `timeout` from this frame for its message.
   timeout <- run_args$timeout
-  validate_method_arg(method)
+  method <- resolve_method_alias(
+    validate_method_arg(method),
+    user_env = rlang::caller_env()
+  )
 
   # Read by `rethrow_error_run()` from this frame.
   error_var <- identical(error, "cancel")
@@ -428,7 +431,9 @@ run_bin <- function(
 
   # The child's complete environment block, passed as a full `env =`
   # replacement: the block before activation, the activation overlay, and
-  # the env bin dirs prepended to PATH.
+  # the env bin dirs prepended to PATH. An activation PATH that already
+  # has them, spelled with `\\` on Windows, keeps one copy of each (see
+  # `prepend_path_dirs()`).
   child_env <- apply_child_overlay(
     base_env,
     overlay = activation_overlay,

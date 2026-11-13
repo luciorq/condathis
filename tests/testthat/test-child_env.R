@@ -88,6 +88,153 @@ testthat::test_that("compose_path deduplicates while preserving order", {
   testthat::expect_equal(compose_path(character(0L), "/a"), "/a")
 })
 
+testthat::test_that("path_entry_key() compares as Windows does on Windows only", {
+  x <- c("C:/Env/Scripts", "c:\\env\\scripts", "/usr/bin")
+  testthat::expect_identical(path_entry_key(x, on_windows = FALSE), x)
+  testthat::expect_identical(
+    path_entry_key(x, on_windows = TRUE),
+    c("c:\\env\\scripts", "c:\\env\\scripts", "\\usr\\bin")
+  )
+  testthat::expect_identical(
+    path_entry_key(character(0L), on_windows = TRUE),
+    character(0L)
+  )
+  # The default follows `is_windows()`.
+  testthat::local_mocked_bindings(is_windows = function() TRUE)
+  testthat::expect_identical(path_entry_key("/A/b"), "\\a\\b")
+})
+
+testthat::test_that("path_entry_key() ignores a trailing separator on Windows only", {
+  # A directory with and without a trailing separator is the same one.
+  testthat::expect_identical(
+    path_entry_key(
+      c("C:\\x\\", "C:\\x", "c:/X/", "C:\\x\\\\", "\\\\srv\\share\\"),
+      on_windows = TRUE
+    ),
+    c("c:\\x", "c:\\x", "c:\\x", "c:\\x", "\\\\srv\\share")
+  )
+  # A drive root keeps its separator: `C:\` is not `C:`, the current
+  # directory of drive C:. Nor does the root of the current drive become
+  # an empty entry.
+  testthat::expect_identical(
+    path_entry_key(c("C:\\", "C:/", "c:\\\\", "C:", "\\", "/"), on_windows = TRUE),
+    c("c:\\", "c:\\", "c:\\", "c:", "\\", "\\")
+  )
+  testthat::expect_identical(path_entry_key("", on_windows = TRUE), "")
+  # Off Windows, entries still compare as written.
+  testthat::expect_identical(
+    path_entry_key(c("/usr/bin/", "/usr/bin", "/"), on_windows = FALSE),
+    c("/usr/bin/", "/usr/bin", "/")
+  )
+  # prepend_path_dirs() keeps one copy of a directory that the base PATH
+  # spells with a trailing separator. Paths without a drive letter, as
+  # `.Platform$path.sep` is `:` off Windows.
+  p <- function(...) paste(c(...), collapse = .Platform$path.sep)
+  testthat::expect_identical(
+    prepend_path_dirs(
+      c("\\Env", "\\Env\\Scripts"),
+      p("\\env\\", "/ENV/scripts/", "\\other\\"),
+      on_windows = TRUE
+    ),
+    p("\\Env", "\\Env\\Scripts", "\\other\\")
+  )
+})
+
+testthat::test_that("prepend_path_dirs() keeps one copy of each prepended directory", {
+  sep <- .Platform$path.sep
+  p <- function(...) paste(c(...), collapse = sep)
+  # Paths without a drive letter, as `.Platform$path.sep` is `:` off
+  # Windows.
+  dirs <- c("/root/envs/e", "/root/envs/e/Library/bin", "/root/envs/e/Scripts")
+  activated <- p(
+    "\\root\\envs\\e",
+    "\\Root\\Envs\\E\\Library\\bin",
+    "\\root\\envs\\e\\Scripts",
+    "\\root\\condabin",
+    "/usr/bin",
+    "\\Windows",
+    "\\windows"
+  )
+  # Regression test: on Windows, `run_bin()` put the environment's
+  # directories on the command's PATH twice, spelled with `/` in front of
+  # the activation's copies spelled with `\`. The first copy and its
+  # spelling are kept; the other entries of the PATH stay as they are,
+  # also the two spellings of `\Windows`, as with `run()`.
+  testthat::expect_identical(
+    prepend_path_dirs(dirs, activated, on_windows = TRUE),
+    p(dirs, "\\root\\condabin", "/usr/bin", "\\Windows", "\\windows")
+  )
+  # Off Windows, entries compare as written: the result is that of
+  # `compose_path()`.
+  testthat::expect_identical(
+    prepend_path_dirs(dirs, activated, on_windows = FALSE),
+    compose_path(dirs, activated)
+  )
+  testthat::expect_identical(
+    prepend_path_dirs(dirs, activated, on_windows = FALSE),
+    p(dirs, strsplit(activated, sep, fixed = TRUE)[[1L]])
+  )
+  same <- p(dirs, "/usr/bin", "/root/envs/e", "/bin")
+  for (on_windows in c(TRUE, FALSE)) {
+    testthat::expect_identical(
+      prepend_path_dirs(dirs, same, on_windows = on_windows),
+      p(dirs, "/usr/bin", "/bin"),
+      info = on_windows
+    )
+    testthat::expect_identical(
+      prepend_path_dirs(dirs, same, on_windows = on_windows),
+      compose_path(dirs, same),
+      info = on_windows
+    )
+  }
+  # Repeated prepended directories, empty entries and an empty PATH.
+  testthat::expect_identical(
+    prepend_path_dirs(c("/a", "", "\\A"), p("", "/b"), on_windows = TRUE),
+    p("/a", "/b")
+  )
+  testthat::expect_identical(
+    prepend_path_dirs("/a", "", on_windows = TRUE),
+    "/a"
+  )
+  testthat::expect_identical(prepend_path_dirs("/a", NULL), "/a")
+})
+
+testthat::test_that("apply_child_overlay() and build_child_env() prepend each directory once", {
+  sep <- .Platform$path.sep
+  p <- function(...) paste(c(...), collapse = sep)
+  dirs <- c("/root/envs/e", "/root/envs/e/Scripts")
+  overlay_path <- p("\\root\\envs\\e", "\\root\\envs\\e\\Scripts", "/usr/bin")
+  base_env <- c(KEEP = "1", Path = "/usr/bin")
+  testthat::local_mocked_bindings(is_windows = function() TRUE)
+  child_env <- apply_child_overlay(
+    base_env,
+    overlay = c(PATH = overlay_path),
+    path_prepend = dirs
+  )
+  testthat::expect_identical(
+    child_env[sort(names(child_env))],
+    c(KEEP = "1", PATH = p(dirs, "/usr/bin"))
+  )
+  built <- build_child_env(
+    tmp_dir = "/tmp/fake-tmp-dir",
+    overlay = c(PATH = overlay_path),
+    path_prepend = dirs
+  )
+  path_name <- match_env_name(names(built), "PATH")
+  testthat::expect_identical(unname(built[[path_name]]), p(dirs, "/usr/bin"))
+  # Off Windows, the activation's `\` spelling is another directory.
+  testthat::local_mocked_bindings(is_windows = function() FALSE)
+  child_env <- apply_child_overlay(
+    c(KEEP = "1", PATH = "/usr/bin"),
+    overlay = c(PATH = overlay_path),
+    path_prepend = dirs
+  )
+  testthat::expect_identical(
+    unname(child_env[["PATH"]]),
+    compose_path(dirs, overlay_path)
+  )
+})
+
 testthat::test_that("apply_env_overrides replaces case-variant names on Windows only", {
   env <- list(Path = "C:/base", OTHER = "x")
 

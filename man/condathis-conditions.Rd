@@ -19,26 +19,45 @@ The classes of a condition go from the most specific to the most general:
 \enumerate{
 \item The class of the function and the problem,
 \verb{condathis_<function>_<problem>}, with the full name of the exported
-function. For example, \code{condathis_create_env_exists} or
-\code{condathis_run_bin_env_not_found}.
+function. For example:
+\itemize{
+\item \code{condathis_create_env_exists}
+\item \code{condathis_run_bin_env_not_found}
+}
 \item Older names of that class, kept so that existing handlers still work
 (see \emph{Renamed classes}). Some classes carry further names that this
 page does not list: do not rely on them.
-\item Shared classes for the kind of problem, for example
-\code{condathis_invalid_overwrite} and \code{condathis_invalid_arg}, or
-\code{condathis_env_not_found}.
+\item Shared classes for the kind of problem. For example:
+\itemize{
+\item \code{condathis_invalid_overwrite} and \code{condathis_invalid_arg}
+\item \code{condathis_env_not_found}
+}
 \item The root class, \code{condathis_error} or \code{condathis_warning}.
 }
 
 The rlang package adds its own classes after these, such as
 \code{rlang_error}, \code{error} and \code{condition}.
 
-For example, \code{create_env(overwrite = "yes")} aborts with the classes
-\code{c("condathis_create_env_invalid_overwrite", "condathis_create_invalid_overwrite_arg", "condathis_invalid_overwrite", "condathis_invalid_arg", "condathis_error")}.
+For example, \code{create_env(overwrite = "yes")} aborts with these classes:
+
+\if{html}{\out{<div class="sourceCode">}}\preformatted{c(
+  "condathis_create_env_invalid_overwrite",
+  "condathis_create_invalid_overwrite_arg",
+  "condathis_invalid_overwrite",
+  "condathis_invalid_arg",
+  "condathis_error"
+)
+}\if{html}{\out{</div>}}
 
 The checks of \code{verbose}, \code{method} and \code{error} are the same in every
-function, so their errors have only shared classes, for example
-\code{c("condathis_invalid_verbose", "condathis_invalid_arg", "condathis_error")}.
+function, so their errors have only shared classes, for example:
+
+\if{html}{\out{<div class="sourceCode">}}\preformatted{c(
+  "condathis_invalid_verbose",
+  "condathis_invalid_arg",
+  "condathis_error"
+)
+}\if{html}{\out{</div>}}
 
 Handle the most general class that fits. A handler for
 \code{condathis_env_not_found} catches a missing environment in every
@@ -49,98 +68,144 @@ function, and a handler for \code{condathis_error} catches every error of
 \section{Shared classes}{
 
 \itemize{
-\item \code{condathis_invalid_arg}: an argument has an invalid value. \code{condathis}
-checks the arguments before it changes anything, so such an error has
-no side effects.
-\item \verb{condathis_invalid_<argument>}: an invalid value of one argument, with
-its exact name. For example, \code{condathis_invalid_env_name},
-\code{condathis_invalid_packages}, \code{condathis_invalid_channels},
-\code{condathis_invalid_method}, \code{condathis_invalid_verbose},
-\code{condathis_invalid_error} or \code{condathis_invalid_timeout}. It always
-comes with \code{condathis_invalid_arg}.
-\item \code{condathis_parse_match_spec_invalid_name} and
-\code{condathis_parse_match_spec_invalid_url}: a package spec that condathis
-cannot read, such as \code{"::"}, or the URL of a package file whose name is
-not \verb{<name>-<version>-<build>}. \code{condathis} reads the specs when it
-compares them with an existing environment, in \code{\link[=create_env]{create_env()}},
-\code{\link[=install_packages]{install_packages()}} and \code{\link[=validate_env]{validate_env()}}. Also
-\code{condathis_invalid_arg}.
-\item \code{condathis_env_not_found}: the environment does not exist. Only
-\code{\link[=run]{run()}}, \code{\link[=run_bin]{run_bin()}}, \code{\link[=run_pipeline]{run_pipeline()}} and \code{\link[=install_packages]{install_packages()}} create
-a missing environment, and only the default \code{"condathis-env"}. With
+\item \code{condathis_invalid_arg}\cr
+An argument has an invalid value. \code{condathis} checks the arguments
+before it changes anything, so such an error has no side effects.
+\item \verb{condathis_invalid_<argument>}\cr
+An invalid value of one argument, with its exact name. It always comes
+with the class \code{condathis_invalid_arg}. For example:
+\itemize{
+\item \code{condathis_invalid_env_name}
+\item \code{condathis_invalid_packages}
+\item \code{condathis_invalid_channels}
+\item \code{condathis_invalid_method}
+\item \code{condathis_invalid_verbose}
+\item \code{condathis_invalid_error}
+\item \code{condathis_invalid_timeout}
+}
+\item \code{condathis_parse_match_spec_invalid_name}\cr
+\code{condathis_parse_match_spec_invalid_url}\cr
+A package spec that condathis cannot read, such as \code{"::"}, or the URL
+of a package file whose name is not \verb{<name>-<version>-<build>}.
+\code{condathis} reads the specs when it compares them with an existing
+environment, in \code{\link[=create_env]{create_env()}}, \code{\link[=install_packages]{install_packages()}} and
+\code{\link[=validate_env]{validate_env()}}. Also \code{condathis_invalid_arg}.
+\item \code{condathis_env_not_found}\cr
+The environment does not exist. A missing environment is created
+only by \code{\link[=run]{run()}}, \code{\link[=run_bin]{run_bin()}}, \code{\link[=run_pipeline]{run_pipeline()}} and
+\code{\link[=install_packages]{install_packages()}}, and only the default \code{"condathis-env"}. With
 \code{error = "continue"}, the run family returns status 127 instead. When
 the environment is in the data directory of a backend whose package
-cannot be used (see \code{condathis_backend_not_installed}), the message
-names that backend.
-\item \code{condathis_backend_error}: a backend failed. The function classes are
-\verb{condathis_<function>_failed}, \verb{condathis_<function>_resolve_failed} (a
-command or its activation could not be resolved) and
-\code{condathis_backend_probe_failed}. The backend's error is the parent, so
-\code{\link[rlang:cnd_inherits]{rlang::cnd_inherits()}} finds its classes. The \verb{condathis_*} classes of
-the backend's error are also copied, for example
-\code{condathis_micromamba_status_error}.
-\item \code{condathis_backend_probe_failed}: a backend could not tell whether the
-environment exists. \code{\link[=create_env]{create_env()}}, \code{\link[=install_packages]{install_packages()}} and
-\code{\link[=remove_env]{remove_env()}} then stop before they change anything. Also
-\code{condathis_backend_error}.
-\item \code{condathis_backend_query_failed} (a warning): with \code{method = "auto"}, a
-query of one backend failed, and the function skipped that backend.
-\item \code{condathis_backend_invalid_return}: a backend returned a value that
-breaks the contract of \code{\link[=register_backend]{register_backend()}}. The message names the
-backend. Also \code{condathis_backend_contract_violation}. For the value of
-\code{backend_resolve_run()}, the first class is
-\code{condathis_backend_resolve_run_invalid}.
-\item \code{condathis_backend_contract_violation}: a backend breaks the contract,
-when it is registered or in a return value.
-\item \code{condathis_backend_not_installed}: the package of a backend that
-condathis knows, such as \code{"rattler"} of the \code{rattlerthis} package, is
-not installed. An error when \code{method} names that backend (with the
-classes of an invalid \code{method}). Also an error when a call would
-change an environment in the data directory of that backend (with
-\code{condathis_backend_mismatch}). A warning when a query skips the
-environments of that backend (once per session). Also a warning when
-\code{\link[=clean_cache]{clean_cache()}} cannot clean its caches.
-\item \code{condathis_backend_load_failed}: the same, when the package is
-installed but failed to load, did not register its backend, or its
-backend was unregistered in this session. The error of the load is the
-parent. Also a warning, once per session, when \code{condathis} tried to
-load the package. It tries this when its backend has environments or
-caches, or when the option \code{condathis.backend_priority} names it.
-\item \code{condathis_link_scripts_skipped} (a warning): the backend did not run
-the pre-link, post-link or pre-unlink scripts of some packages, which
-micromamba runs, so these packages may not work. The call itself
-succeeded. The warning has the fields \code{backend}, \code{env_name}, \code{packages}
-(the package names, sorted) and \code{scripts} (a data frame with the
-columns \code{package} and \code{script}).
-\item \code{condathis_backend_quiesce_failed} (a warning): \code{\link[=with_sandbox_dir]{with_sandbox_dir()}}
-or \code{\link[=clean_cache]{clean_cache()}} could not tell whether a backend still works in the
-R process, and went on.
+cannot be used, the message names that backend (see the class
+\code{condathis_backend_not_installed} below).
+\item \code{condathis_backend_error}\cr
+A backend failed. The function classes are:
+\itemize{
+\item \verb{condathis_<function>_failed}
+\item \verb{condathis_<function>_resolve_failed}\cr
+a command or its activation could not be resolved.
+\item \code{condathis_backend_probe_failed}
+}
+
+The backend's error is the parent, so its classes are found by
+\code{\link[rlang:cnd_inherits]{rlang::cnd_inherits()}}. The \verb{condathis_*} classes of the backend's
+error are also copied, for example:
+\itemize{
+\item \code{condathis_micromamba_status_error}
+}
+\item \code{condathis_backend_probe_failed}\cr
+A backend could not tell whether the environment exists.
+\code{\link[=create_env]{create_env()}}, \code{\link[=install_packages]{install_packages()}} and \code{\link[=remove_env]{remove_env()}} then stop
+before they change anything. Also \code{condathis_backend_error}.
+\item \code{condathis_backend_query_failed} (a warning)\cr
+With \code{method = "auto"}, a query of one backend failed, and the
+function skipped that backend.
+\item \code{condathis_backend_invalid_return}\cr
+A backend returned a value that breaks the contract of
+\code{\link[=register_backend]{register_backend()}}. The message names the backend. Also:
+\itemize{
+\item \code{condathis_backend_contract_violation}
+}
+
+For the value of \code{backend_resolve_run()}, the first class is:
+\itemize{
+\item \code{condathis_backend_resolve_run_invalid}
+}
+\item \code{condathis_backend_contract_violation}\cr
+A backend breaks the contract, when it is registered or in a return
+value.
+\item \code{condathis_backend_not_installed}\cr
+The package of a backend that condathis knows, such as \code{"rattler"} of
+the \code{rattlerthis} package, is not installed. It is:
+\itemize{
+\item an error when \code{method} names that backend (with the classes of an
+invalid \code{method}).
+\item an error when a call would change an environment in the data
+directory of that backend (with \code{condathis_backend_mismatch}).
+\item a warning when a query skips the environments of that backend (once
+per session).
+\item a warning when \code{\link[=clean_cache]{clean_cache()}} cannot clean its caches.
+}
+\item \code{condathis_backend_load_failed}\cr
+The same, when the package is installed but failed to load, did not
+register its backend, or its backend was unregistered in this
+session. The error of the load is the parent. Also a warning, once per
+session, when \code{condathis} tried to load the package. It tries this
+when its backend has environments or caches, or when the option
+\code{condathis.backend_priority} names it.
+\item \code{condathis_link_scripts_skipped} (a warning)\cr
+The backend did not run the pre-link, post-link or pre-unlink scripts
+of some packages, which micromamba runs, so these packages may not
+work. The call itself succeeded. The warning has the fields \code{backend},
+\code{env_name}, \code{packages} (the package names, sorted) and \code{scripts} (a
+data frame with the columns \code{package} and \code{script}).
+\item \code{condathis_backend_quiesce_failed} (a warning)\cr
+\code{\link[=with_sandbox_dir]{with_sandbox_dir()}} or \code{\link[=clean_cache]{clean_cache()}} could not tell whether a
+backend still works in the R process, and went on.
 \item \code{condathis_env_lock_waiting} (a message, neither an error nor a
-warning): \code{\link[=create_env]{create_env()}}, \code{\link[=install_packages]{install_packages()}} or \code{\link[=remove_env]{remove_env()}} waits
-for another R session that changes the same environment (see \emph{Other R
+warning)\cr
+\code{\link[=create_env]{create_env()}}, \code{\link[=install_packages]{install_packages()}} or \code{\link[=remove_env]{remove_env()}} waits for
+another R session that changes the same environment (see \emph{Other R
 sessions} in \code{\link[=create_env]{create_env()}}).
-\item \code{condathis_cache_lock_waiting} (a message): \code{\link[=clean_cache]{clean_cache()}} waits for
-other R sessions that create environments or install packages, or
-these wait for a \code{\link[=clean_cache]{clean_cache()}} of another session.
-\item \code{condathis_env_lock_unavailable} (a warning, once per session): the
-lock of the environment or of the package caches could not be taken,
-for example on a file system that cannot lock files. The call went on
-without it.
-\item \code{condathis_status_error}: a command of \code{\link[=run]{run()}}, \code{\link[=run_bin]{run_bin()}} or
-\code{\link[=run_pipeline]{run_pipeline()}} exited with a status other than 0.
-\item \code{condathis_timeout_error}: a command of \code{\link[=run]{run()}}, \code{\link[=run_bin]{run_bin()}} or
-\code{\link[=run_pipeline]{run_pipeline()}} ran longer than \code{timeout} and was killed.
-\item \code{condathis_micromamba_status_error}: a \code{micromamba} command that
-condathis started for the micromamba backend failed. It carries the
-fields \code{status} and \code{stderr}, also when it is the class of a backend
-failure that condathis re-raised.
-\item Deprecated arguments and values, which still work but will be
-removed (warnings). \code{condathis_deprecated_packages_arg} is for
-\verb{packages =} in \code{\link[=create_env]{create_env()}}, \code{\link[=install_packages]{install_packages()}} and
-\code{\link[=validate_env]{validate_env()}} (once per session and function).
-\code{condathis_deprecated_method_native} is for \code{method = "native"} (once
-per session). \code{condathis_deprecated_arg} is for \code{timeout_limit} in
-\code{\link[=install_micromamba]{install_micromamba()}}.
+\item \code{condathis_cache_lock_waiting} (a message)\cr
+\code{\link[=clean_cache]{clean_cache()}} waits for other R sessions that create environments or
+install packages, or these wait for a \code{\link[=clean_cache]{clean_cache()}} of another
+session.
+\item \code{condathis_micromamba_downloading} (a message)\cr
+A function that needs \code{micromamba} found no usable binary and
+downloads the default version with \code{\link[=install_micromamba]{install_micromamba()}}. The message
+names the version and the path. \code{verbose = "silent"} hides it.
+\item \code{condathis_env_lock_unavailable} (a warning, once per session)\cr
+The lock of the environment or of the package caches could not be
+taken, for example on a file system that cannot lock files. The call
+went on without it.
+\item \code{condathis_status_error}\cr
+A command of \code{\link[=run]{run()}}, \code{\link[=run_bin]{run_bin()}} or \code{\link[=run_pipeline]{run_pipeline()}} exited with a
+status other than 0.
+\item \code{condathis_timeout_error}\cr
+A command of \code{\link[=run]{run()}}, \code{\link[=run_bin]{run_bin()}} or \code{\link[=run_pipeline]{run_pipeline()}} ran longer than
+\code{timeout} and was killed.
+\item \code{condathis_micromamba_status_error}\cr
+A \code{micromamba} command that condathis started for the micromamba
+backend failed. It carries the fields \code{status} and \code{stderr}, also when
+it is the class of a backend failure that condathis re-raised.
+\item Deprecated arguments and values, which still work but will be removed
+(warnings):
+\itemize{
+\item \code{condathis_deprecated_packages_arg}\cr
+for \verb{packages =} in \code{\link[=create_env]{create_env()}}, \code{\link[=install_packages]{install_packages()}} and
+\code{\link[=validate_env]{validate_env()}}: once per session and function, for calls from the
+console, a script or the tests of the calling package. Calls made
+inside other packages do not warn.
+\code{options(lifecycle_verbosity = "warning")} makes those calls warn
+too, and \code{"quiet"} turns the warning off.
+\item \code{condathis_deprecated_method_native}\cr
+for \code{method = "native"} (once per session). \code{\link[=create_env]{create_env()}},
+\code{\link[=install_packages]{install_packages()}}, \code{\link[=validate_env]{validate_env()}}, \code{\link[=remove_env]{remove_env()}}, \code{\link[=run]{run()}} and
+\code{\link[=run_bin]{run_bin()}} apply the same rule as for \verb{packages =}.
+\item \code{condathis_deprecated_arg}\cr
+for \code{timeout_limit} in \code{\link[=install_micromamba]{install_micromamba()}}.
+}
 }
 }
 
@@ -167,194 +232,365 @@ The errors of \code{\link[=run_pipeline]{run_pipeline()}} also carry \code{resul
 
 Each function also raises the shared classes above. The checks of
 \code{verbose}, \code{method} and \code{error} raise only shared classes.
+\subsection{create_env()}{
 
-\describe{
-\item{\code{\link[=create_env]{create_env()}}}{
-Arguments: \code{condathis_create_env_invalid_packages},
-\code{condathis_create_env_positional_env_name},
-\code{condathis_create_env_invalid_env_name},
-\code{condathis_create_env_invalid_channels},
-\code{condathis_create_env_invalid_channel_priority},
-\code{condathis_create_env_invalid_platform},
-\code{condathis_create_env_invalid_env_file},
-\code{condathis_create_env_missing_env_file},
-\code{condathis_create_env_invalid_overwrite} and
-\code{condathis_create_env_conflicting_args} (package specs and
-\code{env_file}). The environment: \code{condathis_create_env_exists} (it
-exists, and \code{overwrite = FALSE} cannot keep it) and
-\code{condathis_create_env_platform_mismatch}. The backend:
-\code{condathis_create_env_failed}, and the warning
-\code{condathis_create_env_link_scripts_skipped}.
+The classes of \code{\link[=create_env]{create_env()}}. Arguments:
+\itemize{
+\item \code{condathis_create_env_invalid_packages}
+\item \code{condathis_create_env_positional_env_name}
+\item \code{condathis_create_env_invalid_env_name}
+\item \code{condathis_create_env_invalid_channels}
+\item \code{condathis_create_env_invalid_channel_priority}
+\item \code{condathis_create_env_invalid_platform}
+\item \code{condathis_create_env_invalid_env_file}
+\item \code{condathis_create_env_missing_env_file}
+\item \code{condathis_create_env_invalid_overwrite}
+\item \code{condathis_create_env_conflicting_args}\cr
+package specs and \code{env_file}.
 }
-\item{\code{\link[=install_packages]{install_packages()}}}{
-Arguments: \code{condathis_install_packages_missing_packages},
-\code{condathis_install_packages_invalid_packages},
-\code{condathis_install_packages_positional_env_name},
-\code{condathis_install_packages_invalid_env_name},
-\code{condathis_install_packages_invalid_channels} and
-\code{condathis_install_packages_invalid_channel_priority}. The
-environment: \code{condathis_install_packages_env_not_found}. The backend:
-\code{condathis_install_packages_failed}, and the warning
-\code{condathis_install_packages_link_scripts_skipped}. The warning
-\code{condathis_install_packages_missing_previous_channels} says that a
-channel the environment was built from is not in the call. This holds
-on every backend that records the channels in \code{conda-meta/history}.
+
+The environment:
+\itemize{
+\item \code{condathis_create_env_exists}\cr
+it exists, and \code{overwrite = FALSE} cannot keep it.
+\item \code{condathis_create_env_platform_mismatch}
 }
-\item{\code{\link[=remove_env]{remove_env()}}}{
-\code{condathis_remove_env_invalid_env_name},
-\code{condathis_remove_env_env_not_found},
-\code{condathis_remove_env_failed}, and the warning
-\code{condathis_remove_env_link_scripts_skipped} (pre-unlink scripts).
+
+The backend:
+\itemize{
+\item \code{condathis_create_env_failed}
+\item \code{condathis_create_env_link_scripts_skipped} (a warning)
 }
-\item{\code{\link[=clean_cache]{clean_cache()}}}{
-\code{condathis_clean_cache_failed}: a backend failed to clean its caches,
-or \code{condathis} could not empty one of its own cache directories. A
-backend failure also has \code{condathis_backend_error}, with the error of
-the backend as the parent. For a non-zero \code{status} that the backend
-returned without an error, it has the fields \code{status}, \code{stdout} and
-\code{stderr} instead. A directory failure has the error of the deletion
-as the parent. \code{condathis} raises it after it cleaned the other
-backends and directories. A \code{status} that is not a whole
-number aborts with \code{condathis_backend_invalid_return}. The warnings
-\code{condathis_backend_not_installed} and \code{condathis_backend_load_failed}
+}
+
+\subsection{install_packages()}{
+
+The classes of \code{\link[=install_packages]{install_packages()}}. Arguments:
+\itemize{
+\item \code{condathis_install_packages_missing_packages}
+\item \code{condathis_install_packages_invalid_packages}
+\item \code{condathis_install_packages_positional_env_name}
+\item \code{condathis_install_packages_invalid_env_name}
+\item \code{condathis_install_packages_invalid_channels}
+\item \code{condathis_install_packages_invalid_channel_priority}
+}
+
+The environment:
+\itemize{
+\item \code{condathis_install_packages_env_not_found}
+}
+
+The backend:
+\itemize{
+\item \code{condathis_install_packages_failed}
+\item \code{condathis_install_packages_link_scripts_skipped} (a warning)
+\item \code{condathis_install_packages_missing_previous_channels} (a warning)\cr
+a channel the environment was built from is not in the call. This
+holds on every backend that records the channels in
+\code{conda-meta/history}.
+}
+}
+
+\subsection{remove_env()}{
+
+The classes of \code{\link[=remove_env]{remove_env()}}:
+\itemize{
+\item \code{condathis_remove_env_invalid_env_name}
+\item \code{condathis_remove_env_env_not_found}
+\item \code{condathis_remove_env_failed}
+\item \code{condathis_remove_env_link_scripts_skipped} (a warning)\cr
+pre-unlink scripts.
+}
+}
+
+\subsection{clean_cache()}{
+
+The classes of \code{\link[=clean_cache]{clean_cache()}}:
+\itemize{
+\item \code{condathis_clean_cache_failed}\cr
+a backend failed to clean its caches, or \code{condathis} could not empty
+one of its own cache directories. \code{condathis} raises it after it
+cleaned the other backends and directories.
+\itemize{
+\item A backend failure also has \code{condathis_backend_error}, with the error
+of the backend as the parent. For a non-zero \code{status} that the
+backend returned without an error, it has the fields \code{status},
+\code{stdout} and \code{stderr} instead.
+\item A directory failure has the error of the deletion as the parent.
+}
+\item \code{condathis_backend_invalid_return}\cr
+a backend returned a \code{status} that is not a whole number.
+\item \code{condathis_backend_not_installed} and
+\code{condathis_backend_load_failed} (warnings)\cr
 name a backend whose caches were not cleaned.
 }
-\item{\code{\link[=validate_env]{validate_env()}}}{
-Arguments: \code{condathis_validate_env_invalid_packages},
-\code{condathis_validate_env_positional_env_name},
-\code{condathis_validate_env_invalid_env_name},
-\code{condathis_validate_env_invalid_channels} and
-\code{condathis_validate_env_invalid_platform}. The environment:
-\code{condathis_validate_env_env_not_found} and
-\code{condathis_validate_env_unsatisfied}. The backend:
-\code{condathis_validate_env_failed}.
 }
-\item{\code{\link[=env_exists]{env_exists()}}, \code{\link[=list_envs]{list_envs()}}, \code{\link[=list_packages]{list_packages()}}, \code{\link[=get_env_dir]{get_env_dir()}}
-and \code{\link[=get_install_dir]{get_install_dir()}}}{
-\verb{condathis_<function>_invalid_env_name} for the functions that take
-\code{env_name}, \code{condathis_list_packages_env_not_found}, and
-\verb{condathis_<function>_failed} (not for \code{\link[=get_env_dir]{get_env_dir()}}).
+
+\subsection{validate_env()}{
+
+The classes of \code{\link[=validate_env]{validate_env()}}. Arguments:
+\itemize{
+\item \code{condathis_validate_env_invalid_packages}
+\item \code{condathis_validate_env_positional_env_name}
+\item \code{condathis_validate_env_invalid_env_name}
+\item \code{condathis_validate_env_invalid_channels}
+\item \code{condathis_validate_env_invalid_platform}
 }
-\item{\code{\link[=install_micromamba]{install_micromamba()}}}{
-Arguments: \code{condathis_install_micromamba_invalid_micromamba_version},
-\code{condathis_install_micromamba_invalid_timeout},
-\code{condathis_install_micromamba_invalid_download_method},
-\code{condathis_install_micromamba_invalid_force} and
-\code{condathis_install_micromamba_conflicting_args} (\code{timeout} and
-\code{timeout_limit}). Then \code{condathis_install_micromamba_unsupported_version}
-and \code{condathis_install_micromamba_download_failed}. The warnings
-\code{condathis_install_micromamba_checksum_unavailable} and
-\code{condathis_install_micromamba_checksum_mismatch} concern the SHA256
-check of a download.
+
+The environment:
+\itemize{
+\item \code{condathis_validate_env_env_not_found}
+\item \code{condathis_validate_env_unsatisfied}
 }
-\item{The micromamba backend}{
-\code{condathis_micromamba_status_error} (a \code{micromamba} command failed),
-\code{condathis_micromamba_bin_path_not_executable},
-\code{condathis_micromamba_version_not_detected},
-and \code{condathis_micromamba_not_available_for_arch}.
+
+The backend:
+\itemize{
+\item \code{condathis_validate_env_failed}
 }
-\item{Replacing an environment}{
+}
+
+\subsection{Queries}{
+
+These are the classes of the queries, with the name of the function as
+\verb{<function>}. The queries are \code{\link[=env_exists]{env_exists()}}, \code{\link[=list_envs]{list_envs()}},
+\code{\link[=list_packages]{list_packages()}}, \code{\link[=get_env_dir]{get_env_dir()}} and \code{\link[=get_install_dir]{get_install_dir()}}.
+\itemize{
+\item \verb{condathis_<function>_invalid_env_name}\cr
+for the functions that take \code{env_name}.
+\item \code{condathis_list_packages_env_not_found}
+\item \verb{condathis_<function>_failed}\cr
+not for \code{\link[=get_env_dir]{get_env_dir()}}.
+}
+}
+
+\subsection{install_micromamba()}{
+
+The classes of \code{\link[=install_micromamba]{install_micromamba()}}. Arguments:
+\itemize{
+\item \code{condathis_install_micromamba_invalid_micromamba_version}
+\item \code{condathis_install_micromamba_invalid_timeout}
+\item \code{condathis_install_micromamba_invalid_download_method}
+\item \code{condathis_install_micromamba_invalid_force}
+\item \code{condathis_install_micromamba_conflicting_args}\cr
+\code{timeout} and \code{timeout_limit}.
+}
+
+Then:
+\itemize{
+\item \code{condathis_install_micromamba_unsupported_version}
+\item \code{condathis_install_micromamba_download_failed}
+}
+
+The warnings about the SHA256 check of a download:
+\itemize{
+\item \code{condathis_install_micromamba_checksum_unavailable}\cr
+the binary is installed without the check. \code{verbose = "silent"} hides
+it.
+\item \code{condathis_install_micromamba_checksum_mismatch}\cr
+the binary is not installed. Shown also with \code{verbose = "silent"}.
+}
+}
+
+\subsection{The micromamba backend}{
+\itemize{
+\item \code{condathis_micromamba_downloading} (a message)\cr
+no usable binary was found, so it is downloaded.
+\item \code{condathis_micromamba_status_error}\cr
+a \code{micromamba} command failed.
+\item \code{condathis_micromamba_bin_path_not_executable}
+\item \code{condathis_micromamba_version_not_detected}
+\item \code{condathis_micromamba_not_available_for_arch}
+}
+}
+
+\subsection{Replacing an environment}{
+
 For \code{\link[=create_env]{create_env()}} with \code{overwrite = TRUE}, on every backend, three
-classes apply. \code{condathis_env_set_aside_failed}: the existing
-environment could not be moved aside, so it is unchanged.
-\code{condathis_env_not_restored}: the create failed and the old
-environment could not be moved back. The error has the field
-\code{kept_env_dir} with where it is kept. The warning
-\code{condathis_env_restore_failed}: the same after an interrupt, also
-with \code{kept_env_dir}. The micromamba backend adds
-\code{condathis_micromamba_env_set_aside_failed} and
-\code{condathis_micromamba_env_restore_failed}. When \code{condathis} replaces,
-removes or cleans up an environment, it refuses to delete or move a
-directory that is not exactly \verb{<root>/envs/<env_name>}. The error has
-the class \code{condathis_unsafe_env_dir_delete} or
-\code{condathis_unsafe_env_dir_move}.
+classes apply:
+\itemize{
+\item \code{condathis_env_set_aside_failed}\cr
+the existing environment could not be moved aside, so it is
+unchanged.
+\item \code{condathis_env_not_restored}\cr
+the create failed and the old environment could not be moved back.
+The error has the field \code{kept_env_dir} with where it is kept.
+\item \code{condathis_env_restore_failed} (a warning)\cr
+the same after an interrupt, also with \code{kept_env_dir}.
 }
-\item{\code{\link[=run]{run()}} and \code{\link[=run_bin]{run_bin()}}}{
-Arguments, with \code{run} or \code{run_bin} as \verb{<function>}:
-\verb{condathis_<function>_invalid_cmd},
-\verb{condathis_<function>_invalid_args} (a value in \code{...}, also
-\code{condathis_invalid_cmd_args}),
-\verb{condathis_<function>_invalid_input},
-\verb{condathis_<function>_invalid_binary},
-\verb{condathis_<function>_invalid_env_name} and
-\verb{condathis_<function>_invalid_<argument>} for \code{timeout}, \code{supervise},
-\code{cleanup_tree}, \code{linux_pdeathsig}, \code{stdin}, \code{stdout}, \code{stderr} and,
-for \code{\link[=run_bin]{run_bin()}}, \code{activate}. Then
-\verb{condathis_<function>_env_not_found},
-\verb{condathis_<function>_resolve_failed},
-\verb{condathis_<function>_status_error} and
-\verb{condathis_<function>_timeout_error}. A failed activation of the
-micromamba backend adds the classes of its error to the resolve
-error. On Linux and macOS, an \code{activate.d} script that exits with a
-non-zero status adds \code{condathis_micromamba_status_error} and
-\code{condathis_cmd_status_error}.
-A missing or unreadable activation result adds
-\code{condathis_activation_dump_error}, and a missing environment
-directory adds \code{condathis_activation_env_not_found}.
+
+The micromamba backend adds:
+\itemize{
+\item \code{condathis_micromamba_env_set_aside_failed}
+\item \code{condathis_micromamba_env_restore_failed}
 }
-\item{\code{\link[=run_pipeline]{run_pipeline()}}}{
-Arguments: \code{condathis_run_pipeline_invalid_step},
-\code{condathis_run_pipeline_too_few_commands},
-\code{condathis_run_pipeline_conflicting_method},
-\code{condathis_run_pipeline_invalid_env_name},
-\code{condathis_run_pipeline_invalid_input},
-\code{condathis_run_pipeline_invalid_binary} and
-\verb{condathis_run_pipeline_invalid_<argument>} for \code{timeout},
-\code{supervise}, \code{cleanup_tree}, \code{linux_pdeathsig}, \code{activate}, \code{stdin},
-\code{stdout} and \code{stderr}. Then \code{condathis_run_pipeline_env_not_found},
-\code{condathis_run_pipeline_resolve_failed},
-\code{condathis_run_pipeline_status_error} and
-\code{condathis_run_pipeline_timeout_error}.
+
+When \code{condathis} replaces, removes or cleans up an environment, it
+refuses to delete or move a directory that is not exactly
+\verb{<root>/envs/<env_name>}. The error has one of these classes:
+\itemize{
+\item \code{condathis_unsafe_env_dir_delete}
+\item \code{condathis_unsafe_env_dir_move}
 }
-\item{\code{\link[=run_step]{run_step()}}}{
-\code{condathis_run_step_invalid_cmd}, \code{condathis_run_step_invalid_args},
-\code{condathis_run_step_invalid_env_name},
-\code{condathis_run_step_invalid_method} and
-\code{condathis_run_step_invalid_stderr}.
 }
-\item{\code{\link[=env_path]{env_path()}}}{
-\code{condathis_env_path_invalid_path} (the \code{path} argument),
-\code{condathis_env_path_invalid} (a malformed \code{env_path()} object. It is
-also the second class of a \code{path} error),
-\code{condathis_env_path_read_only} (passed to a function that takes only
-names), \code{condathis_env_path_unsupported_method} (a \code{method} that
-names a backend that cannot run commands in such an environment,
-also \code{condathis_backend_unsupported}), and
-\code{condathis_env_path_not_found} and
-\code{condathis_env_path_not_conda_env} (also \code{condathis_env_not_found}).
+
+\subsection{run() and run_bin()}{
+
+The classes of \code{\link[=run]{run()}} and \code{\link[=run_bin]{run_bin()}}, with \code{run} or \code{run_bin} as
+\verb{<function>}. Arguments:
+\itemize{
+\item \verb{condathis_<function>_invalid_cmd}
+\item \verb{condathis_<function>_invalid_args}\cr
+a value in \code{...}, also \code{condathis_invalid_cmd_args}.
+\item \verb{condathis_<function>_invalid_input}
+\item \verb{condathis_<function>_invalid_binary}
+\item \verb{condathis_<function>_invalid_env_name}
+\item \verb{condathis_<function>_invalid_<argument>}\cr
+for \code{timeout}, \code{supervise}, \code{cleanup_tree}, \code{linux_pdeathsig},
+\code{stdin}, \code{stdout}, \code{stderr} and, for \code{\link[=run_bin]{run_bin()}}, \code{activate}.
 }
-\item{\code{\link[=parse_output]{parse_output()}}}{
-\code{condathis_parse_output_invalid_res},
-\code{condathis_parse_output_invalid_stream},
-\code{condathis_parse_output_invalid_trim} and
-\code{condathis_parse_output_binary_stream} (a raw stream cannot be
-parsed as text).
+
+Then:
+\itemize{
+\item \verb{condathis_<function>_env_not_found}
+\item \verb{condathis_<function>_resolve_failed}
+\item \verb{condathis_<function>_status_error}
+\item \verb{condathis_<function>_timeout_error}
 }
-\item{\code{\link[=with_sandbox_dir]{with_sandbox_dir()}}}{
-The warning \code{condathis_with_sandbox_dir_cleanup_failed}: the sandbox
-could not be deleted.
+
+A failed activation of the micromamba backend adds the classes of its
+error to the resolve error:
+\itemize{
+\item On Linux and macOS, an \code{activate.d} script that exits with a non-zero
+status adds two classes:
+\itemize{
+\item \code{condathis_micromamba_status_error}
+\item \code{condathis_cmd_status_error}
 }
-\item{Backend selection (\code{method})}{
-\code{condathis_backend_not_registered},
-\code{condathis_backend_none_available}, \code{condathis_backend_mismatch} (a
-change to an environment of another backend),
-\code{condathis_backend_ambiguous_env} (several backends have the
-environment), \code{condathis_backend_not_installed} and
-\code{condathis_backend_load_failed} (the package of the backend cannot be
-used), and the warnings \code{condathis_backend_mismatch_warning},
-\code{condathis_backend_marker_mismatch} and
-\code{condathis_invalid_backend_priority_option}.
+\item A missing or unreadable activation result adds
+\code{condathis_activation_dump_error}.
+\item A missing environment directory adds
+\code{condathis_activation_env_not_found}.
 }
-\item{\code{\link[=register_backend]{register_backend()}} and \code{\link[=unregister_backend]{unregister_backend()}}}{
-\code{condathis_backend_invalid_name}, \code{condathis_backend_reserved_name},
-\code{condathis_backend_root_conflict} (the condathis data directory has
-an entry of that name that is not a directory),
-\code{condathis_backend_name_conflict} (the name differs only in case from
-another backend name), \code{condathis_backend_class_conflict} and
-\code{condathis_backend_contract_violation}. A backend gives its own
-condition the class \code{condathis_backend_unsupported} when it cannot
-honor an argument, and never the class \code{condathis_backend_error}.
 }
+
+\subsection{run_pipeline()}{
+
+The classes of \code{\link[=run_pipeline]{run_pipeline()}}. Arguments:
+\itemize{
+\item \code{condathis_run_pipeline_invalid_step}
+\item \code{condathis_run_pipeline_too_few_commands}
+\item \code{condathis_run_pipeline_conflicting_method}
+\item \code{condathis_run_pipeline_invalid_env_name}
+\item \code{condathis_run_pipeline_invalid_input}
+\item \code{condathis_run_pipeline_invalid_binary}
+\item \verb{condathis_run_pipeline_invalid_<argument>}\cr
+for \code{timeout}, \code{supervise}, \code{cleanup_tree}, \code{linux_pdeathsig},
+\code{activate}, \code{stdin}, \code{stdout} and \code{stderr}.
+}
+
+Then:
+\itemize{
+\item \code{condathis_run_pipeline_env_not_found}
+\item \code{condathis_run_pipeline_resolve_failed}
+\item \code{condathis_run_pipeline_status_error}
+\item \code{condathis_run_pipeline_timeout_error}
+}
+}
+
+\subsection{run_step()}{
+
+The classes of \code{\link[=run_step]{run_step()}}:
+\itemize{
+\item \code{condathis_run_step_invalid_cmd}
+\item \code{condathis_run_step_invalid_args}
+\item \code{condathis_run_step_invalid_env_name}
+\item \code{condathis_run_step_invalid_method}
+\item \code{condathis_run_step_invalid_stderr}
+}
+}
+
+\subsection{env_path()}{
+
+The classes of \code{\link[=env_path]{env_path()}}:
+\itemize{
+\item \code{condathis_env_path_invalid_path}\cr
+the \code{path} argument.
+\item \code{condathis_env_path_invalid}\cr
+a malformed \code{env_path()} object. It is also the second class of a
+\code{path} error.
+\item \code{condathis_env_path_read_only}\cr
+passed to a function that takes only names.
+\item \code{condathis_env_path_unsupported_method}\cr
+a \code{method} that names a backend that cannot run commands in such an
+environment, also \code{condathis_backend_unsupported}.
+\item \code{condathis_env_path_not_found}\cr
+\code{condathis_env_path_not_conda_env}\cr
+also \code{condathis_env_not_found}.
+}
+}
+
+\subsection{parse_output()}{
+
+The classes of \code{\link[=parse_output]{parse_output()}}:
+\itemize{
+\item \code{condathis_parse_output_invalid_res}
+\item \code{condathis_parse_output_invalid_stream}
+\item \code{condathis_parse_output_invalid_trim}
+\item \code{condathis_parse_output_binary_stream}\cr
+a raw stream cannot be parsed as text.
+}
+}
+
+\subsection{with_sandbox_dir()}{
+
+The classes of \code{\link[=with_sandbox_dir]{with_sandbox_dir()}}:
+\itemize{
+\item \code{condathis_with_sandbox_dir_cleanup_failed} (a warning)\cr
+the sandbox could not be deleted.
+}
+}
+
+\subsection{Backend selection (\code{method})}{
+
+The classes of the choice of a backend with \code{method}:
+\itemize{
+\item \code{condathis_backend_not_registered}
+\item \code{condathis_backend_none_available}
+\item \code{condathis_backend_mismatch}\cr
+a change to an environment of another backend.
+\item \code{condathis_backend_ambiguous_env}\cr
+several backends have the environment.
+\item \code{condathis_backend_not_installed}\cr
+\code{condathis_backend_load_failed}\cr
+the package of the backend cannot be used.
+}
+
+The warnings:
+\itemize{
+\item \code{condathis_backend_mismatch_warning}
+\item \code{condathis_backend_marker_mismatch}
+\item \code{condathis_invalid_backend_priority_option}
+}
+}
+
+\subsection{register_backend() and unregister_backend()}{
+
+The classes of \code{\link[=register_backend]{register_backend()}} and \code{\link[=unregister_backend]{unregister_backend()}}:
+\itemize{
+\item \code{condathis_backend_invalid_name}
+\item \code{condathis_backend_reserved_name}
+\item \code{condathis_backend_root_conflict}\cr
+the condathis data directory has an entry of that name that is not a
+directory.
+\item \code{condathis_backend_name_conflict}\cr
+the name differs only in case from another backend name.
+\item \code{condathis_backend_class_conflict}
+\item \code{condathis_backend_contract_violation}
+}
+
+A backend gives its own condition the class
+\code{condathis_backend_unsupported} when it cannot honor an argument, and
+never the class \code{condathis_backend_error}.
 }
 }
 
@@ -362,23 +598,38 @@ honor an argument, and never the class \code{condathis_backend_error}.
 
 These classes of \code{condathis} 0.1.4 were renamed to follow the scheme.
 Each old name is kept as an extra class until \code{condathis} 1.0, so
-existing handlers keep working. Use the new names in new code.\tabular{ll}{
-   New class \tab Old class \cr
-   \code{condathis_create_env_invalid_overwrite} \tab \code{condathis_create_invalid_overwrite_arg} \cr
-   \code{condathis_create_env_missing_env_file} \tab \code{condathis_create_missing_env_file} \cr
-   \code{condathis_remove_env_env_not_found} \tab \code{condathis_error_env_remove} \cr
-   \code{condathis_list_packages_env_not_found} \tab \code{condathis_list_packages_missing_env} \cr
-   \code{condathis_install_micromamba_download_failed} \tab \code{condathis_install_error_missing_bzip2} \cr
-   \code{condathis_micromamba_bin_path_not_executable} \tab \code{condathis_umamba_bin_path_not_executable} \cr
-   \code{condathis_micromamba_version_not_detected} \tab \code{condathis_umamba_version_not_detected} \cr
-   \code{condathis_micromamba_not_available_for_arch} \tab \code{condathis_umamba_not_available_for_arch} \cr
-   \code{condathis_micromamba_status_error} \tab \code{condathis_cmd_status_error} \cr
-   \code{condathis_run_invalid_cmd} \tab \code{condathis_run_null_cmd} \cr
-   \code{condathis_run_invalid_stdin}, \code{condathis_run_bin_invalid_stdin} \tab \code{condathis_run_stdin_error} \cr
-   \code{condathis_run_bin_status_error} \tab \code{condathis_run_status_error} \cr
-   \code{condathis_run_invalid_args}, \code{condathis_run_bin_invalid_args} (a named value) \tab \code{rlib_error_dots_named}, \code{rlib_error_dots} \cr
+existing handlers keep working. Use the new names in new code. Each item
+gives the new class, then the old one:
+\itemize{
+\item \code{condathis_create_env_invalid_overwrite}\cr
+old: \code{condathis_create_invalid_overwrite_arg}
+\item \code{condathis_create_env_missing_env_file}\cr
+old: \code{condathis_create_missing_env_file}
+\item \code{condathis_remove_env_env_not_found}\cr
+old: \code{condathis_error_env_remove}
+\item \code{condathis_list_packages_env_not_found}\cr
+old: \code{condathis_list_packages_missing_env}
+\item \code{condathis_install_micromamba_download_failed}\cr
+old: \code{condathis_install_error_missing_bzip2}
+\item \code{condathis_micromamba_bin_path_not_executable}\cr
+old: \code{condathis_umamba_bin_path_not_executable}
+\item \code{condathis_micromamba_version_not_detected}\cr
+old: \code{condathis_umamba_version_not_detected}
+\item \code{condathis_micromamba_not_available_for_arch}\cr
+old: \code{condathis_umamba_not_available_for_arch}
+\item \code{condathis_micromamba_status_error}\cr
+old: \code{condathis_cmd_status_error}
+\item \code{condathis_run_invalid_cmd}\cr
+old: \code{condathis_run_null_cmd}
+\item \code{condathis_run_invalid_stdin}\cr
+\code{condathis_run_bin_invalid_stdin}\cr
+old: \code{condathis_run_stdin_error}
+\item \code{condathis_run_bin_status_error}\cr
+old: \code{condathis_run_status_error}
+\item \code{condathis_run_invalid_args}\cr
+\code{condathis_run_bin_invalid_args}\cr
+(a named value) old: \code{rlib_error_dots_named}, \code{rlib_error_dots}
 }
-
 
 \code{condathis_install_error_missing_bzip2} is deprecated: a failed download
 does not depend on \code{bzip2}.

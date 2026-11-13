@@ -43,9 +43,12 @@
 #'   that are not atomic vectors (for example lists) abort with class
 #'   `condathis_run_invalid_args`.
 #' @param stdout Standard output target: `"|"` (the default) captures it in
-#'   the result, a file path writes it to that file, and `NULL` discards it.
+#'   the result, a file path writes it to that file, `""` sends it to the
+#'   standard output of the R process, and `NULL` discards it.
 #' @param stderr Standard error target: `"|"` (the default) captures it in
-#'   the result, a file path writes it to that file, and `NULL` discards it.
+#'   the result, `"2>&1"` sends it to the standard output target, a file
+#'   path writes it to that file, `""` sends it to the standard error of the
+#'   R process, and `NULL` discards it.
 #' @param stdin Standard input source: `NULL` (the default) for no input,
 #'   the path of an existing file to read, or `"|"` to write `input` to the
 #'   command. Other values abort with class `condathis_invalid_stdin`.
@@ -214,7 +217,10 @@ run <- function(
   )
   # `rethrow_error_run()` reads `timeout` from this frame for its message.
   timeout <- run_args$timeout
-  validate_method_arg(method)
+  method <- resolve_method_alias(
+    validate_method_arg(method),
+    user_env = rlang::caller_env()
+  )
 
   # Ignore linter warning. `error_var` is used by `rethrow_error_run()`
   # + env by accessing this function environment.

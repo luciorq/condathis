@@ -115,7 +115,8 @@ find_stale_sandboxes <- function(
 # directories there. A killed R process cannot delete its own, so a test
 # that kills R children calls this before it starts them: the directory
 # goes after they are killed, and at the latest with this process's
-# `tempdir()`.
+# `tempdir()`. A test that runs a program that leaves files in the
+# temporary directory of the system calls it too.
 local_child_tempdir <- function(.local_envir = parent.frame()) {
   dir <- withr::local_tempdir(
     pattern = "child-tmp-",

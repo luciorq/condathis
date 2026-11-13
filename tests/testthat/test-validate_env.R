@@ -486,6 +486,7 @@ testthat::test_that("validate_env() checks the channel of a spec without one onl
 })
 
 testthat::test_that("validate_env() and create_env(overwrite = FALSE) give the same answer", {
+  testthat::skip_on_cran()
   # Decision D4: one internal check. With the same channels, the two cannot
   # disagree: validate_env(channels = c(channels, additional_channels)).
   stub <- local_validate_stub(
@@ -636,6 +637,35 @@ testthat::test_that("validate_env() catches an old positional env_name", {
   testthat::expect_s3_class(cnd, "condathis_error")
 })
 
+testthat::test_that("validate_env() checks for a positional env_name only with two or more unnamed specs", {
+  # Regression test: `packages = c("x", "<env>")` aborted when "<env>" named
+  # an existing environment.
+  id <- "deprecated_packages_arg_validate_env"
+  reset_warn_once(id)
+  withr::defer(reset_warn_once(id))
+  local_validate_stub(
+    "stub-validate-positional-alias",
+    envs = c("condathis-env", "my-env"),
+    packages = validate_pkgs_df(c("python", "my-env"))
+  )
+  testthat::expect_warning(
+    res <- validate_env(packages = c("python", "my-env")),
+    class = "condathis_deprecated_packages_arg"
+  )
+  testthat::expect_true(res)
+  testthat::expect_true(validate_env(c("python", "my-env")))
+  testthat::expect_true(do.call(
+    validate_env,
+    list(packages = c("python", "my-env"))
+  ))
+  testthat::expect_error(
+    validate_env("python", "my-env"),
+    class = "condathis_validate_env_positional_env_name"
+  )
+  # `packages = NULL` only checks that the environment exists.
+  testthat::expect_true(validate_env(packages = NULL, env_name = "my-env"))
+})
+
 testthat::test_that("validate_env() accepts packages = as a deprecated alias", {
   id <- "deprecated_packages_arg_validate_env"
   reset_warn_once(id)
@@ -779,4 +809,66 @@ testthat::test_that("validate_env() checks a real micromamba environment", {
       testthat::expect_identical(created, expected, info = deparse(channels))
     }
   }
+})
+
+testthat::test_that("validate_env() does not check virtual package specs", {
+  local_validate_stub(
+    "stub-validate-virtual",
+    envs = "cuda-env",
+    packages = validate_pkgs_df("pytorch-gpu", version = "2.5.1")
+  )
+  testthat::expect_true(validate_env(
+    "__cuda=12",
+    "__glibc>=2.17",
+    "pytorch-gpu",
+    env_name = "cuda-env",
+    channels = "conda-forge"
+  ))
+  testthat::expect_true(validate_env("__unix", env_name = "cuda-env"))
+  res <- validate_env(
+    "__cuda=12",
+    "zlib",
+    env_name = "cuda-env",
+    error = "continue"
+  )
+  testthat::expect_false(res)
+  testthat::expect_identical(attr(res, "unsatisfied"), "zlib")
+})
+
+testthat::test_that("validate_env() names the channel of an installed package outside channels", {
+  pkgs <- validate_pkgs_df("samtools", version = "1.17")
+  pkgs$channel <- "bioconda"
+  local_validate_stub(
+    "stub-validate-other-channel",
+    envs = "old-env",
+    packages = pkgs
+  )
+  # Without `channels`, any channel matches.
+  testthat::expect_true(validate_env("samtools", env_name = "old-env"))
+  cnd <- catch_error(validate_env(
+    "samtools",
+    env_name = "old-env",
+    channels = "conda-forge"
+  ))
+  testthat::expect_identical(
+    class(cnd),
+    c("condathis_validate_env_unsatisfied", "condathis_error", rlang_tail)
+  )
+  message <- gsub("\\s+", " ", cli::ansi_strip(conditionMessage(cnd)))
+  testthat::expect_match(
+    message,
+    "\"samtools\" is installed from \"bioconda\", which is not in `channels`.",
+    fixed = TRUE
+  )
+  testthat::expect_match(
+    message,
+    "Add \"bioconda\" to `channels`, or name the channel in the spec, as in \"bioconda::samtools\".",
+    fixed = TRUE
+  )
+  testthat::expect_no_match(message, "overwrite = TRUE", fixed = TRUE)
+  testthat::expect_true(validate_env(
+    "samtools",
+    env_name = "old-env",
+    channels = c("conda-forge", "bioconda")
+  ))
 })

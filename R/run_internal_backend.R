@@ -327,8 +327,10 @@ activation_timeout_stderr <- function(env_label) {
 #' The last layers of `build_child_env()`, on a block that it already
 #' built: `overlay` replaces the variables of the same name (on Windows,
 #' whatever their case), then `path_prepend` goes in front of the `PATH`
-#' that results. So the block a backend gets as `base_env` is exactly the
-#' child's block without the backend's activation variables.
+#' that results, without a second copy of its directories, however that
+#' `PATH` spells them (see `prepend_path_dirs()`). So the block a backend
+#' gets as `base_env` is exactly the child's block without the backend's
+#' activation variables.
 #'
 #' @param base_env Named character vector, from `build_child_env()`.
 #' @param overlay Named character vector of activation variables, or
@@ -353,7 +355,10 @@ apply_child_overlay <- function(
   if (isTRUE(length(path_prepend) > 0L)) {
     path_name <- match_env_name(names(env), "PATH")
     current_path <- if (is.na(path_name)) "" else env[[path_name]]
-    env[[path_name %|na|% "PATH"]] <- compose_path(path_prepend, current_path)
+    env[[path_name %|na|% "PATH"]] <- prepend_path_dirs(
+      path_prepend,
+      current_path
+    )
   }
   return(unlist(env))
 }

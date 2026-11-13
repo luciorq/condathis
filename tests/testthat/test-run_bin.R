@@ -599,6 +599,7 @@ test_that("run_bin() has its own classes for input, binary, error, verbose and n
 # --- Missing environments (decision D3) -------------------------------------
 
 test_that("run_bin() creates condathis-env with the backend that method names", {
+  testthat::skip_on_cran()
   stub_a <- local_stub_backend("stub-a")
   stub_b <- local_stub_backend("stub-b")
   testthat::local_mocked_bindings(
@@ -628,6 +629,7 @@ test_that("run_bin() creates condathis-env with the backend that method names", 
 # --- Activation and the backend_resolve_run() contract ----------------------
 
 test_that("run_bin(activate = FALSE) calls no backend function to resolve the command", {
+  testthat::skip_on_cran()
   # Regression test: with activate = FALSE, other backends still went
   # through backend_resolve_run(), so a broken activation made it fail.
   stub <- local_run_family_stub(
@@ -663,6 +665,7 @@ test_that("run_bin(activate = FALSE) calls no backend function to resolve the co
 })
 
 test_that("run_bin() reports the user's command line, not the backend's wrapper", {
+  testthat::skip_on_cran()
   # Regression test: the reported cmd mixed the user's command with the
   # arguments of the backend's wrapper.
   rscript <- run_family_rscript()
@@ -686,6 +689,7 @@ test_that("run_bin() reports the user's command line, not the backend's wrapper"
 })
 
 test_that("run_bin() runs in the dir that backend_resolve_run() returns, and checks it", {
+  testthat::skip_on_cran()
   # Regression test: only run() applied `dir`, and its type was not
   # checked.
   work_dir <- withr::local_tempdir()
@@ -827,6 +831,7 @@ test_that("run_bin() wraps a backend's resolution error with its own class", {
 # --- Errors of a failed command ----------------------------------------------
 
 test_that("run_bin() status and timeout errors have its own and the shared classes", {
+  testthat::skip_on_cran()
   stub <- local_run_family_stub()
   rscript <- run_family_rscript()
   cnd <- testthat::expect_error(
@@ -1257,4 +1262,110 @@ test_that("run_bin() gives backend_resolve_run() the child's block before activa
     path_of(seen$env),
     compose_path(env_bin_search_dirs(env_dir), Sys.getenv("PATH"))
   )
+})
+
+test_that("run_bin() puts each directory of the environment once on the command's PATH", {
+  # Regression test: on Windows, the activation of micromamba spells the
+  # environment's directories with `\`, and `run_bin()` put them in front
+  # again spelled with `/`, so the command's PATH had two copies of each.
+  # The activation of this stub puts them in front of the PATH as
+  # micromamba does on each OS.
+  seen <- new.env(parent = emptyenv())
+  stub <- local_run_family_stub(
+    backend_resolve_run = function(
+      backend,
+      cmd,
+      args = character(0L),
+      ...,
+      env_name,
+      base_env = NULL
+    ) {
+      env_dir <- as.character(fs::path(stub$root, "envs", env_name))
+      dirs <- as.character(env_bin_search_dirs(env_dir))
+      if (isTRUE(is_windows())) {
+        dirs <- gsub("/", "\\", dirs, fixed = TRUE)
+      }
+      base_path <- unname(base_env[[match_env_name(names(base_env), "PATH")]])
+      return(list(
+        command = cmd,
+        args = args,
+        env = c(PATH = compose_path(dirs, base_path)),
+        dir = NULL
+      ))
+    }
+  )
+  testthat::local_mocked_bindings(
+    execute_command = function(command, args, env, ...) {
+      seen$env <- env
+      return(list(status = 0L, stdout = "", stderr = "", timeout = FALSE))
+    }
+  )
+  env_dir <- as.character(fs::path(stub$root, "envs", "stub-env"))
+  dirs <- as.character(env_bin_search_dirs(env_dir))
+  res <- run_bin(
+    run_family_rscript(),
+    "--version",
+    env_name = "stub-env",
+    verbose = "silent"
+  )
+  testthat::expect_identical(res$status, 0L)
+  child_path <- unname(seen$env[[match_env_name(names(seen$env), "PATH")]])
+  entries <- strsplit(child_path, .Platform$path.sep, fixed = TRUE)[[1L]]
+  copies <- vapply(
+    path_entry_key(dirs),
+    function(key) sum(path_entry_key(entries) == key),
+    integer(1L)
+  )
+  testthat::expect_identical(unname(copies), rep(1L, length(dirs)))
+  # The environment's directories come first, spelled as `run_bin()`
+  # spells them, then the PATH of the session.
+  testthat::expect_identical(entries[seq_along(dirs)], dirs)
+  testthat::expect_identical(
+    child_path,
+    compose_path(dirs, Sys.getenv("PATH"))
+  )
+})
+
+test_that("run_bin() starts a command given as an absolute path, for both activate values", {
+  # Regression test: on Windows, `run_bin()` started an absolute command
+  # with `/` in its path, and `cmd.exe` started that way failed with "The
+  # syntax of the command is incorrect.".
+  testthat::skip_on_cran()
+  skip_if_no_micromamba_offline()
+
+  env_name <- "run-bin-absolute-path-env"
+  create_polyglot_env(env_name)
+  if (isTRUE(is_windows())) {
+    cmd <- gsub(
+      "/",
+      "\\",
+      file.path(Sys.getenv("SystemRoot"), "System32", "cmd.exe"),
+      fixed = TRUE
+    )
+    args <- c("/d", "/c", "echo", "condathis-ok")
+  } else {
+    cmd <- run_family_rscript()
+    args <- c("-e", "cat('condathis-ok')")
+  }
+  for (activate in c(TRUE, FALSE)) {
+    res <- run_bin(
+      cmd,
+      args,
+      env_name = env_name,
+      activate = activate,
+      verbose = "silent",
+      error = "continue"
+    )
+    testthat::expect_identical(
+      res$status,
+      0L,
+      info = paste("activate", activate)
+    )
+    testthat::expect_match(
+      res$stdout,
+      "condathis-ok",
+      fixed = TRUE,
+      info = paste("activate", activate)
+    )
+  }
 })

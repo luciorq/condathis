@@ -152,13 +152,6 @@ shared_backend_first_classes <- c(
   "data.frame"
 )
 
-#' Session-scoped flag for the once-per-session `method = "native"` warning
-#'
-#' @keywords internal
-#' @noRd
-condathis_native_warned <- new.env(parent = emptyenv())
-condathis_native_warned$warned <- FALSE
-
 #' Register a condathis backend
 #'
 #' Adds a backend: the engine that creates Conda environments and runs
@@ -184,8 +177,15 @@ condathis_native_warned$warned <- FALSE
 #' against, for example as `condathis (>= 0.2.0)` in `Imports`.
 #'
 #' @section The backend object:
-#' Build the backend as
-#' `structure(list(<the functions>), class = c("condathis_backend_<name>", "condathis_backend"))`.
+#' Build the backend as:
+#'
+#' ```r
+#' structure(
+#'   list(<the functions>),
+#'   class = c("condathis_backend_<name>", "condathis_backend")
+#' )
+#' ```
+#'
 #' S3 dispatch keys on the first class, so it must be unique to the
 #' backend. It must not be `"condathis_backend"`, `"default"`, `"list"` or
 #' `"data.frame"`: methods for those classes would also catch objects that
@@ -261,8 +261,8 @@ condathis_native_warned$warned <- FALSE
 #' * `env_dir`: the absolute path of an existing directory with a
 #'   `conda-meta` directory, in its real form (see
 #'   `backend_resolve_run_in_dir()`).
-#' * `timeout`: a positive number of seconds. For `backend_resolve_run()`
-#'   and `backend_resolve_run_in_dir()`, it can also be `Inf` (no limit).
+#' * `timeout`: a positive number of seconds. It can also be `Inf` (no
+#'   limit) for `backend_resolve_run()` and `backend_resolve_run_in_dir()`.
 #'
 #' [create_env()], [install_packages()] and [remove_env()] hold the lock of
 #' the environment name (see *Other R sessions* in [create_env()]). They
@@ -281,8 +281,9 @@ condathis_native_warned$warned <- FALSE
 #'   channel_priority = c("strict", "flexible", "disabled"),
 #'   additional_channels = NULL, platform = NULL, overwrite = FALSE,
 #'   verbose = c("output", "silent", "cmd", "spinner", "full"))` creates
-#'   the environment in the directory that `backend_get_env_dir()` returns.
-#'   `condathis` calls it only when that directory does not exist. That is
+#'   the environment. Its directory is the one that `backend_get_env_dir()`
+#'   returns, and `condathis` calls it only when that directory does not
+#'   exist. That is
 #'   the case for a new environment. It is also the case with
 #'   `overwrite = TRUE`, after `condathis` moved the existing environment
 #'   aside or deleted a directory that was not an environment (one left by
@@ -299,16 +300,18 @@ condathis_native_warned$warned <- FALSE
 #'   this marker as a cross-check, and the marker records the platform when
 #'   one was given or chosen.
 #'
-#'   `condathis` moves aside or deletes only the directory
+#'   `condathis` moves aside or deletes only the directory\cr
 #'   `<backend_get_install_dir()>/envs/<env_name>`. For a backend whose
 #'   `backend_get_env_dir()` returns another directory, `create_env()`
 #'   cannot replace an existing environment, or delete a directory left by
 #'   a failed create. It aborts with `condathis_create_env_failed`, whose
 #'   parent has the class `condathis_unsafe_env_dir_move` or
-#'   `condathis_unsafe_env_dir_delete`. It keeps the environment that it
-#'   replaces in `<backend_get_install_dir()>/envs/#trash` until the
-#'   backend succeeded. No environment can have that name, so
-#'   `backend_list_envs()` must leave that directory out.
+#'   `condathis_unsafe_env_dir_delete`.
+#'
+#'   `condathis` keeps the environment that it replaces in the directory\cr
+#'   `<backend_get_install_dir()>/envs/#trash` until the backend succeeded.
+#'   No environment can have that name, so `backend_list_envs()` must leave
+#'   that directory out.
 #' * `backend_install(backend, packages, env_name = "condathis-env",
 #'   channels = "conda-forge",
 #'   channel_priority = c("strict", "flexible", "disabled"),
@@ -542,12 +545,16 @@ condathis_native_warned$warned <- FALSE
 #'
 #' @section Errors:
 #' Signal an error of any class when an operation fails. `condathis`
-#' re-raises it with the classes `condathis_<function>_failed` (for example
-#' `condathis_create_env_failed`) and `condathis_backend_error`, plus every
-#' `condathis_*` class of your error. It keeps your error as the parent.
-#' Handlers still find your own classes with `rlang::cnd_inherits()`. When
-#' you cannot honor an argument (for example `env_file`, or
-#' `channel_priority = "flexible"`), also give your condition the class
+#' re-raises it with your error as the parent, and with these classes:
+#' * `condathis_<function>_failed`, for example
+#'   `condathis_create_env_failed`.
+#' * `condathis_backend_error`.
+#' * Every `condathis_*` class of your error.
+#'
+#' Handlers still find your own classes with `rlang::cnd_inherits()`.
+#'
+#' When you cannot honor an argument, such as `env_file` or
+#' `channel_priority = "flexible"`, also give your condition the class
 #' `condathis_backend_unsupported`.
 #'
 #' Do not give your own conditions the class `condathis_backend_error`:
@@ -1294,6 +1301,15 @@ list_registered_backend_names <- function() {
 #' `condathis_backend_not_installed` or `condathis_backend_load_failed`
 #' (see `load_known_backends()`).
 #'
+#' The 0.1.4 default vector of `create_env()` and `run()`,
+#' `c("native", "auto")`, and `c("auto", "native")` give their first
+#' element, as `rlang::arg_match()` did in 0.1.4. Any other vector aborts.
+#' Callers use the returned value, not `method` itself.
+#'
+#' @returns A character string: `method`, or the first element of one of
+#'   those two vectors. `"native"` is resolved later by
+#'   `resolve_method_alias()`.
+#'
 #' @keywords internal
 #' @noRd
 validate_method_arg <- function(method, call = rlang::caller_env()) {
@@ -1302,6 +1318,13 @@ validate_method_arg <- function(method, call = rlang::caller_env()) {
     "condathis_invalid_method_arg",
     "condathis_invalid_arg"
   )
+  if (
+    isTRUE(is.character(method)) &&
+      isTRUE(identical(length(method), 2L)) &&
+      isTRUE(setequal(method, c("native", "auto")))
+  ) {
+    method <- method[[1L]]
+  }
   hint <- positional_verbose_hint(method, call = call)
   if (isFALSE(rlang::is_string(method))) {
     condathis_abort(
@@ -1433,23 +1456,29 @@ caller_formal_names <- function(call) {
 
 #' Resolve the deprecated `"native"` alias to `"micromamba"`
 #'
-#' Warns once per session (class `condathis_deprecated_method_native`),
-#' not on every call.
+#' A soft deprecation (see `condathis_deprecate_soft()`): it warns once per
+#' session (id `"deprecated_method_native"`, class
+#' `condathis_deprecated_method_native`), and only for direct use. The
+#' warning counts as given before it is signaled, so under
+#' `options(warn = 2)` only the first call errors.
+#'
+#' @param method Character string, from `validate_method_arg()`.
+#' @param user_env The environment the exported function was called from
+#'   (`rlang::caller_env()` there), or `NULL` to count the call as direct.
 #'
 #' @keywords internal
 #' @noRd
-resolve_method_alias <- function(method) {
+resolve_method_alias <- function(method, user_env = NULL) {
   if (identical(method, "native")) {
-    if (isFALSE(condathis_native_warned$warned)) {
-      condathis_warn(
-        message = c(
-          `!` = "{.val native} is a deprecated alias for {.val micromamba}.",
-          `i` = "Use {.code method = \"micromamba\"} instead."
-        ),
-        class = "condathis_deprecated_method_native"
-      )
-      condathis_native_warned$warned <- TRUE
-    }
+    condathis_deprecate_soft(
+      id = "deprecated_method_native",
+      message = c(
+        `!` = "{.val native} is a deprecated alias for {.val micromamba}.",
+        `i` = "Use {.code method = \"micromamba\"} instead."
+      ),
+      class = "condathis_deprecated_method_native",
+      user_env = user_env
+    )
     return("micromamba")
   }
   return(method)
@@ -1573,6 +1602,9 @@ resolve_backend_ambiguous_env <- function(
 #'   remove the environment (`TRUE`: a backend/marker mismatch, or a probe
 #'   that fails, aborts) or only read from it (`FALSE`: a mismatch warns
 #'   and uses the actual owner instead, and a failed probe warns).
+#' @param user_env The environment the exported function was called from
+#'   (`rlang::caller_env()` there), for the soft deprecation of `"native"`
+#'   (see `resolve_method_alias()`). `NULL` counts the call as direct.
 #' @param call Calling environment, passed to `condathis_abort()`.
 #'
 #' @returns A list with `backend` (the resolved backend object) and `name`
@@ -1584,9 +1616,13 @@ resolve_backend <- function(
   env_name = NULL,
   method = "auto",
   mutating = FALSE,
+  user_env = NULL,
   call = rlang::caller_env()
 ) {
-  method <- resolve_method_alias(validate_method_arg(method, call = call))
+  method <- resolve_method_alias(
+    validate_method_arg(method, call = call),
+    user_env = user_env
+  )
   # A known backend that has environments is loaded first, so an
   # environment of it is found without a `library()` call.
   load_known_backends(call = call)

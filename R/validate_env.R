@@ -22,7 +22,7 @@
 #'   class `condathis_backend_mismatch`.
 #' * When a backend cannot tell whether the environment exists,
 #'   `validate_env()` still lists its packages, and reports the listing's
-#'   error if it fails. `create_env()` aborts with class
+#'   error if it fails. In that case, `create_env()` aborts with the class
 #'   `condathis_backend_probe_failed`.
 #'
 #' @param ... Package match specs (MatchSpec strings), unnamed, as in
@@ -35,28 +35,45 @@
 #'   from `channels` (see below). A spec with a channel, such as
 #'   `"conda-forge::zlib"`, matches only a package from that channel. A spec
 #'   that is not compared, such as `"zlib[md5=...]"` or `"zlib<2.*"`, never
-#'   counts as satisfied.
+#'   counts as satisfied. A spec for a virtual package, whose name starts
+#'   with `__` (`"__cuda=12"`, `"__unix"`), is not checked: it describes the
+#'   host, and an environment never lists it.
+#'   `packages = <specs>` still works, as in [create_env()], and
+#'   `packages = NULL` only checks that the environment exists. It is
+#'   deprecated. It warns once per session (class
+#'   `condathis_deprecated_packages_arg`) when the call comes from the
+#'   console, a script or the tests of the package that makes it. Calls
+#'   made inside other packages do not warn.
+#'
 #'   These values abort with class
 #'   `condathis_validate_env_invalid_packages`:
-#'   * A named argument that `validate_env()` does not have.
+#'   * A named argument that `validate_env()` does not have. Names are
+#'     never abbreviated.
 #'   * A value that is not a character vector.
 #'   * `NA` or `""`.
 #'   * A file name that ends in `.yml` or `.yaml`.
 #'
-#'   `validate_env()` aborts with class
-#'   `condathis_validate_env_positional_env_name` when `env_name` is not
-#'   given and the last of two or more specs names an existing environment.
-#'   A spec that condathis cannot read, such as `"::"`, aborts with class
-#'   `condathis_parse_match_spec_invalid_name`. For the URL of a package
-#'   file, the class is `condathis_parse_match_spec_invalid_url`. Both
-#'   errors also have class `condathis_invalid_arg`. They abort with
-#'   `error = "continue"` too.
+#'   These classes abort too:
+#'   * `condathis_validate_env_positional_env_name`\cr
+#'     `env_name` is not given, the specs are two or more unnamed
+#'     arguments, and the last of them is one string that names an existing
+#'     environment. Specs given with `packages =` or as one vector are never
+#'     checked this way.
+#'   * `condathis_parse_match_spec_invalid_name`\cr
+#'     a spec that condathis cannot read, such as `"::"`.
+#'   * `condathis_parse_match_spec_invalid_url`\cr
+#'     the URL of a package file that condathis cannot read.
+#'
+#'   Both parse errors also have class `condathis_invalid_arg`. They abort
+#'   with `error = "continue"` too.
 #' @inheritParams condathis-params
 #' @param channels `NULL` (the default) or a non-empty character vector of
 #'   channel names or URLs. With `NULL`, a spec without a channel matches a
 #'   package from any channel. Otherwise, a spec without a channel must
 #'   match a package from one of `channels`, compared as in [create_env()].
-#'   A spec with a channel ignores `channels`. There is no
+#'   A spec with a channel ignores `channels`. When a package matches a
+#'   spec but comes from a channel that is not in `channels`, the error
+#'   names that channel. There is no
 #'   `additional_channels`: put those channels in `channels`. Invalid values
 #'   abort with class `condathis_validate_env_invalid_channels`.
 #' @param platform `NULL` (the default) or a known conda platform name,
@@ -71,23 +88,38 @@
 #'
 #' @returns `TRUE`, invisibly, when the environment exists and has every
 #'   requested package.
-#'   Otherwise, with `error = "cancel"`, it aborts. The class is
-#'   `condathis_validate_env_env_not_found` (also `condathis_env_not_found`)
-#'   when the environment does not exist. The class is
-#'   `condathis_validate_env_unsatisfied` when a spec is not satisfied or the
-#'   platform differs. The message lists each spec that is not satisfied.
+#'   Otherwise, with `error = "cancel"`, it aborts with one of these
+#'   classes:
+#'   * `condathis_validate_env_env_not_found` (also
+#'     `condathis_env_not_found`)\cr
+#'     the environment does not exist.
+#'   * `condathis_validate_env_unsatisfied`\cr
+#'     a spec is not satisfied or the platform differs. The message lists
+#'     each spec that is not satisfied.
+#'
 #'   With `error = "continue"`, it returns `FALSE` with two attributes.
 #'   `reason` is one of `"env_not_found"`, `"platform_mismatch"` and
 #'   `"unsatisfied"`. `unsatisfied` is a character vector of the specs that
 #'   are not satisfied (every spec when the environment does not exist).
 #'   `validate_env()` reports a platform mismatch before unsatisfied specs.
-#'   A backend failure aborts with class `condathis_validate_env_failed`
-#'   (also `condathis_backend_error`).
+#'
+#'   A backend failure aborts with either value of `error`, with the class
+#'   `condathis_validate_env_failed` (also `condathis_backend_error`).
 #'
 #' @family environments
 #' @seealso [condathis-conditions] for every condition class.
 #'
 #' @examples
+#' condathis::with_sandbox_dir({
+#'   # A missing environment: FALSE, with the reason
+#'   res <- condathis::validate_env(
+#'     "polyglot",
+#'     env_name = "no-such-env",
+#'     error = "continue"
+#'   )
+#'   print(res)
+#' })
+#'
 #' \dontrun{
 #' condathis::with_sandbox_dir({
 #'   # A local channel shipped with condathis, with `polyglot`: a
@@ -136,10 +168,18 @@ validate_env <- function(
   platform = NULL,
   error = c("cancel", "continue")
 ) {
+  # The caller, for the soft deprecations of `packages =` and
+  # `method = "native"` (see `is_direct_use()`).
+  user_env <- rlang::caller_env()
   # Rule R2: every argument is checked before the first backend call.
-  packages <- collect_package_specs(rlang::list2(...), fn = "validate_env")
+  dots <- rlang::list2(...)
+  packages <- collect_package_specs(
+    dots,
+    fn = "validate_env",
+    user_env = user_env
+  )
   validate_env_name(env_name, class = "condathis_validate_env_invalid_env_name")
-  validate_method_arg(method)
+  method <- validate_method_arg(method)
   verbose_list <- parse_verbose_arg(verbose)
   validate_channels_arg(
     channels,
@@ -157,9 +197,10 @@ validate_env <- function(
     class = "condathis_invalid_error",
     arg_name = "error"
   )
-  if (missing(env_name)) {
+  if (missing(env_name) && isTRUE(positional_env_name_possible(dots))) {
     abort_on_positional_env_name(packages, fn = "validate_env")
   }
+  method <- resolve_method_alias(method, user_env = user_env)
 
   resolved <- resolve_backend(
     env_name = env_name,
@@ -222,6 +263,7 @@ validate_env <- function(
   uncompared <- check$uncompared
   uncompared_versions <- check$uncompared_versions
   uncompared_builds <- check$uncompared_builds
+  other_channels <- check$other_channels
   env_platforms <- check$env_platforms
   problems <- character(0L)
   if (identical(check$reason, "platform_mismatch")) {
@@ -231,11 +273,22 @@ validate_env <- function(
     )
   }
   problems <- c(problems, unsatisfied_spec_bullets(check))
+  # When only the channel differs, the bullets above say what to pass.
+  hint <- if (
+    isFALSE(identical(check$reason, "platform_mismatch")) &&
+      isTRUE(unsatisfied_only_by_channel(check))
+  ) {
+    character(0L)
+  } else {
+    c(
+      `i` = "Use {.fn install_packages} to add packages, or {.code create_env(overwrite = TRUE)} to create it again."
+    )
+  }
   condathis_abort(
     message = c(
       `x` = "Environment {.field {env_name}} does not have the requested packages.",
       problems,
-      `i` = "Use {.fn install_packages} to add packages, or {.code create_env(overwrite = TRUE)} to create it again."
+      hint
     ),
     class = "condathis_validate_env_unsatisfied"
   )

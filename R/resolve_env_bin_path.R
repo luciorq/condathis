@@ -42,7 +42,8 @@ env_bin_search_dirs <- function(env_dir, on_windows = is_windows()) {
 #' @param cmd Character string with the command name (or path) to resolve.
 #'
 #' @returns An absolute path (character string) if found inside `env_dir`,
-#'   otherwise `NULL`.
+#'   otherwise `NULL`. An absolute `cmd` is returned in the form of
+#'   `native_command_path()`.
 #'
 #' @keywords internal
 #' @noRd
@@ -55,7 +56,7 @@ resolve_env_bin_path <- function(env_dir, cmd) {
   if (isTRUE(fs::is_absolute_path(cmd))) {
     for (candidate in candidate_names) {
       if (isTRUE(fs::file_exists(candidate))) {
-        return(fs::path(candidate))
+        return(native_command_path(candidate))
       }
     }
     return(NULL)
@@ -69,6 +70,29 @@ resolve_env_bin_path <- function(env_dir, cmd) {
     }
   }
   return(NULL)
+}
+
+#' The path of an executable, as the operating system writes it
+#'
+#' On Windows, every `/` becomes `\\`. A program sees the path it was
+#' started as in its own command line, and some programs read it there:
+#' `cmd.exe` started as `C:/Windows/System32/cmd.exe` fails with "The
+#' syntax of the command is incorrect." Nothing else changes: links and
+#' 8.3 short names are not resolved. On Linux and macOS, the path is
+#' returned as `fs::path()` gives it.
+#'
+#' @param path Character string, the path of an existing file.
+#' @param on_windows Logical. Whether to apply the Windows rule.
+#'
+#' @returns A character string on Windows, an `fs_path` elsewhere.
+#'
+#' @keywords internal
+#' @noRd
+native_command_path <- function(path, on_windows = is_windows()) {
+  if (isFALSE(on_windows)) {
+    return(fs::path(path))
+  }
+  return(gsub("/", "\\", as.character(path), fixed = TRUE))
 }
 
 #' File names a command can have on disk

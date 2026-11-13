@@ -18,6 +18,7 @@ ORCID
 OpenSSL
 OpenSlide
 PyPI
+README
 RStudio
 Rtools
 SHA
@@ -26,6 +27,7 @@ Unregister
 Unregistering
 VersionSpec
 WSI
+WSL
 activations
 allowlist
 backend's
@@ -58,7 +60,6 @@ repodata
 rethrown
 reticulate
 rlang
-sandboxed
 scriptable
 stderr
 stdin

@@ -121,6 +121,7 @@ testthat::test_that("the Running line is the one of processx, with the credentia
 })
 
 testthat::test_that("execute_command() echoes the credentials hidden and passes them on", {
+  testthat::skip_on_cran()
   script <- "cat(commandArgs(TRUE), sep = '\\n')"
   for (stdin in list(NULL, "|")) {
     out <- utils::capture.output(
@@ -251,6 +252,7 @@ testthat::test_that("the cmd of a backend's result has the credentials hidden", 
 })
 
 testthat::test_that("the run family hides the credentials in its echo, cmd and errors, not in the output", {
+  testthat::skip_on_cran()
   local_run_family_stub()
   rscript <- run_family_rscript()
   script <- "cat(commandArgs(TRUE), sep = '\\n')"

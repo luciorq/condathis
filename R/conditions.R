@@ -197,6 +197,85 @@ condathis_warn_once <- function(
   return(invisible(TRUE))
 }
 
+#' Is a deprecated feature used directly by the person who can change it?
+#'
+#' The soft deprecation rule of condathis, in base R. It follows
+#' `lifecycle::deprecate_soft()`: a deprecated argument warns when the call
+#' comes from the global environment (the console, a script, a vignette),
+#' or from the tests of the package that makes the call. A call made inside
+#' another package does not warn: its users cannot change that code.
+#'
+#' The option `lifecycle_verbosity` is respected: `"warning"` and `"error"`
+#' make every call direct, and `"quiet"` makes none direct. The warning
+#' stays a warning, and once per session, with every value.
+#'
+#' @param user_env The environment the exported function was called from:
+#'   `rlang::caller_env()` evaluated in the exported function itself, never
+#'   in a helper. `NULL` counts as direct.
+#'
+#' @returns `TRUE` or `FALSE`.
+#'
+#' @keywords internal
+#' @noRd
+is_direct_use <- function(user_env) {
+  verbosity <- getOption("lifecycle_verbosity")
+  if (
+    isTRUE(rlang::is_string(verbosity)) &&
+      isTRUE(verbosity %in% c("warning", "error"))
+  ) {
+    return(TRUE)
+  }
+  if (isTRUE(identical(verbosity, "quiet"))) {
+    return(FALSE)
+  }
+  if (is.null(user_env)) {
+    return(TRUE)
+  }
+  top <- topenv(user_env)
+  if (isTRUE(identical(top, globalenv()))) {
+    return(TRUE)
+  }
+  # testthat sets TESTTHAT_PKG to the package under test: its own tests see
+  # the warning, so its maintainer does.
+  testing_pkg <- Sys.getenv("TESTTHAT_PKG")
+  return(
+    isTRUE(nzchar(testing_pkg)) &&
+      isTRUE(isNamespace(top)) &&
+      isTRUE(identical(unname(getNamespaceName(top)), testing_pkg))
+  )
+}
+
+#' Warn once per session about a deprecation, only for direct use
+#'
+#' `condathis_warn_once()` when `is_direct_use(user_env)` is `TRUE`. An
+#' indirect call neither warns nor marks `id` as given, so a later direct
+#' call still warns.
+#'
+#' @param id,message,class,.envir As in `condathis_warn_once()`.
+#' @param user_env As in `is_direct_use()`.
+#'
+#' @returns `TRUE`, invisibly, when the warning was given; `FALSE` otherwise.
+#'
+#' @keywords internal
+#' @noRd
+condathis_deprecate_soft <- function(
+  id,
+  message,
+  class,
+  user_env = NULL,
+  .envir = parent.frame()
+) {
+  if (isFALSE(is_direct_use(user_env))) {
+    return(invisible(FALSE))
+  }
+  return(condathis_warn_once(
+    id = id,
+    message = message,
+    class = class,
+    .envir = .envir
+  ))
+}
+
 #' Forget once-per-session warnings
 #'
 #' @param id Character vector of warning ids, or `NULL` for every id.

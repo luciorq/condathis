@@ -1,3 +1,8 @@
+# On CRAN, of the tests that use a sandbox (with_sandbox_dir()) or other R
+# sessions, only the one of the isolation of HOME and the XDG directories
+# runs: each takes about a second on Windows, where listing the processes is
+# slow.
+
 testthat::test_that("with_sandbox_dir isolates HOME and XDG directories from the ambient session", {
   outer_home <- Sys.getenv("HOME")
   outer_xdg_data <- Sys.getenv("XDG_DATA_HOME")
@@ -38,6 +43,7 @@ testthat::test_that("with_sandbox_dir isolates HOME and XDG directories from the
 })
 
 testthat::test_that("with_sandbox_dir isolates the configuration and state directories", {
+  testthat::skip_on_cran()
   # Regression test (footprint): `XDG_CONFIG_HOME` and `XDG_STATE_HOME`
   # kept the session's values, and micromamba's package extraction read
   # the Conda configuration files of the real `XDG_CONFIG_HOME`.
@@ -64,6 +70,7 @@ testthat::test_that("with_sandbox_dir isolates the configuration and state direc
 })
 
 testthat::test_that("with_sandbox_dir creates real, existing directories", {
+  testthat::skip_on_cran()
   wrapper_fn <- function() {
     with_sandbox_dir({
       testthat::expect_true(fs::dir_exists(Sys.getenv("HOME")))
@@ -77,6 +84,7 @@ testthat::test_that("with_sandbox_dir creates real, existing directories", {
 })
 
 testthat::test_that("with_sandbox_dir restores everything before it returns", {
+  testthat::skip_on_cran()
   # Regression test: the overrides and directories were scoped to the
   # caller's frame. At top level, as in examples, HOME stayed sandboxed and
   # the directories stayed on disk for the rest of the session.
@@ -98,6 +106,7 @@ testthat::test_that("with_sandbox_dir restores everything before it returns", {
 })
 
 testthat::test_that("with_sandbox_dir cleans up after an error", {
+  testthat::skip_on_cran()
   old_envvars <- Sys.getenv()
   sandbox_home <- NULL
 
@@ -174,6 +183,7 @@ local_r_script <- function(code, .local_envir = parent.frame()) {
 }
 
 testthat::test_that("with_sandbox_dir stops the processes that use the sandbox", {
+  testthat::skip_on_cran()
   # The R children that this test kills cannot delete their temporary
   # directories.
   local_child_tempdir()
@@ -262,6 +272,7 @@ testthat::test_that("with_sandbox_dir stops the processes that use the sandbox",
 })
 
 testthat::test_that("with_sandbox_dir leaves session helpers started inside it running", {
+  testthat::skip_on_cran()
   # Regression test: the cleanup stopped every process started inside the
   # sandbox. A session helper first started there, such as a `callr`
   # session or a `mirai` daemon, was dead after the block. This one only
@@ -284,6 +295,7 @@ testthat::test_that("with_sandbox_dir leaves session helpers started inside it r
 })
 
 testthat::test_that("with_sandbox_dir leaves the processx supervisor running", {
+  testthat::skip_on_cran()
   # Regression test: the cleanup stopped the `processx` supervisor when the
   # first `supervise = TRUE` process of the session ran inside the sandbox.
   # `processx` only checks that it knows a supervisor ID, so every later
@@ -567,6 +579,7 @@ testthat::test_that("canonical_path_string() writes one separator for each run",
 })
 
 testthat::test_that("the sandbox cleanup stops a process that names the root with one separator", {
+  testthat::skip_on_cran()
   # Regression test: the cleanup missed a process whose argument named the
   # sandbox with fewer separators than the `tempfile()` spelling of the
   # root (see the test above). Here the whole cleanup path runs: reading
@@ -602,6 +615,7 @@ testthat::test_that("the sandbox cleanup stops a process that names the root wit
 })
 
 testthat::test_that("nested with_sandbox_dir calls restore the outer sandbox", {
+  testthat::skip_on_cran()
   old_envvars <- Sys.getenv()
   outer_home <- NULL
   inner_home <- NULL
@@ -621,6 +635,7 @@ testthat::test_that("nested with_sandbox_dir calls restore the outer sandbox", {
 })
 
 testthat::test_that("with_sandbox_dir gives each call a fresh, unique sandbox", {
+  testthat::skip_on_cran()
   wrapper_fn <- function() {
     home_1 <- NULL
     with_sandbox_dir({
@@ -636,6 +651,7 @@ testthat::test_that("with_sandbox_dir gives each call a fresh, unique sandbox", 
 })
 
 testthat::test_that("with_sandbox_dir returns the value of the code", {
+  testthat::skip_on_cran()
   testthat::expect_identical(with_sandbox_dir(Sys.getenv("HOME") != ""), TRUE)
   testthat::expect_visible(with_sandbox_dir(1L))
   testthat::expect_invisible(with_sandbox_dir(invisible(1L)))
@@ -675,6 +691,7 @@ testthat::test_that("a sandbox that cannot be deleted warns with the new and the
 })
 
 testthat::test_that("with_sandbox_dir() restores the session when a value has invalid bytes", {
+  testthat::skip_on_cran()
   # Regression test: `Sys.getenv()` fails on a value that is not valid in
   # the session's encoding ("invalid multibyte string"), which stopped the
   # cleanup: HOME stayed in the sandbox, and the sandbox stayed on disk.
@@ -752,6 +769,7 @@ testthat::test_that("delete_sandbox_root() reports whether the directory is gone
 # --- Backends other than micromamba ------------------------------------------
 
 testthat::test_that("with_sandbox_dir() moves the root of a backend with the default root", {
+  testthat::skip_on_cran()
   # A backend without its own `backend_get_install_dir()` keeps its
   # environments in `backend_root_dir(name)`, inside the condathis data
   # directory, so the sandbox moves it, as it moves the micromamba root.
@@ -849,6 +867,7 @@ testthat::test_that("with_sandbox_dir() stops a process that only an activated C
 })
 
 testthat::test_that("with_sandbox_dir() waits for every backend before it deletes the sandbox", {
+  testthat::skip_on_cran()
   # A backend that works in the R process itself (rattler) can still write
   # into the sandbox after an interrupt: the cleanup asks every registered
   # backend to finish first.

@@ -16,30 +16,34 @@ install_micromamba(
 \arguments{
 \item{micromamba_version}{Character string with the micromamba version,
 in the format \code{"X.Y.Z-N"} (version and build number), for example
-\code{"2.10.0-0"}, the default. Another format aborts with class
-\code{condathis_install_micromamba_invalid_micromamba_version}. Versions
-older than 2.8.1 abort with class
-\code{condathis_install_micromamba_unsupported_version}, because
-\code{condathis} does not use them. When you pass \code{micromamba_version} and a
-binary is already installed, \code{install_micromamba()} keeps the binary
-only when its version (\code{X.Y.Z}) is the requested one. When it reports
-another version, or its version cannot be read, \code{install_micromamba()}
-installs the requested version. Without \code{micromamba_version}, it
-always keeps an installed binary, unless \code{force = TRUE}.}
+\code{"2.10.0-0"}, the default. \code{condathis} does not use versions older
+than 2.8.1. Invalid values abort with these classes:
+\itemize{
+\item \code{condathis_install_micromamba_invalid_micromamba_version}: another
+format.
+\item \code{condathis_install_micromamba_unsupported_version}: a version older
+than 2.8.1.
+}
+
+With \code{micromamba_version}, an installed binary is kept only when its
+version (\code{X.Y.Z}) is the requested one. When it reports another
+version, or its version cannot be read, \code{install_micromamba()} installs
+the requested version. Without \code{micromamba_version}, it always keeps an
+installed binary, unless \code{force = TRUE}.}
 
 \item{timeout}{Numeric download timeout in seconds, a single
 non-negative number. \code{Inf} means no limit. Defaults to \code{3600}. Each
 download uses the larger of this value and \code{getOption("timeout")}, so
 \code{0} means no limit only when \code{getOption("timeout")} is \code{0} too. The
 function lowers values above 2147483 seconds (about 24.8 days) to
-2147483. Other values abort with class
+2147483. Other values abort with class\cr
 \code{condathis_install_micromamba_invalid_timeout}.}
 
 \item{download_method}{Character string with the download method of
 \code{\link[utils:download.file]{utils::download.file()}}: one of \code{"auto"} (the default), \code{"internal"},
 \code{"libcurl"}, \code{"wget"}, \code{"curl"} or \code{"wininet"}. It is ignored when the
 \code{curl} package 5.0.0 or later is installed, because then
-\code{\link[curl:curl_download]{curl::curl_download()}} is used. Other values abort with class
+\code{\link[curl:curl_download]{curl::curl_download()}} is used. Other values abort with class\cr
 \code{condathis_install_micromamba_invalid_download_method}.}
 
 \item{force}{Logical value. \code{TRUE} downloads micromamba also when a
@@ -48,30 +52,23 @@ binary is already installed. Defaults to \code{FALSE}. A value that is not
 \code{condathis_install_micromamba_invalid_force}.}
 
 \item{verbose}{Character string that controls the console output. One
-of:
-\itemize{
-\item \code{"output"}: show the output of the command and the messages of
-condathis.
-\item \code{"silent"}: show nothing.
-\item \code{"cmd"}: show the command line.
-\item \code{"spinner"}: show only a spinner.
-\item \code{"full"}: show the command line, the output, and the backend's own
-log.
-}
+of \code{"output"}, \code{"silent"}, \code{"cmd"}, \code{"spinner"} or \code{"full"}.
+\code{"output"} and \code{"full"} show the progress of the download and the
+messages of \code{condathis}, for example that \code{micromamba} is already
+installed, that the file of a mirror failed the checks, or that the
+download succeeded. The other levels show none of them.
+Every level except \code{"silent"} shows the warning of class
+\code{condathis_install_micromamba_checksum_unavailable} (see Details and
+\link{condathis-conditions}).
 
-\code{TRUE} means \code{"output"} and \code{FALSE} means \code{"silent"}. Every level
-except \code{"silent"} shows a spinner in interactive sessions. Invalid
-values abort with class \code{condathis_invalid_verbose} (see
-\link{condathis-conditions}). The default is shown in Usage.
-
-The command line shown, the \code{cmd} of a result and the messages of
-\code{condathis} show the password and the token of a URL as \verb{*****}.
-\code{micromamba} does the same (\verb{https://user:*****@host/channel},
-\verb{https://host/t/*****/channel}). The command still gets them.}
+\code{TRUE} means \code{"output"} and \code{FALSE} means \code{"silent"}. Invalid values
+abort with class \code{condathis_invalid_verbose}. The default is shown in
+Usage.}
 
 \item{timeout_limit}{Deprecated. Use \code{timeout}. A value warns with class
 \code{condathis_deprecated_arg} and is used as \code{timeout}. Passing both
-aborts with class \code{condathis_install_micromamba_conflicting_args}.}
+aborts with class\cr
+\code{condathis_install_micromamba_conflicting_args}.}
 }
 \value{
 The path of the micromamba binary, an \code{fs_path}, invisibly: the
@@ -83,8 +80,10 @@ Downloads the \code{micromamba} binary that \code{condathis} uses and installs i
 in the condathis data directory, at the path that
 \code{\link[=micromamba_bin_path]{micromamba_bin_path()}} returns. The functions that need micromamba call
 it when no usable binary is found (see \emph{micromamba discovery} in
-\link{condathis-options}). You need to call it only to choose the version, or
-to install micromamba ahead of time.
+\link{condathis-options}), for the default version. They first show a message
+of class \code{condathis_micromamba_downloading} that names the version and
+the path, unless their \code{verbose} is \code{"silent"}. You need to call it only
+to choose the version, or to install micromamba ahead of time.
 }
 \details{
 The binary is the build for the platform of the running R (see
@@ -106,12 +105,18 @@ run, or does not match the SHA256 checksum published with the release.
 Then it tries the next mirror. It replaces an installed binary only with
 a download that passed these checks, also with \code{force = TRUE}.
 
-When no published checksum can be read, \code{install_micromamba()} installs
-the binary. It warns with class
-\code{condathis_install_micromamba_checksum_unavailable} when \code{verbose} is
-\code{"output"} or \code{"full"}. A checksum that does not match warns with class
-\code{condathis_install_micromamba_checksum_mismatch}, and that binary is not
-installed.
+The checksum is downloaded from the GitHub release when the binary is
+installed. When it cannot be downloaded or read, or the SHA256 hash of
+the binary cannot be computed, \code{install_micromamba()} still installs the
+binary, so that mirrors work when GitHub cannot be reached, but warns
+with class \code{condathis_install_micromamba_checksum_unavailable}. It warns
+for every \code{verbose} level except \code{"silent"}, also when a function that
+needs micromamba installs it. A checksum that does not match warns with
+class \code{condathis_install_micromamba_checksum_mismatch}, also when
+\code{verbose} is \code{"silent"}, and that binary is not installed. The hash is
+computed with \code{tools::sha256sum()} on R 4.5.0 or later, else with the
+\code{digest} package when it is installed, else with the \code{sha256sum} or
+\code{shasum} program, or on Windows \code{certutil}.
 }
 \examples{
 \dontrun{

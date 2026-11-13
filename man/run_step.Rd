@@ -31,14 +31,17 @@ before it starts anything.}
 
 \item{stderr}{Standard error target for this step, replacing the
 \code{stderr} of \code{\link[=run_pipeline]{run_pipeline()}}: \code{"|"} to capture it, \code{NULL} to discard
-it, or a file path. When not given, the step uses the \code{stderr} of
-\code{\link[=run_pipeline]{run_pipeline()}}.}
+it, \code{""} to send it to the standard error of the R process, \code{"2>&1"}
+to send it to the standard output of the step (the next command, or
+the \code{stdout} target of \code{\link[=run_pipeline]{run_pipeline()}} for the last step), or a file
+path. When not given, the step uses the \code{stderr} of \code{\link[=run_pipeline]{run_pipeline()}}.}
 }
 \value{
 An object of class \code{condathis_run_step}, for \code{\link[=run_pipeline]{run_pipeline()}},
-which prints as the command line and its environment. \code{\link[=c]{c()}} combines
-steps into a list of steps of class \code{condathis_run_steps}, which \code{\link[=c]{c()}}
-extends again. \code{c(step_1, step_2)}, \code{c(c(step_1, step_2), step_3)} and
+which prints as the command line and its environment.
+\code{\link[=c.condathis_run_step]{c()}} combines steps into a list of steps of
+class \code{condathis_run_steps}, which \code{\link[=c]{c()}} extends again.
+\code{c(step_1, step_2)}, \code{c(c(step_1, step_2), step_3)} and
 \code{Reduce(c, steps)} all give a list for \code{run_pipeline(!!!steps)}. \code{\link[=c]{c()}}
 with a value that is not a step gives a plain list, as the default
 \code{\link[=c]{c()}} does.

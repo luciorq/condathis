@@ -390,6 +390,7 @@ testthat::test_that("run_pipeline() rejects an unknown verbose level", {
 })
 
 testthat::test_that("the spinner never splits an echoed line", {
+  testthat::skip_on_cran()
   rscript <- file.path(R.home("bin"), "Rscript")
   proc <- processx::process$new(
     rscript,

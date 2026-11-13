@@ -462,6 +462,27 @@ testthat::test_that("query_registered_backends() keeps every result, also FALSE 
   testthat::expect_identical(res, list(`stub-query-a` = character(0L)))
 })
 
+testthat::test_that("positional_env_name_possible() needs two or more unnamed arguments", {
+  # Only 0.1.4's positional shape `fn("pkg", "env")` can hold an env_name.
+  testthat::expect_true(positional_env_name_possible(list("a", "b")))
+  testthat::expect_true(positional_env_name_possible(list(c("a", "b"), "c")))
+  testthat::expect_true(positional_env_name_possible(list("a", c(x = "b"))))
+  # One vector, `packages =` (by name, do.call(), !!!), or a last value
+  # that is not one string.
+  testthat::expect_false(positional_env_name_possible(list()))
+  testthat::expect_false(positional_env_name_possible(list("a")))
+  testthat::expect_false(positional_env_name_possible(list(c("a", "b"))))
+  testthat::expect_false(
+    positional_env_name_possible(list(packages = c("a", "b")))
+  )
+  testthat::expect_false(
+    positional_env_name_possible(list(packages = "a", "b"))
+  )
+  testthat::expect_false(positional_env_name_possible(list("a", c("b", "c"))))
+  testthat::expect_false(positional_env_name_possible(list("a", character(0L))))
+  testthat::expect_false(positional_env_name_possible(list("a", NULL)))
+})
+
 testthat::test_that("abort_on_positional_env_name() catches an old positional env_name", {
   local_stub_backend("stub-positional", envs = "my-env")
   local_stub_backend("stub-positional-fail", backend_env_exists = stub_boom)

@@ -1,10 +1,22 @@
 #' @details
 #' Create an environment with [create_env()]. Run a command line tool in it
 #' with [run()], or run several tools connected by pipes with
-#' [run_pipeline()]. Read the output with [parse_output()]. Start with
-#' `vignette("condathis")`. [condathis-options] lists the options and
-#' environment variables that `condathis` reads. [condathis-conditions]
-#' lists the classes of its errors and warnings.
+#' [run_pipeline()]. Read the output with [parse_output()].
+#'
+#' `condathis` downloads `micromamba` when it first needs it and finds no
+#' usable copy (see *micromamba discovery* in [condathis-options]). A
+#' message says so first, unless `verbose = "silent"`. It keeps the
+#' `micromamba` it downloads, the environments and the package caches in
+#' its data directory (see [get_install_dir()]). A `micromamba` found
+#' elsewhere is used where it is. Removing the package does not
+#' delete them: see *Removing everything* in [clean_cache()]. Run commands
+#' from an environment created outside `condathis` with [env_path()].
+#' Other packages can add backends with the experimental
+#' [register_backend()].
+#'
+#' Start with `vignette("condathis")`. [condathis-options] lists the options
+#' and environment variables that `condathis` reads. [condathis-conditions]
+#' lists the classes of its errors, warnings and messages.
 #'
 #' @keywords internal
 "_PACKAGE"

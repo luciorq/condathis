@@ -2,7 +2,8 @@
 #'
 #' Executes `micromamba` under the managed Conda root used by `condathis`.
 #' Installs micromamba first when no usable binary is found, unless
-#' `install = FALSE`.
+#' `install = FALSE`, and says so unless the `verbose` of the running call
+#' is `"silent"` (see `install_micromamba_for_command()`).
 #'
 #' @param conda_cmd Character string with a micromamba subcommand.
 #' @param conda_args Character vector of the micromamba options that
@@ -118,8 +119,7 @@ native_cmd <- function(
   }
   if (is.null(umamba_bin_path)) {
     # No valid micromamba found anywhere: install to the internal path.
-    install_micromamba(force = TRUE, verbose = verbose_list$internal_verbose)
-    umamba_bin_path <- micromamba_bin_path()
+    umamba_bin_path <- install_micromamba_for_command(verbose_list)
   }
 
   env_root_dir <- install_dir_for_backend(micromamba_backend())
@@ -200,6 +200,52 @@ native_cmd <- function(
   px_res[["cmd"]] <- format_cmd_line(c(umamba_exec_path, cmd_args))
 
   return(invisible(px_res))
+}
+
+#' Install micromamba for a command that found no usable binary
+#'
+#' `native_cmd()` calls it when `get_best_micromamba_path()` finds nothing.
+#' A download of an executable must never happen unannounced, so it says
+#' first, with a message of class `condathis_micromamba_downloading`, that
+#' no usable binary was found and which version it downloads to where,
+#' for every `verbose` level except `"silent"`. `install_micromamba()`
+#' itself gives its other messages only for `"output"` and `"full"`, and
+#' the internal verbosity of a command is `"spinner"` at the default
+#' `"output"` (see `parse_strategy_verbose()`), so without this message the
+#' first `create_env()` downloaded the binary without a word.
+#'
+#' The level is the one of the running exported call (see
+#' `local_call_verbose()`), when there is one, not the one of the command:
+#' the probes of a call run silently, and on macOS arm64 and Windows one of
+#' them is the first command of `create_env()`. The same level, as
+#' `internal_verbose`, goes to `install_micromamba()`, so that its warning
+#' about a binary that could not be verified shows too.
+#'
+#' @param verbose_list List, the parsed `verbose` of the command (see
+#'   `parse_strategy_verbose()`), used outside of an exported call.
+#'
+#' @returns The path of the installed binary, from `micromamba_bin_path()`.
+#'   A failed download aborts in `install_micromamba()`.
+#'
+#' @keywords internal
+#' @noRd
+install_micromamba_for_command <- function(verbose_list) {
+  verbose_list <- parse_strategy_verbose(
+    verbose = call_verbose() %||% verbose_list$strategy %||% "output"
+  )
+  umamba_bin_path <- micromamba_bin_path()
+  if (isFALSE(identical(verbose_list$strategy, "silent"))) {
+    micromamba_version <- micromamba_default_version
+    condathis_inform(
+      message = c(
+        `i` = "No usable {.pkg micromamba} binary was found.",
+        `i` = "Downloading {.pkg micromamba} {.val {micromamba_version}} to {.path {umamba_bin_path}}."
+      ),
+      class = "condathis_micromamba_downloading"
+    )
+  }
+  install_micromamba(force = TRUE, verbose = verbose_list$internal_verbose)
+  return(micromamba_bin_path())
 }
 
 #' Environment variables of micromamba's own processes

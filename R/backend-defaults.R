@@ -832,7 +832,7 @@ read_site_package_dists <- function(site_dir) {
 #' @keywords internal
 #' @noRd
 read_metadata_headers <- function(path, fields) {
-  values <- stats::setNames(rep(NA_character_, length(fields)), fields)
+  values <- rlang::set_names(rep(NA_character_, length(fields)), fields)
   lines <- tryCatch(
     readLines(path, warn = FALSE, encoding = "UTF-8"),
     error = function(e) character(0L),

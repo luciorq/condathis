@@ -17,9 +17,9 @@ Windows:
 }
 
 Invalid values abort with class \code{condathis_invalid_env_name}.
-Functions that take only names reject an \code{\link[=env_path]{env_path()}} value with class
-\code{condathis_env_path_read_only}. \code{\link[=run]{run()}}, \code{\link[=run_bin]{run_bin()}}, \code{\link[=run_pipeline]{run_pipeline()}}
-and \code{\link[=run_step]{run_step()}} accept one.}
+\code{\link[=run]{run()}}, \code{\link[=run_bin]{run_bin()}}, \code{\link[=run_pipeline]{run_pipeline()}} and \code{\link[=run_step]{run_step()}} also accept an
+\code{\link[=env_path]{env_path()}} value. The other functions reject it with class
+\code{condathis_env_path_read_only}.}
 
 \item{method}{Character string naming the backend. \code{"auto"} (the
 default) uses the backend that owns \code{env_name} when it exists, and
@@ -29,21 +29,29 @@ otherwise the first available backend in
 selects that backend, and \code{"micromamba"} is built in. The name of a
 backend whose package \code{condathis} knows, such as \code{"rattler"} of the
 \code{rattlerthis} package, also selects it. \code{condathis} loads the package
-on first use. It aborts with class \code{condathis_backend_not_installed}
-when the package is not installed. \code{"native"} is a deprecated alias for
-\code{"micromamba"} (warns once per session).
+on first use. \code{"native"} is a deprecated alias for \code{"micromamba"}
+(warns once per session). The 0.1.4 default \code{c("native", "auto")} is
+read as \code{"native"}.
+
 If you name a backend other than the owner, functions that change the
-environment abort with class \code{condathis_backend_mismatch}. The others
-warn (\code{condathis_backend_mismatch_warning}) and use the owner.
-An environment found under several backends aborts with
-\code{condathis_backend_ambiguous_env} unless \code{method} names one of them.
-Invalid values abort with class \code{condathis_invalid_method}.}
+environment abort. The others warn and use the owner. The classes:
+\itemize{
+\item \code{condathis_backend_not_installed}: the package of the named backend
+is not installed.
+\item \code{condathis_backend_mismatch}: the named backend does not own the
+environment, and the function changes it.
+\item \code{condathis_backend_mismatch_warning} (a warning): the same, for a
+function that does not change the environment.
+\item \code{condathis_backend_ambiguous_env}: several backends have an
+environment of that name, and \code{method} names none of them.
+\item \code{condathis_invalid_method}: an invalid value.
+}}
 
 \item{verbose}{Character string that controls the console output. One
 of:
 \itemize{
 \item \code{"output"}: show the output of the command and the messages of
-condathis.
+\code{condathis}.
 \item \code{"silent"}: show nothing.
 \item \code{"cmd"}: show the command line.
 \item \code{"spinner"}: show only a spinner.
@@ -52,9 +60,21 @@ log.
 }
 
 \code{TRUE} means \code{"output"} and \code{FALSE} means \code{"silent"}. Every level
-except \code{"silent"} shows a spinner in interactive sessions. Invalid
-values abort with class \code{condathis_invalid_verbose} (see
-\link{condathis-conditions}). The default is shown in Usage.
+except \code{"silent"} shows a spinner in interactive sessions. It also
+shows these messages and this warning when they occur (see
+\link{condathis-conditions}):
+\itemize{
+\item \code{condathis_micromamba_downloading} (a message): no usable
+\code{micromamba} was found, so it is downloaded. Queries, such as
+\code{\link[=list_envs]{list_envs()}}, never download it.
+\item \code{condathis_env_lock_waiting} and \code{condathis_cache_lock_waiting}
+(messages): the call waits for another R session.
+\item \code{condathis_install_micromamba_checksum_unavailable} (a warning): the
+checksum of the downloaded \code{micromamba} could not be checked.
+}
+
+Invalid values abort with class \code{condathis_invalid_verbose}. The
+default is shown in Usage.
 
 The command line shown, the \code{cmd} of a result and the messages of
 \code{condathis} show the password and the token of a URL as \verb{*****}.
@@ -65,22 +85,23 @@ The command line shown, the \code{cmd} of a result and the messages of
 command fails. With \code{"cancel"} (the default), \code{condathis} aborts with
 these classes:
 \itemize{
-\item A non-zero exit status: \verb{condathis_<function>_status_error} (also
-\code{condathis_status_error}).
-\item A timeout: \verb{condathis_<function>_timeout_error} (also
-\code{condathis_timeout_error}).
-\item A missing environment: \verb{condathis_<function>_env_not_found} (also
-\code{condathis_env_not_found}).
+\item \verb{condathis_<function>_status_error} (also \code{condathis_status_error}):
+a non-zero exit status.
+\item \verb{condathis_<function>_timeout_error} (also \code{condathis_timeout_error}):
+a timeout.
+\item \verb{condathis_<function>_env_not_found} (also \code{condathis_env_not_found}):
+a missing environment.
+\item \verb{condathis_<function>_resolve_failed} (also \code{condathis_backend_error}):
+the backend failed to resolve the command, for example in a failed
+activation. The error keeps the condathis classes of the backend's
+error, such as \code{condathis_activation_dump_error}, and has that error
+as its parent.
 }
 
 A problem with an \code{\link[=env_path]{env_path()}} value also adds
 \code{condathis_env_path_not_found} or \code{condathis_env_path_not_conda_env}.
-A command that the backend fails to resolve (for example a failed
-activation) aborts with class \verb{condathis_<function>_resolve_failed}
-(also \code{condathis_backend_error}). It keeps the condathis classes of the
-backend's error, such as \code{condathis_activation_dump_error}, and has
-that error as its parent. The status and timeout errors carry the
-fields \code{status}, \code{stdout}, \code{stderr} and \code{timeout}.
+The status and timeout errors carry the fields \code{status}, \code{stdout},
+\code{stderr} and \code{timeout}.
 
 With \code{"continue"}, \code{condathis} returns a result instead. Its exit
 status is the status of the command, 127 for a missing environment or a

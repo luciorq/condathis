@@ -1196,9 +1196,10 @@ ensure_windows_micromamba_bat <- function(timeout = Inf) {
 #' lacks counts as put in front.
 #'
 #' On Windows, entries compare as Windows compares directories: without
-#' case and with `/` the same as `\\`. micromamba spells the session's
-#' entries with backslashes, so an entry that the session spells with `/`
-#' is not an added directory.
+#' case, with `/` the same as `\\`, and without a trailing separator
+#' except at a root (see `path_entry_key()`).
+#' micromamba spells the session's entries with backslashes, so an entry
+#' that the session spells with `/` is not an added directory.
 #'
 #' @param activated_path,baseline_path Character strings.
 #'
@@ -1213,9 +1214,7 @@ split_activated_path <- function(activated_path, baseline_path) {
   activated_parts <- activated_parts[nzchar(activated_parts)]
   baseline_parts <- strsplit(baseline_path %||% "", sep, fixed = TRUE)[[1L]]
   baseline_parts <- baseline_parts[nzchar(baseline_parts)]
-  key <- function(x) {
-    if (isTRUE(is_windows())) tolower(gsub("/", "\\", x, fixed = TRUE)) else x
-  }
+  key <- function(x) path_entry_key(x)
   distinct <- function(x) x[!duplicated(key(x))]
   activated_keys <- key(activated_parts)
   baseline_keys <- key(baseline_parts)

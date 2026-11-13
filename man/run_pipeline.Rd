@@ -24,8 +24,9 @@ run_pipeline(
 }
 \arguments{
 \item{...}{Two or more pipeline steps, built with \code{\link[=run_step]{run_step()}}, in
-pipeline order. Splice in a list of steps, built with \code{\link[=list]{list()}} or \code{\link[=c]{c()}},
-with \verb{!!!}, as in \code{run_pipeline(!!!steps)}. \code{\link[=c]{c()}} on steps gives a list
+pipeline order. Splice in a list of steps, built with \code{\link[=list]{list()}} or
+\code{\link[=c.condathis_run_step]{c()}}, with \verb{!!!}, as in
+\code{run_pipeline(!!!steps)}. \code{\link[=c]{c()}} on steps gives a list
 of steps that later \code{\link[=c]{c()}} calls extend, as in
 \code{c(c(step_1, step_2), step_3)}. To add a step to a plain list or to
 \code{NULL}, wrap it in \code{\link[=list]{list()}}, as in \code{c(steps, list(step))}. \code{\link[=c]{c()}} with a
@@ -46,22 +47,28 @@ argument of \code{\link[=run]{run()}}. Invalid values abort with class
 \item{method}{Character string naming the default backend of the steps
 that do not set their own \code{method} (see \code{\link[=run_step]{run_step()}}). \code{"auto"} (the
 default) uses the backend that owns each environment, and otherwise the
-first available backend in \code{getOption("condathis.backend_priority")}
-order (see \link{condathis-options}). Any name from
+first available backend in the order of the option
+\code{condathis.backend_priority} (see \link{condathis-options}). Any name from
 \code{\link[=list_registered_backend_names]{list_registered_backend_names()}} selects that backend. \code{"micromamba"}
 is built in. The name of a backend whose package condathis knows also
 selects it, such as \code{"rattler"} of the \code{rattlerthis} package.
-condathis loads that package, and aborts with class
-\code{condathis_backend_not_installed} when it is not installed. \code{"native"}
-is a deprecated alias for \code{"micromamba"} (it warns once per session).
-If you name a backend other than the owner of an environment,
-condathis warns (\code{condathis_backend_mismatch_warning}) and uses the
-owner. An environment found under several backends aborts with class
-\code{condathis_backend_ambiguous_env}, unless \code{method} names one of them.
-With \code{error = "continue"}, its steps get status 127. Steps that share
-an environment must agree on the backend. Otherwise \code{run_pipeline()}
-aborts with class \code{condathis_run_pipeline_conflicting_method}. Invalid
-values abort with class \code{condathis_invalid_method}.}
+condathis loads that package. \code{"native"} is a deprecated alias for
+\code{"micromamba"} (it warns once per session). If you name a backend
+other than the owner of an environment, condathis warns and uses the
+owner. Steps that share an environment must agree on the backend. The
+classes:
+\itemize{
+\item \code{condathis_backend_not_installed}: the package of the named backend
+is not installed.
+\item \code{condathis_backend_mismatch_warning} (a warning): the named backend
+does not own the environment.
+\item \code{condathis_backend_ambiguous_env}: several backends have an
+environment of that name, and \code{method} names none of them. With
+\code{error = "continue"}, its steps get status 127.
+\item \code{condathis_run_pipeline_conflicting_method}: steps that share an
+environment do not agree on the backend.
+\item \code{condathis_invalid_method}: an invalid value.
+}}
 
 \item{verbose}{Character string that controls the console output. One
 of \code{"output"}, \code{"silent"}, \code{"cmd"}, \code{"spinner"} and \code{"full"}. Usage
@@ -72,31 +79,43 @@ their target is \code{"|"}. \code{"cmd"} prints the whole pipeline first.
 \code{"full"} does both. \code{"spinner"} shows only a spinner, and \code{"silent"}
 shows nothing. \code{TRUE} means \code{"output"} and \code{FALSE} means \code{"silent"}.
 Every level except \code{"silent"} shows a spinner in interactive sessions.
+It also shows these messages and this warning (see
+\link{condathis-conditions}):
+\itemize{
+\item \code{condathis_micromamba_downloading} (a message): no usable
+\code{micromamba} was found, so it is downloaded.
+\item \code{condathis_env_lock_waiting} and \code{condathis_cache_lock_waiting}
+(messages): the call waits for another R session.
+\item \code{condathis_install_micromamba_checksum_unavailable} (a warning): the
+checksum of the downloaded \code{micromamba} could not be checked.
+}
+
 Invalid values abort with class \code{condathis_invalid_verbose}.}
 
 \item{error}{Character string that controls what happens when a command
-fails. With \code{"cancel"} (the default), \code{run_pipeline()} aborts:
+fails. With \code{"cancel"} (the default), \code{run_pipeline()} aborts with
+these classes:
 \itemize{
-\item a command that exits with a non-zero status: class
-\code{condathis_run_pipeline_status_error} (also
-\code{condathis_status_error}). A broken pipe can end a command that is not
-the last one: that does not count (see \emph{Broken pipes}).
-\item a timeout: class \code{condathis_run_pipeline_timeout_error} (also
-\code{condathis_timeout_error}).
-\item a step environment that does not exist: class
-\code{condathis_run_pipeline_env_not_found} (also
-\code{condathis_env_not_found}). For an \code{\link[=env_path]{env_path()}}, the error also has
-\code{condathis_env_path_not_found} or \code{condathis_env_path_not_conda_env}.
-\item a step environment found under several backends: class
-\code{condathis_backend_ambiguous_env} (see \code{method}).
-\item a command that the backend fails to resolve, for example because an
-\code{activate.d} script of the environment fails: class
-\code{condathis_run_pipeline_resolve_failed} (also
-\code{condathis_backend_error}). The error keeps the condathis classes of
-the backend's error, for example \code{condathis_micromamba_status_error},
-and has that error as its parent.
-\item an invalid command description from a backend package (a bug in that
-package): class \code{condathis_backend_resolve_run_invalid}.
+\item \code{condathis_run_pipeline_status_error} (also
+\code{condathis_status_error}): a command exits with a non-zero status. A
+broken pipe can end a command that is not the last one: that does
+not count (see \emph{Broken pipes}).
+\item \code{condathis_run_pipeline_timeout_error} (also
+\code{condathis_timeout_error}): a timeout.
+\item \code{condathis_run_pipeline_env_not_found} (also
+\code{condathis_env_not_found}): a step environment does not exist. For an
+\code{\link[=env_path]{env_path()}}, the error also has \code{condathis_env_path_not_found} or
+\code{condathis_env_path_not_conda_env}.
+\item \code{condathis_backend_ambiguous_env}: a step environment is found under
+several backends (see \code{method}).
+\item \code{condathis_run_pipeline_resolve_failed} (also
+\code{condathis_backend_error}): the backend fails to resolve a command,
+for example because an \code{activate.d} script of the environment fails.
+The error keeps the condathis classes of the backend's error, for
+example \code{condathis_micromamba_status_error}, and has that error as
+its parent.
+\item \code{condathis_backend_resolve_run_invalid}: a backend package gives an
+invalid command description (a bug in that package).
 }
 
 The status and timeout errors carry the fields \code{status}, \code{stdout},
@@ -112,14 +131,18 @@ Invalid values abort with class \code{condathis_invalid_error}. See
 
 \item{stdout}{Standard output target of the \strong{last} command: \code{"|"} (the
 default) captures it in the result, a file path writes it to that file,
-and \code{NULL} discards it. The standard output of every other command goes
-to the next command.}
+\code{""} sends it to the standard output of the R process, and \code{NULL}
+discards it. The standard output of every other command goes to the
+next command.}
 
 \item{stderr}{Standard error target for \strong{all} processes. \code{"|"} (the
 default) captures each command's standard error in its result. A file
 path writes them all to that file, in command order once the pipeline
-finishes. \code{NULL} discards them. The \code{stderr} argument of \code{\link[=run_step]{run_step()}}
-replaces it for one command.}
+finishes. \code{NULL} discards them. \code{""} sends them to the standard error
+of the R process. \code{"2>&1"} sends the standard error of each command to
+its standard output: to the next command, and for the last command to
+the \code{stdout} target. The \code{stderr} argument of \code{\link[=run_step]{run_step()}} replaces it
+for one command.}
 
 \item{stdin}{Standard input source of the \strong{first} command: \code{NULL} (the
 default) for no input, the path of an existing file to read, or \code{"|"}

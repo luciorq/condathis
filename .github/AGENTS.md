@@ -17,14 +17,10 @@ It achieves this by using `micromamba` to create and manage sandboxed Conda envi
 
 **Key Technologies:**
 
-* **Language:** R (requires R ≥ 4.3)
+* **Language:** R (requires R >= 4.3)
 * **Core External Tool:** `micromamba` (which the package already manages internally).
-* **Core R Dependencies:**
-  * `processx`: For running and managing external processes (like `micromamba`).
-  * `withr`: For managing state and environment variables during execution.
-  * `fs`: For file system operations.
-  * `cli`: For creating a rich command-line user interface, including error messages.
-* **Testing:** `testthat` (≥ 3.0.0).
+* **Core R Dependencies:** `processx` and `ps` (processes), `rlang` and `cli` (conditions and messages), `fs` and `filelock` (files and locks), `withr`, `jsonlite`, `stringr`.
+* **Testing:** `testthat` (>= 3.2.1).
 * **Task Runner:** `just` (a `justfile` is present in the repository).
 
 ## Project Structure
@@ -36,8 +32,8 @@ It achieves this by using `micromamba` to create and manage sandboxed Conda envi
   * `tests/testthat/`: Contains all `testthat` test scripts (e.g., `test-run.R`).
 * `man/`: Documentation files (generated from Roxygen comments in `R/`) it is generated automatically and should never be modified manually.
 * `README.qmd`: The Quarto markdown source used to generate `README.md`.
-* `justfile`: A task runner file with recipes for common development commands (lint, test, document, check, build-readme, build-vignette).
-* `inst/extdata/`: Contains example data files used for tests and examples.
+* `justfile`: A task runner file with recipes for common development commands (lint, test, test-file, document, check, build-readme, build-vignettes).
+* `inst/extdata/`: Contains example data files used for tests and examples. `inst/extdata/README.md` describes each file, its source and where it is used.
 * `vignettes/`: Contains package vignettes (long-form documentation) in Quarto markdown format.
 * `NEWS.md`: Changelog file documenting changes across versions.
 
@@ -45,10 +41,9 @@ It achieves this by using `micromamba` to create and manage sandboxed Conda envi
 
 Never delete files without explicit instructions.
 
-When assisting with development, use the following standard R package development commands prefer using `tidyverse` packages and functions, like `dplyr` and `tibble`.
+In `R/`, use only the packages in `Imports` of `DESCRIPTION` (cli, filelock, fs, jsonlite, processx, ps, rlang, stringr, withr, tools, utils). Do not add dependencies such as dplyr or tibble: data frames get the tibble class without the tibble package.
 
 Prefer `rlang` for guard clauses, error handling, condition classes, and defensive programming.
-Prefer `ggplot2` for plots and charts.
 Prefer `cli` for messages and error messages.
 Prefer `testthat` for tests.
 Prefer `fs` for file system operations.
@@ -69,14 +64,14 @@ than `{r setup, include=FALSE eval=TRUE}`.
 
 ## Example snippets
 
-> NOTE: Pay attention that the `run()` function do not require named arguments for `command` and `args`, they can be passed positionally without a vector wrapping the arguments as the function uses `...`.
+> NOTE: `run()` takes the command as `cmd` and its arguments in `...`: pass them positionally, one string each, without wrapping them in a vector. Name every other argument, such as `env_name`.
 
 ```r
 library(condathis)
 
 # Create an environment with samtools
 create_env(
-  packages = "bioconda::samtools",
+  "bioconda::samtools",
   channels = c("conda-forge", "bioconda"),
   env_name = "samtools-env"
 )
@@ -108,7 +103,15 @@ remove_env(env_name = "samtools-env")
     * It is the same as running: `R -q -s -e 'devtools::load_all();devtools::test_active_file("tests/testthat/test-run.R");'`
 
 * **Run all tests:**
-  * `just test` (This already runs lint and document before testing)
+  * `just test` (runs all examples, then the full test suite with `devtools::test()`; it does not lint or document, so run `just lint` and `just document` on purpose: `just lint` reformats `R/` and `tests/` with Air, rewrites `@return` to `@returns`, runs `just document` (which also runs `usethis::use_tidy_description()`) and rewrites `.gitignore` and `.Rbuildignore`)
+
+### Testing rules
+
+* The full suite (`NOT_CRAN=true`, with internet access) must pass with no failures and no skips, apart from tests for another operating system.
+* `devtools::test()`, `devtools::check()` and `testthat::test_local()` set `NOT_CRAN=true` when it is unset. To run or time the tests that CRAN runs, set `NOT_CRAN=false`, or run `tests/testthat.R` against the installed package.
+* Start R in the foreground: an R started with `&` ignores SIGINT, and the interrupt test in `test-env_lock.R` then skips.
+* Run the tests in a UTF-8 locale.
+* The tests run in sandboxes. For any other R, micromamba or conda run, set `XDG_CACHE_HOME`, `XDG_DATA_HOME`, `XDG_CONFIG_HOME`, `XDG_STATE_HOME` and `HOME` to temporary directories: the XDG variables win over `HOME`, and micromamba 2.9 and later writes to `$XDG_CACHE_HOME/conda`.
 
 ### 3. Documentation
 

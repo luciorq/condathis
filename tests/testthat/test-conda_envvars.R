@@ -269,6 +269,7 @@ testthat::test_that("an environment directory of a backend's own gets conda-pkgs
 })
 
 testthat::test_that("children of a stub backend get its conda-pkgs, with and without activation", {
+  testthat::skip_on_cran()
   # The rule of `child_conda_dirs()`, end to end through run(), run_bin()
   # and run_pipeline() (both `activate` values), for a backend with the
   # root condathis assigns.

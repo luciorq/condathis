@@ -190,6 +190,7 @@ testthat::test_that("unregister_backend validates its name argument", {
 })
 
 testthat::test_that("register_backend and unregister_backend reject malformed names", {
+  testthat::skip_on_cran()
   # Regression test: only "a single, non-missing string" was checked, so
   # "", "a b" or a name with a path separator became a `method` value.
   fake <- new_fake_backend("condathis_backend_bad_name_test")
@@ -275,6 +276,7 @@ testthat::test_that("register_backend and unregister_backend refuse reserved nam
 })
 
 testthat::test_that("the entries of the condathis root are reserved names, in any case", {
+  testthat::skip_on_cran()
   # The root of a backend is `<condathis root>/<name>`: a backend named
   # "envs" or "pkgs" would get the directories of micromamba.
   fake <- new_fake_backend("condathis_backend_root_entry_test")
@@ -1008,6 +1010,7 @@ testthat::test_that("an invalid method has the new and the old class", {
 })
 
 testthat::test_that("a verbose level passed by position as method gets a hint", {
+  testthat::skip_on_cran()
   # Regression test: since 0.2.0 `method` comes before `verbose`, so
   # list_envs("silent") from 0.1.4 aborted with no hint about the move.
   cnd <- rlang::catch_cnd(list_envs("silent"), classes = "error")
@@ -1057,6 +1060,8 @@ testthat::test_that("a verbose level passed by position as method gets a hint", 
 })
 
 testthat::test_that("the verbose hint is only given where verbose can follow method", {
+  # About a second or more on Windows: not on CRAN.
+  testthat::skip_on_cran()
   # Regression test: get_env_dir() and get_install_dir() have no `verbose`,
   # so the hint "Pass `verbose = ...` by name" led to "unused argument".
   # `method` is checked before any backend call.
@@ -1113,11 +1118,9 @@ testthat::test_that("method = 'native' resolves to 'micromamba'", {
 })
 
 testthat::test_that("method = 'native' warns exactly once per session", {
-  old_warned <- condathis_native_warned$warned
-  withr::defer({
-    condathis_native_warned$warned <- old_warned
-  })
-  condathis_native_warned$warned <- FALSE
+  id <- "deprecated_method_native"
+  reset_warn_once(id)
+  withr::defer(reset_warn_once(id))
 
   warn_count <- 0
   handler <- function(w) {
@@ -1133,6 +1136,101 @@ testthat::test_that("method = 'native' warns exactly once per session", {
     condathis_deprecated_method_native = handler
   )
   testthat::expect_equal(warn_count, 1L)
+  # Counted before it is signaled: a handler that stops at the warning, as
+  # `options(warn = 2)` does, uses it up too, so only the first call fails.
+  reset_warn_once(id)
+  cnd <- rlang::catch_cnd(resolve_method_alias("native"), classes = "warning")
+  testthat::expect_s3_class(cnd, "condathis_deprecated_method_native")
+  testthat::expect_no_warning(resolve_method_alias("native"))
+  # reset_warn_once() resets it.
+  reset_warn_once(id)
+  testthat::expect_warning(
+    resolve_method_alias("native"),
+    class = "condathis_deprecated_method_native"
+  )
+})
+
+testthat::test_that("method = 'native' is a soft deprecation", {
+  withr::local_options(lifecycle_verbosity = NULL)
+  id <- "deprecated_method_native"
+  reset_warn_once(id)
+  withr::defer(reset_warn_once(id))
+  # A call from another package's namespace neither warns nor uses up the
+  # once-per-session warning.
+  testthat::expect_no_warning(
+    testthat::expect_identical(
+      resolve_method_alias("native", user_env = asNamespace("tools")),
+      "micromamba"
+    )
+  )
+  testthat::expect_warning(
+    resolve_method_alias("native", user_env = globalenv()),
+    class = "condathis_deprecated_method_native"
+  )
+  # resolve_backend() passes `user_env` on.
+  reset_warn_once(id)
+  testthat::expect_no_warning(
+    resolved <- resolve_backend(
+      method = "native",
+      user_env = asNamespace("tools")
+    )
+  )
+  testthat::expect_identical(resolved$name, "micromamba")
+  testthat::expect_false(isTRUE(condathis_warn_once_state[[id]]))
+  # The exported functions pass their own caller, and resolve the alias
+  # before resolve_backend().
+  testthat::local_mocked_bindings(
+    resolve_backend = function(env_name = NULL, method = "auto", ...) {
+      rlang::abort(method, class = "stub_resolved")
+    }
+  )
+  calls <- list(
+    create_env = quote(create_env(env_name = "e", method = "native")),
+    install_packages = quote(
+      install_packages("zlib", env_name = "e", method = "native")
+    ),
+    validate_env = quote(validate_env(env_name = "e", method = "native")),
+    remove_env = quote(remove_env("e", method = "native")),
+    run = quote(run("echo", method = "native")),
+    run_bin = quote(run_bin("echo", method = "native"))
+  )
+  for (fn in names(calls)) {
+    reset_warn_once(id)
+    pkg_env <- new.env(parent = asNamespace("tools"))
+    assign(fn, get(fn), envir = pkg_env)
+    pkg_fn <- rlang::new_function(list(), calls[[fn]], env = pkg_env)
+    testthat::expect_no_warning(
+      cnd <- rlang::catch_cnd(pkg_fn(), classes = "stub_resolved")
+    )
+    testthat::expect_identical(conditionMessage(cnd), "micromamba", info = fn)
+    testthat::expect_false(isTRUE(condathis_warn_once_state[[id]]), info = fn)
+    # From the tests of this package: the warning.
+    testthat::expect_warning(
+      rlang::catch_cnd(eval(calls[[fn]]), classes = "stub_resolved"),
+      class = "condathis_deprecated_method_native",
+      info = fn
+    )
+  }
+})
+
+testthat::test_that("validate_method_arg() reads the 0.1.4 default vector as its first element", {
+  # rlang::arg_match() in 0.1.4 gave the first element of the default
+  # `method = c("native", "auto")` of create_env() and run().
+  testthat::expect_identical(validate_method_arg(c("native", "auto")), "native")
+  testthat::expect_identical(validate_method_arg(c("auto", "native")), "auto")
+  for (bad in list(
+    c("auto", "micromamba"),
+    c("native", "native"),
+    c("auto", "auto"),
+    c("native", "auto", "micromamba"),
+    c("native", NA)
+  )) {
+    testthat::expect_error(
+      validate_method_arg(bad),
+      class = "condathis_invalid_method",
+      info = deparse(bad)
+    )
+  }
 })
 
 # --- resolve_backend() precedence -----------------------------------------
@@ -1568,9 +1666,8 @@ testthat::test_that("resolve_backend() conditions have the root classes", {
     ),
     class = "condathis_warning"
   )
-  old_warned <- condathis_native_warned$warned
-  withr::defer(condathis_native_warned$warned <- old_warned)
-  condathis_native_warned$warned <- FALSE
+  reset_warn_once("deprecated_method_native")
+  withr::defer(reset_warn_once("deprecated_method_native"))
   testthat::expect_warning(
     resolve_method_alias("native"),
     class = "condathis_warning"
@@ -2034,6 +2131,11 @@ testthat::test_that("with_sandbox_dir stops a process left by a command of anoth
   pid_file <- file.path(outside_dir, "leftover.pid")
   sleeper <- file.path(outside_dir, "sleeper.R")
   spawner <- file.path(outside_dir, "spawner.R")
+  # The temporary directory of the sleeper, which is killed before it can
+  # delete its own `tempdir()`. The per-call `TMPDIR` of run_bin() is gone
+  # when it starts, and R would fall back to the system's.
+  sleeper_tmp <- file.path(outside_dir, "sleeper-tmp")
+  dir.create(sleeper_tmp)
   writeLines(
     c(
       "writeLines(as.character(Sys.getpid()), commandArgs(TRUE)[[1L]])",
@@ -2046,8 +2148,13 @@ testthat::test_that("with_sandbox_dir stops a process left by a command of anoth
       "args <- commandArgs(TRUE)",
       "lib_paths <- strsplit(args[[1L]], .Platform$path.sep, fixed = TRUE)",
       ".libPaths(c(lib_paths[[1L]], .libPaths()))",
+      "tmp <- args[[2L]]",
       # `system2(wait = FALSE)` does not outlive this script on Windows.
-      "processx::process$new(args[[2L]], args[-(1:2)], cleanup = FALSE)"
+      paste(
+        "processx::process$new(args[[3L]], args[-(1:3)],",
+        "env = c('current', TMPDIR = tmp, TMP = tmp, TEMP = tmp),",
+        "cleanup = FALSE)"
+      )
     ),
     spawner
   )
@@ -2080,6 +2187,7 @@ testthat::test_that("with_sandbox_dir stops a process left by a command of anoth
       "--vanilla",
       spawner,
       lib_paths,
+      sleeper_tmp,
       rscript,
       "--vanilla",
       sleeper,

@@ -31,13 +31,16 @@
 #'   before it starts anything.
 #' @param stderr Standard error target for this step, replacing the
 #'   `stderr` of [run_pipeline()]: `"|"` to capture it, `NULL` to discard
-#'   it, or a file path. When not given, the step uses the `stderr` of
-#'   [run_pipeline()].
+#'   it, `""` to send it to the standard error of the R process, `"2>&1"`
+#'   to send it to the standard output of the step (the next command, or
+#'   the `stdout` target of [run_pipeline()] for the last step), or a file
+#'   path. When not given, the step uses the `stderr` of [run_pipeline()].
 #'
 #' @returns An object of class `condathis_run_step`, for [run_pipeline()],
-#'   which prints as the command line and its environment. [c()] combines
-#'   steps into a list of steps of class `condathis_run_steps`, which [c()]
-#'   extends again. `c(step_1, step_2)`, `c(c(step_1, step_2), step_3)` and
+#'   which prints as the command line and its environment.
+#'   [`c()`][c.condathis_run_step] combines steps into a list of steps of
+#'   class `condathis_run_steps`, which [c()] extends again.
+#'   `c(step_1, step_2)`, `c(c(step_1, step_2), step_3)` and
 #'   `Reduce(c, steps)` all give a list for `run_pipeline(!!!steps)`. [c()]
 #'   with a value that is not a step gives a plain list, as the default
 #'   [c()] does.

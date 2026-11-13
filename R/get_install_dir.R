@@ -11,15 +11,15 @@
 #' @param method Character string naming the backend to report. `"auto"`
 #'   (the default) covers every registered backend, in
 #'   `getOption("condathis.backend_priority")` order, also a backend that
-#'   reports itself unavailable. Any name from
-#'   [list_registered_backend_names()] reports only that backend, and
+#'   reports itself unavailable. The name of a registered backend (see
+#'   [list_registered_backend_names()]) reports only that backend, and
 #'   `"micromamba"` is built in. The name of a backend whose package
 #'   `condathis` knows, such as `"rattler"` of the `rattlerthis` package,
-#'   also reports only that backend. `condathis` loads the package. It
-#'   aborts with class `condathis_backend_not_installed` when the package
-#'   is not installed. `"native"` is a deprecated alias for `"micromamba"`
-#'   (warns once per session). Invalid values abort with class
-#'   `condathis_invalid_method`.
+#'   also reports only that backend. `condathis` loads that package. When
+#'   it is not installed, the call aborts with class
+#'   `condathis_backend_not_installed`. `"native"` is a deprecated alias
+#'   for `"micromamba"` (warns once per session). Invalid values abort with
+#'   class `condathis_invalid_method`.
 #'
 #' @details
 #' On macOS, when neither `R_USER_DATA_DIR` nor `XDG_DATA_HOME` is set, the
@@ -29,7 +29,8 @@
 #' The data directories of the other backends that use [backend_root_dir()]
 #' are inside the condathis data directory. So deleting it deletes their
 #' environments and caches too. Each backend keeps its environments in the
-#' `envs` directory of its own data directory.
+#' `envs` directory of its own data directory. To remove everything that
+#' `condathis` installed, see *Removing everything* in [clean_cache()].
 #'
 #' `micromamba` adds each environment that it creates to
 #' `~/.conda/environments.txt` (in `%USERPROFILE%` on Windows), the list of
@@ -62,8 +63,8 @@
 #'   environment and does not install micromamba. When the backend that
 #'   `method` names fails, `get_install_dir()` aborts with class
 #'   `condathis_get_install_dir_failed` (also `condathis_backend_error`).
-#'   With `method = "auto"`, `get_install_dir()` skips a backend that
-#'   fails, with a warning of class `condathis_backend_query_failed`.
+#'   With `method = "auto"`, a backend that fails is skipped, with a
+#'   warning of class `condathis_backend_query_failed`.
 #'
 #' @examples
 #' condathis::with_sandbox_dir({

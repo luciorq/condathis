@@ -20,8 +20,9 @@
 #'     Character string. Path to a `micromamba` binary to use instead of
 #'     the one managed by `condathis`. It has the highest priority in the
 #'     `micromamba` discovery order (see *micromamba discovery*).
-#'     The binary must report a compatible version. Otherwise, `condathis`
-#'     uses the next candidate. Default: `NULL` (unset).
+#'     The binary must report a compatible version (2.8.1 or newer).
+#'     Otherwise, `condathis` uses the next candidate. Default: `NULL`
+#'     (unset).
 #'   }
 #'   \item{`condathis.backend_priority`}{
 #'     Character vector. The order of the registered backends for
@@ -55,6 +56,18 @@
 #'     value afterwards.
 #'   }
 #' }
+#'
+#' For example, this call in an `.Rprofile` file uses a specific
+#' `micromamba` binary, and creates new environments with the `"rattler"`
+#' backend when the `rattlerthis` package is installed (`micromamba` stays
+#' the fallback):
+#'
+#' ```r
+#' options(
+#'   condathis.micromamba_path = "/opt/micromamba/bin/micromamba",
+#'   condathis.backend_priority = c("rattler", "micromamba")
+#' )
+#' ```
 #'
 #' @section Environment variables read by condathis:
 #'
@@ -92,6 +105,13 @@
 #'   }
 #' }
 #'
+#' For example, this line of an `.Renviron` file names the same `micromamba`
+#' binary as the option above:
+#'
+#' ```
+#' CONDATHIS_MICROMAMBA_PATH=/opt/micromamba/bin/micromamba
+#' ```
+#'
 #' @section Environment variables that set data and cache directories:
 #'
 #' `condathis` keeps `micromamba`, its environments and its package cache
@@ -110,9 +130,9 @@
 #'   \item{`XDG_DATA_HOME`}{
 #'     Base data directory when `R_USER_DATA_DIR` is unset. On macOS, when
 #'     both are unset, `condathis` uses `~/.local/share` instead of the
-#'     platform default under `~/Library/Application Support`. The platform
-#'     default contains a space, and `micromamba run` can fail on paths
-#'     with spaces.
+#'     platform default. That default is under
+#'     `~/Library/Application Support`, which contains a space, and
+#'     `micromamba run` can fail on paths with spaces.
 #'   }
 #'   \item{`R_USER_CACHE_DIR`, `XDG_CACHE_HOME`}{
 #'     Base cache directory, in that order. [clean_cache()] empties its
@@ -141,6 +161,11 @@
 #' `curl` 5.0.0 or later is installed, and with [utils::download.file()]
 #' otherwise. Both honor the standard proxy variables, such as
 #' `http_proxy`, `https_proxy`, and `no_proxy`.
+#'
+#' The processes that `condathis` starts, `micromamba` included, inherit
+#' these variables from the R session, so `micromamba` downloads packages
+#' through the same proxy. It ignores the proxy settings of your
+#' `.condarc` and `.mambarc` files (see `CONDARC` below).
 #'
 #' @section Environment variables set or cleared in child processes:
 #'
@@ -171,20 +196,23 @@
 #'     that are not listed here.
 #'   }
 #'   \item{`CONDA_ROOT_PREFIX`, `MAMBA_ROOT_PREFIX`}{
-#'     Set to `""` for every command of an environment.
-#'     `MAMBA_ROOT_PREFIX` is set to `""` also when the activation of the
-#'     micromamba backend sets it, as it does on Windows. `micromamba`
-#'     itself gets the condathis data directory as its root prefix, with
-#'     `-r` and in `MAMBA_ROOT_PREFIX`. Without `MAMBA_ROOT_PREFIX`,
-#'     micromamba (2.8.1 to 2.10.0 checked) refuses to start, even for
-#'     `--version`, when its default root prefix exists but is not a Conda
-#'     environment. The default root prefix is `$XDG_DATA_HOME/mamba`, else
+#'     Set to `""` for every command of an environment, also when the
+#'     activation of the micromamba backend sets `MAMBA_ROOT_PREFIX`, as it
+#'     does on Windows. `micromamba` itself gets the condathis data
+#'     directory as its root prefix, with `-r` and in `MAMBA_ROOT_PREFIX`.
+#'     Without `MAMBA_ROOT_PREFIX`, micromamba (2.8.1 to 2.10.0 checked)
+#'     refuses to start, even for `--version`, when its default root prefix
+#'     exists but is not a Conda environment. The default root prefix is `$XDG_DATA_HOME/mamba`, else
 #'     `~/.local/share/mamba`, on Windows else `mamba` in the roaming
 #'     application data folder.
 #'   }
-#'   \item{`CONDA_PREFIX`, `MAMBA_PREFIX`, `CONDA_DEFAULT_ENV`,
-#'     `MAMBA_DEFAULT_ENV`, `CONDA_PROMPT_MODIFIER`,
-#'     `MAMBA_PROMPT_MODIFIER`}{
+#'   \item{`CONDA_PREFIX`, `MAMBA_PREFIX`}{
+#'     Set to `""`.
+#'   }
+#'   \item{`CONDA_DEFAULT_ENV`, `MAMBA_DEFAULT_ENV`}{
+#'     Set to `""`.
+#'   }
+#'   \item{`CONDA_PROMPT_MODIFIER`, `MAMBA_PROMPT_MODIFIER`}{
 #'     Set to `""`.
 #'   }
 #'   \item{`CONDA_SHLVL`, `MAMBA_SHLVL`}{
@@ -322,33 +350,30 @@
 #'    environment.
 #' 5. A `micromamba` inside `CONDA_PREFIX`.
 #' 6. A `micromamba` in the `micromamba-env` environment of the micromamba
-#'    backend, `<condathis data directory>/envs/micromamba-env`. `condathis`
-#'    ignores an environment of that name that another backend created.
+#'    backend, in the `envs` directory of the condathis data directory.
+#'    `condathis` ignores an environment of that name that another backend
+#'    created.
 #' 7. A `micromamba` on `PATH`.
 #'
-#' When no candidate is compatible, [install_micromamba()] downloads the
-#' pinned version into the managed location.
+#' A compatible version is 2.8.1 or newer. When no candidate is
+#' compatible, the first function that needs `micromamba` calls
+#' [install_micromamba()], which downloads the default version into the
+#' managed location. That function says so first, unless its `verbose` is
+#' `"silent"`, with a message of class `condathis_micromamba_downloading`.
+#' Queries, such as [list_envs()], never download it.
 #'
 #' @section Interactive sessions:
 #'
-#' `condathis` shows spinners for every `verbose` level except `"silent"`,
-#' and only when [rlang::is_interactive()] returns `TRUE`. The same holds
-#' for the download progress of [install_micromamba()]. Set the
-#' `rlang_interactive` option to `FALSE` to turn them off in an interactive
-#' session.
+#' In interactive sessions, `condathis` shows spinners for every `verbose`
+#' level except `"silent"`. A session is interactive when
+#' [rlang::is_interactive()] returns `TRUE`. [install_micromamba()] shows
+#' the progress of its download only in interactive sessions, and only
+#' when its `verbose` is `"output"` or `"full"`. When another function
+#' installs micromamba because no usable binary was found, the progress
+#' shows only with `verbose = "full"`. Set the `rlang_interactive` option
+#' to `FALSE` to turn spinners and progress off in an interactive session.
 #'
 #' @examples
-#' # Set options in an .Rprofile file. For example, use a specific
-#' # micromamba binary, and create new environments with the "rattler"
-#' # backend when the rattlerthis package is installed (micromamba stays
-#' # the fallback):
-#' #   options(
-#' #     condathis.micromamba_path = "/opt/micromamba/bin/micromamba",
-#' #     condathis.backend_priority = c("rattler", "micromamba")
-#' #   )
-#' # The same binary, as a line of an .Renviron file:
-#' #   CONDATHIS_MICROMAMBA_PATH=/opt/micromamba/bin/micromamba
-#'
 #' # Redirect all condathis data to temporary directories
 #' condathis::with_sandbox_dir({
 #'   print(condathis::get_install_dir()$path)

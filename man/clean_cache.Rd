@@ -2,7 +2,7 @@
 % Please edit documentation in R/clean_cache.R
 \name{clean_cache}
 \alias{clean_cache}
-\title{Clean Conda cache}
+\title{Clean the package caches of condathis}
 \usage{
 clean_cache(verbose = c("output", "silent", "cmd", "spinner", "full"))
 }
@@ -11,7 +11,7 @@ clean_cache(verbose = c("output", "silent", "cmd", "spinner", "full"))
 of:
 \itemize{
 \item \code{"output"}: show the output of the command and the messages of
-condathis.
+\code{condathis}.
 \item \code{"silent"}: show nothing.
 \item \code{"cmd"}: show the command line.
 \item \code{"spinner"}: show only a spinner.
@@ -20,9 +20,21 @@ log.
 }
 
 \code{TRUE} means \code{"output"} and \code{FALSE} means \code{"silent"}. Every level
-except \code{"silent"} shows a spinner in interactive sessions. Invalid
-values abort with class \code{condathis_invalid_verbose} (see
-\link{condathis-conditions}). The default is shown in Usage.
+except \code{"silent"} shows a spinner in interactive sessions. It also
+shows these messages and this warning when they occur (see
+\link{condathis-conditions}):
+\itemize{
+\item \code{condathis_micromamba_downloading} (a message): no usable
+\code{micromamba} was found, so it is downloaded. Queries, such as
+\code{\link[=list_envs]{list_envs()}}, never download it.
+\item \code{condathis_env_lock_waiting} and \code{condathis_cache_lock_waiting}
+(messages): the call waits for another R session.
+\item \code{condathis_install_micromamba_checksum_unavailable} (a warning): the
+checksum of the downloaded \code{micromamba} could not be checked.
+}
+
+Invalid values abort with class \code{condathis_invalid_verbose}. The
+default is shown in Usage.
 
 The command line shown, the \code{cmd} of a result and the messages of
 \code{condathis} show the password and the token of a URL as \verb{*****}.
@@ -85,6 +97,35 @@ error of the backend as its parent. When \code{clean_cache()} cannot delete a
 directory itself, it aborts with class \code{condathis_clean_cache_failed} the
 same way.
 }
+\section{Removing everything}{
+
+\code{clean_cache()} keeps micromamba and the environments. To remove
+everything that \code{condathis} installed, delete its data and cache
+directories, in an R session that runs no \code{condathis} command at the
+same time:
+
+\if{html}{\out{<div class="sourceCode r">}}\preformatted{unlink(condathis::get_install_dir()$path, recursive = TRUE)
+unlink(tools::R_user_dir("condathis", "cache"), recursive = TRUE)
+}\if{html}{\out{</div>}}
+
+The condathis data directory, the \code{path} of the \code{"micromamba"} row of
+\code{\link[=get_install_dir]{get_install_dir()}}, holds the micromamba binary that
+\code{\link[=install_micromamba]{install_micromamba()}} downloaded, every environment, the package and
+repodata caches, the lock files and the configuration file that
+\code{condathis} writes for micromamba. The data
+directories of the other backends that use \code{\link[=backend_root_dir]{backend_root_dir()}} are
+inside it. \code{\link[=get_install_dir]{get_install_dir()}} also lists the data directory of a
+registered backend that chose its own.
+
+This leaves alone what \code{condathis} did not install: a micromamba that
+\code{condathis} found elsewhere (see \emph{micromamba discovery} in
+\link{condathis-options}), environments that you passed as \code{\link[=env_path]{env_path()}},
+the lines that micromamba added to \verb{~/.conda/environments.txt}, the pip
+cache on macOS and Windows (see \code{\link[=get_install_dir]{get_install_dir()}}), and on Windows the
+Start Menu shortcuts that \code{condathis} 0.1.4 and earlier added (see
+\code{\link[=remove_env]{remove_env()}}).
+}
+
 \examples{
 condathis::with_sandbox_dir({
   condathis::clean_cache(verbose = "output")

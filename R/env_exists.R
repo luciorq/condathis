@@ -15,8 +15,8 @@
 #' @param method Character string naming the backend to query. `"auto"` (the
 #'   default) covers every registered backend, in
 #'   `getOption("condathis.backend_priority")` order, also a backend that
-#'   reports itself unavailable. Any name from
-#'   [list_registered_backend_names()] queries only that backend.
+#'   reports itself unavailable. The name of a registered backend (see
+#'   [list_registered_backend_names()]) queries only that backend.
 #'   `"micromamba"` is built in. The name of a backend whose package
 #'   condathis knows, such as `"rattler"` of the `rattlerthis` package,
 #'   also queries only that backend. condathis loads that package. When it
@@ -29,14 +29,19 @@
 #'   when every queried backend reports it absent. When the query fails for
 #'   the backend that `method` names, `env_exists()` aborts with class
 #'   `condathis_env_exists_failed` (also `condathis_backend_error`). With
-#'   `method = "auto"`, `env_exists()` skips a backend whose query fails and
-#'   warns with class `condathis_backend_query_failed`. It aborts only when
-#'   every backend fails.
+#'   `method = "auto"`, a backend whose query fails is skipped, with a
+#'   warning of class `condathis_backend_query_failed`, and `env_exists()`
+#'   aborts only when every backend fails.
 #'
 #' @family environments
 #' @seealso [condathis-conditions] for every condition class.
 #'
 #' @examples
+#' condathis::with_sandbox_dir({
+#'   # A query: it creates nothing and needs no micromamba
+#'   condathis::env_exists("non-existent-env")
+#' })
+#'
 #' \dontrun{
 #' condathis::with_sandbox_dir({
 #'   # A local channel shipped with condathis, with `polyglot`: a

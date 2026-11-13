@@ -2419,6 +2419,7 @@ testthat::test_that("run_pipeline() gives backend_resolve_run() the stage's bloc
 })
 
 testthat::test_that("run_pipeline() starts a stage's bare command as run() does", {
+  testthat::skip_on_cran()
   # Regression tests: a bare command from backend_resolve_run() went to
   # processx unchanged. On Linux and macOS, where processx searches the
   # child's PATH, it is still kept bare. On Windows, the environment's

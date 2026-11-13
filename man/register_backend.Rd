@@ -79,8 +79,14 @@ against, for example as \verb{condathis (>= 0.2.0)} in \code{Imports}.
 
 \section{The backend object}{
 
-Build the backend as
-\verb{structure(list(<the functions>), class = c("condathis_backend_<name>", "condathis_backend"))}.
+Build the backend as:
+
+\if{html}{\out{<div class="sourceCode r">}}\preformatted{structure(
+  list(<the functions>),
+  class = c("condathis_backend_<name>", "condathis_backend")
+)
+}\if{html}{\out{</div>}}
+
 S3 dispatch keys on the first class, so it must be unique to the
 backend. It must not be \code{"condathis_backend"}, \code{"default"}, \code{"list"} or
 \code{"data.frame"}: methods for those classes would also catch objects that
@@ -160,8 +166,8 @@ before activation (see \code{backend_resolve_run()}).
 \item \code{env_dir}: the absolute path of an existing directory with a
 \code{conda-meta} directory, in its real form (see
 \code{backend_resolve_run_in_dir()}).
-\item \code{timeout}: a positive number of seconds. For \code{backend_resolve_run()}
-and \code{backend_resolve_run_in_dir()}, it can also be \code{Inf} (no limit).
+\item \code{timeout}: a positive number of seconds. It can also be \code{Inf} (no
+limit) for \code{backend_resolve_run()} and \code{backend_resolve_run_in_dir()}.
 }
 
 \code{\link[=create_env]{create_env()}}, \code{\link[=install_packages]{install_packages()}} and \code{\link[=remove_env]{remove_env()}} hold the lock of
@@ -180,8 +186,9 @@ against those sessions.
 
 \itemize{
 \item \code{backend_create_env(backend, packages = NULL, env_file = NULL, env_name = "condathis-env", channels = "conda-forge", channel_priority = c("strict", "flexible", "disabled"), additional_channels = NULL, platform = NULL, overwrite = FALSE, verbose = c("output", "silent", "cmd", "spinner", "full"))} creates
-the environment in the directory that \code{backend_get_env_dir()} returns.
-\code{condathis} calls it only when that directory does not exist. That is
+the environment. Its directory is the one that \code{backend_get_env_dir()}
+returns, and \code{condathis} calls it only when that directory does not
+exist. That is
 the case for a new environment. It is also the case with
 \code{overwrite = TRUE}, after \code{condathis} moved the existing environment
 aside or deleted a directory that was not an environment (one left by
@@ -198,16 +205,18 @@ call, \code{condathis} writes \verb{<env_dir>/.condathis/backend.json}. It uses
 this marker as a cross-check, and the marker records the platform when
 one was given or chosen.
 
-\code{condathis} moves aside or deletes only the directory
+\code{condathis} moves aside or deletes only the directory\cr
 \verb{<backend_get_install_dir()>/envs/<env_name>}. For a backend whose
 \code{backend_get_env_dir()} returns another directory, \code{create_env()}
 cannot replace an existing environment, or delete a directory left by
 a failed create. It aborts with \code{condathis_create_env_failed}, whose
 parent has the class \code{condathis_unsafe_env_dir_move} or
-\code{condathis_unsafe_env_dir_delete}. It keeps the environment that it
-replaces in \verb{<backend_get_install_dir()>/envs/#trash} until the
-backend succeeded. No environment can have that name, so
-\code{backend_list_envs()} must leave that directory out.
+\code{condathis_unsafe_env_dir_delete}.
+
+\code{condathis} keeps the environment that it replaces in the directory\cr
+\verb{<backend_get_install_dir()>/envs/#trash} until the backend succeeded.
+No environment can have that name, so \code{backend_list_envs()} must leave
+that directory out.
 \item \code{backend_install(backend, packages, env_name = "condathis-env", channels = "conda-forge", channel_priority = c("strict", "flexible", "disabled"), additional_channels = NULL, platform = NULL, verbose = c("output", "silent", "cmd", "spinner", "full"))} installs
 \code{packages} into the existing environment \code{env_name}, solving for
 \code{platform}. \code{condathis} passes the platform recorded for the
@@ -440,12 +449,18 @@ returns the path anyway. None of them signals an error for it.
 \section{Errors}{
 
 Signal an error of any class when an operation fails. \code{condathis}
-re-raises it with the classes \verb{condathis_<function>_failed} (for example
-\code{condathis_create_env_failed}) and \code{condathis_backend_error}, plus every
-\verb{condathis_*} class of your error. It keeps your error as the parent.
-Handlers still find your own classes with \code{rlang::cnd_inherits()}. When
-you cannot honor an argument (for example \code{env_file}, or
-\code{channel_priority = "flexible"}), also give your condition the class
+re-raises it with your error as the parent, and with these classes:
+\itemize{
+\item \verb{condathis_<function>_failed}, for example
+\code{condathis_create_env_failed}.
+\item \code{condathis_backend_error}.
+\item Every \verb{condathis_*} class of your error.
+}
+
+Handlers still find your own classes with \code{rlang::cnd_inherits()}.
+
+When you cannot honor an argument, such as \code{env_file} or
+\code{channel_priority = "flexible"}, also give your condition the class
 \code{condathis_backend_unsupported}.
 
 Do not give your own conditions the class \code{condathis_backend_error}:

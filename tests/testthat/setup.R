@@ -136,10 +136,16 @@ if (isFALSE(on_cran)) {
 }
 
 # Registered first, so it runs after the working directory is restored.
-withr::defer(
-  delete_in_background(sandbox_root),
-  envir = testthat::teardown_env()
-)
+# Not on CRAN: there the sandbox is inside `tempdir()`, which R deletes
+# when it exits. A detached process would outlive the tests, delete the
+# same files at the same time as R, and make its own `tempdir()` outside
+# the one of the check.
+if (isFALSE(on_cran)) {
+  withr::defer(
+    delete_in_background(sandbox_root),
+    envir = testthat::teardown_env()
+  )
+}
 
 tmp_wd_path <- fs::path(tmp_home_path, "wd")
 

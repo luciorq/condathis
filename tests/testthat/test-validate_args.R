@@ -473,8 +473,7 @@ testthat::test_that("collect_package_specs() rejects an environment file as a sp
 testthat::test_that("collect_package_specs() requires specs when allow_empty is FALSE", {
   for (call_result in list(
     catch_error(d6_install_packages()),
-    catch_error(d6_install_packages(character(0L))),
-    catch_error(suppressWarnings(d6_install_packages(packages = NULL)))
+    catch_error(d6_install_packages(character(0L)))
   )) {
     testthat::expect_identical(
       class(call_result),
@@ -485,6 +484,17 @@ testthat::test_that("collect_package_specs() requires specs when allow_empty is 
         "condathis_error",
         rlang_tail
       )
+    )
+  }
+  # An explicit `packages = NULL` or `character(0)` is the 0.1.4 empty
+  # install: no specs, no error.
+  for (empty in list(NULL, character(0L))) {
+    testthat::expect_identical(
+      suppressWarnings(
+        d6_install_packages(packages = empty),
+        classes = "condathis_deprecated_packages_arg"
+      ),
+      character(0L)
     )
   }
 })
@@ -548,6 +558,148 @@ testthat::test_that("collect_package_specs() accepts `packages =` as a deprecate
     class(catch_error(d6_create_env(packages = "a", packages = "b"))),
     invalid_packages_class("create_env")
   )
+})
+
+testthat::test_that("collect_package_specs() warns about `packages =` only for direct use", {
+  withr::local_options(lifecycle_verbosity = NULL)
+  id <- "deprecated_packages_arg_create_env"
+  reset_warn_once(id)
+  withr::defer(reset_warn_once(id))
+  collect <- function(user_env) {
+    return(collect_package_specs(
+      list(packages = "a"),
+      fn = "create_env",
+      formal_names = c("...", "env_name"),
+      user_env = user_env
+    ))
+  }
+  # Called from inside another package: no warning, and the id is not
+  # used up.
+  testthat::expect_no_warning(
+    testthat::expect_identical(collect(asNamespace("tools")), "a")
+  )
+  testthat::expect_false(isTRUE(condathis_warn_once_state[[id]]))
+  testthat::expect_warning(
+    collect(globalenv()),
+    class = "condathis_deprecated_packages_arg"
+  )
+  # The lifecycle_verbosity option and the tests of that package.
+  reset_warn_once(id)
+  withr::with_options(
+    list(lifecycle_verbosity = "warning"),
+    testthat::expect_warning(
+      collect(asNamespace("tools")),
+      class = "condathis_deprecated_packages_arg"
+    )
+  )
+  reset_warn_once(id)
+  withr::with_envvar(
+    c(TESTTHAT_PKG = "tools"),
+    testthat::expect_warning(
+      collect(asNamespace("tools")),
+      class = "condathis_deprecated_packages_arg"
+    )
+  )
+  reset_warn_once(id)
+  withr::with_options(
+    list(lifecycle_verbosity = "quiet"),
+    testthat::expect_no_warning(collect(globalenv()))
+  )
+})
+
+testthat::test_that("collect_package_specs() points 0.1.4 positional values to their argument", {
+  # install_packages(packages = x, "env"): 0.1.4's positional env_name.
+  cnd <- catch_error(d6_install_packages(packages = "a", "my-env"))
+  testthat::expect_identical(
+    class(cnd),
+    invalid_packages_class("install_packages")
+  )
+  testthat::expect_match(
+    conditionMessage(cnd),
+    "env_name = \"my-env\"",
+    fixed = TRUE
+  )
+  # create_env(packages = x, "env.yml"): 0.1.4's positional env_file.
+  cnd <- catch_error(d6_create_env(packages = "a", "env.yml"))
+  testthat::expect_identical(class(cnd), invalid_packages_class("create_env"))
+  testthat::expect_match(
+    conditionMessage(cnd),
+    "env_file = \"env.yml\"",
+    fixed = TRUE
+  )
+  cnd <- catch_error(d6_create_env(packages = "a", "my-env"))
+  testthat::expect_match(
+    conditionMessage(cnd),
+    "env_name = \"my-env\"",
+    fixed = TRUE
+  )
+  # More than one value: only the general hint.
+  cnd <- catch_error(d6_create_env(packages = "a", "b", "c"))
+  testthat::expect_identical(class(cnd), invalid_packages_class("create_env"))
+  testthat::expect_no_match(conditionMessage(cnd), "env_name", fixed = TRUE)
+
+  # create_env("pkg", NULL, "env"): 0.1.4's positional env_file = NULL.
+  cnd <- catch_error(d6_create_env("a", NULL, "my-env"))
+  testthat::expect_identical(class(cnd), invalid_packages_class("create_env"))
+  message <- cli::ansi_strip(conditionMessage(cnd))
+  testthat::expect_match(message, "must be named", fixed = TRUE)
+  testthat::expect_match(message, "env_file = NULL", fixed = TRUE)
+  cnd <- catch_error(d6_install_packages("a", NULL, "my-env"))
+  message <- cli::ansi_strip(conditionMessage(cnd))
+  testthat::expect_match(message, "must be named", fixed = TRUE)
+  testthat::expect_no_match(message, "env_file", fixed = TRUE)
+  # A NULL at the end keeps the "no packages" hint.
+  cnd <- catch_error(d6_create_env(NULL))
+  testthat::expect_match(
+    conditionMessage(cnd),
+    "For no packages",
+    fixed = TRUE
+  )
+})
+
+testthat::test_that("collect_package_specs() names `packages` for its 0.1.4 abbreviations", {
+  # Partial matching made these work in 0.1.4. They are not accepted.
+  for (name in c("package", "pack", "pa")) {
+    cnd <- catch_error(d6_create_env(!!!rlang::set_names(list("a"), name)))
+    testthat::expect_identical(
+      class(cnd),
+      invalid_packages_class("create_env"),
+      info = name
+    )
+    message <- cli::ansi_strip(conditionMessage(cnd))
+    testthat::expect_match(message, "abbreviated `packages`", fixed = TRUE)
+    testthat::expect_match(
+      message,
+      "create_env(\"pkg\", env_name = \"my-env\")",
+      fixed = TRUE,
+      info = name
+    )
+  }
+  cnd <- catch_error(d6_install_packages(p = "a"))
+  testthat::expect_identical(
+    class(cnd),
+    invalid_packages_class("install_packages")
+  )
+  testthat::expect_match(
+    cli::ansi_strip(conditionMessage(cnd)),
+    "abbreviated `packages`",
+    fixed = TRUE
+  )
+  # `p` abbreviated `platform` of create_env() too: both are named.
+  cnd <- catch_error(d6_create_env(p = "a"))
+  message <- cli::ansi_strip(conditionMessage(cnd))
+  testthat::expect_match(message, "platform", fixed = TRUE)
+  testthat::expect_match(message, "package specs unnamed", fixed = TRUE)
+  testthat::expect_no_match(message, "0.1.4", fixed = TRUE)
+  # validate_env() is new: no 0.1.4 sentence.
+  cnd <- catch_error(collect_package_specs(
+    list(pack = "a"),
+    fn = "validate_env",
+    formal_names = c("...", "env_name", "method")
+  ))
+  message <- cli::ansi_strip(conditionMessage(cnd))
+  testthat::expect_match(message, "package specs unnamed", fixed = TRUE)
+  testthat::expect_no_match(message, "0.1.4", fixed = TRUE)
 })
 
 testthat::test_that("collect_package_specs() takes explicit formal names", {

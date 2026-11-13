@@ -13,8 +13,9 @@
 #' use the `env_name` of `run_pipeline()`.
 #'
 #' @param ... Two or more pipeline steps, built with [run_step()], in
-#'   pipeline order. Splice in a list of steps, built with [list()] or [c()],
-#'   with `!!!`, as in `run_pipeline(!!!steps)`. [c()] on steps gives a list
+#'   pipeline order. Splice in a list of steps, built with [list()] or
+#'   [`c()`][c.condathis_run_step], with `!!!`, as in
+#'   `run_pipeline(!!!steps)`. [c()] on steps gives a list
 #'   of steps that later [c()] calls extend, as in
 #'   `c(c(step_1, step_2), step_3)`. To add a step to a plain list or to
 #'   `NULL`, wrap it in [list()], as in `c(steps, list(step))`. [c()] with a
@@ -24,13 +25,17 @@
 #'   `condathis_run_pipeline_too_few_commands`.
 #' @param stdout Standard output target of the **last** command: `"|"` (the
 #'   default) captures it in the result, a file path writes it to that file,
-#'   and `NULL` discards it. The standard output of every other command goes
-#'   to the next command.
+#'   `""` sends it to the standard output of the R process, and `NULL`
+#'   discards it. The standard output of every other command goes to the
+#'   next command.
 #' @param stderr Standard error target for **all** processes. `"|"` (the
 #'   default) captures each command's standard error in its result. A file
 #'   path writes them all to that file, in command order once the pipeline
-#'   finishes. `NULL` discards them. The `stderr` argument of [run_step()]
-#'   replaces it for one command.
+#'   finishes. `NULL` discards them. `""` sends them to the standard error
+#'   of the R process. `"2>&1"` sends the standard error of each command to
+#'   its standard output: to the next command, and for the last command to
+#'   the `stdout` target. The `stderr` argument of [run_step()] replaces it
+#'   for one command.
 #' @param stdin Standard input source of the **first** command: `NULL` (the
 #'   default) for no input, the path of an existing file to read, or `"|"`
 #'   to write `input` to it.
@@ -42,27 +47,28 @@
 #'   one. Defaults to `FALSE`. It applies to the whole pipeline. There is no
 #'   per-command setting.
 #' @param error Character string that controls what happens when a command
-#'   fails. With `"cancel"` (the default), `run_pipeline()` aborts:
-#'   * a command that exits with a non-zero status: class
-#'     `condathis_run_pipeline_status_error` (also
-#'     `condathis_status_error`). A broken pipe can end a command that is not
-#'     the last one: that does not count (see *Broken pipes*).
-#'   * a timeout: class `condathis_run_pipeline_timeout_error` (also
-#'     `condathis_timeout_error`).
-#'   * a step environment that does not exist: class
-#'     `condathis_run_pipeline_env_not_found` (also
-#'     `condathis_env_not_found`). For an [env_path()], the error also has
-#'     `condathis_env_path_not_found` or `condathis_env_path_not_conda_env`.
-#'   * a step environment found under several backends: class
-#'     `condathis_backend_ambiguous_env` (see `method`).
-#'   * a command that the backend fails to resolve, for example because an
-#'     `activate.d` script of the environment fails: class
-#'     `condathis_run_pipeline_resolve_failed` (also
-#'     `condathis_backend_error`). The error keeps the condathis classes of
-#'     the backend's error, for example `condathis_micromamba_status_error`,
-#'     and has that error as its parent.
-#'   * an invalid command description from a backend package (a bug in that
-#'     package): class `condathis_backend_resolve_run_invalid`.
+#'   fails. With `"cancel"` (the default), `run_pipeline()` aborts with
+#'   these classes:
+#'   * `condathis_run_pipeline_status_error` (also
+#'     `condathis_status_error`): a command exits with a non-zero status. A
+#'     broken pipe can end a command that is not the last one: that does
+#'     not count (see *Broken pipes*).
+#'   * `condathis_run_pipeline_timeout_error` (also
+#'     `condathis_timeout_error`): a timeout.
+#'   * `condathis_run_pipeline_env_not_found` (also
+#'     `condathis_env_not_found`): a step environment does not exist. For an
+#'     [env_path()], the error also has `condathis_env_path_not_found` or
+#'     `condathis_env_path_not_conda_env`.
+#'   * `condathis_backend_ambiguous_env`: a step environment is found under
+#'     several backends (see `method`).
+#'   * `condathis_run_pipeline_resolve_failed` (also
+#'     `condathis_backend_error`): the backend fails to resolve a command,
+#'     for example because an `activate.d` script of the environment fails.
+#'     The error keeps the condathis classes of the backend's error, for
+#'     example `condathis_micromamba_status_error`, and has that error as
+#'     its parent.
+#'   * `condathis_backend_resolve_run_invalid`: a backend package gives an
+#'     invalid command description (a bug in that package).
 #'
 #'   The status and timeout errors carry the fields `status`, `stdout`,
 #'   `stderr` and `timeout`, as the errors of [run()] do. They also carry
@@ -91,26 +97,39 @@
 #'   `"full"` does both. `"spinner"` shows only a spinner, and `"silent"`
 #'   shows nothing. `TRUE` means `"output"` and `FALSE` means `"silent"`.
 #'   Every level except `"silent"` shows a spinner in interactive sessions.
+#'   It also shows these messages and this warning (see
+#'   [condathis-conditions]):
+#'   * `condathis_micromamba_downloading` (a message): no usable
+#'     `micromamba` was found, so it is downloaded.
+#'   * `condathis_env_lock_waiting` and `condathis_cache_lock_waiting`
+#'     (messages): the call waits for another R session.
+#'   * `condathis_install_micromamba_checksum_unavailable` (a warning): the
+#'     checksum of the downloaded `micromamba` could not be checked.
+#'
 #'   Invalid values abort with class `condathis_invalid_verbose`.
 #' @param method Character string naming the default backend of the steps
 #'   that do not set their own `method` (see [run_step()]). `"auto"` (the
 #'   default) uses the backend that owns each environment, and otherwise the
-#'   first available backend in `getOption("condathis.backend_priority")`
-#'   order (see [condathis-options]). Any name from
+#'   first available backend in the order of the option
+#'   `condathis.backend_priority` (see [condathis-options]). Any name from
 #'   [list_registered_backend_names()] selects that backend. `"micromamba"`
 #'   is built in. The name of a backend whose package condathis knows also
 #'   selects it, such as `"rattler"` of the `rattlerthis` package.
-#'   condathis loads that package, and aborts with class
-#'   `condathis_backend_not_installed` when it is not installed. `"native"`
-#'   is a deprecated alias for `"micromamba"` (it warns once per session).
-#'   If you name a backend other than the owner of an environment,
-#'   condathis warns (`condathis_backend_mismatch_warning`) and uses the
-#'   owner. An environment found under several backends aborts with class
-#'   `condathis_backend_ambiguous_env`, unless `method` names one of them.
-#'   With `error = "continue"`, its steps get status 127. Steps that share
-#'   an environment must agree on the backend. Otherwise `run_pipeline()`
-#'   aborts with class `condathis_run_pipeline_conflicting_method`. Invalid
-#'   values abort with class `condathis_invalid_method`.
+#'   condathis loads that package. `"native"` is a deprecated alias for
+#'   `"micromamba"` (it warns once per session). If you name a backend
+#'   other than the owner of an environment, condathis warns and uses the
+#'   owner. Steps that share an environment must agree on the backend. The
+#'   classes:
+#'   * `condathis_backend_not_installed`: the package of the named backend
+#'     is not installed.
+#'   * `condathis_backend_mismatch_warning` (a warning): the named backend
+#'     does not own the environment.
+#'   * `condathis_backend_ambiguous_env`: several backends have an
+#'     environment of that name, and `method` names none of them. With
+#'     `error = "continue"`, its steps get status 127.
+#'   * `condathis_run_pipeline_conflicting_method`: steps that share an
+#'     environment do not agree on the backend.
+#'   * `condathis_invalid_method`: an invalid value.
 #' @param supervise Logical. Whether the `processx` supervisor watches each
 #'   process: when the R session ends, even by a crash, the supervisor kills
 #'   it. Defaults to `TRUE`, unlike in [run()] and [run_bin()], since a
@@ -262,7 +281,7 @@ run_pipeline <- function(
   )
   error_var <- isTRUE(identical(error, "cancel"))
   verbose_list <- parse_verbose_arg(verbose, call = call)
-  validate_method_arg(method, call = call)
+  method <- validate_method_arg(method, call = call)
 
   validate_pipeline_args(
     input = input,

@@ -747,13 +747,41 @@ query_registered_backends <- function(
   return(results)
 }
 
+#' Could the last unnamed argument be an old positional `env_name`?
+#'
+#' Only a call with two or more unnamed `...` arguments, the last of them a
+#' single string, can hold the 0.1.4 positional `env_name`, as in
+#' `create_env("pkg", "env")`. Specs given with `packages =` (by name,
+#' through `do.call()` with a named list, `rlang::exec()` or `!!!`) or as
+#' one vector, as in `create_env(c("pkg", "env"))`, cannot: 0.1.4 read them
+#' as specs too.
+#'
+#' @param dots A list, the `rlang::list2(...)` of the exported function.
+#'
+#' @returns `TRUE` or `FALSE`.
+#'
+#' @keywords internal
+#' @noRd
+positional_env_name_possible <- function(dots) {
+  dot_names <- names(dots)
+  if (is.null(dot_names)) {
+    dot_names <- rep("", length(dots))
+  }
+  return(
+    isFALSE(any(nzchar(dot_names))) &&
+      isTRUE(length(dots) >= 2L) &&
+      isTRUE(rlang::is_string(dots[[length(dots)]]))
+  )
+}
+
 #' Abort when the last package spec is an existing environment name
 #'
 #' Decision D6: `create_env("pkg", "env")` and `install_packages("pkg",
 #' "env")` now mean two package specs. When the last of two or more specs
 #' is the name of an environment that exists, the user most likely meant
 #' the old positional `env_name`. Call this only when `env_name` was not
-#' given (`missing(env_name)` in the exported function).
+#' given (`missing(env_name)` in the exported function) and
+#' `positional_env_name_possible(dots)` is `TRUE`.
 #'
 #' It probes every registered backend with `backend_probe_env()`; a failed
 #' probe counts as "no". The micromamba backend answers without starting a

@@ -29,6 +29,7 @@ testthat::test_that("the sandbox sweep keeps a sandbox whose owner runs, however
 })
 
 testthat::test_that("the sandbox sweep deletes a sandbox whose owner has exited", {
+  testthat::skip_on_cran()
   parent <- withr::local_tempdir()
   dead <- local_fake_sandbox(parent, "dead")
   proc <- processx::process$new(
@@ -111,6 +112,7 @@ testthat::test_that("the test sandbox of this session names this process as its 
 })
 
 testthat::test_that("the background deletion deletes its paths and leaves nothing else", {
+  testthat::skip_on_cran()
   # On Windows, `TMP` and `TEMP` of the process are `tmp` too.
   tmp <- local_child_tempdir()
   first <- local_fake_sandbox(tmp, "first")
@@ -131,6 +133,7 @@ testthat::test_that("the background deletion deletes its paths and leaves nothin
 })
 
 testthat::test_that("a killed background deletion leaves nothing outside its first path", {
+  testthat::skip_on_cran()
   # Regression test: a host that killed the deletion left its `tempdir()`
   # in the temporary directory of the user. On Windows, it also left the
   # file that Rscript writes `-e` code to.

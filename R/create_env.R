@@ -17,18 +17,25 @@
 #'   empty environment.
 #'   Any other value aborts with class
 #'   `condathis_create_env_invalid_packages`. Such values are:
-#'   * A named argument that `create_env()` does not have. The error names
-#'     the closest argument.
+#'   * A named argument that `create_env()` does not have. Names are never
+#'     abbreviated: `env =` and `pack =` abort too. The error names the
+#'     closest argument.
 #'   * A value that is not a character vector.
 #'   * `NA` or `""`.
 #'   * A file name that ends in `.yml` or `.yaml`. Pass it as `env_file`.
 #'
-#'   `packages = <specs>` still works. It is deprecated and warns once per
-#'   session (class `condathis_deprecated_packages_arg`).
+#'   `packages = <specs>` still works, and `packages = NULL` creates an
+#'   empty environment. It is deprecated. It warns once per session (class
+#'   `condathis_deprecated_packages_arg`) when the call comes from the
+#'   console, a script or the tests of the package that makes it. Calls
+#'   made inside other packages do not warn.
+#'
 #'   `create_env()` aborts with class
-#'   `condathis_create_env_positional_env_name` when `env_name` is not given
-#'   and the last of two or more specs names an existing environment. Name
-#'   the argument, as in `env_name = "my-env"`.
+#'   `condathis_create_env_positional_env_name` when `env_name` is not
+#'   given, the specs are two or more unnamed arguments, and the last of
+#'   them is one string that names an existing environment. Name the
+#'   argument, as in `env_name = "my-env"`. Specs given with `packages =`
+#'   or as one vector are never checked this way.
 #' @inheritParams condathis-params
 #' @param channels A non-empty character vector of channel names or URLs,
 #'   in priority order. For a package from another channel, either name the
@@ -36,10 +43,14 @@
 #'   `channels = c("conda-forge", "bioconda")`. Invalid values, such as
 #'   `NULL`, `NA` or `""`, abort with class
 #'   `condathis_create_env_invalid_channels`.
+#'   condathis 0.1.4 also used `"bioconda"` by default. When `channels` is
+#'   not given and the backend finds no package for a spec, the error says
+#'   that the default changed.
 #' @param additional_channels `NULL` (the default) or a non-empty character
 #'   vector of channel names or URLs, used after `channels`. Invalid values
-#'   abort with class `condathis_create_env_invalid_channels` (also
-#'   `condathis_invalid_additional_channels`).
+#'   abort with these classes:
+#'   * `condathis_create_env_invalid_channels`
+#'   * `condathis_invalid_additional_channels`
 #' @param channel_priority Channel priority mode: `"strict"` (the default),
 #'   `"flexible"` or `"disabled"`. With `"strict"`, when several channels
 #'   have a package, the solver uses only the builds from the first of them.
@@ -93,18 +104,19 @@
 #'
 #' @returns A `condathis_result` object, invisibly: a classed list with
 #'   `status`, `stdout`, `stderr`, `timeout`, `pid`, `cmd` and `env_name`.
-#'   `cmd` is the command line that the backend ran. It is `NA` when the
-#'   backend reports none or when nothing ran (an existing environment that
-#'   already has the requested packages). `stdout`, `stderr` and `pid` are
-#'   `NA` when the backend reports none, and `pid` always is with micromamba.
+#'   `cmd` is the command line that the backend ran, or `NA` when the
+#'   backend reports none. `cmd`, `stdout` and `stderr` are `NA` when
+#'   nothing ran (an existing environment that already has the requested
+#'   packages). `stdout`, `stderr` and `pid` are `NA` when the backend
+#'   reports none, and `pid` always is with micromamba.
 #'   A backend failure aborts with class `condathis_create_env_failed` (also
 #'   `condathis_backend_error`), with the backend's error as the parent.
 #'   micromamba runs the link scripts of packages (`pre-link` and
 #'   `post-link`). A backend that does not, such as `"rattler"` of the
-#'   `rattlerthis` package, makes `create_env()` warn with class
-#'   `condathis_create_env_link_scripts_skipped` (also
-#'   `condathis_link_scripts_skipped`). The warning names the packages,
-#'   which may not work.
+#'   `rattlerthis` package, makes `create_env()` warn. The warning names
+#'   the packages, which may not work. Its classes are
+#'   `condathis_link_scripts_skipped` and\cr
+#'   `condathis_create_env_link_scripts_skipped`.
 #'
 #' @section Existing environments:
 #' With `overwrite = FALSE`, `create_env()` compares an existing environment
@@ -120,6 +132,18 @@
 #' constraints: `version`, `build`, `build_number` and `channel`. `>=1.2.*`
 #' is read as `>=1.2`, as micromamba does. A build string matches with `*`
 #' as its only wildcard.
+#'
+#' A package from another channel does not satisfy a spec without a
+#' channel. An environment built with condathis 0.1.4, which also used
+#' `"bioconda"` by default, can have such packages. The error then names
+#' the channel of the package. Add that channel to `channels`, or name it
+#' in the spec, as in `"bioconda::samtools"`.
+#'
+#' Specs for virtual packages, whose names start with `__`, such as
+#' `"__cuda=12"`, `"__unix"` or `"__glibc>=2.17"`, are not compared. They
+#' describe the host, not the environment, and are never installed. The
+#' solver checked them when it created the environment. `create_env()` and
+#' [install_packages()] still pass them to the backend.
 #'
 #' A spec that condathis cannot compare, or that micromamba, rattler and
 #' conda read differently, never counts as satisfied. `create_env()` then
@@ -141,13 +165,14 @@
 #'   `.` and `*`, such as a regular expression (`"zlib=1.3.1=^h4.*$"`) or
 #'   `?`.
 #'
-#' A spec that condathis cannot read, such as `"::"`, aborts with class
-#' `condathis_parse_match_spec_invalid_name`. The URL of a package file
-#' whose name is not `<name>-<version>-<build>` aborts with class
-#' `condathis_parse_match_spec_invalid_url`. Both errors also have class
-#' `condathis_invalid_arg`. For a new environment, only the backend reads
-#' the specs. A spec it cannot read aborts with class
-#' `condathis_create_env_failed`.
+#' A spec that condathis cannot read aborts with one of these classes, and
+#' also with class `condathis_invalid_arg`:
+#' * `condathis_parse_match_spec_invalid_name`: a spec such as `"::"`.
+#' * `condathis_parse_match_spec_invalid_url`: the URL of a package file
+#'   whose name is not `<name>-<version>-<build>`.
+#'
+#' For a new environment, only the backend reads the specs. A spec it
+#' cannot read aborts with class `condathis_create_env_failed`.
 #'
 #' When `platform` is given, the platform of the installed packages must be
 #' `platform` (`noarch` packages match any platform). A different platform
@@ -233,9 +258,20 @@ create_env <- function(
   env_file = NULL,
   overwrite = FALSE
 ) {
+  # The caller, for the soft deprecations of `packages =` and
+  # `method = "native"` (see `is_direct_use()`).
+  user_env <- rlang::caller_env()
+  # For the hint about the 0.1.4 default channels (see
+  # `with_default_channels_hint()`).
+  default_channels <- missing(channels)
   # Rule R2: every argument is checked before the first backend call, so an
   # invalid value never installs micromamba or starts a process.
-  packages <- collect_package_specs(rlang::list2(...), fn = "create_env")
+  dots <- rlang::list2(...)
+  packages <- collect_package_specs(
+    dots,
+    fn = "create_env",
+    user_env = user_env
+  )
   validate_env_name(
     env_name,
     class = c(
@@ -243,7 +279,7 @@ create_env <- function(
       "condathis_create_invalid_env_name"
     )
   )
-  validate_method_arg(method)
+  method <- validate_method_arg(method)
   verbose_list <- parse_verbose_arg(verbose)
   validate_channels_arg(
     channels,
@@ -289,9 +325,10 @@ create_env <- function(
       )
     )
   }
-  if (missing(env_name)) {
+  if (missing(env_name) && isTRUE(positional_env_name_possible(dots))) {
     abort_on_positional_env_name(packages, fn = "create_env")
   }
+  method <- resolve_method_alias(method, user_env = user_env)
 
   # One R session at a time changes an environment (see
   # `local_env_lock()`): everything from here on, the existence checks and
@@ -336,20 +373,31 @@ create_env <- function(
   # an emulated one when the request does not solve for the native
   # platform (see define_platform()). The probes are backend calls of this
   # create, so their errors have its classes.
-  platform <- with_backend_errors(
-    resolve_create_platform(
-      resolved$backend,
-      packages = packages,
-      platform = platform,
-      channels = channels,
-      channel_priority = channel_priority,
-      additional_channels = additional_channels,
-      verbose = verbose_list$strategy,
-      env_file = env_file
+  # A solver error for a spec that is on none of the channels gets a hint
+  # about the default channels, which changed in 0.2.0 (see
+  # `with_default_channels_hint()`). Not for `env_file`: it names its own
+  # channels.
+  hint_packages <- if (is.null(env_file)) packages
+  platform <- with_default_channels_hint(
+    with_backend_errors(
+      resolve_create_platform(
+        resolved$backend,
+        packages = packages,
+        platform = platform,
+        channels = channels,
+        channel_priority = channel_priority,
+        additional_channels = additional_channels,
+        verbose = verbose_list$strategy,
+        env_file = env_file
+      ),
+      fn = "create_env",
+      backend_name = resolved$name,
+      action = paste0("create environment '", env_name, "'")
     ),
     fn = "create_env",
-    backend_name = resolved$name,
-    action = paste0("create environment '", env_name, "'")
+    packages = hint_packages,
+    channels = c(channels, additional_channels),
+    default_channels = default_channels
   )
   # The backend gets a free environment directory: an existing environment
   # is moved aside first, and moved back when the create fails (see
@@ -357,41 +405,47 @@ create_env <- function(
   # status also restores the old environment, and a failed environment
   # gets no marker.
   env_lock_before_change(env_lock, cache_lock)
-  created <- with_backend_errors(
-    with_env_dir_replacement(
-      resolved$backend,
-      env_name = env_name,
-      expr = {
-        px_res <- backend_create_env(
-          resolved$backend,
-          packages = packages,
-          env_file = env_file,
-          env_name = env_name,
-          channels = channels,
-          channel_priority = channel_priority,
-          additional_channels = additional_channels,
-          platform = platform,
-          overwrite = overwrite,
-          verbose = verbose_list$strategy
-        )
-        list(
-          result = new_backend_result(
-            px_res,
-            fn = "create_env",
-            backend_name = resolved$name,
-            env_name = env_name
-          ),
-          link_scripts = backend_link_scripts_skipped(
-            px_res,
-            fn = "create_env",
-            backend_name = resolved$name
+  created <- with_default_channels_hint(
+    with_backend_errors(
+      with_env_dir_replacement(
+        resolved$backend,
+        env_name = env_name,
+        expr = {
+          px_res <- backend_create_env(
+            resolved$backend,
+            packages = packages,
+            env_file = env_file,
+            env_name = env_name,
+            channels = channels,
+            channel_priority = channel_priority,
+            additional_channels = additional_channels,
+            platform = platform,
+            overwrite = overwrite,
+            verbose = verbose_list$strategy
           )
-        )
-      }
+          list(
+            result = new_backend_result(
+              px_res,
+              fn = "create_env",
+              backend_name = resolved$name,
+              env_name = env_name
+            ),
+            link_scripts = backend_link_scripts_skipped(
+              px_res,
+              fn = "create_env",
+              backend_name = resolved$name
+            )
+          )
+        }
+      ),
+      fn = "create_env",
+      backend_name = resolved$name,
+      action = paste0("create environment '", env_name, "'")
     ),
     fn = "create_env",
-    backend_name = resolved$name,
-    action = paste0("create environment '", env_name, "'")
+    packages = hint_packages,
+    channels = c(channels, additional_channels),
+    default_channels = default_channels
   )
 
   write_backend_marker(
@@ -693,6 +747,11 @@ list_env_packages_checked <- function(
 #' So the two give the same answer when `validate_env()` gets
 #' `c(channels, additional_channels)` of the `create_env()` call.
 #'
+#' Specs for virtual packages (names that start with `__`, such as
+#' `"__cuda=12"` or `"__unix"`) are left out: they constrain the host, not
+#' the environment, and the package listing never has them. The solver
+#' checked them when it created the environment.
+#'
 #' @param installed_pkgs_df Data frame from `list_env_packages_checked()`.
 #'   It may be `NULL` only when `packages` is empty and `platform` is
 #'   `NULL`: then there is nothing to compare.
@@ -722,6 +781,11 @@ list_env_packages_checked <- function(
 #'     empty.
 #'   * `env_platforms`: character vector of the platforms of the
 #'     environment, without `noarch`; empty when `platform` is `NULL`.
+#'   * `other_channels`: the specs of `unsatisfied` that an installed
+#'     package satisfies, but from a channel that is not in `channels` (see
+#'     `specs_from_other_channels()`). A data frame with zero rows when
+#'     there are none or `channels` is `NULL`. Packages from `pypi` are
+#'     left out.
 #'
 #' @keywords internal
 #' @noRd
@@ -738,6 +802,8 @@ check_env_request <- function(
     platform_mismatch <- isTRUE(length(env_platforms) > 0L) &&
       isFALSE(all(env_platforms == platform))
   }
+  packages <- as.character(packages)
+  packages <- packages[!is_virtual_package_spec(packages)]
   unsatisfied <- character(0L)
   if (isTRUE(length(packages) > 0L)) {
     satisfied <- packages_satisfied_by(
@@ -747,6 +813,11 @@ check_env_request <- function(
     )
     unsatisfied <- packages[!satisfied]
   }
+  other_channels <- specs_from_other_channels(
+    unsatisfied = unsatisfied,
+    installed_pkgs_df = installed_pkgs_df,
+    channels = channels
+  )
   reason <- NA_character_
   if (isTRUE(platform_mismatch)) {
     reason <- "platform_mismatch"
@@ -760,8 +831,141 @@ check_env_request <- function(
     uncompared = specs_with_uncompared_brackets(unsatisfied),
     uncompared_versions = specs_with_uncompared_versions(unsatisfied),
     uncompared_builds = specs_with_uncompared_builds(unsatisfied),
-    env_platforms = env_platforms
+    env_platforms = env_platforms,
+    other_channels = other_channels
   ))
+}
+
+#' Which specs name a virtual package?
+#'
+#' A virtual package (`__cuda`, `__glibc`, `__unix`, `__osx`, `__win`,
+#' ...) describes the host. The solver checks a spec for one against the
+#' host, and never installs it, so the package listing of an environment
+#' never has it.
+#'
+#' @param packages Character vector of package MatchSpec strings.
+#'
+#' @returns A logical vector with one value per spec: `TRUE` when the name
+#'   of the spec starts with `__`. A spec that `parse_match_spec()` cannot
+#'   read aborts with its classes, as the satisfaction check does.
+#'
+#' @keywords internal
+#' @noRd
+is_virtual_package_spec <- function(packages) {
+  return(vapply(
+    as.character(packages),
+    function(spec_str) {
+      name <- parse_match_spec(spec_str)[["name"]]
+      return(isTRUE(rlang::is_string(name)) && isTRUE(startsWith(name, "__")))
+    },
+    logical(1L),
+    USE.NAMES = FALSE
+  ))
+}
+
+#' Unsatisfied specs that a package from another channel satisfies
+#'
+#' An environment that condathis 0.1.4 built with its default channels
+#' `c("conda-forge", "bioconda")` has bioconda packages. Requested again
+#' with the 0.2.0 default `"conda-forge"`, a spec such as `"samtools"` is
+#' not satisfied, because the channel is part of the request. This finds
+#' those specs, so the error can name the channel instead of only
+#' suggesting `overwrite = TRUE`, which fails when the package is not on
+#' the requested channels.
+#'
+#' @param unsatisfied Character vector of unsatisfied specs.
+#' @param installed_pkgs_df Data frame from `list_env_packages_checked()`,
+#'   or `NULL`.
+#' @param channels Character vector of requested channels, or `NULL`.
+#'
+#' @returns A data frame with the character columns `spec`, `name` (the
+#'   installed name), `channel` (the installed channel, as
+#'   `normalize_channel_name()` gives it) and `spec_hint`
+#'   (`"<channel>::<name>"`, or `NA` when the channel is a URL or a path).
+#'   One row for each spec without a channel that an installed package
+#'   satisfies when the channel is not compared. Zero rows when `channels`
+#'   is `NULL`.
+#'
+#' @keywords internal
+#' @noRd
+specs_from_other_channels <- function(
+  unsatisfied,
+  installed_pkgs_df,
+  channels
+) {
+  rows <- list()
+  if (
+    isFALSE(is.null(channels)) &&
+      isFALSE(is.null(installed_pkgs_df)) &&
+      isTRUE(length(unsatisfied) > 0L)
+  ) {
+    for (spec_str in as.character(unsatisfied)) {
+      ms <- parse_match_spec(spec_str)
+      location <- ms[["channel_location"]]
+      has_channel <- isFALSE(is.null(location)) &&
+        isFALSE(is.na(location)) &&
+        isTRUE(nzchar(location)) &&
+        isFALSE(identical(location, "None"))
+      if (isTRUE(has_channel)) {
+        next
+      }
+      if (
+        isFALSE(spec_satisfied_by(
+          spec_str = spec_str,
+          installed_pkgs_df = installed_pkgs_df,
+          requested_channels = NULL
+        ))
+      ) {
+        next
+      }
+      # The row that `spec_satisfied_by()` compared: the first by name.
+      installed <- installed_pkgs_df[
+        tolower(installed_pkgs_df[["name"]]) %in% tolower(ms[["name"]]),
+        ,
+        drop = FALSE
+      ][1L, , drop = FALSE]
+      name <- as.character(installed[["name"]])
+      channel <- normalize_channel_name(
+        as.character(installed[["channel"]] %||% "")
+      )
+      # A package that pip installed is listed with the channel `pypi`,
+      # which is not a Conda channel: neither `channels` nor a spec can
+      # name it.
+      if (isFALSE(isTRUE(nzchar(channel))) || identical(channel, "pypi")) {
+        next
+      }
+      # A channel name, such as `bioconda` or `pkgs/main`, also works in a
+      # spec. A URL (`host.org/path` once normalized) or a local path is
+      # only suggested for `channels`.
+      is_name <- grepl(
+        "^[A-Za-z0-9_][A-Za-z0-9_-]*(/[A-Za-z0-9_.-]+)*$",
+        channel
+      )
+      rows[[length(rows) + 1L]] <- data.frame(
+        spec = spec_str,
+        name = name,
+        channel = channel,
+        spec_hint = if (isTRUE(is_name)) {
+          paste0(channel, "::", name)
+        } else {
+          NA_character_
+        },
+        stringsAsFactors = FALSE
+      )
+    }
+  }
+  if (identical(length(rows), 0L)) {
+    return(data.frame(
+      spec = character(0L),
+      name = character(0L),
+      channel = character(0L),
+      spec_hint = character(0L),
+      stringsAsFactors = FALSE
+    ))
+  }
+  result <- do.call(rbind, rows)
+  rownames(result) <- NULL
+  return(result)
 }
 
 #' Message bullets for the specs that `check_env_request()` rejected
@@ -770,10 +974,13 @@ check_env_request <- function(
 #'
 #' @returns A named character vector of `cli` bullets: one that lists the
 #'   unsatisfied specs, and one more for each kind of constraint that is
-#'   not compared (bracket keys, versions, build strings). Empty when every
-#'   spec is satisfied. The bullets refer to the variables `unsatisfied`,
-#'   `uncompared`, `uncompared_versions` and `uncompared_builds`, so the
-#'   caller must define them before it formats the message.
+#'   not compared (bracket keys, versions, build strings). Then, for the
+#'   specs that a package from another channel satisfies, one bullet each
+#'   that names that channel, and one hint. Empty when every spec is
+#'   satisfied. The bullets refer to the variables `unsatisfied`,
+#'   `uncompared`, `uncompared_versions`, `uncompared_builds` and
+#'   `other_channels`, so the caller must define them before it formats the
+#'   message.
 #'
 #' @keywords internal
 #' @noRd
@@ -801,7 +1008,204 @@ unsatisfied_spec_bullets <- function(check) {
       `i` = "Build strings with characters other than letters, digits, {.code _}, {.code .} and {.code *}, such as {.code ^py3.*$} or {.code h?x_0}, are not compared (micromamba, rattler and conda read them differently), so {.val {uncompared_builds}} never count{?s/} as satisfied."
     )
   }
+  n_other <- NROW(check$other_channels)
+  if (isTRUE(n_other > 0L)) {
+    for (i in seq_len(n_other)) {
+      bullets <- c(
+        bullets,
+        `x` = sprintf(
+          "{.val {other_channels$name[[%d]]}} is installed from {.val {other_channels$channel[[%d]]}}, which is not in {.arg channels}.",
+          i,
+          i
+        )
+      )
+    }
+    hint <- if (isTRUE(all(is.na(check$other_channels$spec_hint)))) {
+      "Add {.or {.val {unique(other_channels$channel)}}} to {.arg channels}."
+    } else {
+      "Add {.or {.val {unique(other_channels$channel)}}} to {.arg channels}, or name the channel in the spec, as in {.val {other_channels$spec_hint[!is.na(other_channels$spec_hint)]}}."
+    }
+    bullets <- c(bullets, `i` = hint)
+  }
   return(bullets)
+}
+
+#' Are all unsatisfied specs explained by the channel of a package?
+#'
+#' Then `overwrite = TRUE` with the same channels does not help: the
+#' package is not on them.
+#'
+#' @param check The list from `check_env_request()`.
+#'
+#' @returns `TRUE` or `FALSE`.
+#'
+#' @keywords internal
+#' @noRd
+unsatisfied_only_by_channel <- function(check) {
+  return(
+    isTRUE(length(check$unsatisfied) > 0L) &&
+      isTRUE(all(check$unsatisfied %in% check$other_channels$spec))
+  )
+}
+
+#' Evaluate a backend call, and add the default-channels hint to its error
+#'
+#' condathis 0.1.4 used `c("conda-forge", "bioconda")` by default, and
+#' 0.2.0 uses only `"conda-forge"`. Calls that relied on the old default
+#' for a bioconda package now fail in the solver with "does not exist".
+#' When the caller did not pass `channels`, `"bioconda"` is not among the
+#' channels, and the backend's error says that a requested spec without a
+#' channel was not found, this adds a bullet that says so (see
+#' `default_channels_hint()`). Any other error passes unchanged.
+#'
+#' @param expr The backend call, usually a `with_backend_errors()` call.
+#' @param fn Character string, the exported function name. Only an error
+#'   with class `condathis_<fn>_failed` gets the bullet.
+#' @param packages Character vector of the requested specs, or `NULL`.
+#' @param channels Character vector, `channels` and `additional_channels`.
+#' @param default_channels `TRUE` when the caller did not pass `channels`.
+#'
+#' @returns The value of `expr`.
+#'
+#' @keywords internal
+#' @noRd
+with_default_channels_hint <- function(
+  expr,
+  fn,
+  packages,
+  channels,
+  default_channels
+) {
+  if (isFALSE(default_channels) || identical(length(packages), 0L)) {
+    return(expr)
+  }
+  failed_class <- paste0("condathis_", fn, "_failed")
+  return(withCallingHandlers(
+    expr,
+    error = function(cnd) {
+      if (
+        isFALSE(inherits(cnd, failed_class)) ||
+          isTRUE(cnd[["condathis_default_channels_hint"]])
+      ) {
+        return(invisible(NULL))
+      }
+      hint <- default_channels_hint(
+        cnd,
+        packages = packages,
+        channels = channels
+      )
+      if (identical(length(hint), 0L)) {
+        return(invisible(NULL))
+      }
+      # rlang keeps the bullets after the first one in `body`, and prints
+      # them before the parent's message.
+      if (is.null(cnd[["body"]]) || is.character(cnd[["body"]])) {
+        cnd[["body"]] <- c(cnd[["body"]], hint)
+      } else {
+        cnd[["message"]] <- c(cnd[["message"]], hint)
+      }
+      cnd[["condathis_default_channels_hint"]] <- TRUE
+      stop(cnd)
+    }
+  ))
+}
+
+#' The default-channels hint for a backend error
+#'
+#' @param cnd The error of a failed create or install.
+#' @param packages Character vector of the requested specs.
+#' @param channels Character vector, `channels` and `additional_channels`.
+#'
+#' @returns A named character vector with one formatted `i` bullet, or
+#'   `character(0)` when `"bioconda"` is among `channels`, or when the error
+#'   does not say that a requested spec without a channel was not found
+#'   (see `missing_spec_names()`).
+#'
+#' @keywords internal
+#' @noRd
+default_channels_hint <- function(cnd, packages, channels) {
+  if (isTRUE("bioconda" %in% requested_channel_names(channels))) {
+    return(character(0L))
+  }
+  missing_names <- missing_spec_names(cnd)
+  if (identical(length(missing_names), 0L)) {
+    return(character(0L))
+  }
+  packages <- as.character(packages)
+  # Specs without a channel only: a spec such as `"bioconda::samtools"`
+  # already names its channel. A spec that cannot be read is left out.
+  spec_names <- vapply(
+    packages,
+    function(spec_str) {
+      ms <- tryCatch(parse_match_spec(spec_str), error = function(e) NULL)
+      location <- ms[["channel_location"]]
+      has_channel <- isFALSE(is.null(location)) &&
+        isFALSE(is.na(location)) &&
+        isTRUE(nzchar(location)) &&
+        isFALSE(identical(location, "None"))
+      if (is.null(ms) || isTRUE(has_channel)) {
+        return(NA_character_)
+      }
+      return(tolower(as.character(ms[["name"]])))
+    },
+    character(1L),
+    USE.NAMES = FALSE
+  )
+  specs <- packages[!is.na(spec_names) & spec_names %in% missing_names]
+  if (identical(length(specs), 0L)) {
+    return(character(0L))
+  }
+  bioconda_specs <- paste0("bioconda::", specs)
+  hint <- cli::format_inline(
+    "Since condathis 0.2.0, the default {.arg channels} is only {.val conda-forge}, without {.val bioconda}. If {.val {specs}} {?is a/are} bioconda package{?s}, name the channel in the spec{?s}, as in {.val {bioconda_specs}}, or pass {.code channels = c(\"conda-forge\", \"bioconda\")}."
+  )
+  return(c(`i` = hint))
+}
+
+#' The package names that a backend's error says were not found
+#'
+#' Reads the messages of `cnd` and of its parents, and their `stderr`
+#' fields, for the text that each backend gives for a requested package
+#' that is on none of the channels:
+#' * micromamba 2: `"samtools =1.17 * does not exist (perhaps a typo or a
+#'   missing channel)."`. A missing dependency reads `"which does not exist
+#'   (perhaps a missing channel)"`, and does not count.
+#' * rattler (resolvo): `"No candidates were found for samtools *."`.
+#' Other text gives no names, so no hint.
+#'
+#' @param cnd An error condition.
+#'
+#' @returns Character vector of unique package names, in lower case,
+#'   possibly empty.
+#'
+#' @keywords internal
+#' @noRd
+missing_spec_names <- function(cnd) {
+  texts <- character(0L)
+  depth <- 0L
+  while (isTRUE(inherits(cnd, "condition")) && isTRUE(depth < 20L)) {
+    texts <- c(texts, as.character(cnd[["message"]]))
+    if (isTRUE(rlang::is_string(cnd[["stderr"]]))) {
+      texts <- c(texts, cnd[["stderr"]])
+    }
+    cnd <- cnd[["parent"]]
+    depth <- depth + 1L
+  }
+  text <- paste(texts[!is.na(texts)], collapse = "\n")
+  name_pattern <- "([A-Za-z0-9_][A-Za-z0-9_.+-]*)"
+  patterns <- c(
+    paste0(
+      "(?:^|\\s)",
+      name_pattern,
+      " [^\\n]*?does not exist \\(perhaps a typo or a missing channel\\)"
+    ),
+    paste0("No candidates were found for ", name_pattern)
+  )
+  found <- unlist(lapply(patterns, function(pattern) {
+    matches <- regmatches(text, gregexpr(pattern, text, perl = TRUE))[[1L]]
+    return(sub(pattern, "\\1", matches, perl = TRUE))
+  }))
+  return(unique(tolower(found)))
 }
 
 #' Hint bullets for an environment that does not have the requested packages
@@ -893,12 +1297,20 @@ keep_existing_env <- function(
   uncompared <- check$uncompared
   uncompared_versions <- check$uncompared_versions
   uncompared_builds <- check$uncompared_builds
+  other_channels <- check$other_channels
   if (isFALSE(check$satisfied)) {
+    # When only the channel differs, `overwrite = TRUE` with the same
+    # channels fails: the package is not on them.
+    hint <- if (isTRUE(unsatisfied_only_by_channel(check))) {
+      character(0L)
+    } else {
+      env_request_hint
+    }
     condathis_abort(
       message = c(
         `x` = "Environment {.field {env_name}} exists and does not have the requested packages.",
         unsatisfied_spec_bullets(check),
-        env_request_hint
+        hint
       ),
       class = "condathis_create_env_exists",
       call = call

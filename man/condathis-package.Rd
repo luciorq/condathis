@@ -8,15 +8,27 @@
 \description{
 \if{html}{\figure{logo.svg}{options: style='float: right' alt='logo' width='120'}}
 
-Runs command line interface (CLI) tools in isolated and reproducible 'Conda' environments from R. Environments are created and managed with 'micromamba' \url{https://mamba.readthedocs.io/en/latest/}, which is downloaded when no usable copy is found. Commands run with their environment activated, alone or as pipelines connected by pipes, and other packages can add backends that create and run environments.
+Runs command line interface (CLI) tools in isolated and reproducible 'Conda' environments from R. Environments are created and managed with 'micromamba', which is downloaded when no usable copy is found. Commands run with their environment activated, alone or as pipelines connected by pipes. Other packages can provide other tools to create and run environments.
 }
 \details{
 Create an environment with \code{\link[=create_env]{create_env()}}. Run a command line tool in it
 with \code{\link[=run]{run()}}, or run several tools connected by pipes with
-\code{\link[=run_pipeline]{run_pipeline()}}. Read the output with \code{\link[=parse_output]{parse_output()}}. Start with
-\code{vignette("condathis")}. \link{condathis-options} lists the options and
-environment variables that \code{condathis} reads. \link{condathis-conditions}
-lists the classes of its errors and warnings.
+\code{\link[=run_pipeline]{run_pipeline()}}. Read the output with \code{\link[=parse_output]{parse_output()}}.
+
+\code{condathis} downloads \code{micromamba} when it first needs it and finds no
+usable copy (see \emph{micromamba discovery} in \link{condathis-options}). A
+message says so first, unless \code{verbose = "silent"}. It keeps the
+\code{micromamba} it downloads, the environments and the package caches in
+its data directory (see \code{\link[=get_install_dir]{get_install_dir()}}). A \code{micromamba} found
+elsewhere is used where it is. Removing the package does not
+delete them: see \emph{Removing everything} in \code{\link[=clean_cache]{clean_cache()}}. Run commands
+from an environment created outside \code{condathis} with \code{\link[=env_path]{env_path()}}.
+Other packages can add backends with the experimental
+\code{\link[=register_backend]{register_backend()}}.
+
+Start with \code{vignette("condathis")}. \link{condathis-options} lists the options
+and environment variables that \code{condathis} reads. \link{condathis-conditions}
+lists the classes of its errors, warnings and messages.
 }
 \seealso{
 Useful links:

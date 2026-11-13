@@ -1,9 +1,10 @@
 # polyglot test channel
 
 A local conda channel with one package, `polyglot` 0.1.0 (`noarch: generic`,
-no dependencies, 1.5 KB). It installs one script, `bin/polyglot` and
-`Scripts/polyglot.cmd`, that runs as a POSIX shell script and as a Windows
-batch file. It prints which kind of system it runs on.
+no dependencies, 1.5 KB). It installs the same script twice, as
+`bin/polyglot` and `Scripts/polyglot.cmd`. The script runs as a POSIX
+shell script and as a Windows batch file, and prints which kind of system
+it runs on.
 
 - Source: <https://github.com/luciorq/polyglot>
 - Published: <https://prefix.dev/channels/universe/packages/polyglot>

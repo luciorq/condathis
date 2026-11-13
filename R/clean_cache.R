@@ -1,4 +1,4 @@
-#' Clean Conda cache
+#' Clean the package caches of condathis
 #'
 #' @description
 #' Removes the package and metadata caches of condathis and of every
@@ -54,6 +54,34 @@
 #' error of the backend as its parent. When `clean_cache()` cannot delete a
 #' directory itself, it aborts with class `condathis_clean_cache_failed` the
 #' same way.
+#'
+#' @section Removing everything:
+#' `clean_cache()` keeps micromamba and the environments. To remove
+#' everything that `condathis` installed, delete its data and cache
+#' directories, in an R session that runs no `condathis` command at the
+#' same time:
+#'
+#' ```r
+#' unlink(condathis::get_install_dir()$path, recursive = TRUE)
+#' unlink(tools::R_user_dir("condathis", "cache"), recursive = TRUE)
+#' ```
+#'
+#' The condathis data directory, the `path` of the `"micromamba"` row of
+#' [get_install_dir()], holds the micromamba binary that
+#' [install_micromamba()] downloaded, every environment, the package and
+#' repodata caches, the lock files and the configuration file that
+#' `condathis` writes for micromamba. The data
+#' directories of the other backends that use [backend_root_dir()] are
+#' inside it. [get_install_dir()] also lists the data directory of a
+#' registered backend that chose its own.
+#'
+#' This leaves alone what `condathis` did not install: a micromamba that
+#' `condathis` found elsewhere (see *micromamba discovery* in
+#' [condathis-options]), environments that you passed as [env_path()],
+#' the lines that micromamba added to `~/.conda/environments.txt`, the pip
+#' cache on macOS and Windows (see [get_install_dir()]), and on Windows the
+#' Start Menu shortcuts that `condathis` 0.1.4 and earlier added (see
+#' [remove_env()]).
 #'
 #' @family setup
 #' @seealso [condathis-conditions] for every condition class.

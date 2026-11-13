@@ -1,13 +1,3 @@
-## condathis (development version)
-
-### Bug fixes
-
-* On Windows, `run()`, `run_bin()` and `run_pipeline()` with the micromamba
-  backend no longer put a second copy of `PATH` entries written with `/` in
-  front of your session's `PATH`. micromamba rewrites these entries with `\`,
-  and condathis had read the rewritten copies as directories that the
-  environment added.
-
 ## condathis 0.2.0
 
 condathis 0.2.0 adds pipelines and runs the environment and command
@@ -24,22 +14,38 @@ write instead.
 * `create_env()` and `install_packages()` take package specs in `...` and
   every other argument by name, as in
   `create_env("python=3.13", env_name = "py-env")`.
-  `packages =` still works, with a deprecation warning once per session and
-  function (class `condathis_deprecated_packages_arg`).
+  `packages =` still works. It is deprecated: called from the console, a
+  script or the tests of your own package, it warns once per session and
+  function (class `condathis_deprecated_packages_arg`). Calls made inside
+  other packages do not warn.
 
 * Old positional calls no longer work: name every argument after the
   package specs, as in `install_packages("pkg", env_name = "my-env")`.
-  When the last spec names an existing environment, the call aborts and
-  says so (class `condathis_<function>_positional_env_name`).
-  Any other name is read as one more package spec, and the call fails
-  (`install_packages()` first creates a missing `"condathis-env"`, empty).
+  When the last of two or more unnamed arguments names an existing
+  environment, the call aborts and says so (class
+  `condathis_<function>_positional_env_name`).
+  Any other name is read as one more package spec, so the call fails
+  unless a package has that name (`install_packages()` first creates a
+  missing `"condathis-env"`, empty).
   A spec that ends in `.yml` or `.yaml` asks for `env_file =`.
   A misspelled argument such as `chanels =` names the closest argument.
+  Argument names are no longer abbreviated: abbreviations that 0.1.4
+  matched, such as `pack =`, `over =` or, in `install_packages()`,
+  `env =`, now abort with a hint that names the full argument.
 
 * The default `channels` of `create_env()` and `install_packages()` is now
   `"conda-forge"` (it was `c("conda-forge", "bioconda")`).
   For bioconda packages, name the channel in the spec (`"bioconda::samtools"`)
   or pass `channels = c("conda-forge", "bioconda")`.
+  When `channels` is not given and a spec without a channel is on none of
+  the channels, the error says that bioconda is no longer a default
+  channel and names the `"bioconda::"` spec to use.
+  With the default `channels`, an environment built from bioconda with
+  0.1.4 does not count as having a spec without a channel, such as
+  `"samtools"`:
+  `create_env("samtools", env_name = ...)` aborts with class
+  `condathis_create_env_exists`, and the error names the channel of the
+  installed package.
   `channels = NULL`, `character(0)`, `NA` and `""` abort with class
   `condathis_invalid_channels` (in 0.1.4, `NULL` meant the default).
 
@@ -79,8 +85,8 @@ write instead.
 * Environment names must be valid directory names on every OS.
   Names that are empty, `.` or `..`, start with `-` or end with `.` are
   invalid.
-  So are names that contain a path separator, `:`, `#`, whitespace or
-  `<>"|?*`, and Windows device names such as `nul`.
+  So are names that contain a path separator, `:`, `#`, whitespace, a
+  control character or `<>"|?*`, and Windows device names such as `nul`.
   They abort in every function (class `condathis_invalid_env_name`).
   `env_path()` still runs commands in an existing environment with such a
   name (its `path` is in `list_envs()`).
@@ -131,9 +137,10 @@ write instead.
   `condathis_invalid_method`.
 
 * `remove_env()` now defaults to `verbose = "output"` and reports the
-  removal.
-  `list_packages()` now defaults to `verbose = "silent"` and
-  always returns its tibble visibly.
+  removal: pass `verbose = "silent"` to keep it quiet.
+  `list_packages()` now defaults to `verbose = "silent"` (pass
+  `verbose = "output"` for the messages of 0.1.4) and always returns its
+  tibble visibly.
 
 * `env_exists()` and `get_env_dir()` abort when `env_name` is not a single,
   valid name, such as `NULL`, `NA`, a number or several names (class
@@ -170,9 +177,10 @@ write instead.
 
 * `method = "rattler"` uses the backend of the rattlerthis package, which
   is not on CRAN.
+  The backends article on the package website shows how to install it.
   condathis loads it when it is installed, and aborts with
   class `condathis_backend_not_installed` otherwise.
-  It never downloads micromamba.
+  This backend never downloads micromamba.
   A backend that does not run the link scripts of packages, such as rattler,
   makes the call warn with class `condathis_link_scripts_skipped`.
 
@@ -213,7 +221,8 @@ write instead.
   * `binary = TRUE` returns stdout and stderr as raw vectors.
   * `supervise` and, on Linux, `linux_pdeathsig` end the command when R
     ends, even by a crash. `cleanup_tree` ends the processes that the
-    command started when it finishes. All three default to `FALSE`.
+    command started when it finishes. All three default to `FALSE` in
+    `run()` and `run_bin()`.
   * `run_bin()` also gains `method`.
 
 * The errors of a failed or timed-out command of `run()`, `run_bin()` and
@@ -230,9 +239,13 @@ write instead.
   published with the micromamba release.
   It tries the next mirror when the checksum does not match (warning class
   `condathis_install_micromamba_checksum_mismatch`).
-  When no checksum can be read, it installs the binary and warns with class
-  `condathis_install_micromamba_checksum_unavailable` when
-  `verbose = "output"` or `"full"`.
+  When no checksum can be read or no hash computed, it installs the binary
+  and warns with class `condathis_install_micromamba_checksum_unavailable`
+  (also when a function that needs micromamba installs it), unless
+  `verbose = "silent"`.
+  The hash is computed with `tools::sha256sum()` on R 4.5.0 or later, else
+  with the digest package or a `sha256sum` or `shasum` program, and on
+  Windows also with `certutil`.
 
 * Windows on ARM64: a native ARM64 R gets the `win-arm64` micromamba.
   `create_env()` falls back to `win-64` packages, through x64 emulation,
@@ -243,17 +256,21 @@ write instead.
   two seconds (message class `condathis_env_lock_waiting`).
   `clean_cache()` and package installs of other sessions wait for each other.
 
-* New help pages `?condathis-conditions` (condition classes and error
-  fields) and `?condathis-options` (options and environment variables).
+* New help pages `` ?`condathis-conditions` `` (condition classes and
+  error fields) and `` ?`condathis-options` `` (options and environment
+  variables).
 
 ### Other changes
 
 * `method = "native"`, the 0.1.4 default, still works as a deprecated alias
-  for `"micromamba"` (warning class `condathis_deprecated_method_native`).
+  for `"micromamba"`.
+  It warns once per session (class `condathis_deprecated_method_native`).
+  `create_env()`, `install_packages()`, `validate_env()`, `remove_env()`,
+  `run()` and `run_bin()` do not warn for calls made inside other packages.
 
 * Every error has the class `condathis_error` and every warning
   `condathis_warning`, with classes for the function and the problem (see
-  `?condathis-conditions`).
+  `` ?`condathis-conditions` ``).
   Messages changed too: match classes and error fields, not message text.
   The 0.1.4 classes are kept as extra classes until 1.0:
   * `condathis_create_invalid_overwrite_arg` is now
@@ -293,6 +310,10 @@ write instead.
   `get_install_dir()` create only the data directory).
   Without a usable micromamba, they read the data directory.
 
+* When a function needs micromamba and finds no usable binary, it says
+  that it downloads one, naming the version and the path (message class
+  `condathis_micromamba_downloading`), unless `verbose = "silent"`.
+
 * The check that an existing environment has the requested
   packages (`create_env(overwrite = FALSE)`, `validate_env()`) compares the
   name without case, the version, the build string, the channel and the
@@ -301,6 +322,12 @@ write instead.
   bracket constraints.
   0.1.4 compared only the name and the version.
   Channels compare without credentials or platform subdirectory.
+  Specs for virtual packages, such as `"__cuda=12"`, `"__unix"` or
+  `"__glibc>=2.17"`, are not compared: they describe the host, and the
+  solver checks them when it creates the environment.
+  So repeating `create_env()` with such a spec keeps the environment
+  instead of aborting. `create_env()` and `install_packages()` still pass
+  them to the backend.
 
 * A spec that condathis cannot compare as micromamba reads it never counts
   as satisfied.
@@ -349,6 +376,8 @@ write instead.
 
 * condathis now imports filelock (>= 1.0.3) and ps (>= 1.9.3).
   It needs cli (>= 3.4.0), processx (>= 3.9.0) and rlang (>= 1.0.0).
+  It suggests digest, which checks the micromamba download on R older than
+  4.5.0 when it is installed.
 
 ### Bug fixes
 

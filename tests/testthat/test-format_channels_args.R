@@ -126,6 +126,7 @@ testthat::test_that("a local channel with white space stays as it is where no ot
 
 testthat::test_that("micromamba installs from a local channel in a directory with a space", {
   testthat::skip_on_cran()
+  skip_if_no_micromamba_offline()
   # Regression test (R-36), end to end: create_env() and install_packages()
   # work, and the channel is reported as the URL of its directory, so
   # install_packages() does not warn that the environment's channel was

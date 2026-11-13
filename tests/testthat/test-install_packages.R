@@ -47,13 +47,55 @@ testthat::test_that("install_packages requires package specs", {
     class(catch_error(install_packages(character(0L), env_name = "some-env"))),
     missing_class
   )
-  testthat::expect_identical(
-    class(catch_error(suppressWarnings(
-      install_packages(packages = NULL, env_name = "some-env"),
-      classes = "condathis_deprecated_packages_arg"
-    ))),
-    missing_class
+})
+
+testthat::test_that("install_packages(packages = NULL) installs nothing, as in 0.1.4", {
+  # Regression test: an explicit `packages = NULL` or `character(0)` aborted
+  # with condathis_install_packages_missing_packages. 0.1.4 ran an empty
+  # install with status 0.
+  id <- "deprecated_packages_arg_install_packages"
+  reset_warn_once(id)
+  withr::defer(reset_warn_once(id))
+  stub <- local_install_stub("stub-install-empty", envs = "empty-env")
+  testthat::expect_warning(
+    res <- install_packages(
+      packages = NULL,
+      env_name = "empty-env",
+      verbose = "silent"
+    ),
+    class = "condathis_deprecated_packages_arg"
   )
+  testthat::expect_s3_class(res, "condathis_result")
+  testthat::expect_identical(res$status, 0L)
+  testthat::expect_identical(res$cmd, NA_character_)
+  testthat::expect_identical(res$env_name, "empty-env")
+  res <- install_packages(
+    packages = character(0L),
+    env_name = "empty-env",
+    verbose = "silent"
+  )
+  testthat::expect_identical(res$status, 0L)
+  res <- do.call(
+    install_packages,
+    list(packages = NULL, env_name = "empty-env", verbose = "silent")
+  )
+  testthat::expect_identical(res$status, 0L)
+  testthat::expect_length(stub_calls(stub, "backend_install"), 0L)
+  testthat::expect_message(
+    install_packages(packages = NULL, env_name = "empty-env"),
+    regexp = "nothing to install"
+  )
+  # A missing environment other than the default one still aborts.
+  testthat::expect_error(
+    install_packages(packages = NULL, env_name = "missing-env"),
+    class = "condathis_install_packages_env_not_found"
+  )
+  # No specs at all still abort.
+  testthat::expect_error(
+    install_packages(env_name = "empty-env"),
+    class = "condathis_install_packages_missing_packages"
+  )
+  testthat::expect_length(stub_calls(stub, "backend_install"), 0L)
 })
 
 testthat::test_that("install_packages rejects package specs that are not character strings", {
@@ -211,6 +253,8 @@ testthat::test_that("install_packages does not create a missing custom environme
 })
 
 testthat::test_that("install_packages aborts for a missing micromamba environment without a process", {
+  # About a second or more on Windows: not on CRAN.
+  testthat::skip_on_cran()
   # Decision D3 on a fresh root: nothing is created, and micromamba is
   # neither run nor installed.
   condathis::with_sandbox_dir({
@@ -378,6 +422,45 @@ testthat::test_that("install_packages catches an old positional env_name", {
     fixed = TRUE
   )
   testthat::expect_length(stub_calls(stub, "backend_install"), 0L)
+})
+
+testthat::test_that("install_packages checks for a positional env_name only with two or more unnamed specs", {
+  # Regression test: `packages = c("x", "<env>")` aborted when "<env>" named
+  # an existing environment. 0.1.4 read it as two specs.
+  id <- "deprecated_packages_arg_install_packages"
+  reset_warn_once(id)
+  withr::defer(reset_warn_once(id))
+  stub <- local_install_stub(
+    "stub-install-positional-alias",
+    envs = c("condathis-env", "my-env")
+  )
+  testthat::expect_warning(
+    res <- install_packages(
+      packages = c("python", "my-env"),
+      verbose = "silent"
+    ),
+    class = "condathis_deprecated_packages_arg"
+  )
+  testthat::expect_identical(res$status, 0L)
+  res <- install_packages(c("python", "my-env"), verbose = "silent")
+  testthat::expect_identical(res$status, 0L)
+  res <- do.call(
+    install_packages,
+    list(packages = c("python", "my-env"), verbose = "silent")
+  )
+  testthat::expect_identical(res$status, 0L)
+  installs <- stub_calls(stub, "backend_install")
+  testthat::expect_length(installs, 3L)
+  for (call in installs) {
+    testthat::expect_identical(call$args$packages, c("python", "my-env"))
+    testthat::expect_identical(call$args$env_name, "condathis-env")
+  }
+  # Two unnamed arguments still abort.
+  testthat::expect_error(
+    install_packages("python", "my-env"),
+    class = "condathis_install_packages_positional_env_name"
+  )
+  testthat::expect_length(stub_calls(stub, "backend_install"), 3L)
 })
 
 testthat::test_that("install_packages accepts packages = as a deprecated alias", {
@@ -867,7 +950,6 @@ local_fake_emulation <- function(sys_arch, emulated, envir = parent.frame()) {
       log$solves <- c(log$solves, platform)
       return(identical(platform, emulated))
     },
-    ensure_libmamba_pkgs_dir_workaround = function(...) invisible(NULL),
     native_cmd = function(
       conda_cmd,
       conda_args = NULL,
@@ -927,6 +1009,8 @@ call_platform <- function(call) {
 }
 
 testthat::test_that("install_packages() gives the new default environment the emulation fallback of create_env()", {
+  # About a second or more on Windows: not on CRAN.
+  testthat::skip_on_cran()
   # Regression test: install_packages() creates a missing "condathis-env"
   # empty, so no platform was recorded for it, and the first install solved
   # for the platform of the micromamba binary: `r-base` got no fallback to
@@ -1056,4 +1140,84 @@ testthat::test_that("install_packages() keeps the platform that the first instal
     testthat::expect_true(all(c("zlib", "zstd") %in% pkgs$name))
     testthat::expect_identical(env_package_platforms(pkgs), other_platform)
   })
+})
+
+testthat::test_that("install_packages() says that bioconda is no longer a default channel", {
+  # The text micromamba 2 gives for a requested spec that is on none of the
+  # channels.
+  not_found <- function(...) {
+    rlang::abort(
+      "`micromamba` failed with status code 1.",
+      class = c("condathis_micromamba_status_error", "condathis_error"),
+      status = 1L,
+      stderr = paste0(
+        "    \u2514\u2500 samtools =* * does not exist ",
+        "(perhaps a typo or a missing channel).\n"
+      )
+    )
+  }
+  stub <- local_install_stub(
+    "stub-install-default-channels",
+    envs = "bioc-env",
+    backend_install = not_found
+  )
+  flat <- function(cnd) {
+    return(gsub("\\s+", " ", cli::ansi_strip(conditionMessage(cnd))))
+  }
+  cnd <- catch_error(
+    install_packages("samtools", env_name = "bioc-env", verbose = "silent")
+  )
+  testthat::expect_identical(
+    class(cnd),
+    c(
+      "condathis_install_packages_failed",
+      "condathis_backend_error",
+      "condathis_micromamba_status_error",
+      "condathis_error",
+      rlang_tail
+    )
+  )
+  testthat::expect_identical(cnd$status, 1L)
+  message <- flat(cnd)
+  testthat::expect_match(
+    message,
+    "Since condathis 0.2.0, the default `channels` is only \"conda-forge\"",
+    fixed = TRUE
+  )
+  testthat::expect_match(message, "\"bioconda::samtools\"", fixed = TRUE)
+
+  # Not when `channels` is given or has bioconda.
+  for (cnd in list(
+    catch_error(install_packages(
+      "samtools",
+      env_name = "bioc-env",
+      channels = "conda-forge",
+      verbose = "silent"
+    )),
+    catch_error(install_packages(
+      "samtools",
+      env_name = "bioc-env",
+      additional_channels = "bioconda",
+      verbose = "silent"
+    ))
+  )) {
+    testthat::expect_s3_class(cnd, "condathis_install_packages_failed")
+    testthat::expect_no_match(flat(cnd), "Since condathis 0.2.0", fixed = TRUE)
+  }
+})
+
+testthat::test_that("install_packages() passes virtual package specs to the backend", {
+  stub <- local_install_stub("stub-install-virtual", envs = "cuda-env")
+  install_packages(
+    "__cuda=12",
+    "pytorch-gpu",
+    env_name = "cuda-env",
+    verbose = "silent"
+  )
+  calls <- stub_calls(stub, "backend_install")
+  testthat::expect_length(calls, 1L)
+  testthat::expect_identical(
+    calls[[1L]]$args$packages,
+    c("__cuda=12", "pytorch-gpu")
+  )
 })
