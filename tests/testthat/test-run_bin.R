@@ -356,7 +356,7 @@ test_that("run_bin(activate = TRUE) sets an activated PATH like run()", {
   testthat::expect_match(res_bin$stdout, env_marker, fixed = TRUE)
 })
 
-test_that("run_bin(activate = FALSE) does not set CONDA_PREFIX", {
+test_that("run_bin(activate = FALSE) sets the fixed activation", {
   testthat::skip_on_cran()
   testthat::skip_if_offline()
 
@@ -373,7 +373,11 @@ test_that("run_bin(activate = FALSE) does not set CONDA_PREFIX", {
     verbose = "silent",
     error = "continue"
   )
-  testthat::expect_true(res$status != 0L || !nzchar(trimws(res$stdout)))
+  testthat::expect_identical(res$status, 0L)
+  testthat::expect_identical(
+    as.character(fs::path_norm(trimws(res$stdout))),
+    as.character(fs::path_norm(get_env_dir("run-bin-cli-tools-env")))
+  )
 })
 
 test_that("run_bin() reports a missing environment for both activate values", {
@@ -422,7 +426,7 @@ test_that("run_bin() honors error = continue when activation resolution fails", 
     verbose = "silent"
   )
   testthat::expect_equal(res$status, 127L)
-  testthat::expect_match(res$stderr, "Failed to resolve activation")
+  testthat::expect_match(res$stderr, "Failed to resolve command")
 
   testthat::expect_error(
     object = run_bin(
@@ -436,13 +440,17 @@ test_that("run_bin() honors error = continue when activation resolution fails", 
   )
 })
 
-test_that("run_bin() keeps a symlinked PATH command's own name", {
-  # Regression test: the PATH fallback resolved symlinks, so multicall
+test_that("run_bin() keeps a symlinked command's own name", {
+  # Regression test: the lookup of run_bin() resolved symlinks, so multicall
   # binaries and tools that dispatch on their own name saw the target's name.
-  # The fallback applies to an existing environment that does not have the
-  # command.
   stub <- local_run_family_stub()
-  dir <- withr::local_tempdir()
+  dir <- as.character(fs::path(
+    stub$root,
+    "envs",
+    "stub-env",
+    if (isTRUE(is_windows())) "Scripts" else "bin"
+  ))
+  fs::dir_create(dir)
   if (isTRUE(is_windows())) {
     # Symbolic links need extra privileges on Windows; a hard link is the
     # same name-versus-target case. `%~n0` is the name it was started as.
@@ -455,9 +463,6 @@ test_that("run_bin() keeps a symlinked PATH command's own name", {
     fs::file_chmod(real, "u+x")
     fs::link_create(real, fs::path(dir, "my-linked-tool"))
   }
-  withr::local_envvar(
-    PATH = paste(dir, Sys.getenv("PATH"), sep = .Platform$path.sep)
-  )
   for (activate in c(TRUE, FALSE)) {
     res <- run_bin(
       "my-linked-tool",
@@ -762,7 +767,7 @@ test_that("run_bin() gives one text for a failed resolution under error = contin
   testthat::expect_identical(res$status, 127L)
   testthat::expect_identical(
     res$stderr,
-    "Failed to resolve activation for environment 'stub-env': Hook \"broken\" failed.\n"
+    "Failed to resolve command for environment 'stub-env': Hook \"broken\" failed.\n"
   )
   testthat::expect_error(
     run_bin("echo", env_name = "stub-env", verbose = "silent"),
@@ -823,7 +828,7 @@ test_that("run_bin() wraps a backend's resolution error with its own class", {
   testthat::expect_identical(res$status, 127L)
   testthat::expect_match(
     res$stderr,
-    "Failed to resolve activation",
+    "Failed to resolve command",
     fixed = TRUE
   )
 })
@@ -936,8 +941,10 @@ test_that("run_bin() finds a command that only the activation PATH provides", {
   res <- run_bin(
     "condathis-activation-tool",
     env_name = "stub-env",
+    error = "continue",
     verbose = "silent"
   )
+  # Every OS searches the command's PATH, after the activation.
   testthat::expect_identical(res$status, 0L)
   testthat::expect_identical(parse_output(res), "activated")
   # Without activation, the backend's PATH does not apply.
@@ -949,130 +956,6 @@ test_that("run_bin() finds a command that only the activation PATH provides", {
     verbose = "silent"
   )
   testthat::expect_identical(res$status, 127L)
-})
-
-test_that("resolve_run_bin_command() keeps paths and searches the given PATH", {
-  # Relative directories keep the `:` of the Linux and macOS rule apart
-  # from Windows drive letters, so this runs on every OS. An `.exe` name
-  # passes the execute check of R on Windows; elsewhere the file gets the
-  # execute permission.
-  withr::local_dir(withr::local_tempdir())
-  env_dir <- fs::path(getwd(), "env")
-  fs::dir_create(c("first", "second"))
-  for (tool in c("first/tool.exe", "second/tool.exe")) {
-    writeLines("", tool)
-    Sys.chmod(tool, "755")
-  }
-
-  # An absolute path is kept as it is, whether it exists or not.
-  abs_tool <- normalizePath("first/tool.exe", winslash = "/")
-  testthat::expect_identical(
-    resolve_run_bin_command(abs_tool, env_dir, path = "", on_windows = FALSE),
-    abs_tool
-  )
-  missing_abs <- as.character(fs::path(getwd(), "missing-tool"))
-  testthat::expect_identical(
-    resolve_run_bin_command(
-      missing_abs,
-      env_dir,
-      path = "first",
-      on_windows = FALSE
-    ),
-    missing_abs
-  )
-  # A name with a directory part is never searched for on PATH.
-  testthat::expect_identical(
-    resolve_run_bin_command(
-      "./tool.exe",
-      env_dir,
-      path = "second",
-      on_windows = FALSE
-    ),
-    "./tool.exe"
-  )
-  testthat::expect_identical(
-    resolve_run_bin_command(
-      "sub\\tool",
-      env_dir,
-      path = "second",
-      on_windows = TRUE
-    ),
-    "sub\\tool"
-  )
-  # A bare name: the first PATH entry that has it wins, kept as found.
-  # Empty entries are skipped.
-  testthat::expect_identical(
-    resolve_run_bin_command(
-      "tool.exe",
-      env_dir,
-      path = "first:second",
-      on_windows = FALSE
-    ),
-    "first/tool.exe"
-  )
-  testthat::expect_identical(
-    resolve_run_bin_command(
-      "tool.exe",
-      env_dir,
-      path = "::second:",
-      on_windows = FALSE
-    ),
-    "second/tool.exe"
-  )
-  # Only `path` is searched, never the PATH of the R session: found
-  # nowhere, the command is a path under the environment, so the start
-  # fails as "command not found".
-  for (empty_path in list("", NULL, NA_character_)) {
-    testthat::expect_identical(
-      resolve_run_bin_command(
-        "tool.exe",
-        env_dir,
-        path = empty_path,
-        on_windows = FALSE
-      ),
-      as.character(fs::path(env_dir, "bin", "tool.exe"))
-    )
-    # With `keep_bare = TRUE` (run()), it stays bare instead.
-    for (on_windows in c(FALSE, TRUE)) {
-      testthat::expect_identical(
-        resolve_run_bin_command(
-          "tool.exe",
-          env_dir,
-          path = empty_path,
-          on_windows = on_windows,
-          keep_bare = TRUE
-        ),
-        "tool.exe"
-      )
-    }
-  }
-  # A hit is a hit, whatever `keep_bare` is.
-  testthat::expect_identical(
-    resolve_run_bin_command(
-      "tool.exe",
-      env_dir,
-      path = "first:second",
-      on_windows = FALSE,
-      keep_bare = TRUE
-    ),
-    "first/tool.exe"
-  )
-
-  # The Windows rule: `;` separates entries, quotes are removed, PATHEXT
-  # extensions are tried, and the hit is normalized.
-  fs::dir_create("win")
-  writeLines("", "win/tool.cmd")
-  win_dir <- normalizePath("win", winslash = "/")
-  testthat::expect_identical(
-    resolve_run_bin_command(
-      "tool",
-      env_dir,
-      path = paste0("\"", win_dir, "\";", getwd(), "/first"),
-      on_windows = TRUE,
-      pathext = ".EXE;.CMD"
-    ),
-    normalizePath(file.path(win_dir, "tool.cmd"), mustWork = FALSE)
-  )
 })
 
 test_that("find_command_on_path() skips directories and files that cannot run", {
@@ -1221,8 +1104,9 @@ test_that("run_bin() gives backend_resolve_run() the child's block before activa
     as.character(fs::path(stub$root, "conda-pkgs"))
   )
   # `base_env` has no environment directory on its PATH: the activation
-  # adds what it needs.
-  testthat::expect_identical(path_of(base_env), Sys.getenv("PATH"))
+  # adds what it needs. Its PATH is the session's without the activation of
+  # the R session.
+  testthat::expect_identical(path_of(base_env), isolated_session_path())
 
   child_env <- seen$env
   testthat::expect_identical(
@@ -1231,10 +1115,15 @@ test_that("run_bin() gives backend_resolve_run() the child's block before activa
   )
   testthat::expect_identical(
     path_of(child_env),
-    compose_path(env_bin_search_dirs(env_dir), path_of(base_env))
+    run_family_rscript_path(
+      compose_path(env_bin_search_dirs(env_dir), path_of(base_env))
+    )
   )
+  # One activation level, whatever `base_env` and the activation set.
+  level <- child_activation_level_vars()
+  testthat::expect_identical(child_env[names(level)], level)
   path_names <- names(base_env)[toupper(names(base_env)) == "PATH"]
-  kept <- setdiff(names(base_env), path_names)
+  kept <- setdiff(names(base_env), c(path_names, names(level)))
   testthat::expect_identical(child_env[kept], base_env[kept])
   testthat::expect_setequal(
     names(child_env),
@@ -1242,7 +1131,7 @@ test_that("run_bin() gives backend_resolve_run() the child's block before activa
   )
 
   # Without activation, no backend function runs: the child's block is the
-  # same block, with the environment's directories in front of its PATH.
+  # same block, with the fixed activation.
   seen$base_env <- NULL
   res <- run_bin(
     run_family_rscript(),
@@ -1254,13 +1143,22 @@ test_that("run_bin() gives backend_resolve_run() the child's block before activa
   testthat::expect_identical(res$status, 0L)
   testthat::expect_null(seen$base_env)
   testthat::expect_false("CONDATHIS_TEST_ACTIVATED" %in% names(seen$env))
-  testthat::expect_identical(
-    seen$env[kept[kept != "TMPDIR"]],
-    base_env[kept[kept != "TMPDIR"]]
+  fixed <- c(
+    CONDA_PREFIX = env_dir,
+    CONDA_DEFAULT_ENV = "stub-env",
+    CONDA_SHLVL = "1",
+    MAMBA_SHLVL = "1",
+    CONDA_PROMPT_MODIFIER = "",
+    MAMBA_PROMPT_MODIFIER = ""
   )
+  testthat::expect_identical(seen$env[names(fixed)], fixed)
+  unchanged <- setdiff(kept, c(names(fixed), "TMPDIR"))
+  testthat::expect_identical(seen$env[unchanged], base_env[unchanged])
   testthat::expect_identical(
     path_of(seen$env),
-    compose_path(env_bin_search_dirs(env_dir), Sys.getenv("PATH"))
+    run_family_rscript_path(
+      prepend_path_dirs(env_bin_search_dirs(env_dir), isolated_session_path())
+    )
   )
 })
 
@@ -1317,12 +1215,18 @@ test_that("run_bin() puts each directory of the environment once on the command'
     integer(1L)
   )
   testthat::expect_identical(unname(copies), rep(1L, length(dirs)))
-  # The environment's directories come first, spelled as `run_bin()`
-  # spells them, then the PATH of the session.
-  testthat::expect_identical(entries[seq_along(dirs)], dirs)
+  # The activation PATH names the directories, so condathis does not put
+  # them in front again: the command gets the PATH the stub returned.
+  dirs_spelled <- if (isTRUE(is_windows())) {
+    gsub("/", "\\", dirs, fixed = TRUE)
+  } else {
+    dirs
+  }
   testthat::expect_identical(
     child_path,
-    compose_path(dirs, Sys.getenv("PATH"))
+    run_family_rscript_path(
+      compose_path(dirs_spelled, isolated_session_path())
+    )
   )
 })
 

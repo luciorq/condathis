@@ -648,6 +648,12 @@ test_that("run() wraps a backend's resolution error with its own class", {
     "Backend stub-run failed to resolve command `echo` for environment stub-env.",
     fixed = TRUE
   )
+  # The same hint as run_bin() and run_pipeline().
+  testthat::expect_match(
+    cli::ansi_strip(conditionMessage(cnd)),
+    "activate = FALSE",
+    fixed = TRUE
+  )
 
   # The condathis classes of the backend's error stay on the new error.
   stub <- local_run_family_stub(
@@ -752,7 +758,8 @@ testthat::test_that("run() checks timeout and the process arguments before any b
     linux_pdeathsig = list(1L),
     stdout = list(1),
     stderr = list(c("|", "|")),
-    stdin = list("/nonexistent/condathis-stdin-file")
+    stdin = list("/nonexistent/condathis-stdin-file"),
+    activate = list("yes", NA)
   )
   for (arg in names(bad_args)) {
     for (value in bad_args[[arg]]) {
@@ -1430,8 +1437,33 @@ testthat::test_that("run() gives backend_resolve_run() the child's block before 
     unname(child_env[overlay_names]),
     c("yes", "1")
   )
-  kept <- setdiff(names(base_env), overlay_names)
+  # One activation level, whatever `base_env` and the activation set.
+  level <- child_activation_level_vars()
+  testthat::expect_identical(child_env[names(level)], level)
+  path_names <- names(base_env)[toupper(names(base_env)) == "PATH"]
+  kept <- setdiff(
+    names(base_env),
+    c(overlay_names, path_names, names(level))
+  )
   testthat::expect_identical(child_env[kept], base_env[kept])
+  # The PATH of `base_env` is the session's without the activation of the R
+  # session. The activation of the stub sets no PATH, so condathis puts the
+  # environment's directories in front of it.
+  base_path <- env_block_path(base_env)
+  testthat::expect_identical(base_path, isolated_session_path())
+  env_dir <- as.character(fs::path(stub$root, "envs", "stub-env"))
+  # R's own `Rscript` is a program of R's prefix when R comes from a Conda
+  # environment: on Windows, that prefix's directories then follow (D14).
+  expected_env <- r_prefix_command_env(
+    run_family_rscript(),
+    child_env = c(
+      PATH = prepend_path_dirs(env_bin_search_dirs(env_dir), base_path)
+    )
+  )
+  testthat::expect_identical(
+    env_block_path(child_env),
+    unname(expected_env[["PATH"]])
+  )
 })
 
 testthat::test_that("run() starts a bare command as the micromamba backend does", {
@@ -1534,120 +1566,202 @@ testthat::test_that("run() starts a bare command as the micromamba backend does"
   )
 })
 
-testthat::test_that("resolve_direct_run_command() follows the micromamba backend on each OS", {
+testthat::test_that("resolve_direct_run_command() looks a bare name up on the command's PATH", {
   withr::local_dir(withr::local_tempdir())
   env_dir <- fs::path(getwd(), "env")
+  host_dir <- fs::path(getwd(), "host")
+  wd_dir <- fs::path(getwd(), "wd")
   fs::dir_create(c(
     fs::path(env_dir, "bin"),
     fs::path(env_dir, "Scripts"),
-    fs::path(env_dir, "Library", "usr", "bin")
+    fs::path(env_dir, "Library", "usr", "bin"),
+    host_dir,
+    wd_dir
   ))
   writeLines("", fs::path(env_dir, "bin", "tool.cmd"))
   writeLines("", fs::path(env_dir, "Scripts", "other.bat"))
-  # Files without an extension, as MSYS2 scripts in `Library/usr/bin`.
+  # Files without an extension, as MSYS2 scripts in `Library/usr/bin`, or
+  # `cmd` of Rtools.
   writeLines("", fs::path(env_dir, "Library", "usr", "bin", "script"))
   writeLines("", fs::path(env_dir, "Library", "usr", "bin", "tool"))
+  writeLines("", fs::path(host_dir, "cmd"))
+  writeLines("", fs::path(host_dir, "cmd.exe"))
+  writeLines("", fs::path(wd_dir, "tool.exe"))
+  child_env <- c(
+    PATHEXT = ".EXE;.CMD;.BAT",
+    Path = paste(
+      c(
+        as.character(env_bin_search_dirs(env_dir, on_windows = TRUE)),
+        host_dir
+      ),
+      collapse = ";"
+    )
+  )
+  resolve <- function(command, ...) {
+    return(resolve_direct_run_command(
+      command,
+      child_env = child_env,
+      on_windows = TRUE,
+      ...
+    ))
+  }
+  norm <- function(path) normalizePath(path, mustWork = FALSE)
 
   # Linux and macOS: the command is kept, so that processx starts it with
   # `execvp()` on the child's PATH, with its own name as `argv[0]`.
-  for (command in c("tool", "other", "./tool", "/abs/tool")) {
+  for (command in c("tool", "other", "missing", "./tool", "/abs/tool")) {
     testthat::expect_identical(
       resolve_direct_run_command(
         command,
-        env_dir = env_dir,
+        child_env = child_env,
         on_windows = FALSE
       ),
       command
     )
   }
 
-  # Windows: the environment's binary directories, in the order of
-  # activation, with the PATHEXT extensions in order. A file without an
-  # extension never counts for a name without one: processx would look
-  # for `<name>.com` and `<name>.exe` next to it.
+  # Windows, as `cmd.exe`: the working directory first, then the child's
+  # PATH in its order, with the child's PATHEXT. A file without an
+  # extension never counts for a name without one.
+  testthat::expect_identical(
+    resolve("tool"),
+    norm(fs::path(env_dir, "bin", "tool.cmd"))
+  )
+  testthat::expect_identical(
+    resolve("tool", wd = wd_dir),
+    norm(fs::path(wd_dir, "tool.exe"))
+  )
+  testthat::expect_identical(
+    resolve("other"),
+    norm(fs::path(env_dir, "Scripts", "other.bat"))
+  )
+  testthat::expect_identical(
+    resolve("cmd"),
+    norm(fs::path(host_dir, "cmd.exe"))
+  )
+  # Found nowhere: `NULL`, never the lookup of processx, which searches the
+  # folder of R and the PATH of the R session.
+  for (command in c("script", "missing")) {
+    testthat::expect_null(resolve(command))
+  }
+  # Without PATHEXT in the block, the default of Windows.
   testthat::expect_identical(
     resolve_direct_run_command(
       "tool",
-      env_dir = env_dir,
-      on_windows = TRUE,
-      pathext = ".EXE;.CMD"
-    ),
-    normalizePath(fs::path(env_dir, "bin", "tool.cmd"), mustWork = FALSE)
-  )
-  testthat::expect_identical(
-    resolve_direct_run_command(
-      "other",
-      env_dir = env_dir,
-      on_windows = TRUE,
-      pathext = ".EXE;.BAT"
-    ),
-    normalizePath(fs::path(env_dir, "Scripts", "other.bat"), mustWork = FALSE)
-  )
-  # Found nowhere in the environment, or with a directory part: unchanged,
-  # so processx searches the working directory and the PATH of R, as it
-  # does for the micromamba backend.
-  for (command in c("script", "missing", "cmd")) {
-    testthat::expect_identical(
-      resolve_direct_run_command(
-        command,
-        env_dir = env_dir,
-        on_windows = TRUE,
-        pathext = ".EXE;.BAT"
-      ),
-      command
-    )
-  }
-  testthat::expect_identical(
-    resolve_direct_run_command(
-      "sub\\tool",
-      env_dir = env_dir,
+      child_env = child_env[["Path"]] |> rlang::set_names("PATH"),
       on_windows = TRUE
     ),
-    "sub\\tool"
+    norm(fs::path(env_dir, "bin", "tool.cmd"))
   )
+  # A name with a directory part is a path.
+  testthat::expect_identical(resolve("sub\\tool"), "sub\\tool")
 })
 
-testthat::test_that("run() reports a command killed by a signal as 128 + n off Windows", {
+testthat::test_that("a bare command found nowhere fails with status 127 in the whole run family", {
+  testthat::skip_on_cran()
+  # Regression test: on Windows, processx looked such a name up in the
+  # folder of R and on the PATH of the R session. The not-found path is the
+  # same on every OS, so it is checked everywhere.
+  stub <- local_run_family_stub()
+  testthat::local_mocked_bindings(
+    resolve_direct_run_command = function(command, ...) NULL
+  )
+  for (fn in c("run", "run_bin")) {
+    f <- get(fn)
+    cnd <- testthat::expect_error(
+      f("condathis-nowhere", env_name = "stub-env", verbose = "silent"),
+      class = paste0("condathis_", fn, "_status_error")
+    )
+    testthat::expect_identical(cnd$status, 127L, info = fn)
+    res <- f(
+      "condathis-nowhere",
+      env_name = "stub-env",
+      verbose = "silent",
+      error = "continue"
+    )
+    testthat::expect_identical(res$status, 127L, info = fn)
+    testthat::expect_match(res$stderr, "not found", fixed = TRUE, info = fn)
+  }
+  res <- run_pipeline(
+    run_step("condathis-nowhere"),
+    run_step("condathis-nowhere"),
+    env_name = "stub-env",
+    verbose = "silent",
+    error = "continue"
+  )
+  testthat::expect_identical(res$statuses[[1L]], 127L)
+})
+
+testthat::test_that("run(), run_bin() and run_pipeline() report a command killed by a signal as 128 + n off Windows", {
   testthat::skip_on_cran()
   # Regression test: `micromamba run` reports a command killed by signal n
   # as 128 + n (137 for SIGKILL), but a command of another backend, started
-  # directly, gave -n. run_bin() starts the command directly for every
-  # backend and keeps -n.
+  # directly, gave -n, and run_bin() and run_pipeline() always gave -n.
   stub <- local_run_family_stub()
+  rscript <- run_family_rscript()
   kill_self <- c(
     "--vanilla",
     "-e",
     "tools::pskill(Sys.getpid(), tools::SIGKILL)"
   )
   run_res <- run(
-    run_family_rscript(),
+    rscript,
     kill_self,
     env_name = "stub-env",
     error = "continue",
     verbose = "silent"
   )
   run_bin_res <- run_bin(
-    run_family_rscript(),
+    rscript,
     kill_self,
     env_name = "stub-env",
     error = "continue",
     verbose = "silent"
   )
+  # A signal other than SIGPIPE is a failure, also in a command that is not
+  # the last one.
+  pipeline_res <- run_pipeline(
+    run_step(rscript, kill_self),
+    run_step(
+      rscript,
+      "--vanilla",
+      "-e",
+      "invisible(readLines(file('stdin')))"
+    ),
+    env_name = "stub-env",
+    error = "continue",
+    verbose = "silent"
+  )
   testthat::expect_false(run_res$timeout)
+  testthat::expect_false(run_bin_res$timeout)
+  testthat::expect_false(pipeline_res$timeout)
   if (isTRUE(is_windows())) {
-    # No signals: the exit status is kept, and both paths agree.
+    # No signals: the exit status is kept, and every path agrees.
     testthat::expect_identical(run_res$status, run_bin_res$status)
+    testthat::expect_identical(pipeline_res$statuses[[1L]], run_res$status)
   } else {
     testthat::expect_identical(run_res$status, 137L)
-    testthat::expect_identical(run_bin_res$status, -9L)
+    testthat::expect_identical(run_bin_res$status, 137L)
+    testthat::expect_identical(pipeline_res$statuses[[1L]], 137L)
+    testthat::expect_identical(pipeline_res$status, 137L)
     cnd <- testthat::expect_error(
       run(
-        run_family_rscript(),
+        rscript,
         kill_self,
         env_name = "stub-env",
         verbose = "silent"
       ),
       class = "condathis_run_status_error"
+    )
+    testthat::expect_identical(cnd$status, 137L)
+    cnd <- testthat::expect_error(
+      run_bin(
+        rscript,
+        kill_self,
+        env_name = "stub-env",
+        verbose = "silent"
+      ),
+      class = "condathis_run_bin_status_error"
     )
     testthat::expect_identical(cnd$status, 137L)
   }

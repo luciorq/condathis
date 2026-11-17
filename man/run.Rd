@@ -19,6 +19,7 @@ run(
   supervise = FALSE,
   cleanup_tree = FALSE,
   linux_pdeathsig = FALSE,
+  activate = TRUE,
   timeout = Inf
 )
 }
@@ -185,6 +186,18 @@ Windows, whatever \code{cleanup_tree} is. Send the output to files
 \code{SIGTERM} when the R session ends, even by a crash. Ignored on other
 platforms. Defaults to \code{FALSE}.}
 
+\item{activate}{Logical. Whether to run \code{cmd} with the activation of the
+backend. Defaults to \code{TRUE}: the backend activates the environment,
+with the \code{activate.d} scripts and \code{env_vars.d} files of its packages.
+An activation that fails is an error, as \code{error} describes. With
+\code{FALSE}, no backend code runs: \code{condathis} sets only \code{CONDA_PREFIX},
+\code{CONDA_DEFAULT_ENV}, \code{CONDA_SHLVL} and \code{MAMBA_SHLVL} (both \code{1}),
+empty prompt modifiers, and the binary directories of the environment
+in front of \code{PATH} (see \link{condathis-options}). In both modes, the command gets the
+variables that \code{condathis} sets in every process it starts. Values
+other than \code{TRUE} and \code{FALSE} abort with class
+\code{condathis_invalid_activate}.}
+
 \item{timeout}{Number of seconds the call may take, the activation of the
 environment included (see Details in \code{\link[=run]{run()}}). Defaults to \code{Inf} (no
 limit). \code{condathis} lowers a finite value above 2147483 (about 24.8
@@ -210,8 +223,8 @@ is the environment name, or the directory of an \code{\link[=env_path]{env_path(
 \description{
 Runs a command line tool with a Conda environment activated. The command
 gets the environment variables that the activation sets, including those
-of the \code{activate.d} scripts of its packages. To run a program without
-activation, use \code{\link[=run_bin]{run_bin()}} with \code{activate = FALSE}.
+of the \code{activate.d} scripts of its packages. With \code{activate = FALSE}, it
+gets a fixed activation instead, without those scripts.
 }
 \details{
 \code{run()} activates the environment and starts the command itself. The
@@ -221,6 +234,24 @@ includes the activation. The backend reuses the activation until the
 environment changes (its packages, \code{activate.d} scripts or \code{env_vars.d}
 files). A change in the environment variables of the R session also ends
 the reuse.
+
+The command does not get the activation of the R session. When R runs
+in an activated Conda or pixi environment, or in several nested ones,
+\code{condathis} removes their binary directories from \code{PATH} and their
+variables from the command's environment (see \link{condathis-options},
+which also lists what cannot be undone). A program of R's own
+environment so never runs in place of one the environment lacks. The
+command always runs in exactly one activated environment: \code{CONDA_SHLVL}
+and \code{MAMBA_SHLVL} are \code{1} and the prompt modifiers are empty. The
+command does not get what R's own startup set either: no \verb{R_*}
+variable, and not R's part of \code{LD_LIBRARY_PATH} or, on Windows, of
+\code{PATH} (Rtools).
+
+A bare \code{cmd} is looked up on the \code{PATH} of the command, after the
+activation. On Windows, as in \code{cmd.exe}, the working directory of the
+command comes first, and a name without an extension is looked up with
+the extensions of \code{PATHEXT}. A name found nowhere fails with status 127,
+as in a shell.
 
 Arguments in \code{...} reach the command exactly as given on every platform.
 No shell is involved. Characters such as \code{>}, \code{|}, \code{&}, \verb{\%}, \code{$}, \code{*} and

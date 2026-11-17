@@ -14,6 +14,8 @@ KiB
 Lifecycle
 MIRAX
 MatchSpec
+NumPy
+NumPy's
 ORCID
 OpenSSL
 OpenSlide
@@ -50,8 +52,10 @@ mambajs
 micromamba
 micromamba's
 mirai
+mizu
 mori
 multicall
+pixi
 pre
 processx
 ps

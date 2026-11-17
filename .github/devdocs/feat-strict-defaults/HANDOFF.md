@@ -21,12 +21,22 @@ untracked files: `R/env_definition.R`, `R/env_definition_checks.R`,
 `R/backend-micromamba-definition.R`, `man/env_definition.Rd` and
 `tests/testthat/test-env_definition.R`.
 
+Update 2026-11-16: the `env_definition()` work is committed
+(`c5fb6d4`). The run-family unification of 2026-11-16 is in the working
+tree, not committed. Its new untracked files are `R/host_env.R`,
+`tests/testthat/test-run_isolation.R` and
+`.github/devdocs/feat-run-unify/`. Package files changed, so the checks
+of step 2 below must run again.
+
 Read first:
 
 - `.github/devdocs/feat-strict-defaults/PLAN.md`, "Addendum 2026-11-13":
   the audit, every fix, the `packages =` compatibility decisions, the
   verification matrix and the release steps.
 - `.github/devdocs/feat-env-file/PLAN.md`: `env_definition()`.
+- `.github/devdocs/feat-run-unify/PLAN.md`: one run path for `run()`,
+  `run_bin()` and `run_pipeline()`, and child processes without the
+  activation of the R session.
 - `.github/devdocs/post-0.2.0/PLAN.md`: everything that is open after
   the release.
 
@@ -71,9 +81,10 @@ was submitted).
    8. `usethis::use_dev_version()`, push, Zenodo, close issue #12.
 2. **After the release**: follow "Suggested ordering" in
    `.github/devdocs/post-0.2.0/PLAN.md`. The Windows MinGW runtime pins
-   (item 7), the jarl baseline (item 8, fix findings, do not add
-   `# jarl-ignore` without asking) and the `run()` convergence (items 6
-   and 1) are still open.
+   (item 7) and the jarl baseline (item 8, fix findings, do not add
+   `# jarl-ignore` without asking) are still open. The `run()`
+   convergence (items 6 and 1) was done in 0.2.0 on 2026-11-16 (see
+   `.github/devdocs/feat-run-unify/`).
 
 ## Conventions
 

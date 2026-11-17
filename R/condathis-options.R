@@ -82,13 +82,17 @@
 #'   }
 #'   \item{`CONDA_PREFIX`}{
 #'     Prefix of the Conda environment active in the calling shell.
-#'     `condathis` reads it only to look for `micromamba` inside that prefix
-#'     during discovery. It never passes it on to child processes.
+#'     `condathis` reads it to look for `micromamba` inside that prefix
+#'     during discovery, and to remove the activation of the R session from
+#'     child processes (see *The activation of the R session* below). It
+#'     never passes it on to child processes.
 #'   }
 #'   \item{`PATH`}{
 #'     Searched for `micromamba` as the last discovery fallback. Also the
-#'     base `PATH` for child processes. [run_bin()] and [run_pipeline()]
-#'     prepend the environment's binary directories to it.
+#'     base `PATH` of child processes, without the binary directories of
+#'     the Conda and pixi environments that the R session runs in (see
+#'     below). [run()], [run_bin()] and [run_pipeline()] put the
+#'     environment's binary directories in front of it.
 #'   }
 #'   \item{`PATHEXT`}{
 #'     Windows only. Extensions tried when a command name is resolved
@@ -171,9 +175,10 @@
 #'
 #' Every process `condathis` starts, whether `micromamba` itself or a
 #' command run by [run()], [run_bin()] or [run_pipeline()], starts from a
-#' copy of the calling session's environment. `condathis` then applies the
-#' overrides below to that copy only. `condathis` never modifies the calling
-#' R session. A process that you start yourself does not get these
+#' copy of the calling session's environment, without the activation of
+#' the R session (see *The activation of the R session* below).
+#' `condathis` then applies the overrides below to that copy only.
+#' `condathis` never modifies the calling R session. A process that you start yourself does not get these
 #' overrides. Pass `--no-rc` and `--no-env` to `micromamba` or `conda` to
 #' ignore your own Conda settings.
 #'
@@ -216,7 +221,8 @@
 #'     Set to `""`.
 #'   }
 #'   \item{`CONDA_SHLVL`, `MAMBA_SHLVL`}{
-#'     Set to `"0"`.
+#'     Set to `"0"`. The commands of [run()], [run_bin()] and
+#'     [run_pipeline()] get `"1"` (see below).
 #'   }
 #'   \item{`CONDA_PKGS_DIRS`, `MAMBA_PKGS_DIRS`}{
 #'     For `micromamba` and the commands of its environments, environments
@@ -251,8 +257,9 @@
 #'     value.
 #'   }
 #'   \item{`R_HOME`}{
-#'     Set to `""`, so an R installed in a Conda environment does not pick
-#'     up the R installation of the calling session.
+#'     Removed, with every other `R_*` variable (see *The startup of R*
+#'     below), so an R installed in a Conda environment does not pick up
+#'     the R installation of the calling session.
 #'   }
 #'   \item{`TMPDIR`}{
 #'     Set to a new temporary directory for each call. `condathis` removes
@@ -284,7 +291,7 @@
 #'     For `micromamba env list`, `micromamba env remove` and, unless it
 #'     needs your home directory, `micromamba create`: the `home/`
 #'     directory of the condathis data directory. So `micromamba` does not
-#'     change `~/.conda/environments.txt` (see Details in
+#'     rewrite `~/.conda/environments.txt` (see Details in
 #'     [get_install_dir()]). The scripts that packages run when they are
 #'     installed or removed by these commands see this value too. On
 #'     Windows, micromamba looks there for the Start Menu shortcuts of the
@@ -296,6 +303,91 @@
 #'     reports only the packages of the environment.
 #'   }
 #' }
+#'
+#' *The activation of the R session.* R can run in an activated Conda or
+#' pixi environment, or in several nested ones: R installed in a Conda
+#' environment, R started from a shell where `conda activate` or
+#' `pixi shell` ran, or R started through a pixi global binary. The
+#' processes that `condathis` starts do not get that activation, within
+#' the limits below. So a program of R's own environment does not run in
+#' place of one that the environment of the command lacks. Before the
+#' overrides above,
+#' `condathis` changes the copy of the session's environment this way:
+#'
+#' \describe{
+#'   \item{`PATH`}{
+#'     The binary directories of these Conda prefixes are removed: the
+#'     prefixes of `CONDA_PREFIX`, of every `CONDA_PREFIX_<n>` and
+#'     `CONDA_ENV_SHLVL_<n>_CONDA_PREFIX`, and the prefix that R itself is
+#'     installed in. Only a directory with a `conda-meta` directory counts
+#'     as a prefix. Other entries stay, such as
+#'     the `condabin` directory of `conda init` and `~/.pixi/bin`. One
+#'     exception on Windows: a command that is a program of R's own prefix,
+#'     such as `file.path(R.home("bin"), "Rscript.exe")`, gets the binary
+#'     directories of that prefix back at the end of its `PATH`, because it
+#'     loads its DLLs from there.
+#'   }
+#'   \item{`CONDA_PREFIX_<n>`, `CONDA_ENV_SHLVL_<n>_*`, `CONDA_EXE`,
+#'     `CONDA_PYTHON_EXE`, `_CE_CONDA`, `_CE_M`, `MAMBA_EXE`}{
+#'     Removed. These variables record the activation of the session.
+#'   }
+#'   \item{`PIXI_PROJECT_*`, `PIXI_WORKSPACE_*`, `PIXI_ENVIRONMENT_*`,
+#'     `PIXI_PROMPT`, `PIXI_IN_SHELL`, `PIXI_EXE`}{
+#'     Removed. Other `PIXI_*` variables, such as `PIXI_HOME`, stay.
+#'   }
+#'   \item{`CONDA_BACKUP_<X>`, `<X>_CONDA_BACKUP`, `CONDA_ENV_SHLVL_<n>_<X>`}{
+#'     The value of `<X>` before the activation, saved by the activation
+#'     scripts of compiler and other packages, or by pixi. `<X>` gets that
+#'     value back, as the deactivation scripts do: an empty backup of the
+#'     first two forms removes `<X>`. The backups are removed.
+#'   }
+#'   \item{Variables of `conda-meta/state` and `etc/conda/env_vars.d`}{
+#'     A variable that these files of the prefixes above set is removed
+#'     when the session has exactly that value.
+#'   }
+#' }
+#'
+#' Some changes cannot be undone. A value that an `activate.d` script of
+#' the session's environment set stays, unless it saved a backup above,
+#' and so does a `PATH` entry such a script added. The binary directory of
+#' an environment that no variable names any more stays too, such as the
+#' one of a pixi global binary that started the shell before another one
+#' replaced its `CONDA_PREFIX`.
+#'
+#' *The startup of R.* R also changes its own environment when it starts,
+#' and the processes that `condathis` starts do not get those changes
+#' either. So an R of the environment of the command never loads packages
+#' built for the R of the session, and a program of the environment never
+#' loads R's libraries or certificates:
+#'
+#' \describe{
+#'   \item{`R_*`, `_R_*`}{
+#'     Removed, also a variable the user set, such as `R_LIBS_USER` or
+#'     `R_PROFILE_USER`: only R reads them, and an R that the command
+#'     starts sets its own. The R of the session keeps them.
+#'   }
+#'   \item{`EDITOR`, `PAGER`, `MAKE`, `SED`, `TAR`, `LN_S`,
+#'     `CURL_CA_BUNDLE`, `MSYS2_ENV_CONV_EXCL`}{
+#'     Removed when the session has exactly the value that R's startup
+#'     gives them (`etc/Renviron` of R). A value the user set stays, such
+#'     as `EDITOR=nvim`.
+#'   }
+#'   \item{`LD_LIBRARY_PATH`, `DYLD_FALLBACK_LIBRARY_PATH`,
+#'     `DYLD_LIBRARY_PATH`}{
+#'     The directories that R put in front (`etc/ldpaths` of R) are
+#'     removed. The directories after them stay.
+#'   }
+#'   \item{`PATH` on Windows}{
+#'     The Rtools directories that R put in front (`R_RTOOLS45_PATH`) are
+#'     removed. A command finds Rtools only when the `PATH` that R started
+#'     with has it.
+#'   }
+#' }
+#'
+#' `condathis` learns the values of R's startup by starting R's own
+#' `Rscript` once per R session, without the user's `.Renviron` and
+#' `.Rprofile`. When that fails, only the `R_*` variables and the Rtools
+#' directories are removed.
 #'
 #' With the default `activate = TRUE` of [run()], [run_bin()] and
 #' [run_pipeline()], `condathis` applies activation variables on top. For
@@ -310,10 +402,18 @@
 #' recorded again for every command. Values that name the working directory
 #' are recorded again in another working directory. For other backends, the
 #' backend package sets the activation variables (see [register_backend()]).
+#' When the `PATH` of an activation names none of the environment's binary
+#' directories, `condathis` puts them in front of it.
 #'
-#' With `activate = FALSE`, [run_bin()] applies no activation variables and
-#' only prepends the environment's binary directories to `PATH`.
-#' [run_pipeline()] sets this fixed set instead:
+#' In both modes and for every backend, a command of [run()], [run_bin()]
+#' and [run_pipeline()] runs in exactly one activated environment,
+#' whatever the R session runs in: `CONDA_SHLVL` and `MAMBA_SHLVL` are
+#' `"1"`, and `CONDA_PROMPT_MODIFIER` and `MAMBA_PROMPT_MODIFIER` are
+#' `""`, whatever the activation set.
+#'
+#' With `activate = FALSE`, [run()], [run_bin()] and [run_pipeline()] set
+#' this fixed set instead, without any backend code and without the
+#' `activate.d` scripts and `env_vars.d` files of the packages:
 #'
 #' \describe{
 #'   \item{`CONDA_PREFIX`, `CONDA_DEFAULT_ENV`}{
@@ -324,16 +424,16 @@
 #'     Set to `"1"`.
 #'   }
 #'   \item{`CONDA_PROMPT_MODIFIER`, `MAMBA_PROMPT_MODIFIER`}{
-#'     Set to `"(<env_name>) "`.
+#'     Set to `""`.
 #'   }
 #'   \item{`PATH`}{
-#'     The environment's binary directories, prepended to the session
-#'     `PATH`.
+#'     The environment's binary directories, in front of the `PATH`
+#'     described above.
 #'   }
 #' }
 #'
-#' `CONDA_ENVS_PATH` is the same as with `activate = TRUE`: it comes from
-#' the clean variables above.
+#' `TMPDIR` and `CONDA_ENVS_PATH` are the same as with `activate = TRUE`:
+#' they come from the clean variables above.
 #'
 #' On Windows, variable names are matched case-insensitively. An override
 #' replaces any inherited spelling of the same name, such as `Path`.

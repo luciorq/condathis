@@ -526,7 +526,7 @@ check_unregistered_known_owners <- function(
   }
   for (name in unregistered_known_backend_names()) {
     env_dir <- fs::path(backend_root_path(name), "envs", env_name)
-    if (isFALSE(fs::dir_exists(env_dir))) {
+    if (isFALSE(dir_exists_quick(env_dir))) {
       next
     }
     pkg <- known_backend_packages[[name]]

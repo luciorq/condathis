@@ -89,6 +89,16 @@ Known remaining gaps:
 
 The convergence is still open: `../post-0.2.0/PLAN.md` items 1 and 6.
 
+**Update 2026-11-16: the convergence is done, in 0.2.0** (see
+`../feat-run-unify/` and the "Addendum 2026-11-16" below). The gaps
+listed above are stale. `run()` already started the command itself
+earlier in the 0.2.0 cycle. Now `run()` has `activate`, `run()` and
+`run_bin()` are one implementation, and the three functions share the
+backend resolution, one fixed activation for `activate = FALSE`, one
+lookup rule (`resolve_direct_run_command()`) and one signal status
+(`128 + n`). `run_pipeline()` keeps its pipeline-only arguments and has
+no `verbose`, by design.
+
 ## Addendum 2026-11-13: 0.2.0 CRAN preparation
 
 Written 2026-11-13. This section records what was decided, found and
@@ -629,6 +639,9 @@ problems:
 
 ### 9. Release steps left to the maintainer
 
+(Step 1 now also covers the run-family unification of 2026-11-16, see
+the addendum below.)
+
 None of these were done here. `HANDOFF.md` has the same list as a
 prompt.
 
@@ -663,3 +676,28 @@ prompt.
 8. `usethis::use_dev_version()`, push, and let pkgdown and r-universe
    rebuild. Update the Zenodo archive and badge (`pre-release` recipe
    note). Close issue #12 (`../post-0.2.0/` item 13).
+
+## Addendum 2026-11-16: one run path before the release
+
+On 2026-11-16 the maintainer decided to unify the run family in 0.2.0,
+before the CRAN submission: "Yes, this change should be made now, before
+0.2.0 is submitted to CRAN." Everything about it is in
+`../feat-run-unify/PLAN.md`. For the release it means:
+
+- `run()` gains `activate = TRUE`. `run_bin()` is superseded by `run()`
+  and is a thin wrapper over the same code (classes kept).
+- `activate = FALSE` gives a fixed activation in the three functions:
+  `CONDA_PREFIX`, `CONDA_DEFAULT_ENV`, `CONDA_SHLVL`, `MAMBA_SHLVL`, the
+  prompt modifiers, and the binary directories of the environment in
+  front of `PATH`. No backend code runs.
+- Every child process starts without the activation of the R session
+  (new `R/host_env.R`).
+- A killed command has status `128 + n` off Windows in all three; the
+  pipeline broken-pipe status is 141.
+- New untracked files to commit: `R/host_env.R`,
+  `tests/testthat/test-run_isolation.R` and
+  `.github/devdocs/feat-run-unify/`.
+- The verification of section 8 must run again on the final tree (Linux,
+  omicron, kappa), and rattlerthis has three parity expectations to
+  update (`../feat-run-unify/PLAN.md`, "rattlerthis tests that these
+  changes break").

@@ -3,9 +3,14 @@
 #' Returns a named list of Conda and Mamba environment variables configured for
 #' isolation from external Conda installations.
 #'
+#' The activation of the R session is undone before these values apply
+#' (see `isolate_host_env()` and `build_child_env()`).
+#'
 #' Key isolation decisions:
-#' - `R_HOME = ""` prevents conda-installed R from conflicting with the
-#'   host R session.
+#' - `R_HOME` is removed (`NULL`), so a conda-installed R does not pick
+#'   up the R installation of the calling session. `isolate_host_env()`
+#'   already removed it with the other variables of R
+#'   (see `undo_r_startup_env()`).
 #' - `CONDA_SHLVL`/`MAMBA_SHLVL` reset to `"0"` to prevent shell-level
 #'   confusion.
 #' - All prefix/path/rc variables cleared to avoid interference from
@@ -31,7 +36,7 @@
 #'   `""`.
 #'
 #' @returns A named list of overrides for `build_child_env()`. A `NULL`
-#'   entry (`CONDA_ENVS_DIRS`) removes the variable from the child's
+#'   entry (`CONDA_ENVS_DIRS`, `R_HOME`) removes the variable from the child's
 #'   environment block. Every other entry is set as-is. Never applied to the
 #'   calling session itself.
 #'
@@ -60,7 +65,7 @@ get_clean_conda_envvars <- function(tmp_dir, conda_dirs = NULL) {
     `MAMBA_DEFAULT_ENV` = "",
     `CONDA_PKGS_DIRS` = pkgs_dir,
     `MAMBA_PKGS_DIRS` = pkgs_dir,
-    `R_HOME` = ""
+    `R_HOME` = NULL
   )
   return(envvar_list)
 }
@@ -81,6 +86,32 @@ micromamba_conda_dirs <- function(root_dir) {
     envs_dir = as.character(fs::path(root_dir, "envs")),
     pkgs_dir = as.character(fs::path(root_dir, "pkgs"))
   ))
+}
+
+#' The micromamba root, from the directory of a named environment
+#'
+#' `micromamba_backend_get_env_dir()` is `<root>/envs/<env_name>`, so a
+#' call that has just resolved that directory need not resolve the root a
+#' second time (see `child_conda_dirs()`).
+#'
+#' @param backend An already-resolved backend object.
+#' @param run_env_dir Character string, the directory the command runs in.
+#' @param env_path_dir `NULL` for an environment given by name, or the
+#'   directory of an environment given by `env_path()`.
+#'
+#' @returns The root as a character string, or `NULL` for another backend
+#'   and for an environment given by `env_path()`.
+#'
+#' @keywords internal
+#' @noRd
+micromamba_root_of_env_dir <- function(backend, run_env_dir, env_path_dir) {
+  if (
+    isFALSE(is.null(env_path_dir)) ||
+      isFALSE(inherits(backend, "condathis_backend_micromamba"))
+  ) {
+    return(NULL)
+  }
+  return(dirname(dirname(as.character(run_env_dir))))
 }
 
 #' Conda directories for a child process of a backend's environment
@@ -127,19 +158,29 @@ micromamba_conda_dirs <- function(root_dir) {
 #'   runs only when needed.
 #' @param env_path Logical scalar. `TRUE` when `env_dir` is an environment
 #'   given by `env_path()`. Defaults to `FALSE`.
+#' @param root_dir `NULL`, or the root of the micromamba backend when the
+#'   caller has already resolved it in this call (see
+#'   `run_internal_backend()`). Not used for other backends.
 #'
 #' @returns A list with `envs_dir` and `pkgs_dir` (character strings or
 #'   `NULL`), for the `conda_dirs` argument of `build_child_env()`. Only for
-#'   the micromamba backend, and for a backend with its own
-#'   `backend_get_env_dir()`, does this resolve a root directory. For a
+#'   the micromamba backend without `root_dir`, and for a backend with its
+#'   own `backend_get_env_dir()`, does this resolve a root directory. For a
 #'   backend with the default `backend_get_env_dir()`, both come from
 #'   `env_dir` alone, without file system access.
 #'
 #' @keywords internal
 #' @noRd
-child_conda_dirs <- function(backend, env_dir, env_path = FALSE) {
+child_conda_dirs <- function(
+  backend,
+  env_dir,
+  env_path = FALSE,
+  root_dir = NULL
+) {
   if (isTRUE(inherits(backend, "condathis_backend_micromamba"))) {
-    return(micromamba_conda_dirs(install_dir_for_backend(backend)))
+    return(micromamba_conda_dirs(
+      root_dir %||% install_dir_for_backend(backend)
+    ))
   }
   if (isTRUE(env_path)) {
     # A backend whose `backend_get_env_dir()` fails gets no directories

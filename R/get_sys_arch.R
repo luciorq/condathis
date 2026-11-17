@@ -18,21 +18,42 @@
 #'
 #' @export
 get_sys_arch <- function() {
-  os <- base::Sys.info()["sysname"]
-  cpu_arch <- base::Sys.info()["machine"]
-  return(base::paste0(os, "-", cpu_arch))
+  sys_info <- base::Sys.info()
+  return(base::paste0(sys_info[["sysname"]], "-", sys_info[["machine"]]))
 }
 
 #' Check whether the current platform is Windows
 #'
-#' Single source of truth for the Windows check.
+#' Single source of truth for the Windows check. It reads `.Platform`, not
+#' `Sys.info()`, which reads the user database on every call: the check
+#' runs dozens of times per `run()`. A test that pretends to run on
+#' Windows mocks this function; mocking `get_sys_arch()` does not change
+#' it (see `sys_arch_is_windows()`).
 #'
 #' @returns Logical.
 #'
 #' @keywords internal
 #' @noRd
 is_windows <- function() {
-  return(isTRUE(stringr::str_detect(get_sys_arch(), "^Windows")))
+  return(identical(.Platform$OS.type, "windows"))
+}
+
+#' Check whether a system architecture is one of Windows
+#'
+#' For the choice of a platform (`define_platform()` and the emulation
+#' fallbacks), which reads `get_sys_arch()` for macOS too, so that one
+#' value decides both and the tests can give it for any OS. Not for code
+#' that runs on every call: see `is_windows()`.
+#'
+#' @param sys_arch Character string in the format returned by
+#'   `get_sys_arch()`. Defaults to the current system architecture.
+#'
+#' @returns Logical.
+#'
+#' @keywords internal
+#' @noRd
+sys_arch_is_windows <- function(sys_arch = get_sys_arch()) {
+  return(isTRUE(startsWith(sys_arch, "Windows")))
 }
 
 #' Check whether R runs natively on Windows on ARM64

@@ -204,8 +204,7 @@ validate_stdin_arg <- function(stdin, class, call = rlang::caller_env()) {
 #'   `"run_bin"` or `"run_pipeline"`.
 #' @param timeout,supervise,cleanup_tree,linux_pdeathsig,stdin,stdout,stderr
 #'   The values of those arguments.
-#' @param activate The value of `activate`. `run()` has none and keeps the
-#'   default `TRUE`.
+#' @param activate The value of `activate`.
 #' @param call Environment of the function the error is reported for.
 #'
 #' @returns `list(timeout = <normalized>)`, see `validate_timeout_arg()`.

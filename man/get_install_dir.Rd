@@ -61,13 +61,17 @@ with the \verb{home/} directory of the data directory as their home.
 micromamba needs something from there. It then adds the environment to
 your list. This happens for channel credentials that you saved (with
 \verb{micromamba auth login}, an \code{anaconda-client} token, or a \code{.netrc}
-file), and for an environment file (\code{\link[=env_definition]{env_definition()}}) that names your
-home directory (\verb{~/}, \verb{$HOME}) or installs pip packages. Listing and
-removing environments never change the file, so the line of an
-environment that \code{\link[=remove_env]{remove_env()}} deleted stays. Both conda and mamba drop such lines the
-next time they list environments. A \code{~} at the start of a channel, of a
-package path and of the path of an environment file always means your
-own home directory.
+file), for an environment file (\code{\link[=env_definition]{env_definition()}}) that names your
+home directory (\verb{~/}, \verb{$HOME}), and for one that installs pip packages
+when pip or uv would read a file from your home directory: a pip
+configuration file (\verb{~/.pip/pip.conf}, \verb{~/.config/pip/pip.conf}, on
+macOS also \verb{~/Library/Application Support/pip/pip.conf}, on Windows
+\verb{~\\pip\\pip.ini}), a uv configuration file (\verb{~/.config/uv/uv.toml}) or
+uv credentials (\verb{uv auth login}), or when a \code{keyring} program is on
+\code{PATH}. Listing environments never changes the file. \code{\link[=remove_env]{remove_env()}}
+deletes only the line of the environment it removed. A \code{~} at the start
+of a channel, of a package path and of the path of an environment file
+always means your own home directory.
 
 The pip that installs the pip packages of an environment file keeps its
 cache in the \verb{cache/} directory of the data directory on Linux, which

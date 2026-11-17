@@ -53,7 +53,7 @@ new_condathis_pipeline <- function(
 #' Which stages of a pipeline failed
 #'
 #' A stage failed when its status is not `0`, not `NA`, and not an
-#' upstream `SIGPIPE` (see `is_upstream_sigpipe()`). `error = "cancel"`,
+#' upstream `SIGPIPE`, status 141 (see `is_upstream_sigpipe()`). `error = "cancel"`,
 #' the "Failed commands" lines of its error, and the `status` of the
 #' result all use this rule.
 #'

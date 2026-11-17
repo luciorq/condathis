@@ -457,6 +457,16 @@ test_that("micromamba create keeps the user's home when it needs it", {
   testthat::expect_false(env_file_needs_home(c(plain, "  - pip")))
   testthat::expect_false(env_file_needs_home(c(plain, "  - numpy~=1.26")))
   testthat::expect_false(env_file_needs_home(c(plain, "  - homebrew-tools")))
+  # A file that runs pip keeps the home only when pip or uv would read a
+  # file from it (see the test of micromamba_pip_needs_home()). Every
+  # `pip:` section kept it before, and so registered the environment.
+  testthat::local_mocked_bindings(
+    micromamba_pip_needs_home = function(home, ...) FALSE
+  )
+  testthat::expect_false(env_file_needs_home(c(plain, "  - pip:", "    - six")))
+  testthat::local_mocked_bindings(
+    micromamba_pip_needs_home = function(home, ...) TRUE
+  )
   testthat::expect_true(env_file_needs_home(c(plain, "  - pip:", "    - six")))
   testthat::expect_true(env_file_needs_home(c(
     "package:",
@@ -492,6 +502,178 @@ test_that("micromamba create keeps the user's home when it needs it", {
     list("-f", fs::path(home, "missing.yml")),
     home = home
   ))
+  # A file that names the home keeps it without pip files.
+  testthat::local_mocked_bindings(
+    micromamba_pip_needs_home = function(home, ...) FALSE
+  )
+  testthat::expect_true(env_file_needs_home(c(
+    plain,
+    "  - pip:",
+    "    - -r ~/requirements.txt"
+  )))
+})
+
+test_that("micromamba_pip_needs_home() finds the files pip and uv read", {
+  home <- withr::local_tempdir()
+  withr::local_envvar(XDG_CONFIG_HOME = NA, XDG_DATA_HOME = NA)
+  needs_home <- function(on_windows = FALSE, on_macos = FALSE, keyring = "") {
+    return(micromamba_pip_needs_home(
+      home = home,
+      on_windows = on_windows,
+      on_macos = on_macos,
+      keyring = keyring
+    ))
+  }
+  for (os in c("linux", "macos", "windows")) {
+    testthat::expect_false(
+      needs_home(on_windows = os == "windows", on_macos = os == "macos"),
+      info = os
+    )
+  }
+  # A keyring program on PATH keeps the home on every platform.
+  testthat::expect_true(needs_home(keyring = "/usr/bin/keyring"))
+  testthat::expect_true(needs_home(on_windows = TRUE, keyring = "keyring.exe"))
+
+  with_file <- function(parts, code) {
+    path <- do.call(fs::path, c(list(home), as.list(parts)))
+    fs::dir_create(fs::path_dir(path))
+    writeLines("[global]", path)
+    on.exit(fs::dir_delete(fs::path(home, parts[[1L]])), add = TRUE)
+    return(force(code))
+  }
+  linux_files <- list(
+    c(".pip", "pip.conf"),
+    c(".config", "pip", "pip.conf"),
+    c(".config", "uv", "uv.toml"),
+    c(".local", "share", "uv", "credentials", "credentials.toml")
+  )
+  for (parts in linux_files) {
+    info <- paste(parts, collapse = "/")
+    testthat::expect_true(with_file(parts, needs_home()), info = info)
+    testthat::expect_true(
+      with_file(parts, needs_home(on_macos = TRUE)),
+      info = info
+    )
+    # On Windows, pip and uv read %APPDATA%, which the home does not move.
+    testthat::expect_false(
+      with_file(parts, needs_home(on_windows = TRUE)),
+      info = info
+    )
+  }
+  macos_file <- c("Library", "Application Support", "pip", "pip.conf")
+  testthat::expect_true(with_file(macos_file, needs_home(on_macos = TRUE)))
+  testthat::expect_false(with_file(macos_file, needs_home()))
+  windows_file <- c("pip", "pip.ini")
+  testthat::expect_true(with_file(windows_file, needs_home(on_windows = TRUE)))
+  testthat::expect_false(with_file(windows_file, needs_home()))
+
+  # Under XDG_CONFIG_HOME or XDG_DATA_HOME, a path does not depend on the
+  # home. pip on macOS ignores XDG_CONFIG_HOME.
+  withr::local_envvar(
+    XDG_CONFIG_HOME = withr::local_tempdir(),
+    XDG_DATA_HOME = withr::local_tempdir()
+  )
+  for (parts in linux_files[-1L]) {
+    info <- paste(parts, collapse = "/")
+    testthat::expect_false(with_file(parts, needs_home()), info = info)
+  }
+  testthat::expect_true(with_file(
+    c(".config", "pip", "pip.conf"),
+    needs_home(on_macos = TRUE)
+  ))
+})
+
+test_that("micromamba create keeps pip's macOS cache when it moves the home", {
+  root <- withr::local_tempdir()
+  withr::local_envvar(PIP_CACHE_DIR = NA)
+  testthat::local_mocked_bindings(
+    micromamba_create_keeps_home = function(specs, ...) FALSE,
+    micromamba_user_home = function() "/Users/u",
+    is_macos = function() TRUE,
+    is_windows = function() FALSE
+  )
+  overlay <- micromamba_cmd_overlay("create", c("-n", "e"), root_dir = root)
+  testthat::expect_identical(
+    overlay[["PIP_CACHE_DIR"]],
+    as.character(fs::path("/Users/u", "Library", "Caches", "pip"))
+  )
+  # The user's own PIP_CACHE_DIR reaches pip unchanged.
+  withr::local_envvar(PIP_CACHE_DIR = "/tmp/pip-cache")
+  overlay <- micromamba_cmd_overlay("create", c("-n", "e"), root_dir = root)
+  testthat::expect_null(overlay[["PIP_CACHE_DIR"]])
+  # Other commands, and other platforms, do not set it.
+  withr::local_envvar(PIP_CACHE_DIR = NA)
+  overlay <- micromamba_cmd_overlay(
+    "env",
+    c("remove", "-n", "e"),
+    root_dir = root
+  )
+  testthat::expect_null(overlay[["PIP_CACHE_DIR"]])
+  testthat::local_mocked_bindings(is_macos = function() FALSE)
+  overlay <- micromamba_cmd_overlay("create", c("-n", "e"), root_dir = root)
+  testthat::expect_null(overlay[["PIP_CACHE_DIR"]])
+})
+
+test_that("micromamba_unregister_env() removes only the lines of the env", {
+  home <- withr::local_tempdir()
+  registry <- fs::path(home, ".conda", "environments.txt")
+  env_dir <- as.character(fs::path(home, "root", "envs", "my-env"))
+  other <- as.character(fs::path(home, "root", "envs", "my-env-2"))
+  # No registry: nothing to do, and no file is created.
+  testthat::expect_false(micromamba_unregister_env(env_dir, home = home))
+  testthat::expect_false(fs::file_exists(registry))
+
+  fs::dir_create(fs::path_dir(registry))
+  # Mixed line endings, a trailing separator, a missing final newline, and
+  # a line that only starts with the path.
+  lines <- c(
+    paste0("/opt/conda/envs/a", "\r\n"),
+    paste0(env_dir, "/", "\n"),
+    paste0(other, "\r\n"),
+    paste0(env_dir, "\n"),
+    "/opt/conda/envs/b"
+  )
+  writeBin(charToRaw(paste0(lines, collapse = "")), registry)
+  if (isFALSE(is_windows())) {
+    fs::file_chmod(registry, "600")
+  }
+  testthat::expect_true(micromamba_unregister_env(
+    c(env_dir, NA_character_),
+    home = home
+  ))
+  testthat::expect_identical(
+    rawToChar(readBin(registry, "raw", n = 1e4)),
+    paste0(lines[c(1L, 3L, 5L)], collapse = "")
+  )
+  if (isFALSE(is_windows())) {
+    testthat::expect_identical(
+      as.character(fs::file_info(registry)$permissions),
+      "rw-------"
+    )
+  }
+  # No temporary file is left next to the registry.
+  testthat::expect_identical(
+    as.character(fs::path_file(fs::dir_ls(fs::path_dir(registry)))),
+    "environments.txt"
+  )
+  # No match: the file is not rewritten.
+  before <- fs::file_info(registry)$modification_time
+  testthat::expect_false(micromamba_unregister_env(env_dir, home = home))
+  testthat::expect_identical(fs::file_info(registry)$modification_time, before)
+
+  # Backslashes, as libmamba writes on Windows, and on Windows any case.
+  writeLines(gsub("/", "\\", env_dir, fixed = TRUE), registry)
+  testthat::expect_true(micromamba_unregister_env(env_dir, home = home))
+  testthat::expect_identical(readLines(registry), character(0L))
+  if (isTRUE(is_windows())) {
+    writeLines(toupper(env_dir), registry)
+    testthat::expect_true(micromamba_unregister_env(env_dir, home = home))
+  }
+  # A registry that cannot be read is left alone, without an error.
+  testthat::local_mocked_bindings(
+    micromamba_unregister_env_impl = function(...) stop("boom")
+  )
+  testthat::expect_false(micromamba_unregister_env(env_dir, home = home))
 })
 
 test_that("micromamba_expand_home() expands ~ as micromamba does", {
@@ -523,7 +705,11 @@ test_that("micromamba run gets a basename when the session's PATH has none", {
   # Regression test (R-4 g): micromamba's shell hook runs `basename`.
   # Without it on PATH, `micromamba run` activated nothing, and the command
   # ran without activation.
-  testthat::expect_null(micromamba_run_path("/a:/b", on_windows = TRUE))
+  testthat::expect_null(micromamba_run_path(
+    "/a:/b",
+    on_windows = TRUE,
+    r_prefix = NULL
+  ))
   tool_dir <- withr::local_tempdir()
   fs::file_create(fs::path(tool_dir, "basename"))
   fs::file_chmod(fs::path(tool_dir, "basename"), "u+x")
@@ -545,6 +731,32 @@ test_that("micromamba run gets a basename when the session's PATH has none", {
     on_windows = FALSE,
     system_dirs = "/nowhere"
   ))
+})
+
+test_that("on Windows, the activation dump gets R's own prefix at the end of its PATH", {
+  # R's own prefix is not on the PATH of a command (see
+  # host_env_prefixes()), but an R of a Conda environment on Windows loads
+  # its DLLs from its binary directories: only the Rscript that records an
+  # activation gets them, after every other entry.
+  r_prefix <- "C:/conda/envs/r"
+  r_dirs <- as.character(env_bin_search_dirs(r_prefix, on_windows = TRUE))
+  testthat::expect_identical(
+    micromamba_run_path(
+      "C:\\Windows\\System32;C:\\Windows",
+      on_windows = TRUE,
+      r_prefix = r_prefix
+    ),
+    paste(c("C:\\Windows\\System32", "C:\\Windows", r_dirs), collapse = ";")
+  )
+  # A directory already on PATH, however spelled, is not added again.
+  testthat::expect_identical(
+    micromamba_run_path(
+      paste(c("C:\\CONDA\\envs\\r\\Library\\bin", r_dirs[-4L]), collapse = ";"),
+      on_windows = TRUE,
+      r_prefix = r_prefix
+    ),
+    NULL
+  )
 })
 
 test_that("micromamba starts when its default root prefix is not a Conda prefix", {

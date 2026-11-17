@@ -53,7 +53,7 @@ micromamba_backend <- local({
 #' @noRd
 micromamba_backend_get_install_dir <- function(backend) {
   dir_path <- get_condathis_path()
-  if (isFALSE(fs::dir_exists(dir_path))) {
+  if (isFALSE(dir_exists_quick(dir_path))) {
     fs::dir_create(dir_path, recurse = TRUE)
   }
   dir_path <- base::normalizePath(dir_path, mustWork = FALSE)
@@ -306,6 +306,10 @@ micromamba_backend_remove_env <- function(
     )
   }
 
+  # The names of the directory that micromamba may have written to the
+  # user's registry, taken while the directory still exists.
+  env_dir <- env_dir_for_backend(backend, env_name)
+  registry_dirs <- c(as.character(env_dir), real_path_or_na(env_dir))
   px_res <- rethrow_error_cmd(
     expr = {
       native_cmd(
@@ -321,6 +325,9 @@ micromamba_backend_remove_env <- function(
       )
     }
   )
+  if (isFALSE(fs::dir_exists(env_dir))) {
+    micromamba_unregister_env(registry_dirs)
+  }
   return(px_res)
 }
 
@@ -413,9 +420,9 @@ micromamba_backend_list_envs <- function(
 ) {
   verbose_list <- parse_strategy_verbose(verbose = verbose)
   # Decision D3: a query on a fresh root starts no process, installs no
-  # micromamba and creates no directory. `backend_env_exists()` probes every
-  # backend on every call that names an environment, so this also keeps
-  # calls with another backend's `method` from running micromamba.
+  # micromamba and creates no directory. The existence probe of every call
+  # that names an environment does not list (see
+  # `micromamba_backend_env_exists()`).
   if (isFALSE(backend_has_env_dirs("micromamba"))) {
     return(character(0L))
   }
@@ -484,18 +491,13 @@ micromamba_backend_env_exists <- function(
   env_name,
   verbose = "silent"
 ) {
-  # The cheap probe (see `backend_has_env_dirs()`): micromamba lists only
-  # environments whose directory exists, so a missing directory is a sure
-  # "no", without a process, an install or a new directory. When the
-  # directory exists, the listing decides: on a case-insensitive file
-  # system, `<root>/envs/myenv` also opens `<root>/envs/MyEnv`.
-  if (
-    isFALSE(fs::dir_exists(fs::path(get_condathis_path(), "envs", env_name)))
-  ) {
-    return(FALSE)
-  }
-  available_envs <- backend_list_envs(backend, verbose = verbose)
-  return(isTRUE(env_name %in% available_envs))
+  # Read from the file system, with the rule of `micromamba env list` (see
+  # `conda_prefix_env_exists()`), so that the check of every `run()` starts
+  # no process (decision D16 of feat-run-unify). It is the listing that
+  # `micromamba_backend_list_envs()` reads without a micromamba binary, or
+  # when micromamba hides the paths. It starts no process, installs no
+  # micromamba and creates no directory (decision D3).
+  return(conda_prefix_env_exists(get_condathis_path(), env_name))
 }
 
 #' @keywords internal
@@ -746,7 +748,8 @@ micromamba_backend_resolve_run_in_dir <- function(
 #' that `activate.d` scripts give, and the program gets the name as typed
 #' (`argv[0]`), which tools print in their messages. On Windows, a command
 #' of the environment becomes its path (see `resolve_env_bin_path()`).
-#' `run_bin()` looks a bare name up itself, in the environment first.
+#' `condathis` then starts it the same way for `run()`, `run_bin()` and
+#' `run_pipeline()` (see `resolve_direct_run_command()`).
 #'
 #' @param env_dir Character string with the environment's directory.
 #' @param cmd Character string with the command.

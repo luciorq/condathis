@@ -147,8 +147,8 @@ native_cmd <- function(
   )
 
   # Pass the child environment block as a full `env =` replacement. Never
-  # modify the calling R session's environment: a temporary `R_HOME = ""`
-  # would corrupt parent-side `R.home()` calls. The root resolved above for
+  # modify the calling R session's environment: a temporary change of
+  # `R_HOME` would corrupt parent-side `R.home()` calls. The root resolved above for
   # `-r` also gives the child's package-cache and envs-path variables, so
   # the root is resolved once per call. The overlay keeps the files that
   # micromamba writes to per-user directories under the root.
@@ -286,9 +286,10 @@ install_micromamba_for_command <- function(verbose_list) {
 #'   Both get the home `<root>/home`, which need not exist. The listing
 #'   finds the environments of `<root>/envs` in that directory, not in the
 #'   registry. The removal names its environment with `-n` under `-r`,
-#'   needs no credentials, and leaves the line of the removed environment
-#'   in the user's registry, where conda and mamba ignore it and drop it
-#'   the next time they list environments. On Windows, when the removal
+#'   needs no credentials, and leaves the user's registry alone.
+#'   `micromamba_backend_remove_env()` then deletes only the line of the
+#'   removed environment (see `micromamba_unregister_env()`). On Windows,
+#'   when the removal
 #'   unlinks a package with a `Menu/*.json` file, micromamba creates the
 #'   Start Menu folder under the home, `<root>/home/AppData/...`, to remove
 #'   its shortcuts (even with `shortcuts: false`), so shortcuts that an
@@ -361,9 +362,28 @@ micromamba_cmd_overlay <- function(
   if (isTRUE(moves_home)) {
     home_var <- if (isTRUE(is_windows())) "USERPROFILE" else "HOME"
     overlay[[home_var]] <- as.character(fs::path(root_dir, "home"))
+    # On macOS, pip keeps its cache in `~/Library/Caches/pip`, which the
+    # moved home would put under `<root>/home`, where `clean_cache()` does
+    # not look. Keep it in the user's cache, as with the real home. On
+    # Linux, `XDG_CACHE_HOME` above places it; on Windows, pip finds
+    # `%LOCALAPPDATA%` through the Known Folder, not `USERPROFILE`.
+    if (
+      isTRUE(identical(conda_cmd, "create")) &&
+        isTRUE(is_macos()) &&
+        identical(Sys.getenv("PIP_CACHE_DIR", unset = ""), "")
+    ) {
+      overlay[["PIP_CACHE_DIR"]] <- as.character(fs::path(
+        micromamba_user_home(),
+        "Library",
+        "Caches",
+        "pip"
+      ))
+    }
   }
   if (isTRUE(identical(conda_cmd, "run"))) {
     overlay[["PATH"]] <- micromamba_run_path()
+    # `micromamba run` starts the `Rscript` that records an activation.
+    overlay <- c(overlay, as.list(internal_rscript_vars()))
   }
   if (isTRUE(identical(conda_cmd, "list"))) {
     # `list` asks the environment's pip for its PyPI packages, and pip also
@@ -376,33 +396,82 @@ micromamba_cmd_overlay <- function(
   return(overlay)
 }
 
-#' The `PATH` of `micromamba run` when the session's has no `basename`
+#' Variables of the `Rscript` processes of `condathis` itself
 #'
-#' On Linux and macOS, `micromamba run` activates the environment with its
-#' shell hook, which runs `basename` (`mamba.sh` of libmamba). Without it on
-#' `PATH` (for example a `PATH` with only `sh`), the activation fails
-#' silently, and the activation dump records no activation at all. Then
-#' the session's `PATH` gets the first of `/usr/bin` and `/bin` that has
-#' `basename` appended, for `micromamba run` only:
-#' `resolve_micromamba_activation_envvars()` leaves that directory out of
-#' the directories the activation adds, so the commands of `run()` get the
-#' session's `PATH` with the activation's directories.
+#' `condathis` starts R's own `Rscript` to record an activation (see
+#' `resolve_micromamba_activation_envvars()`) and to measure R's startup
+#' (see `r_startup_env_vars()`). They get no `R_*` variable of the session
+#' (see `undo_r_startup_env()`), so their R falls back to its default user
+#' library. Some installations of R create that directory at every start:
+#' the base profile of R installed by rig does, also with `--vanilla`. So
+#' these processes get `R_LIBS_USER = "NULL"`, which R reads as no user
+#' library, and they write nothing to the user's home. They load no package
+#' of the user.
 #'
-#' @param session_path Character string, the session's `PATH`.
-#' @param on_windows Logical. Windows activates through `cmd.exe`.
-#' @param system_dirs Character vector, the directories to look in.
+#' @returns A named character vector.
+#'
+#' @keywords internal
+#' @noRd
+internal_rscript_vars <- function() {
+  return(c(R_LIBS_USER = "NULL"))
+}
+
+#' The `PATH` of the processes that record an activation
+#'
+#' The activation of an environment is recorded by an `Rscript` started
+#' through `micromamba run`, and diffed against the same `Rscript` started
+#' directly (see `resolve_micromamba_activation_envvars()`). Both get this
+#' `PATH`, which only these internal processes need. Directories it adds
+#' are left out of the directories the activation adds, so the commands of
+#' `run()` get the child's `PATH` with the activation's directories only.
+#'
+#' * Linux and macOS: `micromamba run` activates the environment with its
+#'   shell hook, which runs `basename` (`mamba.sh` of libmamba). Without it
+#'   on `PATH` (for example a `PATH` with only `sh`), the activation fails
+#'   silently, and the dump records no activation at all. Then the first of
+#'   `/usr/bin` and `/bin` that has `basename` is appended.
+#' * Windows: the binary directories of R's own Conda prefix are appended.
+#'   They are not on the `PATH` of a command (see `host_env_prefixes()`),
+#'   but Windows has no `rpath`, and an R of a Conda environment loads its
+#'   DLLs from them.
+#'
+#' The child's `PATH` is the session's without the activation of the R
+#' session (see `isolate_host_env()`): this value replaces the `PATH` of
+#' `build_child_env()`, and the session's own `PATH` would put the binary
+#' directories of R's own environments back.
+#'
+#' @param session_path Character string, the `PATH` of the child before
+#'   this change. Defaults to `isolated_session_path()`.
+#' @param on_windows Logical. Whether to apply the Windows rule.
+#' @param system_dirs Character vector, the directories to look in for
+#'   `basename`.
+#' @param r_prefix Character string, the Conda prefix that R runs from, or
+#'   `NULL` (see `condathis_r_prefix()`). Used on Windows only.
 #'
 #' @returns A character string, or `NULL` when nothing needs to change.
 #'
 #' @keywords internal
 #' @noRd
 micromamba_run_path <- function(
-  session_path = Sys.getenv("PATH"),
+  session_path = isolated_session_path(),
   on_windows = is_windows(),
-  system_dirs = c("/usr/bin", "/bin")
+  system_dirs = c("/usr/bin", "/bin"),
+  r_prefix = if (isTRUE(on_windows)) condathis_r_prefix()
 ) {
   if (isTRUE(on_windows)) {
-    return(NULL)
+    if (isFALSE(rlang::is_string(r_prefix)) || isFALSE(nzchar(r_prefix))) {
+      return(NULL)
+    }
+    entries <- strsplit(session_path %||% "", ";", fixed = TRUE)[[1L]]
+    r_dirs <- as.character(env_bin_search_dirs(r_prefix, on_windows = TRUE))
+    r_dirs <- r_dirs[
+      !(path_entry_key(r_dirs, on_windows = TRUE) %in%
+        path_entry_key(entries, on_windows = TRUE))
+    ]
+    if (identical(length(r_dirs), 0L)) {
+      return(NULL)
+    }
+    return(paste(c(entries, r_dirs), collapse = ";"))
   }
   found <- find_command_on_path(
     "basename",
@@ -445,11 +514,12 @@ micromamba_run_path <- function(
 #'   `micromamba_expand_home()`). It cannot rewrite an environment file,
 #'   so a file that names the home (`~/`, `$HOME`, `%USERPROFILE%`) keeps
 #'   it.
-#' * micromamba runs `pip` with its own environment for the `pip:` section
-#'   of an environment file, and pip reads its configuration and `.netrc`
-#'   from the home: a file with a `pip:` section, or with pip packages of a
-#'   lock file (`manager: pip` in a conda-lock file, `pipPackages` in a
-#'   mambajs `.json` lock file), keeps it.
+#' * micromamba runs `pip`, or `uv` when the file lists it, with its own
+#'   environment for the `pip:` section of an environment file and for the
+#'   pip packages of a lock file (`manager: pip` in a conda-lock file,
+#'   `pipPackages` in a mambajs `.json` lock file). Such a file keeps the
+#'   home only when pip or uv would read a file from it (see
+#'   `micromamba_pip_needs_home()`). `.netrc` is already covered above.
 #'
 #' The `pre-link` and `post-link` scripts of packages see `<root>/home` as
 #' their home. The environment variables of the session, such as `NETRC`,
@@ -485,7 +555,7 @@ micromamba_create_keeps_home <- function(
   args <- as.character(unlist(specs))
   file_index <- which(args == "-f")
   for (env_file in args[file_index + 1L]) {
-    if (isTRUE(micromamba_env_file_needs_home(env_file))) {
+    if (isTRUE(micromamba_env_file_needs_home(env_file, home = home))) {
       return(TRUE)
     }
   }
@@ -495,19 +565,24 @@ micromamba_create_keeps_home <- function(
 #' Whether an environment file needs micromamba's real home
 #'
 #' See `micromamba_create_keeps_home()`. The check is a text search, and
-#' errs on the side of keeping the home: any home-relative path (`~/`), any
-#' home variable (`$HOME`, `${HOME}`, `%USERPROFILE%`, ...), any `pip:` key,
-#' any pip package manager of a conda-lock file and any `pipPackages` key of
-#' a mambajs lock file (`env_lockfile_mambajs.cpp` of libmamba 2.10.0). A
+#' errs on the side of keeping the home: any home-relative path (`~/`) and
+#' any home variable (`$HOME`, `${HOME}`, `%USERPROFILE%`, ...) keep it. Any
+#' `pip:` key, any pip package manager of a conda-lock file and any
+#' `pipPackages` key of a mambajs lock file (`env_lockfile_mambajs.cpp` of
+#' libmamba 2.10.0) keep it when `micromamba_pip_needs_home()` says so. A
 #' file that cannot be read keeps it too.
 #'
 #' @param env_file Character string, the path of the file.
+#' @param home Character string, micromamba's home.
 #'
 #' @returns Logical scalar.
 #'
 #' @keywords internal
 #' @noRd
-micromamba_env_file_needs_home <- function(env_file) {
+micromamba_env_file_needs_home <- function(
+  env_file,
+  home = micromamba_user_home()
+) {
   text <- tryCatch(
     suppressWarnings(readLines(env_file, warn = FALSE)),
     error = function(e) NULL
@@ -529,6 +604,9 @@ micromamba_env_file_needs_home <- function(env_file) {
       ignore.case = TRUE,
       useBytes = TRUE
     )
+  if (isTRUE(any(names_home))) {
+    return(TRUE)
+  }
   runs_pip <- grepl(
     paste0(
       "pip[\"']?[[:space:]]*:|",
@@ -539,7 +617,83 @@ micromamba_env_file_needs_home <- function(env_file) {
     ignore.case = TRUE,
     useBytes = TRUE
   )
-  return(isTRUE(any(names_home | runs_pip)))
+  if (isFALSE(any(runs_pip))) {
+    return(FALSE)
+  }
+  return(isTRUE(micromamba_pip_needs_home(home = home)))
+}
+
+#' Whether pip or uv would read a file from micromamba's home
+#'
+#' micromamba installs the pip packages of an environment file with `pip`,
+#' or with `uv` when the file lists `uv`. With the home `<root>/home`, both
+#' would miss the files below. These are the user files that depend on the
+#' home (`HOME`, on Windows `USERPROFILE`), as pip 26.2
+#' (`pip/_internal/configuration.py`, `pip/_internal/utils/appdirs.py`,
+#' `pip/_internal/network/auth.py`) and uv 0.13 (`docs/reference/storage.md`,
+#' `docs/concepts/authentication/http.md`) read them:
+#'
+#' * pip configuration: the legacy `~/.pip/pip.conf` (on Windows
+#'   `~\pip\pip.ini`), and the user configuration directory: on Linux
+#'   `$XDG_CONFIG_HOME/pip/pip.conf`, else `~/.config/pip/pip.conf`; on
+#'   macOS `~/Library/Application Support/pip/pip.conf` when that
+#'   directory exists, else `~/.config/pip/pip.conf` (pip ignores
+#'   `XDG_CONFIG_HOME` there).
+#' * uv configuration: `$XDG_CONFIG_HOME/uv/uv.toml`, else
+#'   `~/.config/uv/uv.toml` (Linux and macOS).
+#' * uv credentials (`uv auth login`): `$XDG_DATA_HOME/uv/credentials/
+#'   credentials.toml`, else under `~/.local/share` (Linux and macOS).
+#' * A `keyring` program on `PATH`: pip asks it for credentials, and its
+#'   backends and configuration can live in the home.
+#'
+#' A path under `XDG_CONFIG_HOME` or `XDG_DATA_HOME` does not depend on the
+#' home, and neither do the Windows `%APPDATA%` locations of pip and uv
+#' (both resolve the Known Folder, not `USERPROFILE`). `.netrc` and `NETRC`
+#' are covered by `micromamba_create_keeps_home()`.
+#'
+#' @param home Character string, micromamba's home.
+#' @param on_windows,on_macos Logical. The platform rules to apply.
+#' @param keyring Character string, the path of a `keyring` program on
+#'   `PATH`, or `""`.
+#'
+#' @returns Logical scalar.
+#'
+#' @keywords internal
+#' @noRd
+micromamba_pip_needs_home <- function(
+  home,
+  on_windows = is_windows(),
+  on_macos = is_macos(),
+  keyring = Sys.which("keyring")
+) {
+  if (isTRUE(nzchar(keyring))) {
+    return(TRUE)
+  }
+  if (isTRUE(on_windows)) {
+    return(isTRUE(fs::file_exists(fs::path(home, "pip", "pip.ini"))))
+  }
+  xdg_config <- Sys.getenv("XDG_CONFIG_HOME", unset = "")
+  xdg_data <- Sys.getenv("XDG_DATA_HOME", unset = "")
+  files <- fs::path(home, ".pip", "pip.conf")
+  if (isTRUE(on_macos)) {
+    files <- c(
+      files,
+      fs::path(home, "Library", "Application Support", "pip", "pip.conf"),
+      fs::path(home, ".config", "pip", "pip.conf")
+    )
+  } else if (identical(xdg_config, "")) {
+    files <- c(files, fs::path(home, ".config", "pip", "pip.conf"))
+  }
+  if (identical(xdg_config, "")) {
+    files <- c(files, fs::path(home, ".config", "uv", "uv.toml"))
+  }
+  if (identical(xdg_data, "")) {
+    files <- c(
+      files,
+      fs::path(home, ".local", "share", "uv", "credentials", "credentials.toml")
+    )
+  }
+  return(isTRUE(any(fs::file_exists(files))))
 }
 
 #' The home directory that micromamba uses

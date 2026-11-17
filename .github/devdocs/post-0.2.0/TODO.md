@@ -3,7 +3,7 @@
 Checklist companion to `PLAN.md` in this folder. Item numbers match.
 Nothing here blocks the v0.2.0 release. The release steps themselves
 are in `../feat-strict-defaults/TODO.md` ("Release steps").
-Updated 2026-11-13.
+Updated 2026-11-16.
 
 ## Before 0.2.0 (release bookkeeping, item 0)
 
@@ -65,16 +65,34 @@ Updated 2026-11-13.
 - [ ] 17a: `install_packages("pkg", "env", <channels>)`: add a check of
       the second unnamed argument, or leave it to NEWS
 
-## run() convergence (next minor release headline)
+## run() convergence (done in 0.2.0)
 
-- [ ] 6: resolve nested-activation artifacts in
-      `get_micromamba_activation_envvars()` (reproduce from a pixi shell,
-      extend the noise filter, test with a fake nested baseline)
-- [ ] 1: add `activate` to `run()`, route it through `backend_resolve_run()`
-      + `execute_command()`, collapse `run_internal_native()` into
-      `run_internal_backend()`, fix `verbose = "cmd"` echo, audit internal
-      callers, rewrite the equivalence tests, NEWS breaking bullet, update
-      the header of `R/get_micromamba_activation_envvars.R`
+- [x] 6: resolve nested-activation artifacts in
+      `get_micromamba_activation_envvars()` (done in 0.2.0, 2026-11-16,
+      see `../feat-run-unify/`)
+- [x] 1: add `activate` to `run()` and give the three run functions one
+      path (done in 0.2.0, 2026-11-16, see `../feat-run-unify/`)
+
+## Follow-ups of the run-family unification (item 21)
+
+- [ ] 21a: optional backend hook for `activate = FALSE` (container or
+      remote backends)
+- [x] 21b: `R_LIBS*` of a Conda R in child processes: every `R_*`
+      variable leaves the child (feat-run-unify D15)
+- [x] 21c: rattlerthis: update `test-parity-childenv.R` (fixed activation
+      of `run_bin(activate = FALSE)`, status 137 for a killed command,
+      `MAMBA_SHLVL` `"1"` and empty prompt modifiers, `R_HOME` unset, no
+      `R_*` variables), run its suite;
+      `rattler_pip_base_env()` isolation (done 2026-11-17, uncommitted
+      in rattlerthis; feat-run-unify round 6)
+- [ ] 21g: a public way for a backend to get the child block (`base_env`
+      for `backend_create_env()` and `backend_install()`), so rattlerthis
+      stops calling condathis's internal `build_child_env()`
+- [ ] 21d: soft-deprecate `run_bin()` in a later release
+- [x] 21e: Windows: lookup on the command's `PATH` (done in 0.2.0,
+      feat-run-unify D13)
+- [ ] 21f: pixi trampoline as the micromamba path (`MAMBA_SHLVL` and
+      Windows with a Conda R done in 0.2.0, feat-run-unify D11 and D12)
 
 ## Found on 2026-11-05
 

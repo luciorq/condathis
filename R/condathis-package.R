@@ -29,10 +29,11 @@ NULL
 
 #' Cache for `R.home("bin")`-derived paths, resolved at package load time
 #'
-#' `get_clean_conda_envvars()` sets `R_HOME = ""` so a spawned child that
-#' invokes R or Rscript does not inherit the parent session's R installation.
-#' A session with `R_HOME` set to `""` corrupts `R.home()` (for example
-#' `/bin/Rscript` instead of the real path).
+#' A child of `condathis` gets no `R_HOME` (see `undo_r_startup_env()`), so
+#' a child that invokes R or Rscript does not inherit the parent session's
+#' R installation. A session whose `R_HOME` was changed or set to `""`
+#' gets a wrong `R.home()` (for example `/bin/Rscript` instead of the real
+#' path).
 #'
 #' `build_child_env()` builds child environments explicitly and passes them
 #' as full `env =` blocks, so `condathis` never mutates the session's
@@ -48,6 +49,7 @@ condathis_rscript_path_cache <- new.env(parent = emptyenv())
 #' @noRd
 .onLoad <- function(libname, pkgname) {
   condathis_rscript_path_cache$path <- resolve_condathis_rscript_path()
+  condathis_rscript_path_cache$r_home <- R.home()
   # `register_backend()` refuses the reserved name "micromamba", so that no
   # other package can replace the built-in backend.
   register_backend_impl("micromamba", micromamba_backend())
@@ -78,4 +80,19 @@ get_condathis_rscript_path <- function() {
     path <- resolve_condathis_rscript_path()
   }
   return(path)
+}
+
+#' The current R session's `R.home()`, resolved once at package load
+#'
+#' Used to find the Conda prefix that R runs from (see
+#' `condathis_r_prefix()`), which the same cache keeps as `r_prefix`.
+#'
+#' @returns Character string. Falls back to `R.home()` on the spot, with
+#'   the same caveat as `get_condathis_rscript_path()`, if called before
+#'   `.onLoad()` runs.
+#'
+#' @keywords internal
+#' @noRd
+get_condathis_r_home <- function() {
+  return(condathis_rscript_path_cache$r_home %||% R.home())
 }

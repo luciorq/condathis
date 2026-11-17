@@ -1414,7 +1414,9 @@ test_that("an upstream SIGPIPE is not a pipeline failure", {
     )
     testthat::expect_false(res$timeout)
     testthat::expect_identical(parse_output(res), "1")
-    testthat::expect_identical(res$statuses, c(-13L, 0L))
+    testthat::expect_identical(res$statuses, c(broken_pipe_status, 0L))
+    # 128 plus the number of SIGPIPE, as in a shell, also on Windows.
+    testthat::expect_identical(broken_pipe_status, 141L)
     # `seq | head`: the upstream SIGPIPE does not fail the pipeline.
     testthat::expect_identical(res$status, 0L)
   }

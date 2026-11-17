@@ -215,7 +215,7 @@ new_backend_result <- function(
 #' One text for every site where `backend_resolve_run()` or the activation
 #' of an environment fails under `error = "continue"`.
 #'
-#' @param what Character string, `"command"` or `"activation"`.
+#' @param what Character string, `"command"`.
 #' @param env_label Character string, the environment name or directory.
 #' @param cnd The error condition.
 #'
@@ -242,9 +242,10 @@ resolve_failure_stderr <- function(what, env_label, cnd) {
 #'
 #' The one error of `run()`, `run_bin()` and `run_pipeline()` under
 #' `error = "cancel"` when `backend_resolve_run()`, or the micromamba
-#' activation of an environment given by `env_path()`, fails. The backend's
-#' error becomes the parent of a new error that names the backend, the
-#' command, the environment and the user's call. The condathis classes of
+#' activation of an environment given by `env_path()`, fails, with the hint
+#' about `activate = FALSE`. The backend's error becomes the parent of a
+#' new error that names the backend, the command, the environment and the
+#' user's call. The condathis classes of
 #' `cnd` stay on the new error, as in `with_backend_errors()`, so a handler
 #' for them (for example `condathis_activation_dump_error`) still works.
 #' Other classes of `cnd` are found through the parent, with

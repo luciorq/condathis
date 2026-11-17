@@ -103,7 +103,8 @@
       `R_SESSION_TMPDIR`, `PROCESSX_PS2*`), shell-session state
       (`PWD`, `OLDPWD`, `SHLVL`, `PS1`, `_`), and `TMPDIR` (condathis
       manages that separately per-call already).
-      Known limitation, not yet resolved: on a machine where R itself runs
+      Known limitation (resolved 2026-11-16, see `../feat-run-unify/`):
+      on a machine where R itself runs
       from inside an already-activated environment (e.g. R installed via
       pixi/conda), the diff can still pick up nested-activation artifacts
       (`CONDA_PREFIX_1`, `CONDA_SHLVL` > 1) that reflect the *host's*
@@ -167,6 +168,12 @@
 - [x] Run `just lint` and `just test`: all 767 tests pass, 0 failures.
 
 ## Remaining / Optional
+
+**Update 2026-11-16: done in 0.2.0.** The consolidation of `run()` with
+`run_bin()` and the nested-activation limitation (both below) are done,
+see `../feat-run-unify/`. `run_bin(activate = FALSE)` now sets the same
+fixed activation as `run_pipeline(activate = FALSE)`, not "no activation
+at all".
 
 Implementation is feature complete per PLAN.md, including the
 `run()`/`run_bin()`/`run_pipeline()` reconciliation and the

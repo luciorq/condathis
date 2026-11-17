@@ -208,7 +208,8 @@ testthat::test_that("run() on the backend path does not leak the caller's conda 
   # micromamba's activation exports on Windows.
   testthat::expect_identical(out[[1L]], "")
   testthat::expect_identical(out[[2L]], "")
-  testthat::expect_identical(out[[3L]], "")
+  # `R_HOME` is unset, as every other variable of R (`undo_r_startup_env()`).
+  testthat::expect_identical(out[[3L]], NA_character_)
   testthat::expect_identical(out[[4L]], "kept")
   testthat::expect_identical(
     fs::path_norm(out[[5L]]),

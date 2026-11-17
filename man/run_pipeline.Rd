@@ -174,11 +174,9 @@ a daemon that a command starts keeps running.}
 \code{SIGTERM} when the R session ends, even by a crash. Ignored on other
 platforms. Defaults to \code{FALSE}.}
 
-\item{activate}{Logical. \code{TRUE} (the default) runs each command with the
-activation of its environment, as \code{\link[=run]{run()}} does. \code{FALSE} sets a fixed
-set of variables instead, without \code{activate.d} scripts (see
-\link{condathis-options}). Each command runs in the working directory of
-the R session, unless the activation of a backend gives another one.}
+\item{activate}{Logical. As \code{activate} of \code{\link[=run]{run()}}, for every command.
+Each command runs in the working directory of the R session, unless
+the activation of a backend gives another one.}
 
 \item{timeout}{Number of seconds the whole pipeline may take, the
 activations of the environments included: one deadline for all
@@ -203,8 +201,8 @@ out, otherwise the status of the first command that failed, or 0. A
 broken pipe can end a command that is not the last one: that does not
 count (see \emph{Broken pipes}).}
 \item{statuses}{Integer vector, the exit status of each command. A
-command that a signal ends has the negative signal number, such as
--13 for \code{SIGPIPE}.}
+command that a signal ends has the status 128 plus the signal number
+on Linux and macOS, such as 141 for \code{SIGPIPE}.}
 \item{processes}{List of \code{condathis_result} objects, one per command,
 with the fields of a \code{\link[=run]{run()}} result: \code{stdout} is \code{NA} for every
 command but the last, \code{env_name} is the environment name or the
@@ -235,7 +233,7 @@ reads the pipe in place of the command that exited. It kills the writer
 when more output comes after the pipe was empty for about one second in
 total. It also kills the writer when more than 64 KiB comes, which is
 what a Linux pipe holds. Output that was already in the pipe does not
-count. Either way, the status of the writer is -13, and that is not a
+count. Either way, the status of the writer is 141, and that is not a
 failure. It does not make \code{error = "cancel"} abort, and it is not the
 \code{status} of the result. So \verb{seq 1 1000000 | head -n 1} has status 0.
 Programs that handle \code{SIGPIPE} themselves, such as R and Python, exit

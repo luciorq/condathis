@@ -233,6 +233,15 @@ Parent R process
 
 ## Known, intentional divergences from `run()` / `run_bin()`
 
+**Update 2026-11-16.** The activation divergence below is closed, in
+0.2.0 (see `../feat-run-unify/`). `run()` gained `activate`, `run()` and
+`run_bin()` share one implementation, and the three functions share the
+backend resolution, one fixed activation for `activate = FALSE`
+(`get_activation_envvars()`, no longer a `TMPDIR` entry), one lookup
+rule and one signal status (`128 + n`, so a broken pipe is 141, not
+`-13`). The nested-activation limitation is fixed too. Only the first
+divergence (no `verbose` on `run_pipeline()`) remains.
+
 Crash safety, writable `stdin = "|"` + `input`, and return-shape parity have
 since been reconciled (see the sections above) — `run()`, `run_bin()`, and
 `run_pipeline()` now share the same parameters and the same family of S3
@@ -284,7 +293,8 @@ parameter gaps, so they are not planned to be reconciled:
   `run_bin(activate = TRUE)` — resolve activation vars once, then run like
   `run_bin()` with that overlay, instead of wrapping the command in
   `micromamba run` — remains the candidate follow-up sketched in the
-  "S3 return types" section above, not yet started.
+  "S3 return types" section above, not yet started. (Done in 0.2.0 on
+  2026-11-16, see `../feat-run-unify/`.)
 
 `run_pipeline()` remains a distinct execution mode (parallel spawn + kernel
 pipes) with different constraints than `run()`'s single `micromamba run`

@@ -89,7 +89,10 @@ pinned version unconfirmed by the author.
       behavior for the identical situation, for consistency.
       `run_bin()` was already correct here (already falls back to running
       outside any managed environment, already tested) and needed no
-      change.
+      change. (Stale: later in the 0.2.0 cycle `run_bin()` in a missing
+      environment aborts too, with `condathis_run_bin_env_not_found`,
+      and never runs a program from `PATH`. Since 2026-11-16 it shares
+      `run()`'s code, see `../feat-run-unify/`.)
 - [x] New tests in `test-run.R`: missing custom env with `error = "continue"`
       (returns 127, doesn't create anything), with `error = "cancel"` (aborts
       with the new class), and an explicit check that

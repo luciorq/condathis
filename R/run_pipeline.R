@@ -157,11 +157,9 @@
 #'   returns the result, with `timeout = TRUE`. Values that are not a
 #'   single, non-negative number abort with class
 #'   `condathis_invalid_timeout`.
-#' @param activate Logical. `TRUE` (the default) runs each command with the
-#'   activation of its environment, as [run()] does. `FALSE` sets a fixed
-#'   set of variables instead, without `activate.d` scripts (see
-#'   [condathis-options]). Each command runs in the working directory of
-#'   the R session, unless the activation of a backend gives another one.
+#' @param activate Logical. As `activate` of [run()], for every command.
+#'   Each command runs in the working directory of the R session, unless
+#'   the activation of a backend gives another one.
 #'
 #' @returns A `condathis_pipeline` object, invisibly, which prints as a
 #'   short summary and which [parse_output()] reads. It is a classed list
@@ -171,8 +169,8 @@
 #'     broken pipe can end a command that is not the last one: that does not
 #'     count (see *Broken pipes*).}
 #'   \item{statuses}{Integer vector, the exit status of each command. A
-#'     command that a signal ends has the negative signal number, such as
-#'     -13 for `SIGPIPE`.}
+#'     command that a signal ends has the status 128 plus the signal number
+#'     on Linux and macOS, such as 141 for `SIGPIPE`.}
 #'   \item{processes}{List of `condathis_result` objects, one per command,
 #'     with the fields of a [run()] result: `stdout` is `NA` for every
 #'     command but the last, `env_name` is the environment name or the
@@ -190,7 +188,7 @@
 #' when more output comes after the pipe was empty for about one second in
 #' total. It also kills the writer when more than 64 KiB comes, which is
 #' what a Linux pipe holds. Output that was already in the pipe does not
-#' count. Either way, the status of the writer is -13, and that is not a
+#' count. Either way, the status of the writer is 141, and that is not a
 #' failure. It does not make `error = "cancel"` abort, and it is not the
 #' `status` of the result. So `seq 1 1000000 | head -n 1` has status 0.
 #' Programs that handle `SIGPIPE` themselves, such as R and Python, exit
@@ -890,7 +888,9 @@ spawn_pipeline_process <- function(
     ))
 
   # The stage's environment block before activation: the session's
-  # environment with the clean-conda overlay, never `c("current", ...)`.
+  # environment without the activation of the R session (see
+  # `isolate_host_env()`) and with the clean-conda overlay, never
+  # `c("current", ...)`.
   # The calling session's environment is not mutated by `run_pipeline()`,
   # so inheriting it directly would leak the caller's CONDA_*/MAMBA_* state
   # into the stage. The package-cache and envs-path variables come from the
@@ -902,43 +902,28 @@ spawn_pipeline_process <- function(
     conda_dirs = child_conda_dirs(
       resolved_backend,
       env_dir = env_dir,
-      env_path = isFALSE(is.null(step$env_dir))
+      env_path = isFALSE(is.null(step$env_dir)),
+      root_dir = micromamba_root_of_env_dir(
+        resolved_backend,
+        env_dir,
+        step$env_dir
+      )
     )
   )
 
-  # Both the executable path and the activation variables come from the
-  # backend's `backend_resolve_run()`, so every registered backend works here.
-  # For `"micromamba"`, `micromamba_backend_resolve_run()` uses
-  # `resolve_env_bin_path()` (falling back to the bare name) plus
-  # `get_micromamba_activation_envvars()`.
-  #
-  # A bare name is looked up as `run()` does (see
-  # `resolve_direct_run_command()`). On Windows, processx searches a bare
-  # command in the working directory and on the calling R process's PATH,
-  # not on `env` below, so the binary directories of the stage's
-  # environment are searched first: a 3-command pipeline using `rev` failed
-  # because no `rev` exists on the PATH of R. On Linux and macOS, processx
-  # sets the child's environment before `execvp()`, so the child's PATH is
-  # searched. A command found nowhere stays bare, which preserves the
-  # "command not found" behavior below.
-  #
-  # `activate = FALSE` must not call `backend_resolve_run()`: the micromamba
-  # implementation resolves the full activation environment (two or three
-  # process spawns on a cache miss, plus any `activate.d` hook failures)
-  # before the flag could discard the result. The activation-free path resolves the
-  # executable locally (same `resolve_env_bin_path()` fallback) and uses the
-  # hook-free variables built from `env_dir` alone.
-  # The working directory the backend gives; `NULL` keeps R's.
-  stage_wd <- NULL
+  # The invocation, the child's block and the lookup of the command are
+  # those of `run()` and `run_bin()` (see `run_internal_backend()`): with
+  # `activate = TRUE`, the backend's `backend_resolve_run()` describes the
+  # command, so every registered backend works here; with
+  # `activate = FALSE`, no backend function runs, and the stage gets the
+  # fixed activation of `get_activation_envvars()`. An environment given by
+  # `env_path()` has no name for `backend_resolve_run()`: it is described
+  # from its directory, by `backend_resolve_run_in_dir()`.
   if (isTRUE(activate)) {
     # A failing backend resolution (e.g. a broken activate.d hook during
     # activation) is a per-stage failure under `error = "continue"`: it gets
     # the same status-127 channel as a missing binary, and the other stages
     # still run.
-    #
-    # An environment given by `env_path()` has no name for
-    # `backend_resolve_run()`: it is described from its directory, by
-    # `backend_resolve_run_in_dir()`.
     #
     # The pipeline's one deadline also covers the activations: a stage
     # whose activation runs out of time is a stage that timed out, and the
@@ -957,51 +942,32 @@ spawn_pipeline_process <- function(
     if (isTRUE(time_left() <= 0)) {
       return(timed_out)
     }
-    backend_run <- tryCatch(
-      if (is.null(step$env_name)) {
-        rlang::exec(
-          backend_resolve_run_in_dir,
-          resolved_backend,
-          cmd = cmd_vec[1L],
-          args = cmd_vec[-1L],
-          env_dir = env_dir,
-          verbose = "silent",
-          base_env = base_env,
-          !!!backend_resolve_args(
-            resolved_backend,
-            "backend_resolve_run_in_dir",
-            timeout = time_left()
-          )
-        )
-      } else {
-        rlang::exec(
-          backend_resolve_run,
-          resolved_backend,
-          cmd = cmd_vec[1L],
-          args = cmd_vec[-1L],
-          env_name = step$env_name,
-          verbose = "silent",
-          base_env = base_env,
-          !!!backend_resolve_args(
-            resolved_backend,
-            "backend_resolve_run",
-            timeout = time_left()
-          )
-        )
-      },
+    invocation <- tryCatch(
+      resolve_child_invocation(
+        resolved_backend,
+        cmd = cmd_vec[1L],
+        args = cmd_vec[-1L],
+        env_name = step$env_name,
+        env_dir = env_dir,
+        env_label = env_label,
+        activate = TRUE,
+        base_env = base_env,
+        verbose = "silent",
+        timeout = time_left()
+      ),
       error = function(cnd) cnd
     )
     if (isTRUE(time_left() <= 0)) {
       return(timed_out)
     }
     failure_cnd <- NULL
-    if (inherits(backend_run, "condition")) {
+    if (inherits(invocation, "condition")) {
       # Re-signaled unchanged, the backend's error named an internal call
       # and no step, and a third-party backend's error had no condathis
       # class at all.
       if (isTRUE(error_var)) {
         abort_pipeline_resolve_failure(
-          backend_run,
+          invocation,
           step_index = step_index,
           cmd_name = cmd_vec[1L],
           env_label = env_label,
@@ -1009,12 +975,12 @@ spawn_pipeline_process <- function(
           call = call
         )
       }
-      failure_cnd <- backend_run
+      failure_cnd <- invocation
     } else if (isTRUE(error_var)) {
       # A contract error goes on unchanged: it already names the backend,
       # the environment and the `run_pipeline()` call.
       validate_resolve_run(
-        backend_run,
+        invocation,
         env_name = env_label,
         backend_name = backend_name,
         call = call
@@ -1023,7 +989,7 @@ spawn_pipeline_process <- function(
       failure_cnd <- tryCatch(
         {
           validate_resolve_run(
-            backend_run,
+            invocation,
             env_name = env_label,
             backend_name = backend_name,
             call = call
@@ -1046,31 +1012,71 @@ spawn_pipeline_process <- function(
         )
       ))
     }
-    resolved_cmd <- backend_run$command
-    stage_args <- backend_run$args
-    activation_envvars <- backend_run$env
-    stage_wd <- backend_run$dir
   } else {
-    resolved_cmd <- resolve_env_bin_path(env_dir, cmd_vec[1L]) %||%
-      cmd_vec[1L]
-    stage_args <- cmd_vec[-1L]
-    # Without `CONDA_ENVS_PATH`: the clean overlay sets it (see
-    # `child_conda_dirs()`), so both `activate` modes give a stage the same
-    # value.
-    activation_envvars <- get_activation_envvars(
-      env_name = env_label,
+    # No backend code runs that could report a missing environment, and
+    # `precreate_envs()` lets an `NA` probe through (rule R5). Never fall
+    # back to a program on `PATH` then.
+    if (isFALSE(dir.exists(env_dir))) {
+      if (isTRUE(error_var)) {
+        abort_env_not_found(
+          env_label,
+          class = c(
+            "condathis_run_pipeline_env_not_found",
+            "condathis_pipeline_env_not_found"
+          ),
+          call = call
+        )
+      }
+      return(list(
+        proc = NULL,
+        failure = list(
+          status = 127L,
+          stderr = sprintf(
+            "Conda environment '%s' does not exist.\n",
+            env_label
+          )
+        )
+      ))
+    }
+    invocation <- resolve_child_invocation(
+      resolved_backend,
+      cmd = cmd_vec[1L],
+      args = cmd_vec[-1L],
+      env_name = step$env_name,
       env_dir = env_dir,
-      tmp_dir = tmp_dir_path
+      env_label = env_label,
+      activate = FALSE,
+      base_env = base_env
     )
   }
 
-  # Full explicit environment block for this stage: the block before
-  # activation and the activation overlay.
-  child_env <- apply_child_overlay(base_env, overlay = activation_envvars)
-  resolved_cmd <- resolve_direct_run_command(resolved_cmd, env_dir = env_dir)
+  # Full explicit environment block for this stage, and the command as
+  # `run()` starts it.
+  child_env <- compose_child_env(
+    base_env,
+    invocation,
+    env_dir = env_dir,
+    activate = activate
+  )
+  stage_args <- as.character(invocation[["args"]])
+  # The working directory the backend gives; `NULL` keeps R's.
+  stage_wd <- invocation[["dir"]]
+  resolved_cmd <- resolve_direct_run_command(
+    invocation[["command"]],
+    child_env = child_env,
+    wd = stage_wd
+  )
+  child_env <- r_prefix_command_env(
+    resolved_cmd,
+    child_env = child_env,
+    wd = stage_wd
+  )
 
   spawn_result <- tryCatch(
     expr = {
+      if (is.null(resolved_cmd)) {
+        abort_command_not_found(invocation[["command"]])
+      }
       processx::process$new(
         command = resolved_cmd,
         args = stage_args,
@@ -1088,15 +1094,17 @@ spawn_pipeline_process <- function(
     },
     system_command_status_error = function(cnd) cnd,
     rlib_error_3_0 = function(cnd) cnd,
-    c_error = function(cnd) cnd
+    c_error = function(cnd) cnd,
+    condathis_command_not_found = function(cnd) cnd
   )
 
   if (inherits(spawn_result, "condition")) {
     stderr_msg <- if (
-      isTRUE(stringr::str_detect(
-        conditionMessage(spawn_result),
-        "Native call to"
-      ))
+      inherits(spawn_result, "condathis_command_not_found") ||
+        isTRUE(stringr::str_detect(
+          conditionMessage(spawn_result),
+          "Native call to"
+        ))
     ) {
       sprintf("System command '%s' not found\n", hide_secrets(cmd_vec[1L]))
     } else {
@@ -1199,10 +1207,12 @@ settle_pipeline_stage <- function(
   # exit status is an OS/`processx` detail that differs across
   # platforms (`-9` on Linux/macOS, `2` on Windows for the identical
   # `kill()` call), not something to trust as-is.
+  # A command that a signal ended has the status `128 + n` off Windows, as
+  # in `run()` (see `signal_exit_status()`).
   if (isTRUE(p_timeout)) {
     p_status <- -9L
   } else {
-    p_status <- exit_status_safely(proc_i)
+    p_status <- signal_exit_status(exit_status_safely(proc_i))
   }
 
   return(list(
@@ -1283,9 +1293,7 @@ abort_pipeline_resolve_failure <- function(
     env_label = env_label,
     backend_name = backend_name,
     step_index = step_index,
-    hint = c(
-      `i` = "{.code activate = FALSE} runs the command without the activation of the backend."
-    ),
+    hint = run_family_resolve_hint(),
     call = call
   )
 }
@@ -1827,16 +1835,13 @@ precreate_envs <- function(
       next
     }
 
-    # Use backend_probe_env(), not backend_has_env(): a failed listing (NA)
-    # is not "absent". Treating it as absent turns a transient
-    # existence-check error into a hard env-not-found abort (or a synthetic
-    # 127). On NA, proceed. A genuinely missing environment still fails at
-    # spawn with its own error.
-    env_probe <- backend_probe_env(
-      resolved$backend,
-      env_name_i,
-      verbose = "silent"
-    )
+    # The probe that `resolve_backend()` ran, not a second one (decision
+    # D16 of feat-run-unify). A failed listing (NA) is not "absent".
+    # Treating it as absent turns a transient existence-check error into a
+    # hard env-not-found abort (or a synthetic 127). On NA, proceed. A
+    # genuinely missing environment still fails at spawn with its own
+    # error.
+    env_probe <- resolved_env_exists(resolved, env_name_i)
     if (isFALSE(env_probe)) {
       if (identical(env_name_i, "condathis-env")) {
         # With the backend this call resolved to, so the new environment
@@ -1902,13 +1907,14 @@ kill_processes <- function(procs) {
 #' A command that is not the last one is killed by `SIGPIPE` when the next
 #' command stops reading early, as in `seq 1 1000000 | head -n 1`. That is
 #' the normal end of such a pipeline, not a failure: it does not make
-#' `error = "cancel"` abort, and `pipeline_status()` skips it (bash with
-#' `pipefail` reports 141 instead). The stage keeps its real status
-#' (`-13`) in `statuses`. Windows has no `SIGPIPE`;
+#' `error = "cancel"` abort, and `pipeline_status()` skips it. bash with
+#' `pipefail` reports 141 too; the stage keeps 141 in `statuses` (see
+#' `signal_exit_status()`). A command that is not the last one and exits
+#' with a real status 141 counts the same. Windows has no `SIGPIPE`;
 #' `reap_windows_broken_pipes()` reproduces it there with the same status,
 #' for a stage that writes after its reader exited.
 #'
-#' @param status Integer status of the stage, as reported by `processx`.
+#' @param status Integer status of the stage, after `signal_exit_status()`.
 #' @param i Integer index of the stage.
 #' @param n_cmds Integer number of stages.
 #'
@@ -1925,12 +1931,13 @@ is_upstream_sigpipe <- function(status, i, n_cmds) {
 
 #' Status of a stage ended by a broken pipe
 #'
-#' `-13` is how `processx` reports death by `SIGPIPE` on Linux and macOS.
-#' The Windows emulation reports the same value.
+#' `128 + 13`: death by `SIGPIPE` on Linux and macOS, as a shell reports
+#' it (`processx` reports `-13`, see `signal_exit_status()`). The Windows
+#' emulation reports the same value.
 #'
 #' @keywords internal
 #' @noRd
-broken_pipe_status <- -13L
+broken_pipe_status <- 141L
 
 #' Seconds a Windows stage may keep running after its reader exits, when
 #' its pipe cannot be watched
@@ -2128,7 +2135,7 @@ broken_pipe_transition <- function(
 #' `orphan_pipe_watch_lines()`): it reads what the writer had already
 #' written, and reports when the writer writes more, that is, when the
 #' pipe ran empty and more output came, or when more output came than a
-#' Linux pipe holds. The writer is then ended with status `-13`, as
+#' Linux pipe holds. The writer is then ended with status 141, as
 #' `SIGPIPE` ends it. A writer that writes nothing more keeps running and
 #' keeps its own status.
 #' The R process cannot read the read end itself: on Windows, `processx`

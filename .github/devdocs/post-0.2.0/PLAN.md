@@ -21,6 +21,11 @@ new. Follow-ups of `env_definition()` itself are in
 `feat-env-file/TODO.md`; only the ones that live in rattlerthis are
 repeated here (item 18).
 
+Updated 2026-11-16, after the run-family unification
+(`../feat-run-unify/`), done in 0.2.0 at the maintainer's request. Items
+1 and 6 are marked done in place. Item 21 is new: the follow-ups of that
+work.
+
 Stale bookkeeping fixed in the same pass: three items in
 `feat-backend-abstraction/TODO.md`'s "rattlerthis as a conforming backend"
 milestone were still unchecked although the work had landed (the vtable is
@@ -33,12 +38,12 @@ there with a pointer to this file.
 | # | Item | Origin | State | Needs a decision? |
 |---|------|--------|-------|-------------------|
 | 0 | 0.1.4 GitHub release + two uncommitted CRAN tarball edits | CRAN tarball audit | done; `CRAN-SUBMISSION` handled by `just git-tag` (2026-11-13) | no |
-| 1 | `run()` convergence onto resolve-once + direct spawn | feat-pipeline, feat-strict-defaults | designed, not started | yes: hook semantics |
+| 1 | `run()` convergence onto resolve-once + direct spawn | feat-pipeline, feat-strict-defaults | done in 0.2.0 (2026-11-16, `../feat-run-unify/`) | no |
 | 2 | `rattlerthis` end-to-end smoke test via `condathis` | feat-backend-abstraction, rattlerthis | verified by hand 2026-11-05, test not written | no |
 | 3 | `list_packages()` cross-backend column schema | rattlerthis "flag upward" | decided (minimal subset), unflagged | maybe: coercion |
 | 4 | README cross-links between the two packages | both | condathis side done 2026-11-13; rattlerthis side not checked | no |
 | 5 | Package-wide supervisor escape hatch | feat-pipeline | not decided | yes: option vs env var |
-| 6 | Nested-activation artifacts in `get_micromamba_activation_envvars()` | feat-pipeline | known limitation | no, needs investigation |
+| 6 | Nested-activation artifacts in `get_micromamba_activation_envvars()` | feat-pipeline | done in 0.2.0 (2026-11-16, `../feat-run-unify/`) | no |
 | 7 | Windows MinGW runtime pins in tests | HANDOFF | waiting on conda-forge | no |
 | 8 | jarl lint baseline (30 findings) | HANDOFF | decided: fix, do not suppress | no |
 | 9 | In-code `TODO: @luciorq` comments (3) | code | 9a decided (abort), superseded by `env_definition()`; 9b, 9c open | no |
@@ -53,6 +58,7 @@ there with a pointer to this file.
 | 18 | rattlerthis follow-ups of `env_definition()` | feat-env-file 2026-11-13 | open, two tests expected to fail | no |
 | 19 | Empty `LICENSE` in the upstream `polyglot` repository | CRAN docs review 2026-11-13 | open, maintainer only | no |
 | 20 | Small leftovers of the 2026-11-13 reviews | CRAN preparation reviews | open | no |
+| 21 | Follow-ups of the run-family unification | feat-run-unify 2026-11-16 | open (e and parts of f done in 0.2.0) | yes: `R_LIBS*` |
 
 ## 0. Before 0.2.0: the 0.1.4 release was never recorded on GitHub
 
@@ -125,6 +131,14 @@ there is no recorded SHA for the submission.
    hand-typed.)
 
 ## 1. Converge `run()` onto the resolve-once + direct-spawn model
+
+**Done in 0.2.0 (2026-11-16), see `../feat-run-unify/`.** The text below
+is the plan of 2026-09-17 and is stale. `run()` stopped wrapping the
+command in `micromamba run` earlier in the 0.2.0 cycle (NEWS: "`run()`
+starts the command itself"). On 2026-11-16 `run()` gained `activate`,
+`run()` and `run_bin()` became one implementation, and the three run
+functions got one lookup rule, one fixed activation for
+`activate = FALSE` and one signal status.
 
 **Origin.** `feat-pipeline/PLAN.md` "Known, intentional divergences",
 `feat-pipeline/TODO.md` "Remaining / Optional",
@@ -325,6 +339,13 @@ package (`condathis.backend_priority`).
 4. NEWS bullet under "New features".
 
 ## 6. Nested-activation artifacts in `get_micromamba_activation_envvars()`
+
+**Done in 0.2.0 (2026-11-16), see `../feat-run-unify/`.** Every child now
+starts without the activation of the R session (`isolate_host_env()`),
+and a recorded micromamba activation drops `CONDA_PREFIX_<n>` and
+`CONDA_ENV_SHLVL_<n>_*` and has `CONDA_SHLVL=1`. The cause on the
+developer machine was a micromamba started through a pixi trampoline,
+not only R itself. The text below is the plan of 2026-09-17.
 
 **Origin.** `feat-pipeline/TODO.md` "Known limitation, not yet resolved".
 
@@ -712,6 +733,31 @@ release.
   of its own; it was checked by hand with synthetic status files. A test
   in `test-env_lock.R` can use its `status_file` argument.
 
+## 21. Follow-ups of the run-family unification
+
+**Origin.** `../feat-run-unify/PLAN.md`, "Follow-ups" (items 14 to 17
+there). Added 2026-11-16.
+
+- a. An optional backend hook to describe a command without activation,
+  or to refuse `activate = FALSE` with a class, for a container or remote
+  backend. The default keeps the fixed activation of condathis.
+- b. `R_LIBS`, `R_LIBS_USER` and `R_LIBS_SITE` of a Conda R reach the
+  commands. Needs a decision: clear, keep, or clear only when they point
+  into a host prefix.
+- c. rattlerthis: update the expectations of
+  `tests/testthat/test-parity-childenv.R` (`run_bin(activate = FALSE)`
+  now has the fixed activation; a killed command has status 137), then
+  run its suite against condathis 0.2.0. Its `rattler_pip_base_env()`
+  builds a block without the isolation of condathis.
+- d. Soft-deprecate `run_bin()` in a later release.
+- e. Done in 0.2.0 (feat-run-unify D13): on Windows a bare name is
+  looked up on the command's `PATH`, as `cmd.exe` does, and a name found
+  nowhere fails with status 127.
+- f. Smaller: a pixi trampoline given as the micromamba path. Done in
+  0.2.0: `MAMBA_SHLVL` and the prompt modifiers (feat-run-unify D11:
+  `"1"` and `""` for every command) and Windows with R itself in a Conda
+  prefix (D12: R's prefix leaves the command's `PATH`).
+
 ## Suggested ordering after the 0.2.0 release
 
 1. Item 8 + 9b + 9c (lint cleanup, mechanical, low risk) as one small PR.
@@ -720,8 +766,9 @@ release.
    then 3, then 10 and the rattlerthis half of 4, then 18c/d (the
    rattlerthis integration becomes real and documented).
 4. Item 5 (supervisor option) as its own small PR.
-5. Item 6, then item 1 (the `run()` convergence) as the headline of the
-   next minor release.
+5. (Done in 0.2.0, 2026-11-16, see `../feat-run-unify/`.) Item 6, then
+   item 1 (the `run()` convergence) as the headline of the next minor
+   release.
 6. Item 17 as one PR (17d and 17e first: they are small and touch only
    docs and argument plumbing), and item 20 alongside.
 7. Items 13 and 19 are maintainer actions. Item 15 needs only the

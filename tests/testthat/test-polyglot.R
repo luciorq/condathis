@@ -47,6 +47,71 @@ testthat::test_that("run(), run_bin() and run_pipeline() find the polyglot scrip
   testthat::expect_identical(parse_output(res)[[1L]], polyglot_expected_line())
 })
 
+testthat::test_that("a warm run() starts no process but the command", {
+  testthat::skip_on_cran()
+  skip_if_no_micromamba_offline()
+  # Decision D16 of feat-run-unify: the existence check of every run() and
+  # run_bin() started four micromamba processes (`micromamba --version` and
+  # `micromamba env list`, twice). It now reads the file system, once per
+  # call, also for run_pipeline().
+  create_polyglot_env("polyglot-env")
+  # Warm the activation cache of the environment.
+  run("polyglot", env_name = "polyglot-env", verbose = "silent")
+
+  no_micromamba <- function(...) stop("micromamba must not run here.")
+  run_fns <- list(run = condathis::run, run_bin = condathis::run_bin)
+  started <- character(0L)
+  real_processx_run <- processx::run
+  testthat::local_mocked_bindings(
+    run = function(command, ...) {
+      started <<- c(started, as.character(command))
+      return(real_processx_run(command, ...))
+    },
+    .package = "processx"
+  )
+  testthat::local_mocked_bindings(
+    native_cmd = no_micromamba,
+    get_best_micromamba_path = no_micromamba,
+    check_micromamba_version = no_micromamba,
+    install_micromamba = no_micromamba
+  )
+  probes <- 0L
+  real_probe <- backend_probe_env
+  testthat::local_mocked_bindings(
+    backend_probe_env = function(...) {
+      probes <<- probes + 1L
+      return(real_probe(...))
+    }
+  )
+
+  for (activate in c(TRUE, FALSE)) {
+    for (fn in run_fns) {
+      started <- character(0L)
+      probes <- 0L
+      res <- fn(
+        "polyglot",
+        env_name = "polyglot-env",
+        activate = activate,
+        verbose = "silent"
+      )
+      testthat::expect_identical(res$status, 0L)
+      # The command only, and one existence check (of the one backend).
+      testthat::expect_length(started, 1L)
+      testthat::expect_identical(probes, length(backend_names_by_priority()))
+    }
+    probes <- 0L
+    res <- run_pipeline(
+      run_step("polyglot"),
+      run_step("polyglot"),
+      env_name = "polyglot-env",
+      activate = activate,
+      verbose = "silent"
+    )
+    testthat::expect_identical(res$statuses, c(0L, 0L))
+    testthat::expect_identical(probes, length(backend_names_by_priority()))
+  }
+})
+
 testthat::test_that("install_packages() warns when a previous local channel is dropped", {
   testthat::skip_on_cran()
   skip_if_no_micromamba_offline()

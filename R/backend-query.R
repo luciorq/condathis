@@ -208,7 +208,7 @@ validate_backend_return <- function(
       }
       return(fs::path(value))
     }
-    if (isFALSE(is_path) || isFALSE(isTRUE(fs::dir_exists(value)))) {
+    if (isFALSE(is_path) || isFALSE(isTRUE(dir_exists_quick(value)))) {
       invalid("It must return the absolute path of an existing directory.")
     }
     return(fs::path(value))
@@ -451,7 +451,9 @@ validate_definition_description <- function(value, invalid) {
   }
   supported <- value[["supported"]]
   if (isFALSE(rlang::is_scalar_logical(supported))) {
-    invalid("Its {.field supported} must be {.code TRUE}, {.code FALSE} or {.code NA}.")
+    invalid(
+      "Its {.field supported} must be {.code TRUE}, {.code FALSE} or {.code NA}."
+    )
   }
   if (isFALSE(is_na_or_string(value[["format"]]))) {
     invalid("Its {.field format} must be {.code NA} or a non-empty string.")
@@ -460,9 +462,13 @@ validate_definition_description <- function(value, invalid) {
     invalid("Its {.field reason} must be {.code NA} or a non-empty string.")
   }
   kind <- as_na_or_string(value[["kind"]])
-  if (isFALSE(is_na_or_string(value[["kind"]])) ||
-    isFALSE(is.na(kind) || kind %in% c("request", "lock"))) {
-    invalid("Its {.field kind} must be {.val request}, {.val lock} or {.code NA}.")
+  if (
+    isFALSE(is_na_or_string(value[["kind"]])) ||
+      isFALSE(is.na(kind) || kind %in% c("request", "lock"))
+  ) {
+    invalid(
+      "Its {.field kind} must be {.val request}, {.val lock} or {.code NA}."
+    )
   }
   platforms <- value[["platforms"]]
   if (
@@ -770,6 +776,10 @@ abort_env_probe_failed <- function(
 #'   the environment.
 #' @param verbose One of the five verbose strings, for the probes.
 #' @param call Environment of the function the error is reported for.
+#' @param probes `NULL`, or an environment. Each probe result
+#'   (`backend_probe_env()`) is assigned there under the backend name, so
+#'   that `resolve_backend()` can hand the result of the resolved backend
+#'   on, and its caller does not probe again.
 #'
 #' @returns Character vector of backend names that report `env_name`, in
 #'   priority order. Length 0 (new environment), 1 (unambiguous owner), or
@@ -781,7 +791,8 @@ find_owning_backends <- function(
   env_name,
   mutating = FALSE,
   verbose = "silent",
-  call = rlang::caller_env()
+  call = rlang::caller_env(),
+  probes = NULL
 ) {
   owners <- character(0L)
   for (nm in backend_names_by_priority()) {
@@ -790,6 +801,9 @@ find_owning_backends <- function(
       env_name = env_name,
       verbose = verbose
     )
+    if (isFALSE(is.null(probes))) {
+      assign(nm, probe, envir = probes)
+    }
     if (isTRUE(is.na(probe))) {
       cnd <- attr(probe, "condition")
       if (isTRUE(mutating)) {

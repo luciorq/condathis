@@ -88,13 +88,17 @@ option.
 }
 \item{\code{CONDA_PREFIX}}{
 Prefix of the Conda environment active in the calling shell.
-\code{condathis} reads it only to look for \code{micromamba} inside that prefix
-during discovery. It never passes it on to child processes.
+\code{condathis} reads it to look for \code{micromamba} inside that prefix
+during discovery, and to remove the activation of the R session from
+child processes (see \emph{The activation of the R session} below). It
+never passes it on to child processes.
 }
 \item{\code{PATH}}{
 Searched for \code{micromamba} as the last discovery fallback. Also the
-base \code{PATH} for child processes. \code{\link[=run_bin]{run_bin()}} and \code{\link[=run_pipeline]{run_pipeline()}}
-prepend the environment's binary directories to it.
+base \code{PATH} of child processes, without the binary directories of
+the Conda and pixi environments that the R session runs in (see
+below). \code{\link[=run]{run()}}, \code{\link[=run_bin]{run_bin()}} and \code{\link[=run_pipeline]{run_pipeline()}} put the
+environment's binary directories in front of it.
 }
 \item{\code{PATHEXT}}{
 Windows only. Extensions tried when a command name is resolved
@@ -181,9 +185,10 @@ through the same proxy. It ignores the proxy settings of your
 
 Every process \code{condathis} starts, whether \code{micromamba} itself or a
 command run by \code{\link[=run]{run()}}, \code{\link[=run_bin]{run_bin()}} or \code{\link[=run_pipeline]{run_pipeline()}}, starts from a
-copy of the calling session's environment. \code{condathis} then applies the
-overrides below to that copy only. \code{condathis} never modifies the calling
-R session. A process that you start yourself does not get these
+copy of the calling session's environment, without the activation of
+the R session (see \emph{The activation of the R session} below).
+\code{condathis} then applies the overrides below to that copy only.
+\code{condathis} never modifies the calling R session. A process that you start yourself does not get these
 overrides. Pass \code{--no-rc} and \code{--no-env} to \code{micromamba} or \code{conda} to
 ignore your own Conda settings.
 
@@ -226,7 +231,8 @@ Set to \code{""}.
 Set to \code{""}.
 }
 \item{\code{CONDA_SHLVL}, \code{MAMBA_SHLVL}}{
-Set to \code{"0"}.
+Set to \code{"0"}. The commands of \code{\link[=run]{run()}}, \code{\link[=run_bin]{run_bin()}} and
+\code{\link[=run_pipeline]{run_pipeline()}} get \code{"1"} (see below).
 }
 \item{\code{CONDA_PKGS_DIRS}, \code{MAMBA_PKGS_DIRS}}{
 For \code{micromamba} and the commands of its environments, environments
@@ -261,8 +267,9 @@ directory. The value is the same with \code{activate = TRUE} and
 value.
 }
 \item{\code{R_HOME}}{
-Set to \code{""}, so an R installed in a Conda environment does not pick
-up the R installation of the calling session.
+Removed, with every other \verb{R_*} variable (see \emph{The startup of R}
+below), so an R installed in a Conda environment does not pick up
+the R installation of the calling session.
 }
 \item{\code{TMPDIR}}{
 Set to a new temporary directory for each call. \code{condathis} removes
@@ -294,7 +301,7 @@ while the activation is recorded, and the commands of \code{\link[=run]{run()}},
 For \verb{micromamba env list}, \verb{micromamba env remove} and, unless it
 needs your home directory, \verb{micromamba create}: the \verb{home/}
 directory of the condathis data directory. So \code{micromamba} does not
-change \verb{~/.conda/environments.txt} (see Details in
+rewrite \verb{~/.conda/environments.txt} (see Details in
 \code{\link[=get_install_dir]{get_install_dir()}}). The scripts that packages run when they are
 installed or removed by these commands see this value too. On
 Windows, micromamba looks there for the Start Menu shortcuts of the
@@ -306,6 +313,91 @@ For \verb{micromamba list}, which \code{\link[=list_packages]{list_packages()}} 
 reports only the packages of the environment.
 }
 }
+
+\emph{The activation of the R session.} R can run in an activated Conda or
+pixi environment, or in several nested ones: R installed in a Conda
+environment, R started from a shell where \verb{conda activate} or
+\verb{pixi shell} ran, or R started through a pixi global binary. The
+processes that \code{condathis} starts do not get that activation, within
+the limits below. So a program of R's own environment does not run in
+place of one that the environment of the command lacks. Before the
+overrides above,
+\code{condathis} changes the copy of the session's environment this way:
+
+\describe{
+\item{\code{PATH}}{
+The binary directories of these Conda prefixes are removed: the
+prefixes of \code{CONDA_PREFIX}, of every \verb{CONDA_PREFIX_<n>} and
+\verb{CONDA_ENV_SHLVL_<n>_CONDA_PREFIX}, and the prefix that R itself is
+installed in. Only a directory with a \code{conda-meta} directory counts
+as a prefix. Other entries stay, such as
+the \code{condabin} directory of \verb{conda init} and \verb{~/.pixi/bin}. One
+exception on Windows: a command that is a program of R's own prefix,
+such as \code{file.path(R.home("bin"), "Rscript.exe")}, gets the binary
+directories of that prefix back at the end of its \code{PATH}, because it
+loads its DLLs from there.
+}
+\item{\verb{CONDA_PREFIX_<n>}, \verb{CONDA_ENV_SHLVL_<n>_*}, \code{CONDA_EXE},
+\code{CONDA_PYTHON_EXE}, \verb{_CE_CONDA}, \verb{_CE_M}, \code{MAMBA_EXE}}{
+Removed. These variables record the activation of the session.
+}
+\item{\verb{PIXI_PROJECT_*}, \verb{PIXI_WORKSPACE_*}, \verb{PIXI_ENVIRONMENT_*},
+\code{PIXI_PROMPT}, \code{PIXI_IN_SHELL}, \code{PIXI_EXE}}{
+Removed. Other \verb{PIXI_*} variables, such as \code{PIXI_HOME}, stay.
+}
+\item{\verb{CONDA_BACKUP_<X>}, \verb{<X>_CONDA_BACKUP}, \verb{CONDA_ENV_SHLVL_<n>_<X>}}{
+The value of \verb{<X>} before the activation, saved by the activation
+scripts of compiler and other packages, or by pixi. \verb{<X>} gets that
+value back, as the deactivation scripts do: an empty backup of the
+first two forms removes \verb{<X>}. The backups are removed.
+}
+\item{Variables of \code{conda-meta/state} and \code{etc/conda/env_vars.d}}{
+A variable that these files of the prefixes above set is removed
+when the session has exactly that value.
+}
+}
+
+Some changes cannot be undone. A value that an \code{activate.d} script of
+the session's environment set stays, unless it saved a backup above,
+and so does a \code{PATH} entry such a script added. The binary directory of
+an environment that no variable names any more stays too, such as the
+one of a pixi global binary that started the shell before another one
+replaced its \code{CONDA_PREFIX}.
+
+\emph{The startup of R.} R also changes its own environment when it starts,
+and the processes that \code{condathis} starts do not get those changes
+either. So an R of the environment of the command never loads packages
+built for the R of the session, and a program of the environment never
+loads R's libraries or certificates:
+
+\describe{
+\item{\verb{R_*}, \verb{_R_*}}{
+Removed, also a variable the user set, such as \code{R_LIBS_USER} or
+\code{R_PROFILE_USER}: only R reads them, and an R that the command
+starts sets its own. The R of the session keeps them.
+}
+\item{\code{EDITOR}, \code{PAGER}, \code{MAKE}, \code{SED}, \code{TAR}, \code{LN_S},
+\code{CURL_CA_BUNDLE}, \code{MSYS2_ENV_CONV_EXCL}}{
+Removed when the session has exactly the value that R's startup
+gives them (\code{etc/Renviron} of R). A value the user set stays, such
+as \code{EDITOR=nvim}.
+}
+\item{\code{LD_LIBRARY_PATH}, \code{DYLD_FALLBACK_LIBRARY_PATH},
+\code{DYLD_LIBRARY_PATH}}{
+The directories that R put in front (\code{etc/ldpaths} of R) are
+removed. The directories after them stay.
+}
+\item{\code{PATH} on Windows}{
+The Rtools directories that R put in front (\code{R_RTOOLS45_PATH}) are
+removed. A command finds Rtools only when the \code{PATH} that R started
+with has it.
+}
+}
+
+\code{condathis} learns the values of R's startup by starting R's own
+\code{Rscript} once per R session, without the user's \code{.Renviron} and
+\code{.Rprofile}. When that fails, only the \verb{R_*} variables and the Rtools
+directories are removed.
 
 With the default \code{activate = TRUE} of \code{\link[=run]{run()}}, \code{\link[=run_bin]{run_bin()}} and
 \code{\link[=run_pipeline]{run_pipeline()}}, \code{condathis} applies activation variables on top. For
@@ -320,10 +412,18 @@ starts the command itself. Values that name the command's \code{TMPDIR} are
 recorded again for every command. Values that name the working directory
 are recorded again in another working directory. For other backends, the
 backend package sets the activation variables (see \code{\link[=register_backend]{register_backend()}}).
+When the \code{PATH} of an activation names none of the environment's binary
+directories, \code{condathis} puts them in front of it.
 
-With \code{activate = FALSE}, \code{\link[=run_bin]{run_bin()}} applies no activation variables and
-only prepends the environment's binary directories to \code{PATH}.
-\code{\link[=run_pipeline]{run_pipeline()}} sets this fixed set instead:
+In both modes and for every backend, a command of \code{\link[=run]{run()}}, \code{\link[=run_bin]{run_bin()}}
+and \code{\link[=run_pipeline]{run_pipeline()}} runs in exactly one activated environment,
+whatever the R session runs in: \code{CONDA_SHLVL} and \code{MAMBA_SHLVL} are
+\code{"1"}, and \code{CONDA_PROMPT_MODIFIER} and \code{MAMBA_PROMPT_MODIFIER} are
+\code{""}, whatever the activation set.
+
+With \code{activate = FALSE}, \code{\link[=run]{run()}}, \code{\link[=run_bin]{run_bin()}} and \code{\link[=run_pipeline]{run_pipeline()}} set
+this fixed set instead, without any backend code and without the
+\code{activate.d} scripts and \code{env_vars.d} files of the packages:
 
 \describe{
 \item{\code{CONDA_PREFIX}, \code{CONDA_DEFAULT_ENV}}{
@@ -334,16 +434,16 @@ The environment directory and its name. For an environment given by
 Set to \code{"1"}.
 }
 \item{\code{CONDA_PROMPT_MODIFIER}, \code{MAMBA_PROMPT_MODIFIER}}{
-Set to \code{"(<env_name>) "}.
+Set to \code{""}.
 }
 \item{\code{PATH}}{
-The environment's binary directories, prepended to the session
-\code{PATH}.
+The environment's binary directories, in front of the \code{PATH}
+described above.
 }
 }
 
-\code{CONDA_ENVS_PATH} is the same as with \code{activate = TRUE}: it comes from
-the clean variables above.
+\code{TMPDIR} and \code{CONDA_ENVS_PATH} are the same as with \code{activate = TRUE}:
+they come from the clean variables above.
 
 On Windows, variable names are matched case-insensitively. An override
 replaces any inherited spelling of the same name, such as \code{Path}.

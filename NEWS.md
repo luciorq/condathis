@@ -5,7 +5,8 @@ functions through backends.
 It makes the exported functions consistent (one argument order, one rule for
 missing environments, one set of condition classes).
 It no longer changes the files of other Conda tools in your home directory,
-except `~/.conda/environments.txt` in one case (see Bug fixes).
+except the lines of its own environments in `~/.conda/environments.txt`
+(see Bug fixes).
 Some changes break code written for 0.1.4: they come first, each with what to
 write instead.
 
@@ -104,9 +105,21 @@ write instead.
   To change one, create it again under a valid name and delete the old
   directory.
 
-* `run_bin()` now activates the environment, with the new argument
-  `activate = TRUE`.
-  Pass `activate = FALSE` for the 0.1.4 behavior.
+* `run_bin()` is superseded by `run()`.
+  It stays for code written for 0.1.4, and now runs a command exactly as
+  `run()` does: it activates the environment, with the `activate.d`
+  scripts of its packages.
+  Pass the new `activate = FALSE` (see New features) to skip them, as
+  0.1.4 did.
+  The command then also gets `CONDA_PREFIX` and the other variables of a
+  fixed activation, which 0.1.4 left empty.
+  A bare command name is looked up as `run()` does it, on the `PATH` of
+  the command, so a directory that an `activate.d` script puts first wins
+  (see Bug fixes).
+  A name with a directory part is no longer joined to the `bin` directory
+  of the environment: it is a path, as in `run()`.
+  On Linux and macOS, a command killed by signal `n` has status `128 + n`,
+  as in `run()` and a shell (`137` for `SIGKILL`), instead of `-n`.
 
 * `run()` starts the command itself instead of through `micromamba run`,
   so arguments reach it exactly as given.
@@ -207,6 +220,7 @@ write instead.
   A command that ends because the next one stopped reading, as `seq` in
   `seq 1 1000000 | head -n 1`, does not count as a failure, also on
   Windows.
+  Its status is 141 (128 plus the number of `SIGPIPE`), as in a shell.
   `parse_output()` reads the result.
   Here, `supervise` and `cleanup_tree` default to `TRUE`.
 
@@ -274,6 +288,15 @@ write instead.
     ends, even by a crash. `cleanup_tree` ends the processes that the
     command started when it finishes. All three default to `FALSE` in
     `run()` and `run_bin()`.
+  * `activate = FALSE` runs the command without any code of the backend
+    and without the `activate.d` scripts and `env_vars.d` files of the
+    packages.
+    condathis then sets a fixed activation: `CONDA_PREFIX`,
+    `CONDA_DEFAULT_ENV`, `CONDA_SHLVL`, `MAMBA_SHLVL`, the prompt
+    modifiers, and the binary directories of the environment in front of
+    `PATH`.
+    The default, `activate = TRUE`, activates the environment with the
+    backend.
   * `run_bin()` also gains `method`.
 
 * The errors of a failed or timed-out command of `run()`, `run_bin()` and
@@ -361,6 +384,14 @@ write instead.
   `get_install_dir()` create only the data directory).
   Without a usable micromamba, they read the data directory.
 
+* `env_exists()`, `run()`, `run_bin()` and `run_pipeline()` start no
+  micromamba process to check that an environment exists: they read its
+  directory.
+  So `env_exists(verbose = "cmd")` no longer prints a micromamba command.
+  With the recorded activation (see New features), a call of `run()` in an
+  existing environment takes about as long as starting the command itself:
+  about 20 ms on Linux, where `run()` of 0.1.4 took about 270 ms.
+
 * When a function needs micromamba and finds no usable binary, it says
   that it downloads one, naming the version and the path (message class
   `condathis_micromamba_downloading`), unless `verbose = "silent"`.
@@ -433,7 +464,8 @@ write instead.
 ### Bug fixes
 
 * condathis no longer changes the files of other Conda tools in your home
-  directory, except `~/.conda/environments.txt` in the case below:
+  directory, except the lines of its own environments in
+  `~/.conda/environments.txt` (see below):
   * `create_env()` no longer deletes `~/.mamba` (`%APPDATA%\.mamba` on
     Windows) when it has no `pkgs` subdirectory.
   * micromamba and the commands of its environments use only the condathis
@@ -447,9 +479,11 @@ write instead.
     not in `~/.cache/conda`, and `run()` leaves no `mamba/proc` directory in
     your cache directory.
   * Listing and removing environments no longer rewrite
-    `~/.conda/environments.txt`, and `create_env()` adds the environment to
-    it only when micromamba needs your home directory (see
-    `?get_install_dir`).
+    `~/.conda/environments.txt`: `remove_env()` deletes only the line of
+    the environment it removed. `create_env()` adds the environment to the
+    file only when micromamba needs your home directory, such as for saved
+    channel credentials, or pip settings or credentials for the pip
+    packages of an environment file (see `?get_install_dir`).
   * On Windows, packages no longer add Start Menu shortcuts.
     Shortcuts that 0.1.4 added stay after `remove_env()`.
 
@@ -458,6 +492,45 @@ write instead.
   In 0.1.4, R code that ran meanwhile, such as a
   condition handler, saw the `R_HOME`, `TMPDIR`, `CONDA_*` and `MAMBA_*`
   values of the child process, and for `run_bin()` its `PATH`.
+
+* The processes that condathis starts no longer get the activation of the
+  R session.
+  When R runs in an activated Conda or pixi environment, or in several
+  nested ones, the binary directories of those environments are removed
+  from `PATH`, and their variables (such as `CONDA_PREFIX_1`, `CONDA_EXE`
+  and `PIXI_PROJECT_ROOT`) are removed or restored (see
+  `` ?`condathis-options` ``).
+  A program of R's own environment so no longer runs in place of one that
+  the environment lacks, with and without `activate`.
+  On Windows, a command that is itself a program of R's own Conda
+  environment, such as R's own `Rscript`, still gets that environment's
+  directories, at the end of its `PATH`, to load its DLLs.
+  The commands of `run()`, `run_bin()` and `run_pipeline()` always run in
+  exactly one activated environment: `CONDA_SHLVL` and `MAMBA_SHLVL` are
+  `1` and the prompt modifiers are empty, with every backend and in both
+  `activate` modes.
+  The activation of an environment no longer records the activation of a
+  micromamba that a wrapper, such as a pixi global binary, started
+  (`CONDA_SHLVL=2`, `CONDA_PREFIX_1`).
+
+* The processes that condathis starts no longer get what R's own startup
+  set.
+  Every `R_*` and `_R_*` variable is removed, also one you set, such as
+  `R_LIBS_USER`, so an R of the environment never loads packages built
+  for your R. `R_HOME` is now unset, not `""`.
+  R's default `EDITOR`, `PAGER`, `MAKE`, `SED`, `TAR` and `LN_S` are
+  removed, as are R's directories in front of `LD_LIBRARY_PATH` (Linux)
+  and `DYLD_FALLBACK_LIBRARY_PATH` (macOS), and on Windows R's
+  `CURL_CA_BUNDLE` and the Rtools directories in front of `PATH`.
+  A value you set yourself stays (see `` ?`condathis-options` ``).
+
+* On Windows, `run()`, `run_bin()` and `run_pipeline()` look a bare
+  command name up as `cmd.exe` does: in the working directory, then on the
+  `PATH` of the command, with the extensions of `PATHEXT`.
+  processx searched the folder of R's own executable and the `PATH` of
+  the R session instead, so a name that the environment lacked could run
+  a program of R or of the environment R runs in.
+  A name found nowhere now fails with status 127, as on Linux and macOS.
 
 * `with_sandbox_dir()` restores the working directory and every
   environment variable, those that `code` set included, and deletes the
@@ -543,12 +616,12 @@ write instead.
 * `run()` and `run_bin()` write numbers in `...` in full:
   `run("head", "-n", 100000)` passes `"100000"`, not `"1e+05"`.
 
-* On Windows, `run_bin()` finds the programs of an environment in
-  `Library/bin`, `Scripts` and the other directories that activation adds
-  to `PATH`, with the extensions of `PATHEXT`.
-  0.1.4 looked only in `bin`.
-  `run_bin()` no longer resolves the symbolic links of a program found on
-  `PATH`, which changed `argv[0]` of multicall programs such as busybox.
+* On Windows, `run()`, `run_bin()` and `run_pipeline()` find the programs
+  of an environment in `Library/bin`, `Scripts` and the other directories
+  that activation adds to `PATH`, with the extensions of `PATHEXT`.
+  0.1.4's `run_bin()` looked only in `bin`.
+  On Linux and macOS, `run_bin()` no longer resolves the symbolic links of
+  a program, which changed `argv[0]` of multicall programs such as busybox.
 
 * `install_micromamba()`:
   * no longer creates `"condathis-env"`.

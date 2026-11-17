@@ -250,7 +250,7 @@ define_platform <- function(
   # The backend solves for its own platform, which need not be the one of
   # R: see micromamba_native_platform().
   if (
-    isTRUE(is_windows()) &&
+    isTRUE(sys_arch_is_windows()) &&
       identical(
         backend_native_platform_checked(backend, call = call),
         "win-arm64"
@@ -287,7 +287,11 @@ define_platform <- function(
 #' @keywords internal
 #' @noRd
 has_platform_fallback <- function() {
-  return(identical(get_sys_arch(), "Darwin-arm64") || isTRUE(is_windows()))
+  sys_arch <- get_sys_arch()
+  return(
+    identical(sys_arch, "Darwin-arm64") ||
+      isTRUE(sys_arch_is_windows(sys_arch))
+  )
 }
 
 #' Platform of an environment

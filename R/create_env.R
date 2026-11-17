@@ -851,7 +851,9 @@ resolve_create_definition <- function(
         `i` = "If {.val {spec}} is an environment name, name its argument: {.code env_name = \"{spec}\"}."
       )
     } else {
-      c(`x` = "Use either package specs in {.arg ...} or {.arg env_file}, not both.")
+      c(
+        `x` = "Use either package specs in {.arg ...} or {.arg env_file}, not both."
+      )
     }
     condathis_abort(message = message, class = conflicting_class, call = call)
   }
@@ -866,7 +868,11 @@ resolve_create_definition <- function(
       user_env = user_env
     )
     definition <- new_env_definition(normalize_definition_path(env_file))
-    return(check_env_definition_exists(definition, arg = "env_file", call = call))
+    return(check_env_definition_exists(
+      definition,
+      arg = "env_file",
+      call = call
+    ))
   }
   if (identical(length(definitions), 0L)) {
     return(NULL)
@@ -1073,7 +1079,9 @@ choose_lock_platform <- function(
     }
     not_locked(
       platform,
-      c(`i` = "Pass one of them as {.arg platform}, or use a lock file for {.val {platform}}.")
+      c(
+        `i` = "Pass one of them as {.arg platform}, or use a lock file for {.val {platform}}."
+      )
     )
   }
   native <- backend_native_platform_checked(backend, call = call)
@@ -1091,7 +1099,7 @@ choose_lock_platform <- function(
   ) {
     emulated <- "osx-64"
   } else if (
-    isTRUE(is_windows()) &&
+    isTRUE(sys_arch_is_windows()) &&
       identical(native, "win-arm64") &&
       isTRUE("win-64" %in% listed)
   ) {
@@ -1111,7 +1119,9 @@ choose_lock_platform <- function(
   }
   not_locked(
     native,
-    c(`i` = "Use a lock file for {.val {native}}, or pass a platform it lists as {.arg platform} when this system can run it.")
+    c(
+      `i` = "Use a lock file for {.val {native}}, or pass a platform it lists as {.arg platform} when this system can run it."
+    )
   )
 }
 

@@ -128,7 +128,11 @@ testthat::test_that("env_definition() keeps format and options as given", {
     list(categories = c("main", "dev"))
   )
   # condathis does not interpret them.
-  definition <- env_definition("x", format = "Some-Future-Format", foo = list(1))
+  definition <- env_definition(
+    "x",
+    format = "Some-Future-Format",
+    foo = list(1)
+  )
   testthat::expect_identical(definition$format, "Some-Future-Format")
   testthat::expect_identical(definition$options, list(foo = list(1)))
 })
@@ -267,7 +271,11 @@ testthat::test_that("a malformed env_definition object aborts where it is used",
 testthat::test_that("create_env() passes an env_definition() to the backend as env_file", {
   stub <- local_definition_stub("stub-def-basic")
   path <- local_definition_file()
-  res <- create_env(env_definition(path), env_name = "def-env", verbose = "silent")
+  res <- create_env(
+    env_definition(path),
+    env_name = "def-env",
+    verbose = "silent"
+  )
   testthat::expect_identical(res$status, 0L)
   call <- stub_calls(stub, "backend_create_env")[[1L]]
   testthat::expect_null(call$args$packages)
@@ -328,7 +336,11 @@ testthat::test_that("create_env() with an existing environment never compares a 
   stub <- local_definition_stub("stub-def-exists", envs = "exists-env")
   path <- local_definition_file()
   cnd <- catch_error(
-    create_env(env_definition(path), env_name = "exists-env", verbose = "silent")
+    create_env(
+      env_definition(path),
+      env_name = "exists-env",
+      verbose = "silent"
+    )
   )
   testthat::expect_s3_class(cnd, "condathis_create_env_exists")
   testthat::expect_length(stub_calls(stub, "backend_create_env"), 0L)
@@ -530,7 +542,11 @@ testthat::test_that("a backend with the rattlerthis formals keeps working with a
   # rattlerthis's own tests compare its functions with the generics of
   # condathis: they must stay identical.
   backend <- get_backend("formals-only")
-  for (generic in c("backend_create_env", "backend_install", "backend_can_solve")) {
+  for (generic in c(
+    "backend_create_env",
+    "backend_install",
+    "backend_can_solve"
+  )) {
     testthat::expect_identical(
       formals(backend[[generic]]),
       formals(get(generic)),
@@ -538,22 +554,36 @@ testthat::test_that("a backend with the rattlerthis formals keeps working with a
     )
   }
   path <- local_definition_file()
-  res <- create_env(env_definition(path), env_name = "plain", verbose = "silent")
+  res <- create_env(
+    env_definition(path),
+    env_name = "plain",
+    verbose = "silent"
+  )
   testthat::expect_identical(res$status, 0L)
   testthat::expect_length(record$create, 1L)
-  testthat::expect_identical(record$create[[1L]]$env_file, env_definition(path)$path)
+  testthat::expect_identical(
+    record$create[[1L]]$env_file,
+    env_definition(path)$path
+  )
   testthat::expect_false("definition" %in% names(record$create[[1L]]))
   # And with the deprecated env_file.
   withr::local_options(lifecycle_verbosity = "quiet")
   res <- create_env(env_file = path, env_name = "plain-2", verbose = "silent")
   testthat::expect_identical(res$status, 0L)
-  testthat::expect_identical(record$create[[2L]]$env_file, env_definition(path)$path)
+  testthat::expect_identical(
+    record$create[[2L]]$env_file,
+    env_definition(path)$path
+  )
   # The emulation probe gets the file too, without `definition`.
   testthat::local_mocked_bindings(
     get_sys_arch = function() "Darwin-arm64",
     is_rosetta_running = function() TRUE
   )
-  res <- create_env(env_definition(path), env_name = "plain-3", verbose = "silent")
+  res <- create_env(
+    env_definition(path),
+    env_name = "plain-3",
+    verbose = "silent"
+  )
   testthat::expect_identical(res$status, 0L)
   testthat::expect_identical(
     record$can_solve[[1L]]$env_file,
@@ -582,7 +612,11 @@ testthat::test_that("a definition with format or options aborts for a backend wi
         rlang_tail
       )
     )
-    testthat::expect_match(conditionMessage(cnd), "formals-only-2", fixed = TRUE)
+    testthat::expect_match(
+      conditionMessage(cnd),
+      "formals-only-2",
+      fixed = TRUE
+    )
   }
   testthat::expect_length(record$create, 0L)
   testthat::expect_false(env_exists("unsupported"))
@@ -650,7 +684,11 @@ testthat::test_that("a description that is FALSE aborts before any lock or creat
       rlang_tail
     )
   )
-  testthat::expect_match(conditionMessage(cnd), "Not a format I read.", fixed = TRUE)
+  testthat::expect_match(
+    conditionMessage(cnd),
+    "Not a format I read.",
+    fixed = TRUE
+  )
   testthat::expect_length(stub_calls(stub, "backend_create_env"), 0L)
   call <- stub_calls(stub, "backend_describe_definition")[[1L]]
   testthat::expect_identical(call$args$definition, env_definition(path))
@@ -723,7 +761,11 @@ testthat::test_that("a request is solved for the platform, with the definition",
   stub <- local_definition_stub(
     "stub-def-request",
     backend_describe_definition = function(backend, ...) {
-      return(list(supported = TRUE, format = "environment-yaml", kind = "request"))
+      return(list(
+        supported = TRUE,
+        format = "environment-yaml",
+        kind = "request"
+      ))
     },
     backend_can_solve = function(backend, ..., platform) {
       return(identical(platform, "osx-64"))
@@ -734,7 +776,10 @@ testthat::test_that("a request is solved for the platform, with the definition",
   solves <- stub_calls(stub, "backend_can_solve")
   testthat::expect_length(solves, 2L)
   testthat::expect_identical(solves[[1L]]$args$definition, env_definition(path))
-  testthat::expect_identical(solves[[1L]]$args$env_file, env_definition(path)$path)
+  testthat::expect_identical(
+    solves[[1L]]$args$env_file,
+    env_definition(path)$path
+  )
   testthat::expect_identical(
     stub_calls(stub, "backend_create_env")[[1L]]$args$platform,
     "osx-64"
@@ -769,9 +814,15 @@ testthat::test_that("a lock is never solved, and gets a platform it lists", {
   )
   path <- local_definition_file("explicit.txt", "@EXPLICIT")
   # The native platform: `platform` stays NULL.
-  res <- create_env(env_definition(path), env_name = "lock-native", verbose = "silent")
+  res <- create_env(
+    env_definition(path),
+    env_name = "lock-native",
+    verbose = "silent"
+  )
   testthat::expect_identical(res$status, 0L)
-  testthat::expect_null(stub_calls(stub, "backend_create_env")[[1L]]$args$platform)
+  testthat::expect_null(
+    stub_calls(stub, "backend_create_env")[[1L]]$args$platform
+  )
   # A given platform that it lists.
   platforms <- c("osx-arm64", "linux-64")
   create_env(
@@ -788,13 +839,21 @@ testthat::test_that("a lock is never solved, and gets a platform it lists", {
   platforms <- c("osx-64", "noarch")
   msgs <- character(0L)
   withCallingHandlers(
-    create_env(env_definition(path), env_name = "lock-emulated", verbose = "output"),
+    create_env(
+      env_definition(path),
+      env_name = "lock-emulated",
+      verbose = "output"
+    ),
     message = function(m) {
       msgs <<- c(msgs, cli::ansi_strip(conditionMessage(m)))
       invokeRestart("muffleMessage")
     }
   )
-  testthat::expect_match(paste(msgs, collapse = "\n"), "Rosetta 2", fixed = TRUE)
+  testthat::expect_match(
+    paste(msgs, collapse = "\n"),
+    "Rosetta 2",
+    fixed = TRUE
+  )
   testthat::expect_identical(
     stub_calls(stub, "backend_create_env")[[3L]]$args$platform,
     "osx-64"
@@ -849,8 +908,15 @@ testthat::test_that("a lock without platforms, or a backend without a native pla
   )
   path <- local_definition_file("explicit.txt", "@EXPLICIT")
   create_env(env_definition(path), env_name = "a", verbose = "silent")
-  testthat::expect_null(stub_calls(stub, "backend_create_env")[[1L]]$args$platform)
-  create_env(env_definition(path), env_name = "b", platform = "linux-64", verbose = "silent")
+  testthat::expect_null(
+    stub_calls(stub, "backend_create_env")[[1L]]$args$platform
+  )
+  create_env(
+    env_definition(path),
+    env_name = "b",
+    platform = "linux-64",
+    verbose = "silent"
+  )
   testthat::expect_identical(
     stub_calls(stub, "backend_create_env")[[2L]]$args$platform,
     "linux-64"
@@ -858,7 +924,9 @@ testthat::test_that("a lock without platforms, or a backend without a native pla
   # The stub's backend_native_platform() is NA.
   platforms <- "win-64"
   create_env(env_definition(path), env_name = "c", verbose = "silent")
-  testthat::expect_null(stub_calls(stub, "backend_create_env")[[3L]]$args$platform)
+  testthat::expect_null(
+    stub_calls(stub, "backend_create_env")[[3L]]$args$platform
+  )
 })
 
 testthat::test_that("a lock with channels, additional_channels or channel_priority aborts", {
@@ -908,7 +976,11 @@ testthat::test_that("a lock that gives an empty environment fails and keeps the 
     "lists 1 package",
     fixed = TRUE
   )
-  testthat::expect_false(fs::dir_exists(fs::path(stub$root, "envs", "empty-env")))
+  testthat::expect_false(fs::dir_exists(fs::path(
+    stub$root,
+    "envs",
+    "empty-env"
+  )))
   # With overwrite = TRUE, the existing environment comes back.
   fs::file_create(fs::path(stub$root, "envs", "kept-env", "marker-file"))
   cnd <- catch_error(create_env(
@@ -923,7 +995,11 @@ testthat::test_that("a lock that gives an empty environment fails and keeps the 
   ))
   # An environment with packages passes.
   installed <- definition_pkgs_df("pkg")
-  res <- create_env(env_definition(path), env_name = "full-env", verbose = "silent")
+  res <- create_env(
+    env_definition(path),
+    env_name = "full-env",
+    verbose = "silent"
+  )
   testthat::expect_identical(res$status, 0L)
 })
 
@@ -953,7 +1029,11 @@ testthat::test_that("install_packages() installs a request file with the backend
   )
   path <- local_definition_file()
   out <- collect_messages(
-    install_packages(env_definition(path), env_name = "inst-env", verbose = "output")
+    install_packages(
+      env_definition(path),
+      env_name = "inst-env",
+      verbose = "output"
+    )
   )
   testthat::expect_identical(out$value$status, 0L)
   call <- stub_calls(stub, "backend_install")[[1L]]
@@ -964,7 +1044,10 @@ testthat::test_that("install_packages() installs a request file with the backend
   testthat::expect_match(out$messages, basename(path), fixed = TRUE)
   describe <- stub_calls(stub, "backend_describe_definition")
   testthat::expect_length(describe, 1L)
-  testthat::expect_identical(describe[[1L]]$args$definition, env_definition(path))
+  testthat::expect_identical(
+    describe[[1L]]$args$definition,
+    env_definition(path)
+  )
   # No warning about the channels of the environment: the file can name
   # its own.
   testthat::expect_length(stub_calls(stub, "backend_create_env"), 0L)
@@ -995,7 +1078,10 @@ testthat::test_that("install_packages() sends a lock to create_env(), before any
     local_env_lock = function(...) stop("local_env_lock() must not be called")
   )
   path <- local_definition_file("explicit.txt", "@EXPLICIT")
-  cnd <- catch_error(install_packages(env_definition(path), env_name = "inst-env"))
+  cnd <- catch_error(install_packages(
+    env_definition(path),
+    env_name = "inst-env"
+  ))
   testthat::expect_identical(
     class(cnd),
     c(
@@ -1023,7 +1109,10 @@ testthat::test_that("install_packages() aborts for a file the backend cannot rea
     local_env_lock = function(...) stop("local_env_lock() must not be called")
   )
   path <- local_definition_file()
-  cnd <- catch_error(install_packages(env_definition(path), env_name = "inst-env"))
+  cnd <- catch_error(install_packages(
+    env_definition(path),
+    env_name = "inst-env"
+  ))
   testthat::expect_identical(
     class(cnd),
     c(
@@ -1034,7 +1123,11 @@ testthat::test_that("install_packages() aborts for a file the backend cannot rea
       rlang_tail
     )
   )
-  testthat::expect_match(conditionMessage(cnd), "Not a format I read.", fixed = TRUE)
+  testthat::expect_match(
+    conditionMessage(cnd),
+    "Not a format I read.",
+    fixed = TRUE
+  )
   testthat::expect_length(stub_calls(stub, "backend_install"), 0L)
 })
 
@@ -1049,7 +1142,10 @@ testthat::test_that("install_packages() needs a backend install that takes the f
     env_name = "inst-env",
     verbose = "silent"
   ))
-  testthat::expect_s3_class(cnd, "condathis_install_packages_unsupported_definition")
+  testthat::expect_s3_class(
+    cnd,
+    "condathis_install_packages_unsupported_definition"
+  )
   testthat::expect_s3_class(cnd, "condathis_backend_unsupported")
   testthat::expect_match(
     conditionMessage(cnd),
@@ -1085,9 +1181,16 @@ testthat::test_that("install_packages() gives the path to an install that takes 
   )
   fs::dir_create(fs::path(record$root, "envs", "inst-env"))
   path <- local_definition_file()
-  res <- install_packages(env_definition(path), env_name = "inst-env", verbose = "silent")
+  res <- install_packages(
+    env_definition(path),
+    env_name = "inst-env",
+    verbose = "silent"
+  )
   testthat::expect_identical(res$status, 0L)
-  testthat::expect_identical(seen$calls[[1L]]$env_file, env_definition(path)$path)
+  testthat::expect_identical(
+    seen$calls[[1L]]$env_file,
+    env_definition(path)$path
+  )
   testthat::expect_null(seen$calls[[1L]]$packages)
   testthat::expect_false("definition" %in% names(seen$calls[[1L]]))
   # A format or options need the `definition` argument.
@@ -1096,7 +1199,10 @@ testthat::test_that("install_packages() gives the path to an install that takes 
     env_name = "inst-env",
     verbose = "silent"
   ))
-  testthat::expect_s3_class(cnd, "condathis_install_packages_unsupported_definition")
+  testthat::expect_s3_class(
+    cnd,
+    "condathis_install_packages_unsupported_definition"
+  )
   testthat::expect_length(seen$calls, 1L)
 })
 
@@ -1156,7 +1262,10 @@ testthat::test_that("install_packages() from a file keeps the rules for a missin
     }
   )
   path <- local_definition_file()
-  cnd <- catch_error(install_packages(env_definition(path), env_name = "no-such-env"))
+  cnd <- catch_error(install_packages(
+    env_definition(path),
+    env_name = "no-such-env"
+  ))
   testthat::expect_s3_class(cnd, "condathis_install_packages_env_not_found")
   testthat::expect_length(stub_calls(stub, "backend_install"), 0L)
   testthat::expect_length(stub_calls(stub, "backend_create_env"), 0L)
@@ -1172,7 +1281,10 @@ testthat::test_that("install_packages() from a file keeps the rules for a missin
   testthat::expect_identical(install$args$env_file, env_definition(path)$path)
   solves <- stub_calls(stub, "backend_can_solve")
   testthat::expect_identical(solves[[1L]]$args$definition, env_definition(path))
-  testthat::expect_identical(solves[[1L]]$args$env_file, env_definition(path)$path)
+  testthat::expect_identical(
+    solves[[1L]]$args$env_file,
+    env_definition(path)$path
+  )
 })
 
 # --- Existing environments and locks ----------------------------------------
@@ -1192,13 +1304,21 @@ testthat::test_that("create_env() keeps an environment that has exactly the pack
   )
   testthat::expect_identical(out$value$status, 0L)
   testthat::expect_true(is.na(out$value$cmd))
-  testthat::expect_match(out$messages, "already has the packages of lock file", fixed = TRUE)
+  testthat::expect_match(
+    out$messages,
+    "already has the packages of lock file",
+    fixed = TRUE
+  )
   testthat::expect_length(stub_calls(stub, "backend_create_env"), 0L)
   # Packages that pip installed are left out.
   pip <- definition_pkgs_df("requests", platform = "linux-x86_64")
   pip$channel <- "pypi"
   installed <- rbind(definition_pkgs_df("pkg", platform = "linux-64"), pip)
-  res <- create_env(env_definition(path), env_name = "lock-env", verbose = "silent")
+  res <- create_env(
+    env_definition(path),
+    env_name = "lock-env",
+    verbose = "silent"
+  )
   testthat::expect_identical(res$status, 0L)
   # Another version, and a package the lock does not list.
   installed <- definition_pkgs_df(c("pkg", "extra"), platform = "linux-64")
@@ -1239,13 +1359,20 @@ testthat::test_that("create_env() compares only the records for the platform of 
     envs = "lock-env",
     backend_list_packages = function(backend, ...) installed,
     backend_describe_definition = function(backend, ...) {
-      return(lock_description(platforms = c("linux-64", "osx-arm64"), records = records))
+      return(lock_description(
+        platforms = c("linux-64", "osx-arm64"),
+        records = records
+      ))
     },
     backend_native_platform = function(backend) "linux-64"
   )
   testthat::local_mocked_bindings(get_sys_arch = function() "Linux-x86_64")
   path <- local_definition_file("conda-lock.yml", "version: 1")
-  res <- create_env(env_definition(path), env_name = "lock-env", verbose = "silent")
+  res <- create_env(
+    env_definition(path),
+    env_name = "lock-env",
+    verbose = "silent"
+  )
   testthat::expect_identical(res$status, 0L)
   # For osx-arm64, the build differs.
   cnd <- catch_error(create_env(
@@ -1281,13 +1408,15 @@ testthat::test_that("create_env() never compares a request, or a lock without re
     fixed = TRUE
   )
   # A record without a build string is not compared either.
-  value <- lock_description(records = data.frame(
-    name = "pkg",
-    version = "1.0",
-    build_string = NA_character_,
-    platform = "linux-64",
-    stringsAsFactors = FALSE
-  ))
+  value <- lock_description(
+    records = data.frame(
+      name = "pkg",
+      version = "1.0",
+      build_string = NA_character_,
+      platform = "linux-64",
+      stringsAsFactors = FALSE
+    )
+  )
   cnd <- catch_error(create_env(env_definition(path), env_name = "exists-env"))
   testthat::expect_s3_class(cnd, "condathis_create_env_exists")
   testthat::expect_length(stub_calls(stub, "backend_list_packages"), 0L)
@@ -1302,7 +1431,10 @@ testthat::test_that("lock comparisons name a few differences, then how many more
     platform = "linux-64",
     stringsAsFactors = FALSE
   )
-  installed <- definition_pkgs_df(c("A", paste0("x", 1:8)), platform = "linux-64")
+  installed <- definition_pkgs_df(
+    c("A", paste0("x", 1:8)),
+    platform = "linux-64"
+  )
   comparison <- compare_lock_records(installed, records, target = "linux-64")
   testthat::expect_false(comparison$satisfied)
   # Names compare in lower case.
@@ -1321,10 +1453,18 @@ testthat::test_that("lock comparisons name a few differences, then how many more
   )
   testthat::expect_true(comparison$satisfied)
   testthat::expect_identical(comparison$target, "osx-arm64")
-  testthat::expect_true(lock_records_comparable(lock_description(records = records)))
+  testthat::expect_true(lock_records_comparable(lock_description(
+    records = records
+  )))
   testthat::expect_false(lock_records_comparable(request_description()))
-  testthat::expect_identical(lock_targets(records, NA_character_), c("linux-64", "osx-arm64"))
-  testthat::expect_identical(lock_targets(records[0L, ], NA_character_), NA_character_)
+  testthat::expect_identical(
+    lock_targets(records, NA_character_),
+    c("linux-64", "osx-arm64")
+  )
+  testthat::expect_identical(
+    lock_targets(records[0L, ], NA_character_),
+    NA_character_
+  )
 })
 
 # --- validate_env() ---------------------------------------------------------
@@ -1343,7 +1483,10 @@ testthat::test_that("validate_env() compares an environment with the records of 
     envs = "lock-env",
     backend_list_packages = function(backend, ...) installed,
     backend_describe_definition = function(backend, ...) {
-      return(lock_description(platforms = c("linux-64", "osx-arm64"), records = records))
+      return(lock_description(
+        platforms = c("linux-64", "osx-arm64"),
+        records = records
+      ))
     }
   )
   path <- local_definition_file("conda-lock.yml", "version: 1")
@@ -1351,9 +1494,17 @@ testthat::test_that("validate_env() compares an environment with the records of 
   testthat::expect_true(res$value)
   testthat::expect_false(res$visible)
   out <- collect_messages(
-    validate_env(env_definition(path), env_name = "lock-env", verbose = "output")
+    validate_env(
+      env_definition(path),
+      env_name = "lock-env",
+      verbose = "output"
+    )
   )
-  testthat::expect_match(out$messages, "has the packages of lock file", fixed = TRUE)
+  testthat::expect_match(
+    out$messages,
+    "has the packages of lock file",
+    fixed = TRUE
+  )
   # A given platform is compared first.
   res <- validate_env(
     env_definition(path),
@@ -1365,7 +1516,11 @@ testthat::test_that("validate_env() compares an environment with the records of 
   testthat::expect_identical(attr(res, "reason"), "platform_mismatch")
   # A package more.
   installed <- definition_pkgs_df(c("pkg", "extra"), platform = "linux-64")
-  res <- validate_env(env_definition(path), env_name = "lock-env", error = "continue")
+  res <- validate_env(
+    env_definition(path),
+    env_name = "lock-env",
+    error = "continue"
+  )
   testthat::expect_false(res)
   testthat::expect_identical(attr(res, "reason"), "unsatisfied")
   testthat::expect_identical(attr(res, "unsatisfied"), character(0L))
@@ -1379,9 +1534,16 @@ testthat::test_that("validate_env() compares an environment with the records of 
   testthat::expect_match(message, "extra-1.0-h0_0", fixed = TRUE)
   testthat::expect_match(message, "linux-64", fixed = TRUE)
   # A missing environment: every record is unsatisfied.
-  res <- validate_env(env_definition(path), env_name = "no-env", error = "continue")
+  res <- validate_env(
+    env_definition(path),
+    env_name = "no-env",
+    error = "continue"
+  )
   testthat::expect_identical(attr(res, "reason"), "env_not_found")
-  testthat::expect_identical(attr(res, "unsatisfied"), c("pkg-1.0-h0_0", "pkg-1.0-h1_0"))
+  testthat::expect_identical(
+    attr(res, "unsatisfied"),
+    c("pkg-1.0-h0_0", "pkg-1.0-h1_0")
+  )
   # A platform that the lock does not list.
   cnd <- catch_error(validate_env(
     env_definition(path),
@@ -1433,7 +1595,10 @@ testthat::test_that("validate_env() aborts for a definition it cannot compare", 
   )
   value <- list(supported = NA)
   testthat::expect_identical(
-    class(catch_error(validate_env(env_definition(path), env_name = "val-env"))),
+    class(catch_error(validate_env(
+      env_definition(path),
+      env_name = "val-env"
+    ))),
     unsupported_class
   )
   value <- list(supported = FALSE, reason = "Not a format I read.")
@@ -1448,7 +1613,11 @@ testthat::test_that("validate_env() aborts for a definition it cannot compare", 
       rlang_tail
     )
   )
-  testthat::expect_match(conditionMessage(cnd), "Not a format I read.", fixed = TRUE)
+  testthat::expect_match(
+    conditionMessage(cnd),
+    "Not a format I read.",
+    fixed = TRUE
+  )
   testthat::expect_length(stub_calls(stub, "backend_list_packages"), 0L)
 })
 
@@ -1466,7 +1635,11 @@ testthat::test_that("method = 'auto' gives a new environment to the first backen
     backend_names_by_priority = function() c("stub-route-a", "stub-route-b")
   )
   path <- local_definition_file()
-  res <- create_env(env_definition(path), env_name = "routed", verbose = "silent")
+  res <- create_env(
+    env_definition(path),
+    env_name = "routed",
+    verbose = "silent"
+  )
   testthat::expect_identical(res$status, 0L)
   testthat::expect_length(stub_calls(first, "backend_create_env"), 0L)
   testthat::expect_length(stub_calls(second, "backend_create_env"), 1L)
@@ -1515,7 +1688,11 @@ testthat::test_that("method = 'auto' skips a backend that cannot get the format 
     "x-format"
   )
   # A plain definition stays with the first backend.
-  create_env(env_definition(path), env_name = "routed-plain", verbose = "silent")
+  create_env(
+    env_definition(path),
+    env_name = "routed-plain",
+    verbose = "silent"
+  )
   testthat::expect_length(record$create, 1L)
 })
 
@@ -1539,7 +1716,9 @@ testthat::test_that("method = 'auto' aborts when no available backend reads the 
     backend_definition_formats = function(backend) c("my-format", "other")
   )
   testthat::local_mocked_bindings(
-    backend_names_by_priority = function() c("stub-none-a", "stub-none-b", "stub-none-c"),
+    backend_names_by_priority = function() {
+      c("stub-none-a", "stub-none-b", "stub-none-c")
+    },
     local_env_lock = function(...) stop("local_env_lock() must not be called")
   )
   path <- local_definition_file("env.custom")
@@ -1564,15 +1743,30 @@ testthat::test_that("method = 'auto' aborts when no available backend reads the 
   testthat::expect_match(message, "is read by: stub-none-c", fixed = TRUE)
   testthat::expect_length(stub_calls(first, "backend_create_env"), 0L)
   testthat::expect_length(stub_calls(second, "backend_create_env"), 0L)
-  testthat::expect_identical(backend_definition_formats(third$backend), c("my-format", "other"))
+  testthat::expect_identical(
+    backend_definition_formats(third$backend),
+    c("my-format", "other")
+  )
 })
 
 testthat::test_that("registered S3 methods match the generics, and optional arguments reach the function", {
   ns <- asNamespace("condathis")
-  for (generic in c("backend_create_env", "backend_install", "backend_can_solve")) {
-    method <- utils::getS3method(generic, "condathis_backend_micromamba", envir = ns)
+  for (generic in c(
+    "backend_create_env",
+    "backend_install",
+    "backend_can_solve"
+  )) {
+    method <- utils::getS3method(
+      generic,
+      "condathis_backend_micromamba",
+      envir = ns
+    )
     # R CMD check compares a method with its generic.
-    testthat::expect_identical(formals(method), formals(get(generic)), info = generic)
+    testthat::expect_identical(
+      formals(method),
+      formals(get(generic)),
+      info = generic
+    )
   }
   # A function without optional arguments is its own method, as
   # rattlerthis's tests require.

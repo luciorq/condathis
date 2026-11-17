@@ -2,8 +2,8 @@
 #'
 #' Runs a command line tool with a Conda environment activated. The command
 #' gets the environment variables that the activation sets, including those
-#' of the `activate.d` scripts of its packages. To run a program without
-#' activation, use [run_bin()] with `activate = FALSE`.
+#' of the `activate.d` scripts of its packages. With `activate = FALSE`, it
+#' gets a fixed activation instead, without those scripts.
 #'
 #' `run()` activates the environment and starts the command itself. The
 #' micromamba backend records the activation of an environment the first
@@ -12,6 +12,24 @@
 #' environment changes (its packages, `activate.d` scripts or `env_vars.d`
 #' files). A change in the environment variables of the R session also ends
 #' the reuse.
+#'
+#' The command does not get the activation of the R session. When R runs
+#' in an activated Conda or pixi environment, or in several nested ones,
+#' `condathis` removes their binary directories from `PATH` and their
+#' variables from the command's environment (see [condathis-options],
+#' which also lists what cannot be undone). A program of R's own
+#' environment so never runs in place of one the environment lacks. The
+#' command always runs in exactly one activated environment: `CONDA_SHLVL`
+#' and `MAMBA_SHLVL` are `1` and the prompt modifiers are empty. The
+#' command does not get what R's own startup set either: no `R_*`
+#' variable, and not R's part of `LD_LIBRARY_PATH` or, on Windows, of
+#' `PATH` (Rtools).
+#'
+#' A bare `cmd` is looked up on the `PATH` of the command, after the
+#' activation. On Windows, as in `cmd.exe`, the working directory of the
+#' command comes first, and a name without an extension is looked up with
+#' the extensions of `PATHEXT`. A name found nowhere fails with status 127,
+#' as in a shell.
 #'
 #' Arguments in `...` reach the command exactly as given on every platform.
 #' No shell is involved. Characters such as `>`, `|`, `&`, `%`, `$`, `*` and
@@ -79,6 +97,17 @@
 #' @param linux_pdeathsig Logical. On Linux, whether the command gets
 #'   `SIGTERM` when the R session ends, even by a crash. Ignored on other
 #'   platforms. Defaults to `FALSE`.
+#' @param activate Logical. Whether to run `cmd` with the activation of the
+#'   backend. Defaults to `TRUE`: the backend activates the environment,
+#'   with the `activate.d` scripts and `env_vars.d` files of its packages.
+#'   An activation that fails is an error, as `error` describes. With
+#'   `FALSE`, no backend code runs: `condathis` sets only `CONDA_PREFIX`,
+#'   `CONDA_DEFAULT_ENV`, `CONDA_SHLVL` and `MAMBA_SHLVL` (both `1`),
+#'   empty prompt modifiers, and the binary directories of the environment
+#'   in front of `PATH` (see [condathis-options]). In both modes, the command gets the
+#'   variables that `condathis` sets in every process it starts. Values
+#'   other than `TRUE` and `FALSE` abort with class
+#'   `condathis_invalid_activate`.
 #' @param timeout Number of seconds the call may take, the activation of the
 #'   environment included (see Details in [run()]). Defaults to `Inf` (no
 #'   limit). `condathis` lowers a finite value above 2147483 (about 24.8
@@ -164,63 +193,155 @@ run <- function(
   supervise = FALSE,
   cleanup_tree = FALSE,
   linux_pdeathsig = FALSE,
+  activate = TRUE,
   timeout = Inf
+) {
+  return(run_command(
+    fn = "run",
+    cmd = cmd,
+    args = list(...),
+    formal_names = names(formals(run)),
+    env_name = env_name,
+    method = method,
+    verbose = verbose,
+    error = error,
+    stdout = stdout,
+    stderr = stderr,
+    stdin = stdin,
+    input = input,
+    binary = binary,
+    supervise = supervise,
+    cleanup_tree = cleanup_tree,
+    linux_pdeathsig = linux_pdeathsig,
+    activate = activate,
+    timeout = timeout,
+    user_env = rlang::caller_env(),
+    call = rlang::current_env()
+  ))
+}
+
+#' Run a command for `run()` and `run_bin()`
+#'
+#' The one implementation of both functions. `run_bin()` differs only in
+#' `fn`, so its errors have the `condathis_run_bin_*` classes. The command
+#' starts in `run_internal_backend()`, which `run_pipeline()` shares for
+#' each command: the same child environment in both `activate` modes, the
+#' same lookup of `cmd`, and the same exit statuses.
+#'
+#' @param fn Character string, `"run"` or `"run_bin"`: the exported
+#'   function, for the condition classes.
+#' @param cmd The `cmd` of the exported function. A missing `cmd` stays
+#'   missing, so it aborts as "absent".
+#' @param args List of the values in `...` of the exported function.
+#' @param formal_names Character vector, the formals of the exported
+#'   function, for the hint of a named value in `...`.
+#' @param env_name,method,verbose,error,stdout,stderr,stdin,input,binary
+#'   As in [run()].
+#' @param supervise,cleanup_tree,linux_pdeathsig,activate,timeout As in
+#'   [run()].
+#' @param user_env Environment that called the exported function, for
+#'   deprecation warnings.
+#' @param call Environment of the exported function, for errors.
+#'
+#' @returns A `condathis_result` object, invisibly.
+#'
+#' @keywords internal
+#' @noRd
+run_command <- function(
+  fn,
+  cmd,
+  args,
+  formal_names,
+  env_name,
+  method,
+  verbose,
+  error,
+  stdout,
+  stderr,
+  stdin,
+  input,
+  binary,
+  supervise,
+  cleanup_tree,
+  linux_pdeathsig,
+  activate,
+  timeout,
+  user_env,
+  call
 ) {
   # Every argument is checked before the first backend call or other side
   # effect (rule R2), so a bad value never creates `condathis-env` first.
   validate_cmd_arg(
     cmd,
-    class = c("condathis_run_invalid_cmd", "condathis_run_null_cmd")
+    class = if (identical(fn, "run")) {
+      c("condathis_run_invalid_cmd", "condathis_run_null_cmd")
+    } else {
+      paste0("condathis_", fn, "_invalid_cmd")
+    },
+    call = call
   )
   args <- cmd_args_as_character(
-    list(...),
-    class = "condathis_run_invalid_args",
-    formal_names = names(formals(run)),
-    named_class = dots_named_old_class
+    args,
+    class = paste0("condathis_", fn, "_invalid_args"),
+    formal_names = formal_names,
+    named_class = dots_named_old_class,
+    call = call
   )
   validate_input_with_stdin(
     input,
     stdin = stdin,
-    class = arg_error_class("run", "input")
+    class = arg_error_class(
+      fn,
+      "input",
+      aliases = if (isFALSE(identical(fn, "run"))) {
+        "condathis_run_invalid_input"
+      }
+    ),
+    call = call
   )
   validate_bool_arg(
     binary,
     class = arg_error_class(
-      "run",
+      fn,
       "binary",
       aliases = "condathis_run_invalid_binary_arg"
     ),
-    arg_name = "binary"
+    arg_name = "binary",
+    call = call
   )
-  env_name_class <- "condathis_run_invalid_env_name"
+  env_name_class <- paste0("condathis_", fn, "_invalid_env_name")
   if (isTRUE(is_env_path(env_name))) {
-    validate_env_path_object(env_name, class = env_name_class)
+    validate_env_path_object(env_name, class = env_name_class, call = call)
   } else {
-    validate_env_name(env_name, class = env_name_class)
+    validate_env_name(env_name, class = env_name_class, call = call)
   }
   error <- arg_match_classed(
     error,
     values = c("cancel", "continue"),
     class = "condathis_invalid_error",
-    arg_name = "error"
+    arg_name = "error",
+    call = call
   )
-  verbose_list <- parse_verbose_arg(verbose)
+  verbose_list <- parse_verbose_arg(verbose, call = call)
   run_args <- validate_run_args(
-    fn = "run",
+    fn = fn,
     timeout = timeout,
     supervise = supervise,
     cleanup_tree = cleanup_tree,
     linux_pdeathsig = linux_pdeathsig,
     stdin = stdin,
     stdout = stdout,
-    stderr = stderr
+    stderr = stderr,
+    activate = activate,
+    call = call
   )
   # `rethrow_error_run()` reads `timeout` from this frame for its message.
   timeout <- run_args$timeout
   method <- resolve_method_alias(
-    validate_method_arg(method),
-    user_env = rlang::caller_env()
+    validate_method_arg(method, call = call),
+    user_env = user_env
   )
+  env_not_found_class <- paste0("condathis_", fn, "_env_not_found")
 
   # Ignore linter warning. `error_var` is used by `rethrow_error_run()`
   # + env by accessing this function environment.
@@ -235,14 +356,16 @@ run <- function(
     resolved <- resolve_env_path_target(
       env_name,
       method = method,
-      class = env_name_class
+      class = env_name_class,
+      call = call
     )
     env_dir <- resolved$env_dir
     env_label <- env_dir
     env_path_stderr <- check_env_path_usable(
       env_dir,
       error_var = error_var,
-      class = "condathis_run_env_not_found"
+      class = env_not_found_class,
+      call = call
     )
     env_name_exists <- is.null(env_path_stderr)
   } else {
@@ -250,18 +373,17 @@ run <- function(
     resolved <- resolve_backend(
       env_name = env_name,
       method = method,
-      mutating = FALSE
+      mutating = FALSE,
+      call = call
     )
 
-    # Use backend_probe_env(), not backend_has_env(): a failed listing
-    # (transient lock, corrupt metadata, JSON error) gives NA, and NA must
-    # not refuse an existing environment (rule R5). The command then runs,
-    # and a missing environment fails with the backend's own error.
-    env_name_exists <- backend_probe_env(
-      resolved$backend,
-      env_name,
-      verbose = "silent"
-    )
+    # The probe that `resolve_backend()` ran, not a second one (decision
+    # D16 of feat-run-unify). It is `backend_probe_env()`'s, not
+    # `backend_has_env()`'s: a failed listing (transient lock, corrupt
+    # metadata, JSON error) gives NA, and NA must not refuse an existing
+    # environment (rule R5). The command then runs, and a missing
+    # environment fails with the backend's own error.
+    env_name_exists <- resolved_env_exists(resolved, env_name)
     if (isTRUE(is.na(env_name_exists))) {
       env_name_exists <- TRUE
     }
@@ -279,10 +401,12 @@ run <- function(
   }
 
   if (isFALSE(env_name_exists)) {
-    # An unusable environment given by path has already aborted under
+    # Never fall back to a program on `PATH`: a misspelled `env_name` must
+    # not run a binary from outside any environment. An unusable
+    # environment given by path has already aborted under
     # `error = "cancel"`, in `check_env_path_usable()`.
     if (isTRUE(error_var)) {
-      abort_env_not_found(env_name, class = "condathis_run_env_not_found")
+      abort_env_not_found(env_name, class = env_not_found_class, call = call)
     }
     px_res <- list(
       status = 127L,
@@ -292,17 +416,19 @@ run <- function(
       timeout = FALSE
     )
   } else {
-    # Every backend describes the invocation with `backend_resolve_run()`,
-    # and condathis starts the command itself, so streaming, spinner,
-    # timeout and supervise/cleanup_tree/linux_pdeathsig behave the same
-    # for every backend and OS. For the micromamba backend, the activation
-    # variables are those of a real `micromamba run` activation, cached per
-    # environment (see `get_micromamba_activation_envvars()`).
+    # With `activate = TRUE`, every backend describes the invocation with
+    # `backend_resolve_run()`, and condathis starts the command itself, so
+    # streaming, spinner, timeout and supervise/cleanup_tree/linux_pdeathsig
+    # behave the same for every backend and OS. For the micromamba backend,
+    # the activation variables are those of a real `micromamba run`
+    # activation, cached per environment (see
+    # `get_micromamba_activation_envvars()`). With `activate = FALSE`, no
+    # backend function describes it (see `resolve_child_invocation()`).
     #
     # The command used to run through `micromamba run` on Linux and macOS.
     # Then what `activate.d` scripts printed was in the output, and the
     # command got micromamba's own
-    # environment (`MAMBA_ROOT_PREFIX`, its `TMPDIR`), unlike `run_bin()`,
+    # environment (`MAMBA_ROOT_PREFIX`, its `TMPDIR`), unlike
     # `run_pipeline()` and every other backend. On Windows, `micromamba run`
     # wraps the command in a temporary `.bat` script, so `cmd.exe` re-parses
     # every argument: `>`, `<`, `|` and `&` become redirections and command
@@ -316,6 +442,7 @@ run <- function(
           args,
           env_name = env_label,
           env_dir = env_dir,
+          activate = activate,
           verbose = verbose_list,
           error = error,
           stdout = stdout,
@@ -328,10 +455,12 @@ run <- function(
           linux_pdeathsig = linux_pdeathsig,
           timeout = timeout,
           backend_name = resolved$name,
-          call = rlang::current_env()
+          fn = fn,
+          call = call
         )
       },
-      fn = "run"
+      fn = fn,
+      call = call
     )
   }
 

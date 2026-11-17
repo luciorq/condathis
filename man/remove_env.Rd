@@ -109,10 +109,11 @@ them. A backend that does not makes \code{remove_env()} warn with class
 Removes an environment managed by \code{condathis}.
 }
 \details{
-With the micromamba backend, \code{remove_env()} does not change
-\verb{~/.conda/environments.txt}, the registry that conda and mamba share. A
-line that \code{\link[=create_env]{create_env()}} added to that file stays (see Details in
-\code{\link[=get_install_dir]{get_install_dir()}}). On Windows, it also leaves the Start Menu
+With the micromamba backend, \code{remove_env()} deletes the line of the
+removed environment from \verb{~/.conda/environments.txt}, the registry that
+conda and mamba share, when the file has one (see Details in
+\code{\link[=get_install_dir]{get_install_dir()}}). It leaves every other line as it is. On Windows,
+it leaves the Start Menu
 shortcuts that \code{condathis} 0.1.4 and earlier added for packages such as
 \code{spyder}. Delete them from the Start Menu.
 }

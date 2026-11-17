@@ -903,7 +903,11 @@ testthat::test_that("the generics declare the contract defaults", {
     generic_formals <- as.list(formals(get(generic)))
     n <- length(generic_formals)
     extra <- names(fn_formals)[-seq_len(n)]
-    testthat::expect_identical(fn_formals[seq_len(n)], generic_formals, info = generic)
+    testthat::expect_identical(
+      fn_formals[seq_len(n)],
+      generic_formals,
+      info = generic
+    )
     testthat::expect_true(
       all(extra %in% backend_optional_args[[generic]]),
       info = generic
@@ -939,14 +943,22 @@ testthat::test_that("the generics declare the contract defaults", {
   # condathis passes these arguments only to a function that takes them
   # (see `backend_call()`).
   testthat::expect_identical(
-    backend_optional_args[c("backend_create_env", "backend_install", "backend_can_solve")],
+    backend_optional_args[c(
+      "backend_create_env",
+      "backend_install",
+      "backend_can_solve"
+    )],
     list(
       backend_create_env = "definition",
       backend_install = c("env_file", "definition"),
       backend_can_solve = "definition"
     )
   )
-  for (generic in c("backend_create_env", "backend_install", "backend_can_solve")) {
+  for (generic in c(
+    "backend_create_env",
+    "backend_install",
+    "backend_can_solve"
+  )) {
     testthat::expect_false(
       any(backend_optional_args[[generic]] %in% names(formals(get(generic)))),
       info = generic
@@ -955,23 +967,41 @@ testthat::test_that("the generics declare the contract defaults", {
   testthat::expect_identical(
     names(formals(backend_create_env)),
     c(
-      "backend", "packages", "env_file", "env_name", "channels",
-      "channel_priority", "additional_channels", "platform", "overwrite",
+      "backend",
+      "packages",
+      "env_file",
+      "env_name",
+      "channels",
+      "channel_priority",
+      "additional_channels",
+      "platform",
+      "overwrite",
       "verbose"
     )
   )
   testthat::expect_identical(
     names(formals(backend_install)),
     c(
-      "backend", "packages", "env_name", "channels", "channel_priority",
-      "additional_channels", "platform", "verbose"
+      "backend",
+      "packages",
+      "env_name",
+      "channels",
+      "channel_priority",
+      "additional_channels",
+      "platform",
+      "verbose"
     )
   )
   testthat::expect_identical(
     names(formals(backend_can_solve)),
     c(
-      "backend", "packages", "env_file", "channels", "channel_priority",
-      "additional_channels", "platform"
+      "backend",
+      "packages",
+      "env_file",
+      "channels",
+      "channel_priority",
+      "additional_channels",
+      "platform"
     )
   )
   testthat::expect_identical(

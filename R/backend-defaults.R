@@ -150,7 +150,7 @@ backend_env_exists.default <- function(backend, env_name, verbose = "silent") {
   # decides: on a file system that ignores case, `<root>/envs/myenv` also
   # opens `<root>/envs/MyEnv`.
   env_dir <- fs::path(default_backend_root(backend), "envs", env_name)
-  if (isFALSE(fs::dir_exists(env_dir))) {
+  if (isFALSE(dir_exists_quick(env_dir))) {
     return(FALSE)
   }
   return(isTRUE(env_name %in% backend_list_envs(backend, verbose = verbose)))
@@ -359,7 +359,7 @@ backend_definition_formats.default <- function(backend) {
 #' @noRd
 backend_has_env_dirs <- function(name) {
   envs_dir <- fs::path(backend_root_path(name), "envs")
-  if (isFALSE(fs::dir_exists(envs_dir))) {
+  if (isFALSE(dir_exists_quick(envs_dir))) {
     return(FALSE)
   }
   env_dirs <- tryCatch(
@@ -471,6 +471,56 @@ list_conda_prefix_envs <- function(env_root_dir) {
   return(unique(condathis_env_names(envs_str, env_root_dir)))
 }
 
+#' Is one name a conda prefix in `<root>/envs`?
+#'
+#' `env_name %in% list_conda_prefix_envs(env_root_dir)`, for one name and
+#' with base R calls only: it starts no process, creates nothing, and does
+#' not look up the owner of files, as `fs::dir_exists()` does. The rule is
+#' the one of `list_conda_prefix_envs()`, which is what `micromamba env
+#' list` reports for `<root>/envs`:
+#'
+#' * the directory `<root>/envs/<env_name>` exists and has
+#'   `conda-meta/history`;
+#' * `<root>/envs` has an entry of exactly that name: on a file system that
+#'   ignores case, `envs/myenv` also opens `envs/MyEnv`;
+#' * its real path is a direct child of the real `<root>/envs`. A symbolic
+#'   link to another environment, or to a directory outside `<root>/envs`,
+#'   is not listed under its own name;
+#' * it is not `env_trash_dir()`.
+#'
+#' @param env_root_dir Character string, the root (need not be realized).
+#' @param env_name Character string with the environment name.
+#'
+#' @returns `TRUE` or `FALSE`. Errors when `<root>/envs` cannot be read,
+#'   so that `backend_probe_env()` reads it as `NA` (rule R5).
+#'
+#' @keywords internal
+#' @noRd
+conda_prefix_env_exists <- function(env_root_dir, env_name) {
+  if (identical(env_name, env_trash_name())) {
+    return(FALSE)
+  }
+  envs_dir <- file.path(env_root_dir, "envs")
+  env_dir <- file.path(envs_dir, env_name)
+  if (
+    isFALSE(dir.exists(env_dir)) ||
+      isFALSE(file.exists(file.path(env_dir, "conda-meta", "history")))
+  ) {
+    return(FALSE)
+  }
+  entries <- list.files(envs_dir, all.files = TRUE, no.. = TRUE)
+  if (identical(length(entries), 0L)) {
+    # `env_dir` exists, so `<root>/envs` is not empty: it cannot be read.
+    stop("Cannot read the directory ", envs_dir, ".", call. = FALSE)
+  }
+  if (isFALSE(env_name %in% entries)) {
+    return(FALSE)
+  }
+  real_env_dir <- normalizePath(env_dir, winslash = "/", mustWork = FALSE)
+  real_root <- normalizePath(env_root_dir, winslash = "/", mustWork = FALSE)
+  return(isTRUE(env_name %in% condathis_env_names(real_env_dir, real_root)))
+}
+
 #' Keep the env paths that live under the condathis install root, return names
 #'
 #' A path is kept when its parent directory is exactly `<env_root_dir>/envs`,
@@ -514,6 +564,30 @@ condathis_env_names <- function(envs_str, env_root_dir) {
 #' @noRd
 to_slash_path <- function(x) {
   return(sub("/+$", "", gsub("\\\\", "/", as.character(x))))
+}
+
+#' Do these directories exist?
+#'
+#' `fs::dir_exists()` without its cost: it reads the whole file information
+#' (`fs::file_info()`), which also looks up the names of the owner and the
+#' group, about a millisecond per path on some systems. `base::dir.exists()`
+#' only asks the file system. Used on the path of every `run()`. A path
+#' that starts with `~` is expanded as `fs` expands it, which differs from
+#' R's expansion on Windows.
+#'
+#' @param path Character vector of paths.
+#'
+#' @returns Logical vector, unnamed.
+#'
+#' @keywords internal
+#' @noRd
+dir_exists_quick <- function(path) {
+  path <- as.character(path)
+  tilde <- !is.na(path) & startsWith(path, "~")
+  if (isTRUE(any(tilde))) {
+    path[tilde] <- as.character(fs::path_expand(path[tilde]))
+  }
+  return(dir.exists(path))
 }
 
 #' Lowercase paths on Windows, where they compare case-insensitively

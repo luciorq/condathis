@@ -219,9 +219,9 @@ The status and timeout errors of \code{\link[=run]{run()}}, \code{\link[=run_bin
 the message:
 \itemize{
 \item \code{status}: the exit status, an integer. It is \code{-9} for a timeout, and
-\code{127} for a command that could not start. A command killed by signal
-\code{n} has the status \code{128 + n} in \code{\link[=run]{run()}} on Linux and macOS, as in a
-shell. In \code{\link[=run_bin]{run_bin()}} and \code{\link[=run_pipeline]{run_pipeline()}}, the status is \code{-n}.
+\code{127} for a command that could not start. On Linux and macOS, a
+command killed by signal \code{n} has the status \code{128 + n}, as in a shell
+(\code{137} for \code{SIGKILL}, \code{141} for \code{SIGPIPE}).
 \item \code{stdout}, \code{stderr}: the captured output, or \code{NA} when that stream was
 not captured.
 \item \code{timeout}: \code{TRUE} for a timeout, \code{FALSE} otherwise.
@@ -481,7 +481,7 @@ a value in \code{...}, also \code{condathis_invalid_cmd_args}.
 \item \verb{condathis_<function>_invalid_env_name}
 \item \verb{condathis_<function>_invalid_<argument>}\cr
 for \code{timeout}, \code{supervise}, \code{cleanup_tree}, \code{linux_pdeathsig},
-\code{stdin}, \code{stdout}, \code{stderr} and, for \code{\link[=run_bin]{run_bin()}}, \code{activate}.
+\code{stdin}, \code{stdout}, \code{stderr} and \code{activate}.
 }
 
 Then:

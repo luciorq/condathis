@@ -3,8 +3,8 @@
 #' @description
 #' `get_activation_envvars()` hand-sets a fixed handful of `CONDA_*`/
 #' `MAMBA_*` variables to approximate an activated Conda environment.
-#' It never invokes `micromamba`. `run_pipeline()` uses it only with
-#' `activate = FALSE`, for stages that run without activation.
+#' It never invokes `micromamba`. It is the fixed activation of `run()`,
+#' `run_bin()` and `run_pipeline()` with `activate = FALSE`.
 #'
 #' `get_micromamba_activation_envvars()` asks `micromamba` to do the real
 #' activation (`micromamba run -n <env_name> ...`), including any
@@ -20,7 +20,9 @@
 #' like `get_activation_envvars()`.
 #' `PATH` is special-cased: the cache stores only the directories
 #' activation *adds*. The returned overlay's `PATH` is composed against the
-#' live session `PATH` on every call (see `compose_activation_overlay()`).
+#' `PATH` of `base_env` on every call: the live session `PATH` without the
+#' activation of the R session (see `compose_activation_overlay()`). Both
+#' dumps start from that isolation too (see `build_child_env()`).
 #'
 #' This reflects what `micromamba run` does, including hook scripts, but
 #' costs more. The first resolution of an `env_name` starts two processes:
@@ -35,6 +37,10 @@
 #' `activation_cache_stamp()`), and when the session's environment
 #' variables change, which the activation scripts can read. So repeated
 #' calls for an unchanged environment from an unchanged session are free.
+#' The isolation of the dumps (see `isolate_host_env()`) depends on the
+#' session's variables, which are a key, and on the files of the Conda
+#' prefixes of the R session (their `env_vars`), which are not: a change
+#' there is seen at the next change of the session's variables.
 #'
 #' The `activate.d` scripts run with the `TMPDIR` and the user cache
 #' (`XDG_CACHE_HOME`) of the command, not with micromamba's own (see
@@ -49,9 +55,17 @@
 #'
 #' Used through `micromamba_resolve_run_in_dir()`, the body of
 #' `micromamba_backend_resolve_run()` and
-#' `micromamba_backend_resolve_run_in_dir()`: by `run()`, and by `run_bin()` and
+#' `micromamba_backend_resolve_run_in_dir()`: by `run()`, `run_bin()` and
 #' `run_pipeline()` with `activate = TRUE`. `micromamba run` starts only
 #' the dump, never a command of the user.
+#'
+#' A `micromamba` started through a wrapper that activates its own
+#' environment first (a pixi global binary) stacks its activation on that
+#' one: the dump has `CONDA_SHLVL=2` and `CONDA_PREFIX_1`. The recorded
+#' activation leaves the stacking out (see `drop_activation_stack_vars()`),
+#' and its `CONDA_SHLVL` is `1`. micromamba itself takes the binary
+#' directories of the wrapper's environment off its `PATH` (micromamba
+#' 2.10.0 checked).
 #'
 #' An environment given by `env_path()` has no name: pass `env_name = NULL`
 #' and its directory as `env_dir`. Activation then uses
@@ -65,7 +79,8 @@
 #'   `FALSE` dumps both environments again.
 #' @param base_env Named character vector, the environment of the command
 #'   before activation (`backend_resolve_run()`'s `base_env`), or `NULL`:
-#'   then the scripts get the `TMPDIR` of micromamba's own process.
+#'   then the scripts get the `TMPDIR` of micromamba's own process, and the
+#'   `PATH` is composed against `isolated_session_path()`.
 #' @param timeout Numeric, the seconds the activation may take. A
 #'   resolution that runs out of time aborts.
 #' @param env_dir The environment's directory, when the caller already
@@ -73,14 +88,14 @@
 #'   which computes it directly from the
 #'   micromamba backend's own layout (`env_dir_for_backend()`, a pure
 #'   path computation) - deliberately *not* the public `get_env_dir()`,
-#'   whose backend resolution runs a `micromamba env list` subprocess on
-#'   every call (even activation cache hits) and can abort on
-#'   multi-backend ambiguity. This helper is micromamba-specific by
+#'   whose backend resolution probes every registered backend on every
+#'   call (even activation cache hits) and can abort on multi-backend
+#'   ambiguity. This helper is micromamba-specific by
 #'   definition, so the micromamba layout is always the right answer.
 #'
 #' @returns A named character vector of the environment variables that
 #'   activating `env_name` via `micromamba run` adds or changes (including
-#'   a `PATH` composed against the live session `PATH`), suitable as the
+#'   a `PATH` composed against the `PATH` of `base_env`), suitable as the
 #'   `overlay` argument of `build_child_env()`. A variable that an
 #'   `activate.d` script unsets is `NA`, which removes it. A missing
 #'   environment directory aborts with `c("condathis_activation_env_not_found",
@@ -99,7 +114,7 @@ get_micromamba_activation_envvars <- function(
     env_dir_for_backend(micromamba_backend(), env_name = env_name)
   env_label <- env_name %||% as.character(env_dir)
 
-  if (!fs::dir_exists(env_dir)) {
+  if (!dir_exists_quick(env_dir)) {
     abort_env_not_found(
       env_label,
       class = "condathis_activation_env_not_found",
@@ -122,7 +137,10 @@ get_micromamba_activation_envvars <- function(
         identical(cached$session, session_env) &&
         (is.null(cached$wd) || identical(cached$wd, getwd()))
     ) {
-      return(compose_activation_overlay(cached$resolved))
+      return(compose_activation_overlay(
+        cached$resolved,
+        base_path = base_path_of(base_env)
+      ))
     }
   }
 
@@ -159,7 +177,27 @@ get_micromamba_activation_envvars <- function(
     )
   }
 
-  return(compose_activation_overlay(resolved))
+  return(compose_activation_overlay(
+    resolved,
+    base_path = base_path_of(base_env)
+  ))
+}
+
+#' The `PATH` an activation is composed against
+#'
+#' @param base_env Named character vector, the environment of the command
+#'   before activation, or `NULL`.
+#'
+#' @returns The `PATH` of `base_env`, or, without one, the `PATH` a child
+#'   starts from (see `isolated_session_path()`). A character string.
+#'
+#' @keywords internal
+#' @noRd
+base_path_of <- function(base_env) {
+  if (is.null(base_env)) {
+    return(isolated_session_path())
+  }
+  return(env_block_path(base_env))
 }
 
 #' Whether and how an activation may be cached
@@ -262,7 +300,7 @@ values_name_dir <- function(values, dir) {
 #'
 #' `PATH` is deliberately *not* cached as a finished string. Activation's
 #' `PATH` means "these environment directories, prepended to whatever `PATH`
-#' the session has": a relative instruction, not an absolute value.
+#' the command has": a relative instruction, not an absolute value.
 #' Caching the composite would freeze the session `PATH` of the call that
 #' filled the cache into every later caller. Removed directories would
 #' reappear, added directories would be missing, and a transient `PATH`
@@ -270,18 +308,28 @@ values_name_dir <- function(values, dir) {
 #' `conda-meta` changes. Composing against the live `PATH` at every call
 #' keeps the cached part env-specific only.
 #'
-#' The directories that the activation put in front of the session's
-#' `PATH` go in front of the live session `PATH`, and the ones it appended
-#' after it, so an environment directory that the session's `PATH` already
-#' has further back still comes first (see `split_activated_path()`).
+#' The `PATH` it is composed against is the `PATH` of `base_env`: the
+#' session's `PATH` without the activation of the R session (see
+#' `isolate_host_env()`). The session's own `PATH` would put the binary
+#' directories of R's own environments back.
+#'
+#' The directories that the activation put in front of that `PATH` go in
+#' front of it, and the ones it appended after it, so an environment
+#' directory that `base_path` already has further back still comes first
+#' (see `split_activated_path()`).
 #'
 #' @param resolved A list with `envvars` (named character vector, no
 #'   `PATH` entry), `path_prepend` and `path_append` (character vectors of
 #'   directories).
+#' @param base_path Character string, the `PATH` of the command before
+#'   activation. Defaults to `isolated_session_path()`.
 #'
 #' @keywords internal
 #' @noRd
-compose_activation_overlay <- function(resolved) {
+compose_activation_overlay <- function(
+  resolved,
+  base_path = isolated_session_path()
+) {
   envvars <- resolved$envvars
   if (
     isTRUE(length(resolved$path_prepend) > 0L) ||
@@ -291,7 +339,7 @@ compose_activation_overlay <- function(resolved) {
       envvars,
       PATH = compose_path(
         resolved$path_prepend,
-        Sys.getenv("PATH"),
+        base_path %||% "",
         append = resolved$path_append
       )
     )
@@ -375,6 +423,10 @@ reset_micromamba_activation_cache <- function(env_name = NULL) {
 #' are followed). The time is kept as a number: formatting it would set
 #' `TZDIR` in the session on macOS, which the cache also compares.
 #'
+#' It runs on every activated `run()`, so it reads the file system with
+#' base calls (`list.files()`, `file.info()`, `file.size()`): the `fs`
+#' functions also look up the owner and group names of every file.
+#'
 #' @param env_dir Character string with the environment's directory.
 #'
 #' @returns A character vector.
@@ -383,16 +435,24 @@ reset_micromamba_activation_cache <- function(env_name = NULL) {
 #' @noRd
 activation_cache_stamp <- function(env_dir) {
   conda_meta_dir <- fs::path(env_dir, "conda-meta")
-  if (!fs::dir_exists(conda_meta_dir)) {
+  if (!dir_exists_quick(conda_meta_dir)) {
     return("no-conda-meta")
   }
-  info <- fs::dir_info(conda_meta_dir, recurse = FALSE)
-  meta_stamp <- if (nrow(info) == 0L) {
+  # The entries that `fs::dir_info()` lists: files and directories, not
+  # the hidden ones.
+  meta_entries <- list.files(
+    as.character(fs::path_expand(conda_meta_dir)),
+    all.files = FALSE,
+    full.names = TRUE,
+    no.. = TRUE
+  )
+  meta_stamp <- if (identical(length(meta_entries), 0L)) {
     "empty-conda-meta"
   } else {
+    mtimes <- as.numeric(file.info(meta_entries, extra_cols = FALSE)$mtime)
     paste(
-      nrow(info),
-      sprintf("%.6f", as.numeric(max(info$modification_time))),
+      length(meta_entries),
+      sprintf("%.6f", suppressWarnings(max(mtimes, na.rm = TRUE))),
       sep = "-"
     )
   }
@@ -403,7 +463,7 @@ activation_cache_stamp <- function(env_dir) {
     c("activate.d", "env_vars.d")
   )
   script_files <- unlist(lapply(
-    script_dirs[fs::dir_exists(script_dirs)],
+    script_dirs[dir_exists_quick(script_dirs)],
     function(dir) {
       return(as.character(fs::dir_ls(
         dir,
@@ -418,7 +478,7 @@ activation_cache_stamp <- function(env_dir) {
   }
   script_stamp <- paste(
     fs::path_rel(script_files, env_dir),
-    as.numeric(fs::file_size(script_files)),
+    as.numeric(file.size(script_files)),
     vapply(
       script_files,
       function(path) {
@@ -574,6 +634,16 @@ dump_activation_baseline <- function(
   baseline_env <- build_child_env(
     tmp_dir = tmp_dir_path,
     conda_dirs = micromamba_conda_dirs(root_dir)
+  )
+  # The `PATH` of the activated dump, without the activation: on Windows,
+  # the binary directories of R's own prefix, which R needs for its DLLs.
+  run_path <- micromamba_run_path()
+  baseline_env <- apply_child_overlay(
+    baseline_env,
+    overlay = c(
+      if (isFALSE(is.null(run_path))) c(PATH = run_path),
+      internal_rscript_vars()
+    )
   )
   processx::run(
     command = rscript_path,
@@ -746,6 +816,7 @@ resolve_micromamba_activation_envvars <- function(
     activated_vars = activated_vars,
     capture_vars = capture_vars
   )
+  changed_names <- drop_activation_stack_vars(changed_names)
 
   # Split PATH out of the value overlay and reduce it to the directories
   # activation *added*, before and after the session's (see
@@ -768,17 +839,21 @@ resolve_micromamba_activation_envvars <- function(
     path_prepend <- path_parts$prepend
     path_append <- path_parts$append
     changed_names <- setdiff(changed_names, activated_path_name)
-    # A directory that `micromamba_run_path()` appended for `micromamba run`
-    # only.
+    # A directory that `micromamba_run_path()` appended for the processes
+    # that record the activation only.
     run_path <- micromamba_run_path()
     if (isFALSE(is.null(run_path))) {
-      session_parts <- strsplit(Sys.getenv("PATH"), ":", fixed = TRUE)[[1L]]
+      path_sep <- if (isTRUE(is_windows())) ";" else ":"
       run_only <- setdiff(
-        strsplit(run_path, ":", fixed = TRUE)[[1L]],
-        session_parts
+        path_entry_key(strsplit(run_path, path_sep, fixed = TRUE)[[1L]]),
+        path_entry_key(
+          strsplit(isolated_session_path(), path_sep, fixed = TRUE)[[1L]]
+        )
       )
-      path_prepend <- setdiff(path_prepend, run_only)
-      path_append <- setdiff(path_append, run_only)
+      path_prepend <- path_prepend[
+        !(path_entry_key(path_prepend) %in% run_only)
+      ]
+      path_append <- path_append[!(path_entry_key(path_append) %in% run_only)]
     }
   }
 
@@ -803,6 +878,7 @@ resolve_micromamba_activation_envvars <- function(
     root_dir = install_dir_for_backend(micromamba_backend()),
     tmp_dir = capture_tmp_dir
   )
+  removed_names <- drop_activation_stack_vars(removed_names)
 
   envvars <- c(
     vapply(
@@ -812,6 +888,17 @@ resolve_micromamba_activation_envvars <- function(
     ),
     rlang::set_names(rep(NA_character_, length(removed_names)), removed_names)
   )
+  # A micromamba started through a wrapper that activated its own
+  # environment stacked its activation on that one (`CONDA_SHLVL=2`): the
+  # command has one activation, the environment's.
+  shlvl_name <- match_env_name(names(envvars), "CONDA_SHLVL")
+  if (
+    isFALSE(is.na(shlvl_name)) &&
+      isFALSE(is.na(envvars[[shlvl_name]])) &&
+      isFALSE(identical(unname(envvars[[shlvl_name]]), "1"))
+  ) {
+    envvars[[shlvl_name]] <- "1"
+  }
   envvars <- envvars[order(names(envvars))]
 
   return(list(
@@ -1047,6 +1134,32 @@ drop_capture_vars <- function(changed_names, activated_vars, capture_vars) {
     USE.NAMES = FALSE
   )
   return(changed_names[!dropped])
+}
+
+#' Drop the stacking variables from an activation diff
+#'
+#' A `micromamba` started through a wrapper that activates its own
+#' environment first (a pixi global binary, whose `CONDA_PREFIX` and
+#' `CONDA_SHLVL=1` it inherits) stacks the activation of the environment
+#' on that one. The dump then has the variables that save the outer
+#' activation: `CONDA_PREFIX_<n>` (conda, micromamba) and
+#' `CONDA_ENV_SHLVL_<n>_<KEY>` (rattler, pixi). They name micromamba's
+#' wrapper, not the environment, and never reach a command.
+#'
+#' @param names Character vector, the names that differ from the baseline.
+#' @param on_windows Logical. On Windows, names compare without case.
+#'
+#' @returns `names` without those variables.
+#'
+#' @keywords internal
+#' @noRd
+drop_activation_stack_vars <- function(names, on_windows = is_windows()) {
+  stacked <- grepl(
+    "^CONDA_PREFIX_[0-9]+$|^CONDA_ENV_SHLVL_[0-9]+_",
+    names,
+    ignore.case = on_windows
+  )
+  return(names[!stacked])
 }
 
 #' Drop the variables of micromamba's own process from an activation diff

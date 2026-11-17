@@ -156,7 +156,8 @@ micromamba_read_definition <- function(definition) {
       detected %in% c(lock_formats, "conda-lock-other", "rattler-lock")
     )
     if (
-      (isTRUE(format %in% lock_formats) && isFALSE(identical(detected, format))) ||
+      (isTRUE(format %in% lock_formats) &&
+        isFALSE(identical(detected, format))) ||
         (isFALSE(format %in% lock_formats) && isTRUE(content_is_lock)) ||
         identical(detected, "json-other")
     ) {
@@ -257,7 +258,10 @@ micromamba_read_definition <- function(definition) {
   lock_info <- switch(
     format,
     `explicit` = micromamba_explicit_info(lines),
-    `conda-lock-v1` = micromamba_conda_lock_info(lines, categories = categories),
+    `conda-lock-v1` = micromamba_conda_lock_info(
+      lines,
+      categories = categories
+    ),
     `mambajs-lock-v1` = micromamba_mambajs_info(path),
     list(platforms = NULL, records = NULL)
   )
@@ -302,12 +306,20 @@ micromamba_sniff_definition <- function(lines, path) {
     isTRUE(length(text_lines) > 0L) &&
       isTRUE(startsWith(trimws(text_lines[[1L]]), "{"))
   ) {
-    if (isTRUE(any(grepl("\"lockVersion\"[[:space:]]*:", lines, useBytes = TRUE)))) {
+    if (
+      isTRUE(any(grepl("\"lockVersion\"[[:space:]]*:", lines, useBytes = TRUE)))
+    ) {
       return("mambajs-lock-v1")
     }
     return("json-other")
   }
-  if (isTRUE(any(grepl("^[[:space:]]*@EXPLICIT[[:space:]]*$", lines, useBytes = TRUE)))) {
+  if (
+    isTRUE(any(grepl(
+      "^[[:space:]]*@EXPLICIT[[:space:]]*$",
+      lines,
+      useBytes = TRUE
+    )))
+  ) {
     return("explicit")
   }
   version_line <- grep("^version:", lines, value = TRUE, useBytes = TRUE)
@@ -350,7 +362,9 @@ micromamba_sniff_definition <- function(lines, path) {
 #' @noRd
 micromamba_name_kind <- function(path) {
   name <- basename(as.character(path))
-  if (isTRUE(endsWith(name, "-lock.yml")) || isTRUE(endsWith(name, "-lock.yaml"))) {
+  if (
+    isTRUE(endsWith(name, "-lock.yml")) || isTRUE(endsWith(name, "-lock.yaml"))
+  ) {
     return("conda-lock")
   }
   if (isTRUE(endsWith(name, ".yml")) || isTRUE(endsWith(name, ".yaml"))) {
@@ -433,7 +447,11 @@ micromamba_explicit_info <- function(lines) {
       header
     )))
   }
-  marker <- which(grepl("^[[:space:]]*@EXPLICIT[[:space:]]*$", lines, useBytes = TRUE))
+  marker <- which(grepl(
+    "^[[:space:]]*@EXPLICIT[[:space:]]*$",
+    lines,
+    useBytes = TRUE
+  ))
   urls <- character(0L)
   if (isTRUE(length(marker) > 0L) && isTRUE(marker[[1L]] < length(lines))) {
     urls <- trimws(lines[seq(marker[[1L]] + 1L, length(lines))])
@@ -554,7 +572,11 @@ read_conda_lock_items <- function(lines) {
   if (identical(length(dash_lines), 0L)) {
     return(list())
   }
-  item_indent <- min(nchar(sub("^([[:space:]]*)- .*$", "\\1", body[dash_lines])))
+  item_indent <- min(nchar(sub(
+    "^([[:space:]]*)- .*$",
+    "\\1",
+    body[dash_lines]
+  )))
   item_pattern <- paste0("^[[:space:]]{", item_indent, "}- ")
   key_indent <- item_indent + 2L
   key_pattern <- paste0(
@@ -577,7 +599,9 @@ read_conda_lock_items <- function(lines) {
         sub(item_pattern, "", line, useBytes = TRUE)
       )
     }
-    if (is.null(current) || isFALSE(grepl(key_pattern, line, useBytes = TRUE))) {
+    if (
+      is.null(current) || isFALSE(grepl(key_pattern, line, useBytes = TRUE))
+    ) {
       next
     }
     key <- sub(key_pattern, "\\1", line, useBytes = TRUE)

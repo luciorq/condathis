@@ -363,9 +363,10 @@ shared_backend_first_classes <- c(
 #'   env_name = "condathis-env", verbose = "silent", base_env = NULL,
 #'   timeout = Inf)` describes, without running `cmd`, how to run `cmd`
 #'   with `args` in the activated environment. `base_env` is the
-#'   environment that the command gets without activation: the session's
-#'   environment with the changes of *Child processes*. Compute the
-#'   activation against it, not against the environment of the R session.
+#'   environment of the command before any activation: the session's
+#'   environment with the changes of *Child processes*, the activation of
+#'   the R session undone included. Compute the activation against it, not
+#'   against the environment of the R session.
 #'   `condathis` always passes it. `timeout` is the number of seconds the
 #'   function may take: what is left of the `timeout` of [run()],
 #'   [run_bin()] or [run_pipeline()], or `Inf`. If the function runs code
@@ -379,29 +380,30 @@ shared_backend_first_classes <- c(
 #'   once the function returned.
 #'   The function returns `list(command, args, env, dir)`:
 #'   * `command`: a single string, the program to start: an absolute path,
-#'     or a bare name. `condathis` starts a bare name the same way for every
-#'     backend. On Linux and macOS, it is looked up on the `PATH` of the
-#'     command, after `env` is applied. On Windows, [run()] and
-#'     [run_pipeline()] look it up in the binary directories of the
-#'     environment, with the extensions of `PATHEXT`. Otherwise, they leave
-#'     it to `processx`, which searches the working directory and the `PATH`
-#'     of the R session for `<name>.com` and `<name>.exe`. [run_bin()]
-#'     searches the binary directories of the environment and then the
-#'     `PATH` of the command. A bare name that is found nowhere fails to
-#'     start.
+#'     or a bare name. [run()], [run_bin()] and [run_pipeline()] start a
+#'     bare name the same way for every backend. On Linux and macOS, it is
+#'     looked up on the `PATH` of the command, after `env` is applied. On
+#'     Windows, as in `cmd.exe`, the working directory of the command comes
+#'     first, and a name without an extension is looked up with the
+#'     extensions of `PATHEXT`. A bare name that is found nowhere fails to
+#'     start, with status 127.
 #'   * `args`: a character vector, or `NULL`. It replaces the user's
 #'     arguments, so it must contain them.
 #'   * `env`: `NULL`, or a named character vector (not a list) of
 #'     activation variables. Each entry replaces the variable of the same
 #'     name in the environment of the command, `PATH` included. An `NA`
 #'     entry removes the variable, for a variable that the activation
-#'     unsets. [run_bin()] also prepends the environment's binary
-#'     directories to `PATH`.
+#'     unsets. When the `PATH` that results names none of the binary
+#'     directories of the environment, `condathis` puts them in front of
+#'     it. `CONDA_SHLVL`, `MAMBA_SHLVL` and the prompt modifiers are always
+#'     `"1"`, `"1"`, `""` and `""`, whatever `env` sets.
 #'   * `dir`: `NULL` to keep R's working directory, or the path of an
 #'     existing directory to run the command in.
 #'
-#'   `condathis` calls it only with activation on ([run()], and [run_bin()]
-#'   and [run_pipeline()] with `activate = TRUE`). It calls it only for an
+#'   `condathis` calls it only with `activate = TRUE` (the default of
+#'   [run()], [run_bin()] and [run_pipeline()]). With `activate = FALSE`,
+#'   no backend function describes the command: `condathis` sets a fixed
+#'   activation itself (see [condathis-options]). It calls it only for an
 #'   environment that this backend reported as existing. It never calls it
 #'   for an [env_path()] environment (see `backend_resolve_run_in_dir()`).
 #'   A value that breaks these rules aborts with
@@ -672,8 +674,11 @@ shared_backend_first_classes <- c(
 #'
 #' @section Child processes:
 #' `condathis` starts `command` with a copy of the session's environment
-#' in which the `CONDA_*` and `MAMBA_*` variables listed in
-#' [condathis-options] are cleared. It then applies `env`. For commands of
+#' without the activation of the R session (the binary directories of the
+#' Conda and pixi environments that R runs in are removed from `PATH`, and
+#' the variables listed in [condathis-options] are removed or restored),
+#' and with the `CONDA_*` and `MAMBA_*` variables listed there cleared. It
+#' then applies `env`. For commands of
 #' every backend other than `"micromamba"`, `CONDA_ENVS_PATH` is the
 #' parent directory of the environment directory from
 #' `backend_get_env_dir()`, so a Conda tool run in the environment creates
@@ -1851,7 +1856,11 @@ resolve_backend_ambiguous_env <- function(
 #' @param call Calling environment, passed to `condathis_abort()`.
 #'
 #' @returns A list with `backend` (the resolved backend object) and `name`
-#'   (its registered name).
+#'   (its registered name). With an `env_name`, also `env_exists`: the
+#'   existence probe of the resolved backend, from the owner search
+#'   (`TRUE`, `FALSE`, or `NA` as `backend_probe_env()` gives it), or
+#'   `NULL` when that backend was not probed. Read it with
+#'   `resolved_env_exists()`.
 #'
 #' @keywords internal
 #' @noRd
@@ -1876,31 +1885,72 @@ resolve_backend <- function(
     return(resolve_backend_by_priority(method, call = call))
   }
 
-  owners <- find_owning_backends(env_name, mutating = mutating, call = call)
+  probes <- new.env(parent = emptyenv())
+  owners <- find_owning_backends(
+    env_name,
+    mutating = mutating,
+    call = call,
+    probes = probes
+  )
 
   if (identical(length(owners), 0L)) {
-    return(resolve_backend_by_priority(
+    resolved <- resolve_backend_by_priority(
       method,
       accept = accept,
       on_refused = on_refused,
       call = call
-    ))
-  }
-  if (identical(length(owners), 1L)) {
-    return(resolve_backend_existing_env(
+    )
+  } else if (identical(length(owners), 1L)) {
+    resolved <- resolve_backend_existing_env(
       env_name = env_name,
       method = method,
       owner = owners[[1L]],
       mutating = mutating,
       call = call
+    )
+  } else {
+    resolved <- resolve_backend_ambiguous_env(
+      env_name = env_name,
+      method = method,
+      owners = owners,
+      call = call
+    )
+  }
+  # The probe of the resolved backend, so that `run()` and `run_pipeline()`
+  # do not probe it a second time (decision D16 of feat-run-unify). Never
+  # cached across calls.
+  if (isTRUE(resolved$name %in% owners)) {
+    resolved$env_exists <- TRUE
+  } else {
+    resolved["env_exists"] <- list(get0(
+      resolved$name,
+      envir = probes,
+      inherits = FALSE
     ))
   }
-  return(resolve_backend_ambiguous_env(
-    env_name = env_name,
-    method = method,
-    owners = owners,
-    call = call
-  ))
+  return(resolved)
+}
+
+#' Whether the environment of a resolved backend exists
+#'
+#' The probe that `resolve_backend()` already ran for the resolved backend,
+#' or a new `backend_probe_env()` when it has none (for example a
+#' `resolve_backend()` replaced in a test).
+#'
+#' @param resolved The list from `resolve_backend()`.
+#' @param env_name Character string with the environment name.
+#'
+#' @returns `TRUE`, `FALSE`, or `NA` with `attr(, "condition")`, as
+#'   `backend_probe_env()`.
+#'
+#' @keywords internal
+#' @noRd
+resolved_env_exists <- function(resolved, env_name) {
+  probe <- resolved[["env_exists"]]
+  if (isFALSE(is.null(probe))) {
+    return(probe)
+  }
+  return(backend_probe_env(resolved$backend, env_name, verbose = "silent"))
 }
 
 # --- The backend contract generics ---------------------------------------

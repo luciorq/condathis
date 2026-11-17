@@ -4,8 +4,9 @@ Decisions 1 to 12 are the design of 2026-07-15. Later changes to the
 contract are at the end of this file: "Where the contract stands on
 2026-11-13", "Environment definitions in the contract (2026-11-13)"
 (decisions 13 to 18) and "Contract changes in the 0.2.0 CRAN
-preparation" (decisions 19 to 21) and "rattlerthis opting in to
-environment definitions" (decision 22, planned). `?register_backend` is
+preparation" (decisions 19 to 21), "rattlerthis opting in to
+environment definitions" (decision 22, planned) and "Run-family
+unification (2026-11-16)" (decisions 23 and 24). `?register_backend` is
 the reference for the current contract.
 
 ## Context
@@ -705,6 +706,53 @@ From commit `8cffc25` ("feat: prepare condathis 0.2.0 for CRAN",
 
     The design estimated about one day for the opt-in, and two to three
     days or more for pixi.lock (vendor size and MSRV not measured).
+
+## Run-family unification (2026-11-16)
+
+Done in 0.2.0 at the maintainer's request. The full record is in
+`../feat-run-unify/PLAN.md`. What it means for backends:
+
+23. **`activate = FALSE` is the fixed activation of condathis, for every
+    backend.** The TODO of the execution-path milestone (2026-08-13) said
+    `activate = FALSE` "stays honoured for every backend" as a run
+    without activation variables. It is still honoured for every backend,
+    and still runs no backend function, but it now means one fixed set,
+    in `run()` (which gained `activate`), `run_bin()` and
+    `run_pipeline()`: `CONDA_PREFIX`, `CONDA_DEFAULT_ENV`,
+    `CONDA_SHLVL=1`, `MAMBA_SHLVL=1`, the prompt modifiers, and the
+    environment's binary directories in front of the `PATH` of
+    `base_env` (`get_activation_envvars()`, `R/conda_activation.R`). No
+    `activate.d` scripts, no `env_vars.d` files.
+    `backend_resolve_run()` and `backend_resolve_run_in_dir()` are still
+    called only with `activate = TRUE`. This works for the two backends
+    that exist (micromamba and rattlerthis start a program of a local
+    prefix). A container or remote backend would need an optional hook
+    to describe a command without activation, or to refuse
+    `activate = FALSE`: a follow-up after 0.2.0
+    (`../post-0.2.0/` item 21a).
+
+24. **Contract prose, generics unchanged.** No generic changed its
+    formals (rattlerthis's `test-registration.R` compares them). The
+    prose of `?register_backend` (`R/backend.R`, about lines 360 to 410
+    and 673 to 690) now says:
+    - `base_env` is the session's environment with the changes of
+      *Child processes*, the activation of the R session undone
+      included. A backend computes its activation against it.
+    - `command`: a bare name is started the same way for every backend
+      and all three functions: on Linux and macOS it is looked up on the
+      `PATH` of the command, after `env` is applied; on Windows in the
+      binary directories of the environment, with `PATHEXT`, else by
+      processx. The special lookup of `run_bin()` is gone.
+    - `env`: when the resulting `PATH` names none of the environment's
+      binary directories, condathis puts them in front of it (for every
+      function, not only `run_bin()`).
+    - *Child processes*: the command starts from the session's
+      environment without the activation of the R session, then the
+      cleared `CONDA_*` and `MAMBA_*` variables, then `env`.
+    - The micromamba backend's activation drops the stacking variables
+      of a micromamba started through an activating wrapper
+      (`drop_activation_stack_vars()`). This is not applied to the `env`
+      of other backends.
 
 ## Files added or changed for decisions 13 to 21
 

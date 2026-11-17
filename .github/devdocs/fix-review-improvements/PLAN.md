@@ -147,7 +147,10 @@ for the full implementation detail.
 
 - **`run()` vs `run_bin()` auto-create asymmetry.** `run()` auto-creates the
   base env; `run_bin()` creates nothing. Odd remaining asymmetry after the
-  recent parity work. (`R/run.R` vs `R/run_bin.R`.)
+  recent parity work. (`R/run.R` vs `R/run_bin.R`.) (Stale: both create
+  only a missing default `"condathis-env"` now, and since 2026-11-16
+  `run_bin()` is a wrapper over `run()`'s code, see
+  `../feat-run-unify/`.)
 - **`method` argument is dead API surface.** `R/run.R`, `R/create_env.R`:
   soft-deprecated, documented as no-op, still `arg_match(c("native",
   "auto"))`d, both branches identical. Either fully deprecate via

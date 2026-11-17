@@ -65,8 +65,7 @@ Install the release version of the package from
 install.packages("condathis")
 ```
 
-Or get the development version from
-[R-universe](https://luciorq.r-universe.dev/condathis):
+Or get the development version from R-universe:
 
 ``` r
 install.packages("condathis", repos = c("https://luciorq.r-universe.dev", getOption("repos")))
@@ -180,10 +179,9 @@ can add backends with the experimental `register_backend()`. New
 environments use `micromamba` unless you pass `method` or set
 `options(condathis.backend_priority = ...)`. For example,
 `method = "rattler"` uses the optional `rattlerthis` package. It is not
-on CRAN: it is available from
-[R-universe](https://luciorq.r-universe.dev/rattlerthis). The [backends
+on CRAN: the [backends
 article](https://luciorq.github.io/condathis/articles/backends.html)
-shows how to install it and use both backends together.
+shows how to install it from R-universe and use both backends together.
 
 Already have an environment created outside `condathis`, for example by
 `conda`, `mamba`, or `micromamba` itself? Pass its directory as

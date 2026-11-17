@@ -5,15 +5,24 @@
 #'
 #' 1. A snapshot of the calling session's environment (`Sys.getenv()`) -
 #'    read, never written.
-#' 2. The clean-conda overlay from `get_clean_conda_envvars()`, where a
+#' 2. The activation of the R session undone (`isolate_host_env()`): when
+#'    R runs in an activated Conda or pixi environment, or in several
+#'    nested ones, their binary directories leave `PATH` and their marker
+#'    variables leave the block.
+#' 3. The clean-conda overlay from `get_clean_conda_envvars()`, where a
 #'    `NULL` entry is a true *removal* from the child's block (something
 #'    `processx`'s `env = c("current", ...)` idiom cannot express).
-#' 3. `overlay`: activation variables, replacing any same-named inherited
+#' 4. `overlay`: activation variables, replacing any same-named inherited
 #'    value.
-#' 4. `path_prepend`: directories prepended to whatever `PATH` the child
-#'    would otherwise get (from `overlay` if it set one, else inherited),
-#'    composed at call time so it always reflects the *live* session
-#'    `PATH`.
+#' 5. `path_prepend`: directories prepended to whatever `PATH` the child
+#'    would otherwise get (from `overlay` if it set one, else the `PATH`
+#'    after the layers above), composed at call time from the *live*
+#'    session.
+#'
+#' Layers 1 to 3 are the isolation of every child, with and without
+#' activation. A backend computes its activation against them (the
+#' `base_env` of `backend_resolve_run()`), and `micromamba` itself gets
+#' them too (see `native_cmd()`).
 #'
 #' The result is passed as a full `env =` replacement to `processx`,
 #' deliberately not `c("current", ...)`. Mutating the calling session's
@@ -52,6 +61,7 @@ build_child_env <- function(
   path_prepend = NULL
 ) {
   env <- as.list(Sys.getenv())
+  env <- isolate_host_env(env)
   env <- apply_env_overrides(
     env,
     get_clean_conda_envvars(tmp_dir = tmp_dir, conda_dirs = conda_dirs)
@@ -107,21 +117,44 @@ apply_env_overrides <- function(env, overrides) {
 #' Matches exactly everywhere. On Windows, matching is also case-insensitive
 #' because the OS treats environment variable names case-insensitively.
 #'
+#' @param existing_names Character vector of names.
+#' @param name Character string, the name to find.
+#' @param on_windows Logical. Whether to apply the Windows rule.
+#'
 #' @returns The matching existing name, or `NA_character_`.
 #'
 #' @keywords internal
 #' @noRd
-match_env_name <- function(existing_names, name) {
+match_env_name <- function(existing_names, name, on_windows = is_windows()) {
   if (isTRUE(name %in% existing_names)) {
     return(name)
   }
-  if (isTRUE(is_windows())) {
+  if (isTRUE(on_windows)) {
     hit <- existing_names[toupper(existing_names) == toupper(name)]
     if (isTRUE(length(hit) > 0L)) {
       return(hit[[1L]])
     }
   }
   return(NA_character_)
+}
+
+#' The `PATH` of an environment block
+#'
+#' @param env Named character vector or named list, an environment block
+#'   such as the result of `build_child_env()`.
+#' @param on_windows Logical. On Windows, the name compares without case
+#'   (`Path`).
+#'
+#' @returns A character string, `""` when the block has no `PATH`.
+#'
+#' @keywords internal
+#' @noRd
+env_block_path <- function(env, on_windows = is_windows()) {
+  path_name <- match_env_name(names(env), "PATH", on_windows = on_windows)
+  if (isTRUE(is.na(path_name))) {
+    return("")
+  }
+  return(unname(as.character(env[[path_name]])))
 }
 
 #' Prepend directories to a `PATH` string, deduplicated, order-preserving
@@ -178,7 +211,7 @@ path_entry_key <- function(x, on_windows = is_windows()) {
 #' directories of `prepend` is dropped also when it is spelled differently
 #' (see `path_entry_key()`). On Windows, the activation of micromamba
 #' spells the environment's directories with `\\`, and
-#' `env_bin_search_dirs()` with `/`: `run_bin()` put both copies of each
+#' `env_bin_search_dirs()` with `/`: the run family put both copies of each
 #' directory on the command's `PATH`. The first copy and its spelling are
 #' kept. Off Windows, the result is that of `compose_path()`.
 #'

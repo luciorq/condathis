@@ -28,10 +28,8 @@ run_bin(
 string. Other values abort with class \code{condathis_invalid_cmd}. Pass the
 arguments of the command in \code{...}.}
 
-\item{...}{Arguments of the command, unnamed, as in \code{\link[=run]{run()}}. Each
-element of a character, numeric or logical vector is one argument.
-\code{run_bin()} drops \code{NULL} values and writes numbers in full. \code{NA}, named
-arguments, and values that are not atomic vectors abort with class
+\item{...}{Arguments of the command, unnamed, as in \code{\link[=run]{run()}}. Values
+that \code{\link[=run]{run()}} rejects abort with class
 \code{condathis_run_bin_invalid_args}.}
 
 \item{env_name}{Character string with the environment name.
@@ -186,15 +184,16 @@ Windows, whatever \code{cleanup_tree} is. Send the output to files
 platforms. Defaults to \code{FALSE}.}
 
 \item{activate}{Logical. Whether to run \code{cmd} with the activation of the
-environment. Defaults to \code{TRUE}, which activates the environment as
-\code{\link[=run]{run()}} does. An activation that fails is an error, as \code{error}
-describes. With \code{FALSE}, \code{run_bin()} skips the activation. It resolves
-\code{cmd} in the binary directories of the environment (then on the \code{PATH}
-of the R session), puts those directories in front of \code{PATH}, and
-applies no activation variables or \code{activate.d} scripts. In both modes,
-the command gets the variables that \code{condathis} sets in every process
-it starts (see \link{condathis-options}). Values other than \code{TRUE} and
-\code{FALSE} abort with class \code{condathis_invalid_activate}.}
+backend. Defaults to \code{TRUE}: the backend activates the environment,
+with the \code{activate.d} scripts and \code{env_vars.d} files of its packages.
+An activation that fails is an error, as \code{error} describes. With
+\code{FALSE}, no backend code runs: \code{condathis} sets only \code{CONDA_PREFIX},
+\code{CONDA_DEFAULT_ENV}, \code{CONDA_SHLVL} and \code{MAMBA_SHLVL} (both \code{1}),
+empty prompt modifiers, and the binary directories of the environment
+in front of \code{PATH} (see \link{condathis-options}). In both modes, the command gets the
+variables that \code{condathis} sets in every process it starts. Values
+other than \code{TRUE} and \code{FALSE} abort with class
+\code{condathis_invalid_activate}.}
 
 \item{timeout}{Number of seconds the call may take, the activation of the
 environment included (see Details in \code{\link[=run]{run()}}). Defaults to \code{Inf} (no
@@ -207,57 +206,23 @@ single, non-negative number abort with class
 \code{condathis_invalid_timeout}.}
 }
 \value{
-A \code{condathis_result} object, invisibly: a classed list with
-\code{status}, \code{stdout}, \code{stderr}, \code{timeout}, \code{pid}, \code{cmd} and \code{env_name},
-which prints as a short summary. \code{status} is the exit status of the
-command. On Linux and macOS, a command that a signal ends has the
-negative signal number as status (-15 for \code{SIGTERM}, where \code{\link[=run]{run()}}
-reports 143). \code{stdout} and \code{stderr} are \code{NA} when that stream was not
-captured (a target other than \code{"|"}). \code{pid} is the process ID of the
-command with \code{stdin = "|"}, and \code{NA} otherwise. \code{cmd} is your command
-line, each part quoted, also when the backend runs it through a
-wrapper. It masks the credentials of URLs (see \code{verbose}). \code{env_name}
-is the environment name, or the directory of an \code{\link[=env_path]{env_path()}}.
+A \code{condathis_result} object, invisibly, as for \code{\link[=run]{run()}}.
 }
 \description{
-Runs a program of a Conda environment, found in the binary directories
-of the environment. With \code{activate = TRUE} (the default), the program
-runs with the activation of the environment, as in \code{\link[=run]{run()}}. With
-\code{activate = FALSE}, \code{run_bin()} only puts the binary directories in
-front of \code{PATH}.
+\code{run_bin()} is superseded by \code{\link[=run]{run()}}, which takes the same arguments
+and runs the command the same way. \code{run_bin()} stays for code written
+for earlier versions of \code{condathis}. Its errors have their own classes,
+\verb{condathis_run_bin_*}, which also carry the \verb{condathis_run_*} classes
+(see \link{condathis-conditions}).
 }
 \details{
-The binary directories are \code{bin} on Linux and macOS. On Windows, they
-are the environment directory, \code{Library/mingw-w64/bin},
-\code{Library/usr/bin}, \code{Library/bin}, \code{Scripts} and \code{bin}, searched with the
-extensions of \code{PATHEXT}. \code{run_bin()} looks up a \code{cmd} that is not there
-on the \code{PATH} that the program gets. That \code{PATH} lists the binary
-directories first. Then it lists the \code{PATH} of the activation with
-\code{activate = TRUE}, or of the R session with \code{activate = FALSE}.
-\code{run_bin()} uses a \code{cmd} with a directory part as it is.
-
-With \code{activate = TRUE}, \code{run_bin()} differs from \code{\link[=run]{run()}} in two ways
-only. It finds \code{cmd} differently. It reports a different status for a
-command that a signal ends. \code{\link[=run]{run()}} looks up a bare name on the
-activated \code{PATH} (on Windows, in the binary directories first).
-\code{run_bin()} looks it up in the binary directories first on every
-platform.
-
-When \code{env_name} is the default \code{"condathis-env"} and that environment
-does not exist, \code{run_bin()} creates it, empty, with the backend that
-\code{method} selects. \code{run_bin()} never creates any other missing
-environment, and no program from \code{PATH} runs. The call fails, as \code{error}
-describes.
-
-The errors of a failed or timed-out command carry the fields \code{status},
-\code{stdout}, \code{stderr} and \code{timeout}. A handler does not need to parse the
-message.
+In \code{condathis} 0.1.4, \code{run_bin()} ran a program of the environment
+without its activation. It now activates the environment, as \code{\link[=run]{run()}}
+does. \code{activate = FALSE} gives the fixed activation of \code{\link[=run]{run()}}.
 }
 \examples{
 \dontrun{
 condathis::with_sandbox_dir({
-  # A local channel shipped with condathis, with `polyglot`: a
-  # dependency-free script that runs on Linux, macOS and Windows.
   channel <- system.file(
     "extdata", "polyglot-channel",
     package = "condathis"
@@ -267,38 +232,14 @@ condathis::with_sandbox_dir({
     env_name = "polyglot-env",
     channels = channel
   )
-
-  # Run the 'polyglot' script, on any platform
+  # The same as condathis::run("polyglot", env_name = "polyglot-env")
   condathis::run_bin("polyglot", env_name = "polyglot-env")
-
-  # Create an environment with 'python' and 'ripgrep', which conda-forge
-  # builds for Linux, macOS and Windows (it has no Windows builds of GNU
-  # tools such as `grep`)
-  condathis::create_env(
-    c("conda-forge::python", "conda-forge::ripgrep"),
-    env_name = "my-env"
-  )
-
-  # Run Python code with the 'python' of the 'my-env' environment
-  condathis::run_bin(
-    "python", "-c", "import sys; print(sys.version)",
-    env_name = "my-env"
-  )
-
-  # Run the 'rg' (ripgrep) binary with additional arguments, without
-  # activation
-  condathis::run_bin(
-    "rg", "--version",
-    env_name = "my-env",
-    activate = FALSE
-  )
 })
 }
 
 }
 \seealso{
-\code{\link[=env_path]{env_path()}} for an environment created outside \code{condathis},
-and \link{condathis-conditions} for the condition classes.
+\code{\link[=run]{run()}}.
 
 Other commands:
 \code{\link[=parse_output]{parse_output()}},

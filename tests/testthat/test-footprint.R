@@ -191,6 +191,32 @@ footprint_child_vars <- function(env_name, var_names) {
   return(result)
 }
 
+# The user libraries that the R commands of `footprint_child_vars()` named,
+# and their parent directories up to `sandbox`, with the spelling of the
+# snapshots: the directories that such an R may create.
+footprint_r_user_lib_dirs <- function(r_libs_user, sandbox) {
+  key <- function(x) tolower_on_windows(to_slash_path(x))
+  sandbox_key <- key(sandbox)
+  libs <- unlist(strsplit(
+    r_libs_user[!is.na(r_libs_user)],
+    .Platform$path.sep,
+    fixed = TRUE
+  ))
+  dirs <- character(0L)
+  for (lib in unique(libs[nzchar(libs)])) {
+    # An R that does not create its user library leaves nothing to allow.
+    if (isFALSE(fs::dir_exists(lib))) {
+      next
+    }
+    dir <- as.character(fs::path_real(lib))
+    while (startsWith(key(dir), paste0(sandbox_key, "/"))) {
+      dirs <- c(dirs, dir)
+      dir <- as.character(fs::path_dir(dir))
+    }
+  }
+  return(unique(dirs))
+}
+
 # A local channel with one `noarch` package, `menucheck`, that has a Start
 # Menu shortcut (`Menu/condathis-footprint-check.json`, menuinst v1). On
 # Windows, micromamba adds the shortcut to the Programs folder of the
@@ -374,21 +400,38 @@ check_micromamba_footprint <- function(
     expect_footprint(s1, s2, "install_packages and queries")
     testthat::expect_identical(key(readLines(registry)), key(registry_lines))
 
+    # The `Rscript` processes of condathis itself, which record the
+    # activation and measure R's startup, write nothing outside the root,
+    # also with an R whose base profile creates the user library (rig).
+    # `micromamba run`, which records the activation, keeps its `mamba/proc`
+    # directory in the root too.
+    get_micromamba_activation_envvars(env_name, use_cache = FALSE)
+    r_startup_env_vars(use_cache = FALSE)
+    s2b <- snapshot()
+    expect_footprint(s2, s2b, "activation and R's startup")
+
     child_vars <- footprint_child_vars(
       env_name,
-      c(session_vars, "MAMBA_ROOT_PREFIX")
+      c(session_vars, "MAMBA_ROOT_PREFIX", "R_LIBS_USER")
     )
     for (entry_point in names(child_vars)) {
       testthat::expect_identical(
-        child_vars[[entry_point]],
+        child_vars[[entry_point]][c(session_vars, "MAMBA_ROOT_PREFIX")],
         c(session_values, MAMBA_ROOT_PREFIX = ""),
         info = entry_point
       )
     }
+    # The commands here are R. Their environment names no user library (no
+    # `R_*` variable reaches a command), so their R uses its default one,
+    # and an R that rig installed creates it at every start. That write is
+    # the command's own, as in a clean shell.
+    r_user_lib_dirs <- footprint_r_user_lib_dirs(
+      vapply(child_vars, function(v) v[["R_LIBS_USER"]], character(1L)),
+      sandbox
+    )
+    is_r_user_lib <- function(p) key(p) %in% key(r_user_lib_dirs)
     s3 <- snapshot()
-    # `micromamba run`, which records the activation, keeps its `mamba/proc`
-    # directory in the root too.
-    expect_footprint(s2, s3, "run family")
+    expect_footprint(s2b, s3, "run family", allowed = is_r_user_lib)
     testthat::expect_false(fs::dir_exists(fs::path(
       user_cache,
       "mamba",
@@ -398,10 +441,15 @@ check_micromamba_footprint <- function(
     remove_env(env_name, verbose = "silent")
     testthat::expect_false(env_exists(env_name))
     s4 <- snapshot()
-    # The removal no longer rewrites the registry either. The line of the
-    # removed environment stays, as conda and mamba ignore missing ones.
-    expect_footprint(s3, s4, "remove_env")
-    testthat::expect_identical(key(readLines(registry)), key(registry_lines))
+    # The removal no longer rewrites the registry either: it deletes only
+    # the line of the removed environment, when create_env() added one, and
+    # keeps the other lines as they were.
+    if (isTRUE(credentials)) {
+      expect_footprint(s3, s4, "remove_env", allowed = is_registry)
+    } else {
+      expect_footprint(s3, s4, "remove_env")
+    }
+    testthat::expect_identical(key(readLines(registry)), key(registry_seed))
 
     testthat::expect_true(fs::dir_exists(fs::path(root, "pkgs")))
     res <- clean_cache(verbose = "silent")
@@ -415,7 +463,9 @@ check_micromamba_footprint <- function(
       s0,
       s5,
       "all steps",
-      allowed = function(p) isTRUE(credentials) & is_registry(p)
+      allowed = function(p) {
+        is_r_user_lib(p) | (isTRUE(credentials) & is_registry(p))
+      }
     )
     testthat::expect_true(all(fs::file_exists(sentinels)))
   })

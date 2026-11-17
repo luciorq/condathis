@@ -104,24 +104,151 @@ testthat::test_that("queries work on a fresh root without creating an environmen
   })
 })
 
-testthat::test_that("an environment directory makes the probe ask micromamba", {
+# The layout of the existence tests below: what micromamba counts as an
+# environment of `<root>/envs`, and what it does not.
+make_existence_layout <- function(root) {
+  envs_dir <- fs::path(root, "envs")
+  make_prefix <- function(dir) {
+    fs::dir_create(fs::path(dir, "conda-meta"))
+    fs::file_create(fs::path(dir, "conda-meta", "history"))
+  }
+  make_prefix(fs::path(envs_dir, "real-env"))
+  make_prefix(fs::path(envs_dir, "other-env"))
+  # A directory without `conda-meta`, and one without `conda-meta/history`.
+  fs::dir_create(fs::path(envs_dir, "stale"))
+  fs::dir_create(fs::path(envs_dir, "half", "conda-meta"))
+  # The trash of `create_env(overwrite = TRUE)`, with a moved prefix.
+  make_prefix(fs::path(envs_dir, env_trash_name(), "moved"))
+  # A prefix outside `<root>/envs`, and a prefix nested in another one.
+  outside <- fs::path(root, "elsewhere", "outside-env")
+  make_prefix(outside)
+  make_prefix(fs::path(envs_dir, "real-env", "envs", "nested-env"))
+  links <- character(0L)
+  if (isFALSE(is_windows())) {
+    # Symbolic links: micromamba lists them under the name of their real
+    # path, so not under the name of the link.
+    fs::link_create(fs::path(envs_dir, "real-env"), fs::path(envs_dir, "alias"))
+    fs::link_create(outside, fs::path(envs_dir, "outside-link"))
+    links <- c("alias", "outside-link")
+  }
+  return(list(
+    present = c("other-env", "real-env"),
+    absent = c(
+      "stale",
+      "half",
+      env_trash_name(),
+      "outside-env",
+      "nested-env",
+      "missing",
+      # A file system that ignores case also opens `envs/REAL-ENV`.
+      "REAL-ENV",
+      links
+    )
+  ))
+}
+
+testthat::test_that("the existence probe reads the file system, with micromamba's listing rule", {
   testthat::skip_on_cran()
-  # The cheap probe answers only "no". With a directory, the listing
-  # decides, so a real environment is never hidden.
+  # Decision D16 of feat-run-unify: every run() asked `micromamba env list`
+  # twice, through four micromamba processes. The probe now reads the file
+  # system, with the rule of `list_conda_prefix_envs()`, and starts no
+  # process.
+  local_no_micromamba_process()
   with_sandbox_dir({
-    root <- install_dir_for_backend(micromamba_backend())
-    env_dir <- fs::path(root, "envs", "probe-listed-env")
-    fs::dir_create(fs::path(env_dir, "conda-meta"))
-    record <- local_fake_native_cmd(env_list_json(c(root, env_dir)))
     backend <- micromamba_backend()
-    testthat::expect_true(backend_env_exists(
-      backend,
-      env_name = "probe-listed-env"
-    ))
-    testthat::expect_length(record$calls, 1L)
-    testthat::expect_false(backend_env_exists(backend, env_name = "other-env"))
-    # No directory for "other-env": no second listing.
-    testthat::expect_length(record$calls, 1L)
+    root <- install_dir_for_backend(backend)
+    layout <- make_existence_layout(root)
+    listed <- list_conda_prefix_envs(root)
+    testthat::expect_identical(sort(listed), layout$present)
+    for (env_name in layout$present) {
+      testthat::expect_true(
+        backend_env_exists(backend, env_name = env_name),
+        info = env_name
+      )
+      testthat::expect_true(
+        backend_probe_env(backend, env_name = env_name),
+        info = env_name
+      )
+    }
+    for (env_name in layout$absent) {
+      testthat::expect_false(
+        backend_env_exists(backend, env_name = env_name),
+        info = env_name
+      )
+      testthat::expect_false(
+        backend_probe_env(backend, env_name = env_name),
+        info = env_name
+      )
+    }
+    # The same answers as the listing without a micromamba binary.
+    for (env_name in c(layout$present, layout$absent)) {
+      testthat::expect_identical(
+        conda_prefix_env_exists(root, env_name),
+        env_name %in% listed,
+        info = env_name
+      )
+    }
+  })
+})
+
+testthat::test_that("the existence probe agrees with `micromamba env list`", {
+  testthat::skip_on_cran()
+  # The file-system rule must give what micromamba itself lists, for every
+  # case of `make_existence_layout()`.
+  local_sandbox_micromamba()
+  with_sandbox_dir({
+    backend <- micromamba_backend()
+    root <- install_dir_for_backend(backend)
+    layout <- make_existence_layout(root)
+    calls <- 0L
+    real_native_cmd <- native_cmd
+    testthat::local_mocked_bindings(
+      native_cmd = function(...) {
+        calls <<- calls + 1L
+        return(real_native_cmd(...))
+      }
+    )
+    listed <- micromamba_backend_list_envs(backend)
+    # The listing ran micromamba.
+    testthat::expect_identical(calls, 1L)
+    testthat::expect_identical(sort(listed), layout$present)
+    for (env_name in c(layout$present, layout$absent)) {
+      testthat::expect_identical(
+        backend_env_exists(backend, env_name = env_name),
+        env_name %in% listed,
+        info = env_name
+      )
+    }
+    # The probes started no micromamba.
+    testthat::expect_identical(calls, 1L)
+  })
+})
+
+testthat::test_that("an unreadable envs directory makes the probe fail, not answer no", {
+  testthat::skip_on_cran()
+  # Rule R5: when the probe cannot tell, it is `NA`, never `FALSE`.
+  testthat::skip_on_os("windows")
+  local_no_micromamba_process()
+  with_sandbox_dir({
+    backend <- micromamba_backend()
+    root <- install_dir_for_backend(backend)
+    envs_dir <- fs::path(root, "envs")
+    env_dir <- fs::path(envs_dir, "locked-env")
+    fs::dir_create(fs::path(env_dir, "conda-meta"))
+    fs::file_create(fs::path(env_dir, "conda-meta", "history"))
+    # Searchable, but its entries cannot be read.
+    fs::file_chmod(envs_dir, "u=x")
+    readable <- isTRUE(length(list.files(envs_dir)) > 0L)
+    probe <- backend_probe_env(backend, env_name = "locked-env")
+    # Readable again, so that the sandbox can be deleted.
+    fs::file_chmod(envs_dir, "u=rwx")
+    if (isTRUE(readable)) {
+      # The user can read it anyway (root): the environment is found.
+      testthat::expect_true(probe)
+    } else {
+      testthat::expect_true(is.na(probe))
+      testthat::expect_s3_class(attr(probe, "condition"), "error")
+    }
   })
 })
 
@@ -1097,7 +1224,10 @@ testthat::test_that("micromamba describes each format from the contents of the f
   testthat::expect_identical(read$description$kind, "lock")
   testthat::expect_true(read$description$supported)
   testthat::expect_null(read$description$platforms)
-  testthat::expect_identical(read$description$records, polyglot_record("noarch"))
+  testthat::expect_identical(
+    read$description$records,
+    polyglot_record("noarch")
+  )
   testthat::expect_null(read$stage_name)
   explicit <- write_explicit_lock(
     fs::path(dir, "explicit-arch.txt"),
@@ -1106,14 +1236,20 @@ testthat::test_that("micromamba describes each format from the contents of the f
   )
   read <- read_definition_at(explicit)
   testthat::expect_identical(read$description$platforms, "linux-64")
-  testthat::expect_identical(read$description$records, polyglot_record("linux-64"))
+  testthat::expect_identical(
+    read$description$records,
+    polyglot_record("linux-64")
+  )
 
   conda_lock <- write_conda_lock(fs::path(dir, "conda-lock.yml"), "osx-arm64")
   read <- read_definition_at(conda_lock)
   testthat::expect_identical(read$description$format, "conda-lock-v1")
   testthat::expect_identical(read$description$kind, "lock")
   testthat::expect_identical(read$description$platforms, "osx-arm64")
-  testthat::expect_identical(read$description$records, polyglot_record("osx-arm64"))
+  testthat::expect_identical(
+    read$description$records,
+    polyglot_record("osx-arm64")
+  )
   testthat::expect_null(read$stage_name)
   testthat::expect_identical(read$extra_args, character(0L))
 
@@ -1122,7 +1258,10 @@ testthat::test_that("micromamba describes each format from the contents of the f
   testthat::expect_identical(read$description$format, "mambajs-lock-v1")
   testthat::expect_identical(read$description$kind, "lock")
   testthat::expect_null(read$description$platforms)
-  testthat::expect_identical(read$description$records, polyglot_record("noarch"))
+  testthat::expect_identical(
+    read$description$records,
+    polyglot_record("noarch")
+  )
   testthat::expect_null(read$stage_name)
   # Without a `subdir`, the `platform` field of the file counts.
   lock <- jsonlite::read_json(mambajs, simplifyVector = FALSE)
@@ -1130,10 +1269,16 @@ testthat::test_that("micromamba describes each format from the contents of the f
   jsonlite::write_json(lock, mambajs, auto_unbox = TRUE, pretty = TRUE)
   read <- read_definition_at(mambajs)
   testthat::expect_identical(read$description$platforms, "win-64")
-  testthat::expect_identical(read$description$records, polyglot_record("win-64"))
+  testthat::expect_identical(
+    read$description$records,
+    polyglot_record("win-64")
+  )
 
   yaml <- fs::path(dir, "environment.yml")
-  writeLines(c("channels:", "  - conda-forge", "dependencies:", "  - zlib"), yaml)
+  writeLines(
+    c("channels:", "  - conda-forge", "dependencies:", "  - zlib"),
+    yaml
+  )
   read <- read_definition_at(yaml)
   testthat::expect_identical(read$description$format, "environment-yaml")
   testthat::expect_identical(read$description$kind, "request")
@@ -1154,7 +1299,13 @@ testthat::test_that("micromamba describes each format from the contents of the f
     read_definition_at(explicit)$description
   )
   testthat::expect_true(all(
-    c("environment-yaml", "requirements", "explicit", "conda-lock-v1", "mambajs-lock-v1") %in%
+    c(
+      "environment-yaml",
+      "requirements",
+      "explicit",
+      "conda-lock-v1",
+      "mambajs-lock-v1"
+    ) %in%
       backend_definition_formats(micromamba_backend())
   ))
 })
@@ -1165,12 +1316,32 @@ testthat::test_that("micromamba copies a lock or a list of specs under a name it
   # download from conda-forge) or as YAML with no packages (an empty
   # environment, with exit status 0).
   cases <- list(
-    list(file = "explicit.yml", write = write_explicit_lock, stage = "explicit.txt"),
-    list(file = "explicit.json", write = write_explicit_lock, stage = "explicit.txt"),
+    list(
+      file = "explicit.yml",
+      write = write_explicit_lock,
+      stage = "explicit.txt"
+    ),
+    list(
+      file = "explicit.json",
+      write = write_explicit_lock,
+      stage = "explicit.txt"
+    ),
     list(file = "ci.lock", write = write_conda_lock, stage = "conda-lock.yml"),
-    list(file = "mylock.yml", write = write_conda_lock, stage = "conda-lock.yml"),
-    list(file = "conda-lock.YML", write = write_conda_lock, stage = "conda-lock.yml"),
-    list(file = "lock.txt", write = write_mambajs_lock, stage = "mambajs-lock.json")
+    list(
+      file = "mylock.yml",
+      write = write_conda_lock,
+      stage = "conda-lock.yml"
+    ),
+    list(
+      file = "conda-lock.YML",
+      write = write_conda_lock,
+      stage = "conda-lock.yml"
+    ),
+    list(
+      file = "lock.txt",
+      write = write_mambajs_lock,
+      stage = "mambajs-lock.json"
+    )
   )
   for (case in cases) {
     path <- case$write(fs::path(dir, case$file), "linux-64")
@@ -1235,11 +1406,21 @@ testthat::test_that("micromamba refuses what it cannot read, with a reason", {
   # pixi.lock, under any name or format.
   pixi <- fs::path(dir, "pixi.lock")
   writeLines(
-    c("version: 6", "environments:", "  default:", "    channels: []", "packages: []"),
+    c(
+      "version: 6",
+      "environments:",
+      "  default:",
+      "    channels: []",
+      "packages: []"
+    ),
     pixi
   )
   testthat::expect_match(refused(pixi), "pixi.lock", fixed = TRUE)
-  testthat::expect_match(refused(pixi, format = "pixi"), "pixi.lock", fixed = TRUE)
+  testthat::expect_match(
+    refused(pixi, format = "pixi"),
+    "pixi.lock",
+    fixed = TRUE
+  )
   testthat::expect_match(
     refused(fs::path(dir, "pixi.lock"), format = "rattler-lock-v7"),
     "pixi.lock",
@@ -1256,7 +1437,11 @@ testthat::test_that("micromamba refuses what it cannot read, with a reason", {
   testthat::expect_match(refused(dir), "directory", fixed = TRUE)
   # A format it does not know, or that the contents contradict.
   explicit <- write_explicit_lock(fs::path(dir, "explicit.txt"), "linux-64")
-  testthat::expect_match(refused(explicit, format = "nope"), "nope", fixed = TRUE)
+  testthat::expect_match(
+    refused(explicit, format = "nope"),
+    "nope",
+    fixed = TRUE
+  )
   testthat::expect_match(
     refused(explicit, format = "conda-lock-v1"),
     "explicit",
@@ -1268,8 +1453,16 @@ testthat::test_that("micromamba refuses what it cannot read, with a reason", {
     fixed = TRUE
   )
   # Options it does not understand.
-  testthat::expect_match(refused(explicit, environment = "test"), "environment", fixed = TRUE)
-  testthat::expect_match(refused(explicit, categories = "main"), "conda-lock", fixed = TRUE)
+  testthat::expect_match(
+    refused(explicit, environment = "test"),
+    "environment",
+    fixed = TRUE
+  )
+  testthat::expect_match(
+    refused(explicit, categories = "main"),
+    "conda-lock",
+    fixed = TRUE
+  )
   conda_lock <- write_conda_lock(fs::path(dir, "conda-lock.yml"), "linux-64")
   for (bad in list(1L, character(0L), NA_character_, "")) {
     testthat::expect_match(
@@ -1309,7 +1502,11 @@ testthat::test_that("micromamba takes a format by its name or alias, in any case
 
 testthat::test_that("micromamba maps the categories of a conda-lock file to --category", {
   dir <- withr::local_tempdir()
-  conda_lock <- write_conda_lock(fs::path(dir, "conda-lock.yml"), "linux-64", category = "dev")
+  conda_lock <- write_conda_lock(
+    fs::path(dir, "conda-lock.yml"),
+    "linux-64",
+    category = "dev"
+  )
   # micromamba installs the `main` category by default.
   read <- read_definition_at(conda_lock)
   testthat::expect_identical(read$extra_args, character(0L))
@@ -1468,7 +1665,11 @@ testthat::test_that("micromamba creates environments from each kind of file, off
   dir <- withr::local_tempdir()
   channel <- polyglot_channel()
   stage_dirs <- function() {
-    return(fs::dir_ls(tempdir(), regexp = "condathis-definition-", type = "directory"))
+    return(fs::dir_ls(
+      tempdir(),
+      regexp = "condathis-definition-",
+      type = "directory"
+    ))
   }
   stages_before <- stage_dirs()
   created <- character(0L)
@@ -1493,7 +1694,11 @@ testthat::test_that("micromamba creates environments from each kind of file, off
     )
   )
   for (env_name in names(files)) {
-    res <- create_env(files[[env_name]], env_name = env_name, verbose = "silent")
+    res <- create_env(
+      files[[env_name]],
+      env_name = env_name,
+      verbose = "silent"
+    )
     created <- c(created, env_name)
     testthat::expect_identical(res$status, 0L, info = env_name)
     testthat::expect_identical(
@@ -1525,7 +1730,11 @@ testthat::test_that("micromamba creates environments from each kind of file, off
       verbose = "silent"
     )
     created <- c(created, env_name)
-    testthat::expect_identical(list_packages(env_name)$name, "polyglot", info = env_name)
+    testthat::expect_identical(
+      list_packages(env_name)$name,
+      "polyglot",
+      info = env_name
+    )
   }
   # No copy is left behind.
   testthat::expect_identical(stage_dirs(), stages_before)
@@ -1553,7 +1762,11 @@ testthat::test_that("condathis catches the empty environment of a lock that micr
   testthat::expect_identical(NROW(list_packages("def-raw-empty")), 0L)
 
   # condathis gives it a name that micromamba reads as conda-lock.
-  res <- create_env(env_definition(lock), env_name = "def-staged", verbose = "silent")
+  res <- create_env(
+    env_definition(lock),
+    env_name = "def-staged",
+    verbose = "silent"
+  )
   withr::defer(remove_env("def-staged", verbose = "silent"))
   testthat::expect_identical(list_packages("def-staged")$name, "polyglot")
 
@@ -1565,7 +1778,11 @@ testthat::test_that("condathis catches the empty environment of a lock that micr
     }
   )
   cnd <- rlang::catch_cnd(
-    create_env(env_definition(lock), env_name = "def-unstaged", verbose = "silent"),
+    create_env(
+      env_definition(lock),
+      env_name = "def-unstaged",
+      verbose = "silent"
+    ),
     classes = "error"
   )
   testthat::expect_s3_class(cnd, "condathis_create_env_failed")
@@ -1641,7 +1858,11 @@ testthat::test_that("micromamba locks abort before any work for another platform
   pixi <- fs::path(dir, "pixi.lock")
   writeLines(c("version: 6", "environments: {}", "packages: []"), pixi)
   testthat::expect_error(
-    create_env(env_definition(pixi), env_name = "def-pixi", method = "micromamba"),
+    create_env(
+      env_definition(pixi),
+      env_name = "def-pixi",
+      method = "micromamba"
+    ),
     class = "condathis_create_env_unsupported_definition"
   )
 })
@@ -1652,7 +1873,11 @@ testthat::test_that("micromamba installs a request file into an existing environ
   dir <- withr::local_tempdir()
   channel <- polyglot_channel()
   stage_dirs <- function() {
-    return(fs::dir_ls(tempdir(), regexp = "condathis-definition-", type = "directory"))
+    return(fs::dir_ls(
+      tempdir(),
+      regexp = "condathis-definition-",
+      type = "directory"
+    ))
   }
   stages_before <- stage_dirs()
   create_env(env_name = "def-install-yaml", verbose = "silent")
@@ -1684,7 +1909,10 @@ testthat::test_that("micromamba installs a request file into an existing environ
     channels = channel,
     verbose = "silent"
   )
-  testthat::expect_identical(list_packages("def-install-specs")$name, "polyglot")
+  testthat::expect_identical(
+    list_packages("def-install-specs")$name,
+    "polyglot"
+  )
   testthat::expect_identical(stage_dirs(), stages_before)
   # A lock aborts before anything runs.
   native <- backend_native_platform_checked(micromamba_backend())
@@ -1693,7 +1921,10 @@ testthat::test_that("micromamba installs a request file into an existing environ
     install_packages(env_definition(lock), env_name = "def-install-specs"),
     class = "condathis_install_packages_unsupported_definition"
   )
-  testthat::expect_identical(list_packages("def-install-specs")$name, "polyglot")
+  testthat::expect_identical(
+    list_packages("def-install-specs")$name,
+    "polyglot"
+  )
 })
 
 testthat::test_that("micromamba compares an environment with the packages of a lock", {
@@ -1703,16 +1934,28 @@ testthat::test_that("micromamba compares an environment with the packages of a l
   dir <- withr::local_tempdir()
   channel <- polyglot_channel()
   lock <- write_explicit_lock(fs::path(dir, "explicit.txt"), native, channel)
-  create_env(env_definition(lock), env_name = "def-lock-cmp", verbose = "silent")
+  create_env(
+    env_definition(lock),
+    env_name = "def-lock-cmp",
+    verbose = "silent"
+  )
   withr::defer(remove_env("def-lock-cmp", verbose = "silent"))
   # Again: the environment is kept, and nothing runs.
-  res <- create_env(env_definition(lock), env_name = "def-lock-cmp", verbose = "silent")
+  res <- create_env(
+    env_definition(lock),
+    env_name = "def-lock-cmp",
+    verbose = "silent"
+  )
   testthat::expect_identical(res$status, 0L)
   testthat::expect_true(is.na(res$cmd))
   # The same packages in each lock format.
   locks <- list(
     lock,
-    write_conda_lock(fs::path(dir, "conda-lock.yml"), native, channel = channel),
+    write_conda_lock(
+      fs::path(dir, "conda-lock.yml"),
+      native,
+      channel = channel
+    ),
     write_mambajs_lock(fs::path(dir, "lock.json"), native, channel)
   )
   for (one_lock in locks) {
@@ -1723,7 +1966,10 @@ testthat::test_that("micromamba compares an environment with the packages of a l
   }
   # A lock with another build of the package.
   other <- fs::path(dir, "other.txt")
-  writeLines(sub("h4616a5c_0", "h0000000_0", readLines(lock), fixed = TRUE), other)
+  writeLines(
+    sub("h4616a5c_0", "h0000000_0", readLines(lock), fixed = TRUE),
+    other
+  )
   testthat::expect_error(
     create_env(env_definition(other), env_name = "def-lock-cmp"),
     class = "condathis_create_env_exists"
@@ -1734,8 +1980,14 @@ testthat::test_that("micromamba compares an environment with the packages of a l
     error = "continue"
   )
   testthat::expect_false(res)
-  testthat::expect_identical(attr(res, "unsatisfied"), "polyglot-0.1.0-h0000000_0")
-  testthat::expect_identical(attr(res, "unexpected"), "polyglot-0.1.0-h4616a5c_0")
+  testthat::expect_identical(
+    attr(res, "unsatisfied"),
+    "polyglot-0.1.0-h0000000_0"
+  )
+  testthat::expect_identical(
+    attr(res, "unexpected"),
+    "polyglot-0.1.0-h4616a5c_0"
+  )
   # An environment YAML file is never compared.
   yaml <- fs::path(dir, "environment.yml")
   writeLines(c("dependencies:", "  - polyglot"), yaml)

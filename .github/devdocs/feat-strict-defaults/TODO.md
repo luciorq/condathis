@@ -58,11 +58,25 @@ Section numbers match "Addendum 2026-11-13" in `PLAN.md`.
 - [x] 8: round 5 (the two `test-env_definition.R` fixes) on Linux,
       macOS and Windows: 0 failures, 0 skips
 
+## Run-family unification (2026-11-16)
+
+See "Addendum 2026-11-16" in `PLAN.md` and `../feat-run-unify/`.
+
+- [x] North star: `run()`, `run_bin()` and `run_pipeline()` converge
+      (one path, `activate` in `run()`, one lookup rule, `128 + n`)
+- [x] Child processes start without the activation of the R session
+- [ ] Re-run the section 8 verification on the final tree (Linux,
+      omicron, kappa)
+- [ ] rattlerthis: update the three parity expectations of
+      `test-parity-childenv.R`
+
 ### Release steps (maintainer, PLAN.md section 9)
 
-- [ ] 9.1: commit the `env_definition()` work (five untracked files,
-      plus `.github/devdocs/feat-env-file/`), push, wait for GitHub
-      Actions
+- [ ] 9.1: commit the run-family unification (`R/host_env.R`,
+      `tests/testthat/test-run_isolation.R`,
+      `.github/devdocs/feat-run-unify/`, plus the modified files), push,
+      wait for GitHub Actions (the `env_definition()` work is in
+      `c5fb6d4`)
 - [x] 9.2: Windows result of `test-env_definition.R` confirmed (round 5,
       2026-11-13)
 - [ ] 9.3: (recommended) build and test rattlerthis against this tree

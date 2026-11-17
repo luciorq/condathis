@@ -259,9 +259,10 @@ takes \code{env_file} but not \code{definition} gets only the path, as
 \code{backend_create_env()} does.
 \item \code{backend_resolve_run(backend, cmd, args = character(0L), env_name = "condathis-env", verbose = "silent", base_env = NULL, timeout = Inf)} describes, without running \code{cmd}, how to run \code{cmd}
 with \code{args} in the activated environment. \code{base_env} is the
-environment that the command gets without activation: the session's
-environment with the changes of \emph{Child processes}. Compute the
-activation against it, not against the environment of the R session.
+environment of the command before any activation: the session's
+environment with the changes of \emph{Child processes}, the activation of
+the R session undone included. Compute the activation against it, not
+against the environment of the R session.
 \code{condathis} always passes it. \code{timeout} is the number of seconds the
 function may take: what is left of the \code{timeout} of \code{\link[=run]{run()}},
 \code{\link[=run_bin]{run_bin()}} or \code{\link[=run_pipeline]{run_pipeline()}}, or \code{Inf}. If the function runs code
@@ -276,30 +277,31 @@ once the function returned.
 The function returns \code{list(command, args, env, dir)}:
 \itemize{
 \item \code{command}: a single string, the program to start: an absolute path,
-or a bare name. \code{condathis} starts a bare name the same way for every
-backend. On Linux and macOS, it is looked up on the \code{PATH} of the
-command, after \code{env} is applied. On Windows, \code{\link[=run]{run()}} and
-\code{\link[=run_pipeline]{run_pipeline()}} look it up in the binary directories of the
-environment, with the extensions of \code{PATHEXT}. Otherwise, they leave
-it to \code{processx}, which searches the working directory and the \code{PATH}
-of the R session for \verb{<name>.com} and \verb{<name>.exe}. \code{\link[=run_bin]{run_bin()}}
-searches the binary directories of the environment and then the
-\code{PATH} of the command. A bare name that is found nowhere fails to
-start.
+or a bare name. \code{\link[=run]{run()}}, \code{\link[=run_bin]{run_bin()}} and \code{\link[=run_pipeline]{run_pipeline()}} start a
+bare name the same way for every backend. On Linux and macOS, it is
+looked up on the \code{PATH} of the command, after \code{env} is applied. On
+Windows, as in \code{cmd.exe}, the working directory of the command comes
+first, and a name without an extension is looked up with the
+extensions of \code{PATHEXT}. A bare name that is found nowhere fails to
+start, with status 127.
 \item \code{args}: a character vector, or \code{NULL}. It replaces the user's
 arguments, so it must contain them.
 \item \code{env}: \code{NULL}, or a named character vector (not a list) of
 activation variables. Each entry replaces the variable of the same
 name in the environment of the command, \code{PATH} included. An \code{NA}
 entry removes the variable, for a variable that the activation
-unsets. \code{\link[=run_bin]{run_bin()}} also prepends the environment's binary
-directories to \code{PATH}.
+unsets. When the \code{PATH} that results names none of the binary
+directories of the environment, \code{condathis} puts them in front of
+it. \code{CONDA_SHLVL}, \code{MAMBA_SHLVL} and the prompt modifiers are always
+\code{"1"}, \code{"1"}, \code{""} and \code{""}, whatever \code{env} sets.
 \item \code{dir}: \code{NULL} to keep R's working directory, or the path of an
 existing directory to run the command in.
 }
 
-\code{condathis} calls it only with activation on (\code{\link[=run]{run()}}, and \code{\link[=run_bin]{run_bin()}}
-and \code{\link[=run_pipeline]{run_pipeline()}} with \code{activate = TRUE}). It calls it only for an
+\code{condathis} calls it only with \code{activate = TRUE} (the default of
+\code{\link[=run]{run()}}, \code{\link[=run_bin]{run_bin()}} and \code{\link[=run_pipeline]{run_pipeline()}}). With \code{activate = FALSE},
+no backend function describes the command: \code{condathis} sets a fixed
+activation itself (see \link{condathis-options}). It calls it only for an
 environment that this backend reported as existing. It never calls it
 for an \code{\link[=env_path]{env_path()}} environment (see \code{backend_resolve_run_in_dir()}).
 A value that breaks these rules aborts with
@@ -581,8 +583,11 @@ channel by its absolute path.
 \section{Child processes}{
 
 \code{condathis} starts \code{command} with a copy of the session's environment
-in which the \verb{CONDA_*} and \verb{MAMBA_*} variables listed in
-\link{condathis-options} are cleared. It then applies \code{env}. For commands of
+without the activation of the R session (the binary directories of the
+Conda and pixi environments that R runs in are removed from \code{PATH}, and
+the variables listed in \link{condathis-options} are removed or restored),
+and with the \verb{CONDA_*} and \verb{MAMBA_*} variables listed there cleared. It
+then applies \code{env}. For commands of
 every backend other than \code{"micromamba"}, \code{CONDA_ENVS_PATH} is the
 parent directory of the environment directory from
 \code{backend_get_env_dir()}, so a Conda tool run in the environment creates

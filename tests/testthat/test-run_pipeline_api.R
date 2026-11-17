@@ -440,6 +440,7 @@ testthat::test_that("pipeline_status() follows the rule of error = 'cancel'", {
   testthat::expect_identical(pipeline_status(c(0L, 0L)), 0L)
   # An upstream SIGPIPE is not a failure.
   testthat::expect_identical(pipeline_status(c(broken_pipe_status, 0L)), 0L)
+  testthat::expect_identical(pipeline_status(c(141L, 0L)), 0L)
   # The last command's own SIGPIPE status is.
   testthat::expect_identical(
     pipeline_status(c(0L, broken_pipe_status)),

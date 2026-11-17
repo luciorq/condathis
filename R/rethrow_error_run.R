@@ -14,22 +14,30 @@
 #' Both errors carry the fields `status` (integer; `-9` for a timeout, `127`
 #' for a command that could not start), `stdout` and `stderr` (`NA` when
 #' the stream was not captured) and `timeout` (logical), so a handler does
-#' not need to parse the message. The error names the call of `env`, the
-#' exported function.
+#' not need to parse the message. The error names `call`, the exported
+#' function.
 #'
 #' @param expr Expression to evaluate.
-#' @param env Environment used to evaluate `expr`: the frame of the exported
-#'   function. It must hold `cmd`, `error_var`, `timeout`, `stdin`, and the
-#'   stream targets `stdout` and `stderr`. Defaults to `parent.frame()`.
+#' @param env Environment used to evaluate `expr`: the frame of
+#'   `run_command()`. It must hold `cmd`, `error_var`, `timeout`, `stdin`,
+#'   and the stream targets `stdout` and `stderr`. Defaults to
+#'   `parent.frame()`.
 #' @param fn Character string, the exported function name, for the classes:
 #'   `"run"` or `"run_bin"`.
+#' @param call Environment of the exported function the user called, for
+#'   the error. Defaults to `env`.
 #'
 #' @returns The evaluated `expr` result when no captured error is present.
 #'   For non-fatal modes, may return a synthesized process-like result list.
 #'
 #' @keywords internal
 #' @noRd
-rethrow_error_run <- function(expr, env = parent.frame(), fn = "run") {
+rethrow_error_run <- function(
+  expr,
+  env = parent.frame(),
+  fn = "run",
+  call = env
+) {
   code <- base::substitute(expr = expr)
   err_cnd <- rlang::catch_cnd(
     expr = {
@@ -39,7 +47,8 @@ rethrow_error_run <- function(expr, env = parent.frame(), fn = "run") {
       "system_command_status_error",
       "system_command_timeout_error",
       "rlib_error_3_0",
-      "c_error"
+      "c_error",
+      "condathis_command_not_found"
     )
   )
   is_timeout <- isTRUE(inherits(err_cnd, "system_command_timeout_error"))
@@ -78,7 +87,7 @@ rethrow_error_run <- function(expr, env = parent.frame(), fn = "run") {
         "stdin",
         aliases = "condathis_run_stdin_error"
       ),
-      call = env,
+      call = call,
       .envir = env
     )
   }
@@ -139,7 +148,7 @@ rethrow_error_run <- function(expr, env = parent.frame(), fn = "run") {
         stdout = stdout_field,
         stderr = stderr_field,
         timeout = TRUE,
-        call = env,
+        call = call,
         .envir = env
       )
     }
@@ -158,7 +167,7 @@ rethrow_error_run <- function(expr, env = parent.frame(), fn = "run") {
       stdout = stdout_field,
       stderr = stderr_field,
       timeout = FALSE,
-      call = env,
+      call = call,
       .envir = env
     )
   }
@@ -180,8 +189,9 @@ rethrow_error_run <- function(expr, env = parent.frame(), fn = "run") {
         env[["timeout"]]
       )
     } else if (
-      isFALSE(rlang::is_null(err_cnd[["message"]])) &&
-        isTRUE(stringr::str_detect(err_cnd[["message"]], "Native call to"))
+      inherits(err_cnd, "condathis_command_not_found") ||
+        (isFALSE(rlang::is_null(err_cnd[["message"]])) &&
+          isTRUE(stringr::str_detect(err_cnd[["message"]], "Native call to")))
     ) {
       if (isFALSE(rlang::is_null(env[["cmd"]]))) {
         cmd_str <- env[["cmd"]]
@@ -217,11 +227,16 @@ rethrow_error_run <- function(expr, env = parent.frame(), fn = "run") {
 #' @param cnd A condition caught from `processx`.
 #'
 #' @returns Logical scalar. `TRUE` for the `processx_exec` spawn failure
-#'   (for example a missing or non-executable command), on every platform.
+#'   (for example a missing or non-executable command), on every platform,
+#'   and for a bare command that condathis found nowhere on Windows (see
+#'   `abort_command_not_found()`).
 #'
 #' @keywords internal
 #' @noRd
 is_spawn_failure <- function(cnd) {
+  if (inherits(cnd, "condathis_command_not_found")) {
+    return(TRUE)
+  }
   messages <- character(0L)
   while (isFALSE(rlang::is_null(cnd))) {
     messages <- c(messages, conditionMessage(cnd))

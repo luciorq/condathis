@@ -305,6 +305,12 @@ than growing a parallel one (PLAN.md decision 4).
       isn't `"micromamba"`. `activate = FALSE` stays honoured for every
       backend: it is the documented way to run a binary *without*
       activation variables.
+      (2026-11-16: `activate = FALSE` is still honoured for every
+      backend, but it now means the fixed activation of condathis
+      (`CONDA_PREFIX`, `CONDA_SHLVL=1`, the environment's binary
+      directories on `PATH`, no backend code), in `run()`, `run_bin()`
+      and `run_pipeline()` alike. `run_bin()` is a wrapper over `run()`'s
+      code. See `../feat-run-unify/` and PLAN.md decision 23.)
 - [x] `run_pipeline()`: `spawn_pipeline_process()` now takes both the
       executable path and the activation variables from
       `backend_resolve_run()` for *every* backend, including
@@ -314,6 +320,10 @@ than growing a parallel one (PLAN.md decision 4).
       this unified the two paths instead of adding a second one.
       `activate = FALSE` keeps the hand-rolled, backend-independent
       `get_activation_envvars()`.
+      (2026-11-16: the pipeline now uses the shared
+      `resolve_child_invocation()` and `compose_child_env()`; the
+      `resolve_env_bin_path()` fallback is gone. See
+      `../feat-run-unify/`.)
 - [x] `run_process_with_input()` gained `wd`, so the contract's `dir` field
       is honoured on both spawn paths.
 - [x] Tests updated for the new behaviour: the two that asserted
@@ -325,7 +335,8 @@ than growing a parallel one (PLAN.md decision 4).
 Verified end-to-end against a real `rattlerthis`-backed environment:
 `run()` and `run_bin()` execute with the backend's activation variables
 reaching the child (`CONDA_PREFIX` set), `run_bin(activate = FALSE)`
-correctly omits them, `timeout` kills and reports `status = -9` with
+correctly omits them (2026-11-16: it now sets the fixed activation of
+condathis instead, see `../feat-run-unify/`), `timeout` kills and reports `status = -9` with
 `timeout = TRUE`, non-zero exits raise `condathis_run_status_error` under
 `error = "cancel"` and report `status` under `"continue"`, and the
 writable-stdin path round-trips input.

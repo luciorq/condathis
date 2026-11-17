@@ -158,7 +158,10 @@ abort_unsupported_definition <- function(
   if (isTRUE(rlang::is_string(reason)) && isFALSE(is.na(reason))) {
     message <- c(message, `i` = "{reason}")
   }
-  message <- c(message, definition_format_hint(definition, exclude = backend_name))
+  message <- c(
+    message,
+    definition_format_hint(definition, exclude = backend_name)
+  )
   condathis_abort(
     message = message,
     class = c(
@@ -410,7 +413,11 @@ package_dist_strings <- function(df) {
 #'
 #' @keywords internal
 #' @noRd
-compare_lock_records <- function(installed_pkgs_df, records, target = NA_character_) {
+compare_lock_records <- function(
+  installed_pkgs_df,
+  records,
+  target = NA_character_
+) {
   if (isFALSE(is.null(installed_pkgs_df[["channel"]]))) {
     installed_pkgs_df <- installed_pkgs_df[
       !installed_pkgs_df[["channel"]] %in% "pypi",
@@ -421,7 +428,10 @@ compare_lock_records <- function(installed_pkgs_df, records, target = NA_charact
   installed <- unique(package_dist_strings(installed_pkgs_df))
   best <- NULL
   for (one_target in lock_targets(records, target)) {
-    locked <- unique(package_dist_strings(lock_records_for(records, one_target)))
+    locked <- unique(package_dist_strings(lock_records_for(
+      records,
+      one_target
+    )))
     result <- list(
       satisfied = FALSE,
       target = one_target,

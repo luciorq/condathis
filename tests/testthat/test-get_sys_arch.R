@@ -27,12 +27,17 @@ testthat::test_that("`get_sys_arch()` returns correct OS and CPU architecture", 
   testthat::expect_equal(get_sys_arch(), "Darwin-arm64")
 })
 
-testthat::test_that("is_windows()/is_macos()/is_linux() agree with get_sys_arch(), single source of truth", {
+testthat::test_that("sys_arch_is_windows()/is_macos()/is_linux() agree with get_sys_arch(), single source of truth", {
+  # is_windows() reads `.Platform`, which no mock of `Sys.info()` changes:
+  # it runs dozens of times per run(), and `Sys.info()` reads the user
+  # database on every call.
+  on_windows <- identical(.Platform$OS.type, "windows")
   testthat::local_mocked_bindings(
     Sys.info = function() mock_sys_info("Linux", "x86_64"),
     .package = "base"
   )
-  testthat::expect_false(is_windows())
+  testthat::expect_false(sys_arch_is_windows())
+  testthat::expect_identical(is_windows(), on_windows)
   testthat::expect_false(is_macos())
   testthat::expect_true(is_linux())
 
@@ -40,7 +45,8 @@ testthat::test_that("is_windows()/is_macos()/is_linux() agree with get_sys_arch(
     Sys.info = function() mock_sys_info("Windows", "x86_64"),
     .package = "base"
   )
-  testthat::expect_true(is_windows())
+  testthat::expect_true(sys_arch_is_windows())
+  testthat::expect_identical(is_windows(), on_windows)
   testthat::expect_false(is_macos())
   testthat::expect_false(is_linux())
 
@@ -48,9 +54,21 @@ testthat::test_that("is_windows()/is_macos()/is_linux() agree with get_sys_arch(
     Sys.info = function() mock_sys_info("Darwin", "arm64"),
     .package = "base"
   )
-  testthat::expect_false(is_windows())
+  testthat::expect_false(sys_arch_is_windows())
+  testthat::expect_identical(is_windows(), on_windows)
   testthat::expect_true(is_macos())
   testthat::expect_false(is_linux())
+})
+
+testthat::test_that("is_windows() never calls Sys.info()", {
+  testthat::local_mocked_bindings(
+    Sys.info = function() stop("Sys.info() must not be called."),
+    .package = "base"
+  )
+  testthat::expect_identical(
+    is_windows(),
+    identical(.Platform$OS.type, "windows")
+  )
 })
 
 testthat::test_that("processx_linux_pdeathsig() passes the value on Linux only", {
@@ -92,7 +110,7 @@ testthat::test_that("a native ARM64 R on Windows is Windows-aarch64, an x64 R is
     .package = "base"
   )
   testthat::expect_identical(get_sys_arch(), "Windows-aarch64")
-  testthat::expect_true(is_windows())
+  testthat::expect_true(sys_arch_is_windows())
   testthat::expect_true(is_windows_arm64())
 
   testthat::local_mocked_bindings(
@@ -100,7 +118,7 @@ testthat::test_that("a native ARM64 R on Windows is Windows-aarch64, an x64 R is
     .package = "base"
   )
   testthat::expect_identical(get_sys_arch(), "Windows-x86-64")
-  testthat::expect_true(is_windows())
+  testthat::expect_true(sys_arch_is_windows())
   testthat::expect_false(is_windows_arm64())
 
   testthat::expect_true(is_windows_arm64("Windows-arm64"))

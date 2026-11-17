@@ -157,9 +157,9 @@ command_has_extension <- function(cmd) {
 #' Find a command on a `PATH` value
 #'
 #' Searches the directories of `path` in order, the way the operating
-#' system searches the `PATH` of a new process. `run_bin()` gives the
-#' `PATH` of the child's environment block, so a command resolves as it
-#' would in the child, not in the R session.
+#' system searches the `PATH` of a new process. Used on Windows to search
+#' the binary directories of an environment (see
+#' `resolve_direct_run_command()`), and by `micromamba_run_path()`.
 #'
 #' On Linux and macOS, a candidate must be a file with execute permission,
 #' as for `execvp()`. On Windows, any file with one of the names of

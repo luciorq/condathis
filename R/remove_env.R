@@ -2,10 +2,11 @@
 #'
 #' Removes an environment managed by `condathis`.
 #'
-#' With the micromamba backend, `remove_env()` does not change
-#' `~/.conda/environments.txt`, the registry that conda and mamba share. A
-#' line that [create_env()] added to that file stays (see Details in
-#' [get_install_dir()]). On Windows, it also leaves the Start Menu
+#' With the micromamba backend, `remove_env()` deletes the line of the
+#' removed environment from `~/.conda/environments.txt`, the registry that
+#' conda and mamba share, when the file has one (see Details in
+#' [get_install_dir()]). It leaves every other line as it is. On Windows,
+#' it leaves the Start Menu
 #' shortcuts that `condathis` 0.1.4 and earlier added for packages such as
 #' `spyder`. Delete them from the Start Menu.
 #'

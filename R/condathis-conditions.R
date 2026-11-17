@@ -191,9 +191,9 @@
 #' the message:
 #'
 #' * `status`: the exit status, an integer. It is `-9` for a timeout, and
-#'   `127` for a command that could not start. A command killed by signal
-#'   `n` has the status `128 + n` in [run()] on Linux and macOS, as in a
-#'   shell. In [run_bin()] and [run_pipeline()], the status is `-n`.
+#'   `127` for a command that could not start. On Linux and macOS, a
+#'   command killed by signal `n` has the status `128 + n`, as in a shell
+#'   (`137` for `SIGKILL`, `141` for `SIGPIPE`).
 #' * `stdout`, `stderr`: the captured output, or `NA` when that stream was
 #'   not captured.
 #' * `timeout`: `TRUE` for a timeout, `FALSE` otherwise.
@@ -402,7 +402,7 @@
 #' * `condathis_<function>_invalid_env_name`
 #' * `condathis_<function>_invalid_<argument>`\cr
 #'   for `timeout`, `supervise`, `cleanup_tree`, `linux_pdeathsig`,
-#'   `stdin`, `stdout`, `stderr` and, for [run_bin()], `activate`.
+#'   `stdin`, `stdout`, `stderr` and `activate`.
 #'
 #' Then:
 #' * `condathis_<function>_env_not_found`

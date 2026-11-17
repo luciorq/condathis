@@ -292,7 +292,10 @@ format.condathis_env_definition <- function(x, ...) {
   }
   option_names <- rlang::names2(x[["options"]])
   if (isTRUE(length(option_names) > 0L)) {
-    extras <- c(extras, paste0("options: ", paste(option_names, collapse = ", ")))
+    extras <- c(
+      extras,
+      paste0("options: ", paste(option_names, collapse = ", "))
+    )
   }
   out <- paste0("<env_definition> ", path)
   if (isTRUE(length(extras) > 0L)) {
