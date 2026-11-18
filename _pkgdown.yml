@@ -59,6 +59,7 @@ articles:
     navbar: ~
     contents:
       - articles/python-and-reticulate
+      - articles/python-and-mizu
       - articles/whole-slide-images
   - title: Backends
     navbar: ~
