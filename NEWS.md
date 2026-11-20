@@ -18,7 +18,8 @@ write instead.
   `packages =` still works. It is deprecated: called from the console, a
   script or the tests of your own package, it warns once per session and
   function (class `condathis_deprecated_packages_arg`). Calls made inside
-  other packages do not warn.
+  other packages do not warn, except in tests that use testthat's third
+  edition, which sets `lifecycle_verbosity = "warning"`.
   `env_file =` of `create_env()` is deprecated in the same way (class
   `condathis_deprecated_env_file_arg`): pass the file in `...` with the new
   `env_definition()`, as in
@@ -120,6 +121,26 @@ write instead.
   of the environment: it is a path, as in `run()`.
   On Linux and macOS, a command killed by signal `n` has status `128 + n`,
   as in `run()` and a shell (`137` for `SIGKILL`), instead of `-n`.
+
+* The commands of `run()`, `run_bin()` and `run_pipeline()` no longer see
+  the Python settings of the R session, with and without `activate`, so
+  the python of an environment finds only its own modules:
+  `PYTHONPATH`, `PYTHONHOME`, `PYTHONUSERBASE`, `PYTHONSTARTUP`,
+  `UV_PYTHON`, `UV_SYSTEM_PYTHON` and `UV_PROJECT_ENVIRONMENT` are removed,
+  `PYTHONNOUSERSITE` is `1` (your `~/.local` packages are not on
+  `sys.path`), and an activated virtual environment, also one that
+  reticulate uses, is undone (see `` ?`condathis-options` ``).
+  So that `run("python", "-m", "pip", "install", ...)` installs into the
+  environment, `PIP_USER` and `PIP_REQUIRE_VIRTUALENV` are `false` (also
+  over `user` and `require-virtualenv` in a pip configuration file), and
+  `PIP_TARGET`, `PIP_PREFIX` and `PIP_ROOT` are removed (a `target`,
+  `prefix` or `root` in a pip configuration file still applies); pass
+  `--target` or `--prefix` to pip to install elsewhere.
+  Your package index, credential, certificate and proxy settings still
+  apply.
+  To give a command a `PYTHONPATH`, set it in the command, as in
+  `run("env", "PYTHONPATH=/my/modules", "python", "script.py")` on Linux
+  and macOS, or add the directory to `sys.path` in the script.
 
 * `run()` starts the command itself instead of through `micromamba run`,
   so arguments reach it exactly as given.
@@ -338,9 +359,8 @@ write instead.
 
 * `method = "native"`, the 0.1.4 default, still works as a deprecated alias
   for `"micromamba"`.
-  It warns once per session (class `condathis_deprecated_method_native`).
-  `create_env()`, `install_packages()`, `validate_env()`, `remove_env()`,
-  `run()` and `run_bin()` do not warn for calls made inside other packages.
+  It warns once per session (class `condathis_deprecated_method_native`),
+  and not for calls made inside other packages.
 
 * Every error has the class `condathis_error` and every warning
   `condathis_warning`, with classes for the function and the problem (see
@@ -456,8 +476,14 @@ write instead.
   Versions from 2.8.1 on still work, and condathis reads the listing format of
   micromamba 2.9 and later.
 
+* `install_micromamba()` installs micromamba on Linux on RISC-V
+  (`linux-riscv64`), where micromamba has builds from version 2.9.0 on.
+
 * condathis now imports filelock (>= 1.0.3) and ps (>= 1.9.3).
-  It needs cli (>= 3.4.0), processx (>= 3.9.0) and rlang (>= 1.0.0).
+  It needs cli (>= 3.4.0), fs (>= 1.6.7), processx (>= 3.9.0),
+  rlang (>= 1.1.0), stringr (>= 1.5.0) and withr (>= 3.0.2).
+  On Windows and macOS with R 4.3, and on Apple silicon Macs with R 4.4,
+  some of them install from source (see the README).
   It suggests digest, which checks the micromamba download on R older than
   4.5.0 when it is installed.
 
@@ -512,6 +538,23 @@ write instead.
   The activation of an environment no longer records the activation of a
   micromamba that a wrapper, such as a pixi global binary, started
   (`CONDA_SHLVL=2`, `CONDA_PREFIX_1`).
+  A micromamba path that is a pixi global binary (in the
+  `condathis.micromamba_path` option, `CONDATHIS_MICROMAMBA_PATH` or on
+  `PATH`) runs the micromamba it starts, so the activation of an
+  environment has micromamba's `condabin` directory on `PATH` and its own
+  `MAMBA_EXE`.
+  When R was started through a pixi global binary, the variables that
+  the binary set, such as the compiler variables `CC`, `CFLAGS` and
+  `CONDA_BUILD_SYSROOT` of R's environment, are removed too.
+  An activated Python virtual environment, also one that reticulate set
+  in the R session, is undone: its `bin` (`Scripts`) directory leaves
+  `PATH`, and `VIRTUAL_ENV` is removed.
+  When reticulate has started Python in the R session, the `lib`
+  directories it put in front of `LD_LIBRARY_PATH` (Linux) are removed,
+  and so are the directories of a Conda python that it put in front of
+  `PATH`, so a command no longer loads that python's libraries or runs its
+  programs. reticulate's other changes stay (see
+  `` ?`condathis-options` ``).
 
 * The processes that condathis starts no longer get what R's own startup
   set.
@@ -534,7 +577,8 @@ write instead.
 
 * `with_sandbox_dir()` restores the working directory and every
   environment variable, those that `code` set included, and deletes the
-  sandbox before it returns, also after an error.
+  sandbox before it returns, also after an error (on Windows, also when
+  it holds a junction).
   At top level, as in examples, 0.1.4 kept `HOME` and the data directories
   redirected for the rest of the session.
   It also kept the sandbox on disk.
@@ -575,6 +619,12 @@ write instead.
   `remove_env()` no longer deletes the leftover directory of a name that
   micromamba does not list.
 
+* When the `envs` directory of the data directory is a symbolic link (on
+  Windows, a junction), for example to a larger disk, its environments
+  are found.
+  0.1.4 did not list them, and `create_env()` deleted such an
+  environment before it created it again.
+
 * The check that an existing environment has the requested packages no
   longer hangs on a `*` after an operator (`"zlib>=1.2.*"`).
   It no longer counts `"zlib=1.3.*.*"`, `"zlib~=1"` or `"zlib>=1.2,"` as
@@ -611,7 +661,30 @@ write instead.
   * no longer prints micromamba's JSON with `verbose = "output"`.
 
 * `list_packages()` lists only the pip packages of the environment, not
-  those of your user site directory or `PYTHONPATH`.
+  those of your user site directory or `PYTHONPATH`, whatever your pip
+  settings and working directory: a `pip` directory in the working
+  directory of R no longer runs in place of the environment's pip.
+
+* `create_env()` and `install_packages()` install the `pip:` section of an
+  environment file into the environment, whatever your Python and pip
+  settings.
+  pip skipped packages found in `PYTHONPATH` or your user site directory,
+  installed into your user site directory with `PIP_USER` or `user = true`
+  in a pip configuration file, and failed with `PIP_REQUIRE_VIRTUALENV`;
+  uv installed into the virtual environment of `VIRTUAL_ENV` or the
+  python of `UV_PYTHON`.
+  Your package index, credential, certificate and proxy settings still
+  apply (see `` ?`condathis-options` ``).
+
+* `create_env()` and `install_packages()` install the `pip:` section of an
+  environment file in a directory you cannot write to, such as one
+  installed with a package.
+  micromamba writes a temporary file next to the environment file, so pip
+  failed.
+  condathis now passes a copy of the file, unless the section names paths
+  relative to the file (`-r requirements.txt`, `-e .`, `./pkg`): then it
+  aborts with class
+  `condathis_micromamba_env_file_dir_not_writable`.
 
 * `run()` and `run_bin()` write numbers in `...` in full:
   `run("head", "-n", 100000)` passes `"100000"`, not `"1e+05"`.

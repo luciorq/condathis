@@ -423,21 +423,51 @@ testthat::test_that("micromamba and the default listing give one frame for an en
   })
 
   # pip also reports the user's site directory and PYTHONPATH, which are
-  # not in the environment; condathis's listings leave them out. The user
-  # site is moved into a temporary directory first: the sandbox of the
-  # tests does not move it when the session sets PYTHONUSERBASE.
+  # not in the environment; condathis's listings leave them out. The
+  # commands of run() never see them either (decision D18), so the
+  # environment's python is started directly here, with the variables of
+  # the session, to show that pip would report them. The user site is moved
+  # into a temporary directory first: the sandbox of the tests does not
+  # move it when the session sets PYTHONUSERBASE.
+  env_dir <- as.character(get_env_dir(env_name, method = "micromamba"))
+  env_python <- resolve_env_bin_path(env_dir, "python")
+  # On Windows, the DLLs of python and its modules are in the binary
+  # directories of the environment.
+  python_env <- c(
+    "current",
+    PATH = paste(
+      c(as.character(env_bin_search_dirs(env_dir)), Sys.getenv("PATH")),
+      collapse = .Platform$path.sep
+    )
+  )
   user_base <- normalizePath(
     withr::local_tempdir(pattern = "pypi-userbase-"),
     winslash = "/"
   )
-  withr::local_envvar(PYTHONUSERBASE = user_base)
+  # Only the user site and PYTHONPATH of this test may reach that python:
+  # whatever else the host sets for Python or pip (a PYTHONHOME, its own
+  # PYTHONPATH, PIP_USER, PIP_PATH, a pip configuration file) would stop
+  # it or change what `pip inspect` reports.
+  withr::local_envvar(
+    PYTHONUSERBASE = user_base,
+    PYTHONNOUSERSITE = NA,
+    PYTHONHOME = NA,
+    PYTHONPATH = NA,
+    PYTHONSTARTUP = NA,
+    PYTHONSAFEPATH = NA,
+    PYTHONINSPECT = NA,
+    PIP_CONFIG_FILE = if (isTRUE(is_windows())) "nul" else "/dev/null",
+    PIP_USER = NA,
+    PIP_PATH = NA,
+    PIP_LOCAL = NA,
+    PIP_REQUIRE_VIRTUALENV = NA,
+    PIP_REQUIRE_VENV = NA
+  )
   user_site <- trimws(
-    run(
-      "python",
-      "-c",
-      "import site; print(site.getusersitepackages())",
-      env_name = env_name,
-      verbose = "silent"
+    processx::run(
+      env_python,
+      c("-c", "import site; print(site.getusersitepackages())"),
+      env = python_env
     )$stdout
   )
   testthat::expect_true(startsWith(
@@ -462,7 +492,21 @@ testthat::test_that("micromamba and the default listing give one frame for an en
     "pip"
   )
   withr::local_envvar(PYTHONPATH = python_path)
-  inspect <- run(
+  inspect <- processx::run(
+    env_python,
+    c(
+      "-m",
+      "pip",
+      "inspect",
+      "--local",
+      "--disable-pip-version-check"
+    ),
+    env = python_env
+  )
+  inspected <- jsonlite::fromJSON(inspect$stdout)$installed$metadata$name
+  testthat::expect_true(all(c("User_Site_Pkg", "Py_Path_Pkg") %in% inspected))
+  # The pip of run() reports neither.
+  inspect_run <- run(
     "python",
     "-m",
     "pip",
@@ -471,8 +515,12 @@ testthat::test_that("micromamba and the default listing give one frame for an en
     env_name = env_name,
     verbose = "silent"
   )
-  inspected <- jsonlite::fromJSON(inspect$stdout)$installed$metadata$name
-  testthat::expect_true(all(c("User_Site_Pkg", "Py_Path_Pkg") %in% inspected))
+  inspected_run <- jsonlite::fromJSON(
+    inspect_run$stdout
+  )$installed$metadata$name
+  testthat::expect_false(any(
+    c("User_Site_Pkg", "Py_Path_Pkg") %in% inspected_run
+  ))
   testthat::expect_identical(
     list_packages(env_name, method = "micromamba"),
     micromamba_pkgs

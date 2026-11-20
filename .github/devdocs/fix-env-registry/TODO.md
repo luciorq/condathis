@@ -27,6 +27,8 @@ See `PLAN.md` for the decisions.
 - [x] Full suite on omicron and kappa, after the concurrent run/run_bin session
   stops editing tests and functions: done with that session's rounds 5
   and 6 (2026-11-17, `../feat-run-unify/PLAN.md` "Verification"), no
-  failures, no skips but one POSIX-only test on Windows.
+  failures, no skips but one POSIX-only test on Windows. The Windows case
+  of the unreadable-envs test is covered by a mocked listing on all OSes
+  (`../feat-run-unify/`, D17); the real-permission test stays POSIX only.
 - [x] Stale `py-mizu-env` and `py-mizu-ml-env` lines removed from the
   omicron and kappa registries (2026-11-17).

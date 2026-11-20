@@ -255,15 +255,20 @@ testthat::test_that("install_micromamba() installs from a later mirror when the 
       return(NULL)
     })
 
-    messages <- character(0L)
+    tracked <- new.env(parent = emptyenv())
+    tracked$messages <- character(0L)
     result <- withCallingHandlers(
       install_micromamba(force = TRUE, verbose = "output"),
       message = function(m) {
-        messages <<- c(messages, conditionMessage(m))
+        tracked$messages <- c(tracked$messages, conditionMessage(m))
         invokeRestart("muffleMessage")
       }
     )
-    messages <- gsub("[[:space:]]+", " ", paste(messages, collapse = " "))
+    tracked$messages <- gsub(
+      "[[:space:]]+",
+      " ",
+      paste(tracked$messages, collapse = " ")
+    )
 
     testthat::expect_identical(as.character(result), as.character(bin_path))
     testthat::expect_identical(readLines(bin_path), "working micromamba")
@@ -272,8 +277,8 @@ testthat::test_that("install_micromamba() installs from a later mirror when the 
     testthat::expect_match(log$urls[[2L]], "anaconda\\.org")
     # The user is told which mirror was skipped, and that the install
     # succeeded.
-    testthat::expect_match(messages, "not a valid micromamba archive")
-    testthat::expect_match(messages, "successfully downloaded")
+    testthat::expect_match(tracked$messages, "not a valid micromamba archive")
+    testthat::expect_match(tracked$messages, "successfully downloaded")
   })
 })
 
@@ -407,7 +412,8 @@ testthat::test_that("an archive that does not match its published checksum is no
       return(NULL)
     })
 
-    warnings <- character(0L)
+    tracked <- new.env(parent = emptyenv())
+    tracked$warnings <- character(0L)
     result <- withCallingHandlers(
       suppressMessages(install_micromamba(
         micromamba_version = "2.8.1-0",
@@ -415,17 +421,18 @@ testthat::test_that("an archive that does not match its published checksum is no
         verbose = "output"
       )),
       warning = function(w) {
-        warnings <<- c(warnings, class(w)[[1L]])
+        tracked$warnings <- c(tracked$warnings, class(w)[[1L]])
         invokeRestart("muffleWarning")
       }
     )
     testthat::expect_identical(
-      warnings,
+      tracked$warnings,
       c(
         rep("condathis_install_micromamba_checksum_mismatch", 3L),
         "condathis_install_micromamba_checksum_unavailable"
       )
     )
+    testthat::expect_identical(as.character(result), as.character(bin_path))
     testthat::expect_identical(readLines(bin_path), "working micromamba")
     per_mirror <- c(urls$sha256, urls$archive_sha256)
     testthat::expect_identical(
@@ -479,14 +486,17 @@ testthat::test_that("a command that installs micromamba says so unless silent", 
   # verbose level, because native_cmd() passes the internal level
   # "spinner" to install_micromamba().
   condathis::with_sandbox_dir({
-    calls <- list()
+    tracked <- new.env(parent = emptyenv())
+    tracked$calls <- list()
     testthat::local_mocked_bindings(
       get_best_micromamba_path = function(...) NULL,
       install_micromamba = function(...) {
-        calls <<- c(calls, list(list(...)))
+        tracked$calls <- c(tracked$calls, list(list(...)))
         rlang::abort("no download in tests", class = "test_install_stop")
       },
-      execute_command = function(...) stop("No process may start here.")
+      execute_command = function(...) {
+        stop("No process may start here.", call. = FALSE)
+      }
     )
     internal <- c(
       output = "spinner",
@@ -495,7 +505,7 @@ testthat::test_that("a command that installs micromamba says so unless silent", 
       full = "full"
     )
     for (level in names(internal)) {
-      calls <- list()
+      tracked$calls <- list()
       res <- record_conditions(native_cmd(
         conda_cmd = "create",
         verbose = level
@@ -520,20 +530,20 @@ testthat::test_that("a command that installs micromamba says so unless silent", 
         as.character(micromamba_bin_path()),
         fixed = TRUE
       )
-      testthat::expect_length(calls, 1L)
-      testthat::expect_identical(calls[[1L]]$verbose, internal[[level]])
-      testthat::expect_true(calls[[1L]]$force)
+      testthat::expect_length(tracked$calls, 1L)
+      testthat::expect_identical(tracked$calls[[1L]]$verbose, internal[[level]])
+      testthat::expect_true(tracked$calls[[1L]]$force)
     }
 
-    calls <- list()
+    tracked$calls <- list()
     res <- record_conditions(native_cmd(
       conda_cmd = "create",
       verbose = "silent"
     ))
     testthat::expect_identical(res$value, "stopped")
     testthat::expect_length(res$messages, 0L)
-    testthat::expect_length(calls, 1L)
-    testthat::expect_identical(calls[[1L]]$verbose, "silent")
+    testthat::expect_length(tracked$calls, 1L)
+    testthat::expect_identical(tracked$calls[[1L]]$verbose, "silent")
   })
 })
 
@@ -600,14 +610,17 @@ testthat::test_that("a silent probe of a call installs micromamba at the level o
   # so the automatic install happened there, without a message and without
   # the warning about an unverified binary.
   condathis::with_sandbox_dir({
-    calls <- character(0L)
+    tracked <- new.env(parent = emptyenv())
+    tracked$calls <- character(0L)
     testthat::local_mocked_bindings(
       get_best_micromamba_path = function(...) NULL,
       install_micromamba = function(..., verbose) {
-        calls <<- c(calls, verbose)
+        tracked$calls <- c(tracked$calls, verbose)
         rlang::abort("no download in tests", class = "test_install_stop")
       },
-      execute_command = function(...) stop("No process may start here.")
+      execute_command = function(...) {
+        stop("No process may start here.", call. = FALSE)
+      }
     )
     # An exported function records its level, as create_env() does.
     exported_call <- function(verbose) {
@@ -622,17 +635,17 @@ testthat::test_that("a silent probe of a call installs micromamba at the level o
       vapply(res$messages, function(m) class(m)[[1L]], character(1L)),
       "condathis_micromamba_downloading"
     )
-    testthat::expect_identical(calls, "spinner")
+    testthat::expect_identical(tracked$calls, "spinner")
 
-    calls <- character(0L)
+    tracked$calls <- character(0L)
     res <- record_conditions(exported_call("full"))
     testthat::expect_length(res$messages, 1L)
-    testthat::expect_identical(calls, "full")
+    testthat::expect_identical(tracked$calls, "full")
 
-    calls <- character(0L)
+    tracked$calls <- character(0L)
     res <- record_conditions(exported_call("silent"))
     testthat::expect_length(res$messages, 0L)
-    testthat::expect_identical(calls, "silent")
+    testthat::expect_identical(tracked$calls, "silent")
 
     # The level is restored when the call exits, also on an error.
     testthat::expect_null(call_verbose())

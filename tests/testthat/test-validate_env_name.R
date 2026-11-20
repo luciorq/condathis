@@ -200,7 +200,7 @@ testthat::test_that("validate_env_name() gives every invalid env_name the shared
     testthat::expect_identical(conditionCall(cnd), quote(f(bad)))
   }
   cnd <- rlang::catch_cnd(f(), classes = "error")
-  testthat::expect_identical(class(cnd), expected)
+  testthat::expect_s3_class(cnd, expected, exact = TRUE)
   testthat::expect_match(conditionMessage(cnd), "absent", fixed = TRUE)
 })
 
@@ -225,14 +225,16 @@ testthat::test_that("the leading-dash reason does not name a backend", {
   )
   message <- cli::ansi_strip(conditionMessage(cnd))
   testthat::expect_match(message, "command-line option", fixed = TRUE)
-  testthat::expect_false(grepl("micromamba", message, fixed = TRUE))
+  testthat::expect_no_match(message, "micromamba", fixed = TRUE)
 })
 
 testthat::test_that("every function that takes env_name rejects env_name = 1 with the shared class", {
   # Validation runs before any backend call (rule R2), so this needs no
   # micromamba. A backend call would fail the test.
   testthat::local_mocked_bindings(
-    resolve_backend = function(...) stop("resolve_backend() must not be called")
+    resolve_backend = function(...) {
+      stop("resolve_backend() must not be called", call. = FALSE)
+    }
   )
   calls <- list(
     create_env = quote(create_env(env_name = 1, verbose = "silent")),
@@ -265,8 +267,10 @@ testthat::test_that("every function that takes env_name rejects env_name = 1 wit
     )) {
       testthat::expect_true(inherits(cnd, cls), info = paste(fn, cls))
     }
-    testthat::expect_false(
-      grepl("must not be called", conditionMessage(cnd), fixed = TRUE),
+    testthat::expect_no_match(
+      conditionMessage(cnd),
+      "must not be called",
+      fixed = TRUE,
       info = fn
     )
   }

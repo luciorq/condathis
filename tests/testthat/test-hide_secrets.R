@@ -83,7 +83,7 @@ testthat::test_that("hide_secrets() hides tokens and passwords as libmamba and r
     c(a = hidden_channel, b = NA, c = "caf\u00e9 https://u:*****@h/c")
   )
   testthat::expect_identical(hide_secrets(character(0L)), character(0L))
-  testthat::expect_identical(hide_secrets(NULL), NULL)
+  testthat::expect_null(hide_secrets(NULL))
   testthat::expect_identical(hide_secrets(1:3), 1:3)
   # Text that is not valid UTF-8 is read as bytes.
   invalid <- "https://u:p@h/\xff/t/abc"
@@ -100,7 +100,11 @@ testthat::test_that("the Running line is the one of processx, with the credentia
   for (width in c(40L, 80L, 200L)) {
     withr::local_options(width = width)
     plain <- utils::capture.output(
-      processx:::do_echo_cmd("/opt/bin/micromamba", c(args[-3L], "y"))
+      # The reference is the processx internal that prints this line.
+      utils::getFromNamespace("do_echo_cmd", "processx")(
+        "/opt/bin/micromamba",
+        c(args[-3L], "y")
+      )
     )
     testthat::expect_identical(
       utils::capture.output(
@@ -125,13 +129,15 @@ testthat::test_that("execute_command() echoes the credentials hidden and passes 
   script <- "cat(commandArgs(TRUE), sep = '\\n')"
   for (stdin in list(NULL, "|")) {
     out <- utils::capture.output(
-      px_res <- execute_command(
-        command = run_family_rscript(),
-        args = c("--vanilla", "-e", script, secret_channel),
-        echo_cmd = TRUE,
-        stdin = stdin,
-        input = if (identical(stdin, "|")) ""
-      )
+      {
+        px_res <- execute_command(
+          command = run_family_rscript(),
+          args = c("--vanilla", "-e", script, secret_channel),
+          echo_cmd = TRUE,
+          stdin = stdin,
+          input = if (identical(stdin, "|")) ""
+        )
+      }
     )
     info <- if (is.null(stdin)) "processx::run()" else "writable stdin"
     testthat::expect_identical(px_res$status, 0L, label = info)
@@ -150,11 +156,12 @@ testthat::test_that("execute_command() echoes the credentials hidden and passes 
 testthat::test_that("native_cmd() hides the credentials in cmd and passes them to micromamba", {
   fake_bin <- fs::path(withr::local_tempdir(), "micromamba")
   fs::file_create(fake_bin)
-  spawned <- NULL
+  tracked <- new.env(parent = emptyenv())
+  tracked$spawned <- NULL
   testthat::local_mocked_bindings(
     get_best_micromamba_path = function(...) fake_bin,
     execute_command = function(command, args, ...) {
-      spawned <<- list(command = command, args = args)
+      tracked$spawned <- list(command = command, args = args)
       return(list(status = 0L, stdout = "", stderr = "", timeout = FALSE))
     }
   )
@@ -164,7 +171,7 @@ testthat::test_that("native_cmd() hides the credentials in cmd and passes them t
     "pkg",
     verbose = "silent"
   )
-  testthat::expect_true(secret_channel %in% spawned$args)
+  testthat::expect_true(secret_channel %in% tracked$spawned$args)
   testthat::expect_false(has_secret(px_res$cmd))
   testthat::expect_match(px_res$cmd, hidden_channel, fixed = TRUE)
 })
@@ -219,7 +226,7 @@ testthat::test_that("condathis messages, warnings and errors hide the credential
 })
 
 testthat::test_that("the cmd of a backend's result has the credentials hidden", {
-  stub <- local_stub_backend(
+  local_stub_backend(
     "stub-secret",
     backend_create_env = function(backend, env_name = "condathis-env", ...) {
       fs::dir_create(fs::path(
@@ -257,15 +264,17 @@ testthat::test_that("the run family hides the credentials in its echo, cmd and e
   rscript <- run_family_rscript()
   script <- "cat(commandArgs(TRUE), sep = '\\n')"
   out <- utils::capture.output(
-    res <- run(
-      rscript,
-      "--vanilla",
-      "-e",
-      script,
-      secret_channel,
-      env_name = "stub-env",
-      verbose = "cmd"
-    )
+    {
+      res <- run(
+        rscript,
+        "--vanilla",
+        "-e",
+        script,
+        secret_channel,
+        env_name = "stub-env",
+        verbose = "cmd"
+      )
+    }
   )
   testthat::expect_match(out[[1L]], "^Running ")
   testthat::expect_false(has_secret(out))
@@ -297,15 +306,17 @@ testthat::test_that("the run family hides the credentials in its echo, cmd and e
   testthat::expect_match(cnd$stderr, secret_channel, fixed = TRUE)
 
   out <- utils::capture.output(
-    res <- run_bin(
-      rscript,
-      "--vanilla",
-      "-e",
-      script,
-      secret_channel,
-      env_name = "stub-env",
-      verbose = "cmd"
-    )
+    {
+      res <- run_bin(
+        rscript,
+        "--vanilla",
+        "-e",
+        script,
+        secret_channel,
+        env_name = "stub-env",
+        verbose = "cmd"
+      )
+    }
   )
   testthat::expect_false(has_secret(out))
   testthat::expect_true(any(grepl(hidden_channel, out, fixed = TRUE)))
@@ -313,17 +324,19 @@ testthat::test_that("the run family hides the credentials in its echo, cmd and e
   testthat::expect_identical(trimws(res$stdout), secret_channel)
 
   out <- utils::capture.output(
-    res <- run_pipeline(
-      run_step(rscript, "--vanilla", "-e", script, secret_channel),
-      run_step(
-        rscript,
-        "--vanilla",
-        "-e",
-        "cat(readLines(file('stdin')), sep = '\\n')"
-      ),
-      env_name = "stub-env",
-      verbose = "cmd"
-    )
+    {
+      res <- run_pipeline(
+        run_step(rscript, "--vanilla", "-e", script, secret_channel),
+        run_step(
+          rscript,
+          "--vanilla",
+          "-e",
+          "cat(readLines(file('stdin')), sep = '\\n')"
+        ),
+        env_name = "stub-env",
+        verbose = "cmd"
+      )
+    }
   )
   testthat::expect_false(has_secret(out))
   testthat::expect_true(any(grepl(hidden_channel, out, fixed = TRUE)))
@@ -412,15 +425,17 @@ testthat::test_that("create_env() never prints the credentials of a channel with
   local_sandbox_micromamba()
   condathis::with_sandbox_dir({
     out <- utils::capture.output(
-      cnd <- rlang::catch_cnd(
-        create_env(
-          "polyglot",
-          env_name = "secret-channel-env",
-          channels = secret_channel,
-          verbose = "cmd"
-        ),
-        classes = "error"
-      )
+      {
+        cnd <- rlang::catch_cnd(
+          create_env(
+            "polyglot",
+            env_name = "secret-channel-env",
+            channels = secret_channel,
+            verbose = "cmd"
+          ),
+          classes = "error"
+        )
+      }
     )
     testthat::expect_s3_class(cnd, "condathis_create_env_failed")
     testthat::expect_match(out[[1L]], "^Running ")

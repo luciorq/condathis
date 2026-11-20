@@ -465,7 +465,7 @@ testthat::test_that("isolate_host_env() restores the oldest saved value of a sta
   testthat::expect_identical(isolated[["CONDATHIS_X"]], "level-1")
   # PATH is never restored from a backup.
   testthat::expect_identical(isolated[["PATH"]], "/a:/b")
-  testthat::expect_identical(names(isolated), c("CONDATHIS_X", "PATH"))
+  testthat::expect_named(isolated, c("CONDATHIS_X", "PATH"))
 })
 
 testthat::test_that("isolate_host_env() leaves a session without host activation alone", {
@@ -1004,7 +1004,7 @@ testthat::test_that("strip_leading_path_entries() needs all entries, in order", 
 testthat::test_that("r_startup_env_vars() measures R's startup once per session", {
   testthat::local_mocked_bindings(
     get_condathis_rscript_path = function() {
-      stop("the cache must answer")
+      stop("the cache must answer", call. = FALSE)
     }
   )
   local_r_startup_cache(c(MAKE = "cached-make"))

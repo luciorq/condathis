@@ -2,7 +2,7 @@
 % Please edit documentation in R/env_definition.R
 \name{env_definition}
 \alias{env_definition}
-\title{Create an environment from a file}
+\title{Describe an environment file}
 \usage{
 env_definition(path, format = NULL, ...)
 }

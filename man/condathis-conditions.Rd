@@ -198,14 +198,17 @@ for \verb{packages =} in \code{\link[=create_env]{create_env()}}, \code{\link[=i
 console, a script or the tests of the calling package. Calls made
 inside other packages do not warn.
 \code{options(lifecycle_verbosity = "warning")} makes those calls warn
-too, and \code{"quiet"} turns the warning off.
+too, and \code{"quiet"} turns the warning off. testthat's third edition
+sets \code{lifecycle_verbosity = "warning"} inside \code{test_that()}, so in
+those tests calls made inside other packages, such as a dependency
+that calls condathis, warn too;
+\code{withr::local_options(lifecycle_verbosity = "quiet")} silences them.
 \item \code{condathis_deprecated_env_file_arg}\cr
 for \verb{env_file =} in \code{\link[=create_env]{create_env()}}: pass an \code{\link[=env_definition]{env_definition()}} in
 \code{...} instead. The same rule as for \verb{packages =}.
 \item \code{condathis_deprecated_method_native}\cr
-for \code{method = "native"} (once per session). \code{\link[=create_env]{create_env()}},
-\code{\link[=install_packages]{install_packages()}}, \code{\link[=validate_env]{validate_env()}}, \code{\link[=remove_env]{remove_env()}}, \code{\link[=run]{run()}} and
-\code{\link[=run_bin]{run_bin()}} apply the same rule as for \verb{packages =}.
+for \code{method = "native"} (once per session), in every function that
+takes \code{method}. The same rule as for \verb{packages =}.
 \item \code{condathis_deprecated_arg}\cr
 for \code{timeout_limit} in \code{\link[=install_micromamba]{install_micromamba()}}.
 }
@@ -432,6 +435,12 @@ the binary is not installed. Shown also with \code{verbose = "silent"}.
 no usable binary was found, so it is downloaded.
 \item \code{condathis_micromamba_status_error}\cr
 a \code{micromamba} command failed.
+\item \code{condathis_micromamba_env_file_dir_not_writable}\cr
+the directory of an environment file with a \verb{pip:} section is not
+writable, so micromamba cannot write its temporary file there, and the
+section names paths relative to that directory, so \code{condathis} cannot
+pass a copy. \code{\link[=create_env]{create_env()}} and \code{\link[=install_packages]{install_packages()}} raise it with
+their class of a backend failure.
 \item \code{condathis_micromamba_bin_path_not_executable}
 \item \code{condathis_micromamba_version_not_detected}
 \item \code{condathis_micromamba_not_available_for_arch}

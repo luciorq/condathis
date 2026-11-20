@@ -376,6 +376,7 @@ Objects created in R are available in Python as `r.<name>`.
 
 ```{r}
 #| label: r-object
+# jarl-ignore unused_object: read by the python chunk below as r.cutoff
 cutoff <- 20
 ```
 
@@ -564,7 +565,10 @@ bind_python <- quote({
   env_dir <- normalizePath(Sys.getenv("CONDA_PREFIX"), winslash = "/")
   py_exe <- normalizePath(reticulate::py_config()$python, winslash = "/")
   if (!startsWith(py_exe, env_dir)) {
-    stop("reticulate bound to ", py_exe, " instead of ", env_dir)
+    stop(
+      "reticulate bound to ", py_exe, " instead of ", env_dir,
+      call. = FALSE
+    )
   }
   invisible(reticulate::import("pyarrow"))
 })

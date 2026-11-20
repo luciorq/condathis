@@ -45,7 +45,9 @@ local_validate_stub <- function(
 
 testthat::test_that("validate_env() validates its arguments before any backend call", {
   testthat::local_mocked_bindings(
-    resolve_backend = function(...) stop("resolve_backend() must not be called")
+    resolve_backend = function(...) {
+      stop("resolve_backend() must not be called", call. = FALSE)
+    }
   )
   invalid_packages <- c(
     "condathis_validate_env_invalid_packages",
@@ -62,7 +64,7 @@ testthat::test_that("validate_env() validates its arguments before any backend c
     )
   }
   cnd <- catch_error(validate_env("zlib", plaform = "linux-64"))
-  testthat::expect_identical(class(cnd), invalid_packages)
+  testthat::expect_s3_class(cnd, invalid_packages, exact = TRUE)
   testthat::expect_match(
     cli::ansi_strip(conditionMessage(cnd)),
     "Did you mean `platform`?",
@@ -75,14 +77,15 @@ testthat::test_that("validate_env() validates its arguments before any backend c
     catch_error(validate_env(method = "no-such-backend")),
     "condathis_invalid_method_arg"
   )
-  testthat::expect_identical(
-    class(catch_error(validate_env(verbose = "bogus"))),
+  testthat::expect_s3_class(
+    catch_error(validate_env(verbose = "bogus")),
     c(
       "condathis_invalid_verbose",
       "condathis_invalid_arg",
       "condathis_error",
       rlang_tail
-    )
+    ),
+    exact = TRUE
   )
   for (platform in list(
     c("a", "b"),
@@ -111,14 +114,15 @@ testthat::test_that("validate_env() validates its arguments before any backend c
     )
   }
   cnd <- catch_error(validate_env(error = "ignore"))
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_invalid_error",
       "condathis_invalid_arg",
       "condathis_error",
       rlang_tail
-    )
+    ),
+    exact = TRUE
   )
   testthat::expect_identical(
     conditionCall(cnd),
@@ -129,7 +133,9 @@ testthat::test_that("validate_env() validates its arguments before any backend c
 testthat::test_that("validate_env() rejects an env_path() value", {
   # It takes environment names only, as create_env() and install_packages().
   testthat::local_mocked_bindings(
-    resolve_backend = function(...) stop("resolve_backend() must not be called")
+    resolve_backend = function(...) {
+      stop("resolve_backend() must not be called", call. = FALSE)
+    }
   )
   cnd <- catch_error(validate_env(env_name = env_path(withr::local_tempdir())))
   testthat::expect_s3_class(cnd, "condathis_env_path_read_only")
@@ -149,7 +155,7 @@ testthat::test_that("validate_env() returns TRUE invisibly for a satisfied reque
     "python=3.13",
     env_name = "ok-env"
   ))
-  testthat::expect_identical(res$value, TRUE)
+  testthat::expect_true(res$value)
   testthat::expect_false(res$visible)
   # A vector of specs works as in create_env().
   testthat::expect_true(validate_env(c("zlib", "python"), env_name = "ok-env"))
@@ -175,9 +181,10 @@ testthat::test_that("validate_env() reports unsatisfied specs", {
   cnd <- catch_error(
     validate_env("zlib>=2", "python", "zlib", env_name = "unsat-env")
   )
-  testthat::expect_identical(
-    class(cnd),
-    c("condathis_validate_env_unsatisfied", "condathis_error", rlang_tail)
+  testthat::expect_s3_class(
+    cnd,
+    c("condathis_validate_env_unsatisfied", "condathis_error", rlang_tail),
+    exact = TRUE
   )
   message <- cli::ansi_strip(conditionMessage(cnd))
   testthat::expect_match(message, "zlib>=2", fixed = TRUE)
@@ -310,7 +317,9 @@ testthat::test_that("validate_env() reports a backend failure, also after a fail
 
 testthat::test_that("validate_env() validates channels before any backend call", {
   testthat::local_mocked_bindings(
-    resolve_backend = function(...) stop("resolve_backend() must not be called")
+    resolve_backend = function(...) {
+      stop("resolve_backend() must not be called", call. = FALSE)
+    }
   )
   invalid_channels <- c(
     "condathis_validate_env_invalid_channels",
@@ -350,7 +359,9 @@ testthat::test_that("validate_env() points additional_channels to channels", {
   # with "Package specs in `...` must be unnamed." and no hint that
   # validate_env() takes every channel in `channels`.
   testthat::local_mocked_bindings(
-    resolve_backend = function(...) stop("resolve_backend() must not be called")
+    resolve_backend = function(...) {
+      stop("resolve_backend() must not be called", call. = FALSE)
+    }
   )
   cnd <- catch_error(validate_env(
     "zlib",
@@ -687,9 +698,11 @@ testthat::test_that("validate_env() reports a missing micromamba environment wit
   # neither runs nor installs micromamba.
   condathis::with_sandbox_dir({
     testthat::local_mocked_bindings(
-      native_cmd = function(...) stop("native_cmd() must not be called"),
+      native_cmd = function(...) {
+        stop("native_cmd() must not be called", call. = FALSE)
+      },
       install_micromamba = function(...) {
-        stop("install_micromamba() must not be called")
+        stop("install_micromamba() must not be called", call. = FALSE)
       }
     )
     res <- validate_env(
@@ -850,9 +863,10 @@ testthat::test_that("validate_env() names the channel of an installed package ou
     env_name = "old-env",
     channels = "conda-forge"
   ))
-  testthat::expect_identical(
-    class(cnd),
-    c("condathis_validate_env_unsatisfied", "condathis_error", rlang_tail)
+  testthat::expect_s3_class(
+    cnd,
+    c("condathis_validate_env_unsatisfied", "condathis_error", rlang_tail),
+    exact = TRUE
   )
   message <- gsub("\\s+", " ", cli::ansi_strip(conditionMessage(cnd)))
   testthat::expect_match(

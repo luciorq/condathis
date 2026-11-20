@@ -48,6 +48,16 @@ or enhances condathis, so no other package is affected.
   clean_cache() and remove_env() manage that directory, and ?clean_cache
   shows how to remove everything condathis installed.
 
+* condathis needs processx (>= 3.9.0), for its `pipeline` class and the
+  `linux_pdeathsig` argument of `process$new()`, and ps (>= 1.9.3), which
+  processx 3.9.0 imports. It needs fs (>= 1.6.7), where `dir_exists()`
+  follows relative symbolic links in other directories. The CRAN binaries
+  of processx and ps for R 4.3 on Windows and macOS and for R 4.4 on
+  macOS arm64, and of fs for R 4.3 on Windows and macOS, are older, so
+  there these packages install from source. The README says so. The
+  other imported packages have binaries of their minimum versions for
+  every R from 4.3.
+
 * The help pages, NEWS.md and the README mention 'rattlerthis', an
   optional backend package that is not on CRAN. condathis works without
   it: it is not in Depends, Imports, Suggests or Enhances, and condathis

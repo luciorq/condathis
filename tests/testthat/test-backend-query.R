@@ -66,8 +66,8 @@ testthat::test_that("backend_env_exists_checked() names the backend in its error
     backend_env_exists_checked(stub$backend, "x"),
     classes = "error"
   )
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_backend_invalid_return",
       "condathis_backend_contract_violation",
@@ -75,7 +75,8 @@ testthat::test_that("backend_env_exists_checked() names the backend in its error
       "rlang_error",
       "error",
       "condition"
-    )
+    ),
+    exact = TRUE
   )
   message <- cli::ansi_strip(conditionMessage(cnd))
   testthat::expect_match(message, "stub-checked", fixed = TRUE)
@@ -103,8 +104,8 @@ testthat::test_that("find_owning_backends() aborts a mutating caller on a failed
 
   f <- function() find_owning_backends("e", mutating = TRUE)
   cnd <- rlang::catch_cnd(f(), classes = "error")
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_backend_probe_failed",
       "condathis_backend_error",
@@ -112,7 +113,8 @@ testthat::test_that("find_owning_backends() aborts a mutating caller on a failed
       "rlang_error",
       "error",
       "condition"
-    )
+    ),
+    exact = TRUE
   )
   testthat::expect_s3_class(cnd$parent, "stub_boom")
   testthat::expect_identical(conditionCall(cnd), quote(f()))
@@ -335,7 +337,7 @@ testthat::test_that("backend_list_envs_checked() returns an unnamed character ve
 })
 
 testthat::test_that("query_registered_backends() aborts for an explicit backend", {
-  stub <- local_stub_backend(
+  local_stub_backend(
     "stub-query-explicit",
     backend_list_envs = function(...) {
       rlang::abort(
@@ -354,8 +356,8 @@ testthat::test_that("query_registered_backends() aborts for an explicit backend"
     )
   }
   cnd <- rlang::catch_cnd(f(), classes = "error")
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_list_envs_failed",
       "condathis_backend_error",
@@ -364,7 +366,8 @@ testthat::test_that("query_registered_backends() aborts for an explicit backend"
       "rlang_error",
       "error",
       "condition"
-    )
+    ),
+    exact = TRUE
   )
   testthat::expect_s3_class(cnd$parent, "stub_boom")
   testthat::expect_identical(conditionCall(cnd), quote(f()))
@@ -491,8 +494,8 @@ testthat::test_that("abort_on_positional_env_name() catches an old positional en
     abort_on_positional_env_name(c(...), fn = "install_packages")
   }
   cnd <- rlang::catch_cnd(f("python", "my-env"), classes = "error")
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_install_packages_positional_env_name",
       "condathis_invalid_packages",
@@ -501,7 +504,8 @@ testthat::test_that("abort_on_positional_env_name() catches an old positional en
       "rlang_error",
       "error",
       "condition"
-    )
+    ),
+    exact = TRUE
   )
   testthat::expect_match(
     conditionMessage(cnd),
@@ -563,10 +567,7 @@ testthat::test_that("validate_backend_return() checks the new optional functions
   testthat::expect_true(check(TRUE, "backend_can_solve"))
   testthat::expect_false(check(FALSE, "backend_can_solve"))
   testthat::expect_identical(check(NA, "backend_can_solve"), NA)
-  testthat::expect_identical(
-    check(structure(TRUE, note = "x"), "backend_can_solve"),
-    TRUE
-  )
+  testthat::expect_true(check(structure(TRUE, note = "x"), "backend_can_solve"))
   for (value in list("TRUE", c(TRUE, FALSE), 1L, NULL, logical(0L))) {
     testthat::expect_error(
       check(value, "backend_can_solve"),
@@ -589,8 +590,8 @@ testthat::test_that("validate_backend_return() checks the new optional functions
 testthat::test_that("an error from a platform probe counts as 'cannot tell'", {
   stub <- local_stub_backend(
     "stub-probe-errors",
-    backend_native_platform = function(...) stop("no platform"),
-    backend_can_solve = function(...) stop("no network")
+    backend_native_platform = function(...) stop("no platform", call. = FALSE),
+    backend_can_solve = function(...) stop("no network", call. = FALSE)
   )
   testthat::expect_identical(
     backend_native_platform_checked(stub$backend),
@@ -630,47 +631,48 @@ testthat::test_that("an error from a platform probe counts as 'cannot tell'", {
 })
 
 testthat::test_that("quiesce_registered_backends() asks every backend and never stops", {
-  calls <- character(0L)
+  tracked <- new.env(parent = emptyenv())
+  tracked$calls <- character(0L)
   local_stub_backend(
     "stub-quiesce-a",
     backend_quiesce = function(backend, timeout = 30) {
-      calls <<- c(calls, paste0("a:", timeout))
-      stop("cannot tell")
+      tracked$calls <- c(tracked$calls, paste0("a:", timeout))
+      stop("cannot tell", call. = FALSE)
     }
   )
   local_stub_backend(
     "stub-quiesce-b",
     backend_quiesce = function(backend, timeout = 30) {
-      calls <<- c(calls, paste0("b:", timeout))
+      tracked$calls <- c(tracked$calls, paste0("b:", timeout))
       return(invisible(FALSE))
     }
   )
   local_stub_backend(
     "stub-quiesce-c",
     backend_quiesce = function(backend, timeout = 30) {
-      calls <<- c(calls, "c")
+      tracked$calls <- c(tracked$calls, "c")
       return("idle")
     }
   )
-  warnings <- list()
+  tracked$warnings <- list()
   idle <- withCallingHandlers(
     quiesce_registered_backends(timeout = 2),
     warning = function(w) {
-      warnings[[length(warnings) + 1L]] <<- w
+      tracked$warnings[[length(tracked$warnings) + 1L]] <- w
       invokeRestart("muffleWarning")
     }
   )
   testthat::expect_false(idle)
-  testthat::expect_setequal(calls, c("a:2", "b:2", "c"))
-  testthat::expect_length(warnings, 2L)
-  for (w in warnings) {
+  testthat::expect_setequal(tracked$calls, c("a:2", "b:2", "c"))
+  testthat::expect_length(tracked$warnings, 2L)
+  for (w in tracked$warnings) {
     testthat::expect_identical(
       class(w)[1:2],
       c("condathis_backend_quiesce_failed", "condathis_warning")
     )
   }
   testthat::expect_match(
-    conditionMessage(warnings[[1L]]),
+    conditionMessage(tracked$warnings[[1L]]),
     "stub-quiesce-a",
     fixed = TRUE
   )

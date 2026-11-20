@@ -1,0 +1,16 @@
+# Configuration of the jarl linter (https://jarl.etiennebacher.com).
+# `just lint` runs `jarl check .` with this file and fails on any finding.
+#
+# Every rule is selected, including the ones that are off by default.
+# A finding is fixed in the code; a `# jarl-ignore <rule>: <reason>`
+# comment on the line above is kept for the few false positives (a value
+# read by a cli template of another function or by a python chunk of an
+# article, a condition object re-signaled with `stop()`, a duplicated
+# argument that is the input under test).
+[lint]
+select = ["ALL"]
+
+# The default maximum, written out: a function above it is split into
+# smaller helpers, the threshold is not raised.
+[lint.cyclomatic_complexity]
+max-complexity = 20

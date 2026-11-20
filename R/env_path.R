@@ -244,6 +244,7 @@ resolve_env_path_target <- function(
       return(list(backend = backend, name = candidate, env_dir = env_dir))
     }
   }
+  # jarl-ignore unused_object: interpolated by cli in the message below
   runners <- Filter(
     function(nm) backend_runs_in_dir(get_backend(nm, call = call)),
     list_registered_backend_names()

@@ -171,6 +171,28 @@
 #' through the same proxy. It ignores the proxy settings of your
 #' `.condarc` and `.mambarc` files (see `CONDARC` below).
 #'
+#' These variables also reach every process unchanged, on purpose:
+#'
+#' \describe{
+#'   \item{Certificates}{
+#'     `SSL_CERT_FILE`, `REQUESTS_CA_BUNDLE`, `PIP_CERT` and the other
+#'     certificate variables of the tools that a process runs.
+#'   }
+#'   \item{Package indexes and credentials of pip and uv}{
+#'     Such as `PIP_INDEX_URL`, `PIP_EXTRA_INDEX_URL`, `PIP_CONFIG_FILE`
+#'     (except for `micromamba list`, see below), `UV_INDEX_URL` and
+#'     `NETRC`. `micromamba create` installs the `pip:` section of an
+#'     environment file with them.
+#'   }
+#'   \item{`CONDA_OVERRIDE_*`}{
+#'     Such as `CONDA_OVERRIDE_CUDA`, `CONDA_OVERRIDE_GLIBC` and
+#'     `CONDA_OVERRIDE_OSX`. They set the virtual packages (`__cuda`,
+#'     `__glibc`, `__osx`) that `micromamba` solves for, also with
+#'     `--no-env`. For example, `CONDA_OVERRIDE_CUDA = "12.4"` gets the
+#'     CUDA builds of packages on a machine without a GPU.
+#'   }
+#' }
+#'
 #' @section Environment variables set or cleared in child processes:
 #'
 #' Every process `condathis` starts, whether `micromamba` itself or a
@@ -297,12 +319,64 @@
 #'     Windows, micromamba looks there for the Start Menu shortcuts of the
 #'     removed packages.
 #'   }
-#'   \item{`PYTHONNOUSERSITE`, `PYTHONPATH`, `PYTHONHOME`}{
-#'     For `micromamba list`, which [list_packages()] runs:
-#'     `PYTHONNOUSERSITE` is `"1"` and the other two are removed, so pip
-#'     reports only the packages of the environment.
+#' }
+#'
+#' Python, pip and uv: the Python state of the R session never reaches a
+#' process of `condathis`. So the python of an environment finds only its
+#' own modules, and `micromamba create` installs the `pip:` section of an
+#' environment file into the environment, never elsewhere. For every
+#' process, `micromamba` itself and the commands of [run()], [run_bin()]
+#' and [run_pipeline()], with and without activation:
+#'
+#' \describe{
+#'   \item{`PYTHONHOME`, `PYTHONPATH`, `PYTHONUSERBASE`, `PYTHONSTARTUP`}{
+#'     Removed. To give a command a `PYTHONPATH`, set it in the command,
+#'     such as `run("env", "PYTHONPATH=/my/modules", "python", "script.py")`
+#'     on Linux and macOS, or add the directory to `sys.path` in the
+#'     script.
+#'   }
+#'   \item{`PYTHONNOUSERSITE`}{
+#'     Set to `"1"`: the user's site directory (`~/.local/lib/python3.*`,
+#'     on Windows a `Python` directory in `APPDATA`) is not on `sys.path`.
+#'   }
+#'   \item{`UV_PYTHON`, `UV_SYSTEM_PYTHON`, `UV_PROJECT_ENVIRONMENT`}{
+#'     Removed, so `uv` uses the python of the environment.
+#'   }
+#'   \item{`PIP_USER`, `PIP_REQUIRE_VIRTUALENV`}{
+#'     Set to `"false"`, which overrides `user` and `require-virtualenv` in
+#'     a pip configuration file; `PIP_REQUIRE_VENV`, an alias that pip
+#'     also reads, is removed. Otherwise pip installed into the user's
+#'     site directory, or failed: the user's site directory is off, and a
+#'     Conda environment is not a virtual environment. So
+#'     `run("python", "-m", "pip", "install", ...)` installs into the
+#'     environment.
+#'   }
+#'   \item{`PIP_TARGET`, `PIP_PREFIX`, `PIP_ROOT`}{
+#'     Removed, whatever their value. A `target`, `prefix` or `root` in a
+#'     pip configuration file still applies (an environment variable
+#'     cannot unset it). To install elsewhere, pass `--target` or
+#'     `--prefix` to pip in the command.
 #'   }
 #' }
+#'
+#' An activated virtual environment of the session (`VIRTUAL_ENV`) is
+#' undone as well (see *The activation of the R session* below). The
+#' activation of the environment of a command comes after all this, so a
+#' variable that an `activate.d` script sets reaches the command.
+#'
+#' For `micromamba create` and `micromamba install`, which run pip, or uv
+#' when the environment file lists it, for the `pip:` section,
+#' `VIRTUAL_ENV` and `VIRTUAL_ENV_PROMPT` are also removed, whatever their
+#' value.
+#'
+#' For `micromamba list`, which [list_packages()] runs, and which runs
+#' `python -m pip inspect` in the environment: `PIP_CONFIG_FILE` is the
+#' null device (`/dev/null`, on Windows `nul`), so pip reads no
+#' configuration file, `PIP_USER` is `"false"`, `PIP_PATH` and `PIP_LOCAL`
+#' are removed, and the working directory is a temporary directory, not the
+#' one of R. pip then reports only the packages of the environment.
+#'
+#' Every other `PIP_*` and `UV_*` variable reaches pip and uv unchanged.
 #'
 #' *The activation of the R session.* R can run in an activated Conda or
 #' pixi environment, or in several nested ones: R installed in a Conda
@@ -345,14 +419,47 @@
 #'     A variable that these files of the prefixes above set is removed
 #'     when the session has exactly that value.
 #'   }
+#'   \item{Variables of a pixi global binary}{
+#'     When one of the prefixes above is an environment of `pixi global`,
+#'     a variable that its binaries set when they start is removed when the
+#'     session has exactly that value. pixi records them in
+#'     `bin/trampoline_configuration` of its home. R started through such a
+#'     binary gets the whole activation of its environment, such as the
+#'     compiler variables `CC`, `CFLAGS` and `CONDA_BUILD_SYSROOT`, and a
+#'     compiler of the environment of a command would see them.
+#'   }
+#'   \item{`VIRTUAL_ENV`, `VIRTUAL_ENV_PROMPT`}{
+#'     When `VIRTUAL_ENV` names a Python virtual environment (a directory
+#'     with `pyvenv.cfg`), both are removed, and its `bin` directory (on
+#'     Windows `Scripts`) leaves `PATH`. Activating a virtual environment
+#'     sets them, and so does reticulate inside the R session when it uses
+#'     one, also through `Sys.setenv()`.
+#'   }
+#'   \item{What reticulate changed for its python}{
+#'     When reticulate has started Python in the R session, the `lib`
+#'     directories that it put in front of `LD_LIBRARY_PATH` on Linux (of
+#'     its python and of the python a virtual environment was made from)
+#'     are removed. For a python of a Conda environment, reticulate puts the
+#'     binary directories of that environment in front of `PATH`; they are
+#'     removed as those of the prefixes above.
+#'   }
 #' }
 #'
 #' Some changes cannot be undone. A value that an `activate.d` script of
-#' the session's environment set stays, unless it saved a backup above,
-#' and so does a `PATH` entry such a script added. The binary directory of
-#' an environment that no variable names any more stays too, such as the
-#' one of a pixi global binary that started the shell before another one
-#' replaced its `CONDA_PREFIX`.
+#' the session's environment set stays, unless it saved a backup above or
+#' a pixi global binary recorded it, and so does a `PATH` entry such a
+#' script added. For example, R installed in a Conda environment that has
+#' the compiler packages, and started from a shell where that environment
+#' was activated, passes `CC`, `CFLAGS`, `CONDA_BUILD_SYSROOT` and the
+#' other compiler variables of that environment to the processes it
+#' starts. The binary directory of an environment that no variable names
+#' any more stays too, such as the one of a pixi global binary that started
+#' the shell before another one replaced its `CONDA_PREFIX`. reticulate
+#' moves the directory of a python that is neither in a virtual nor in a
+#' Conda environment, such as `/usr/bin`, to the front of `PATH`; it stays
+#' there. On macOS, when `/usr/local/opt/openblas` exists, loading
+#' reticulate sets `OPENBLAS` and, when it is unset, `OMP_NUM_THREADS=1`;
+#' they stay too.
 #'
 #' *The startup of R.* R also changes its own environment when it starts,
 #' and the processes that `condathis` starts do not get those changes
@@ -454,6 +561,13 @@
 #'    `condathis` ignores an environment of that name that another backend
 #'    created.
 #' 7. A `micromamba` on `PATH`.
+#'
+#' A candidate that is a binary exposed by `pixi global` (a trampoline,
+#' with a `trampoline_configuration/<name>.json` file next to it) is
+#' replaced by the binary that it starts, the `exe` of that file, so the
+#' activation of the pixi environment that the trampoline sets never
+#' reaches `micromamba`. The option and the variable keep the value you
+#' set.
 #'
 #' A compatible version is 2.8.1 or newer. When no candidate is
 #' compatible, the first function that needs `micromamba` calls

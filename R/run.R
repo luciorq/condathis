@@ -33,10 +33,12 @@
 #'
 #' Arguments in `...` reach the command exactly as given on every platform.
 #' No shell is involved. Characters such as `>`, `|`, `&`, `%`, `$`, `*` and
-#' quotes have no special meaning. Shell builtins (for example `echo` or
-#' `dir` on Windows) are not available as commands. To use shell features,
-#' run a shell explicitly, as in `run("bash", "-c", "...")`. To connect
-#' commands with pipes, use [run_pipeline()]. One exception applies on
+#' quotes have no special meaning. Shell builtins (for example `export` or
+#' `source`, or `dir` and `echo` on Windows) are not programs and cannot be
+#' run, unless a program of that name is on the `PATH` of the command (as
+#' `echo.exe` of Git for Windows). To use shell features, run a shell explicitly, as in
+#' `run("bash", "-c", "...")`, or on Windows `run("cmd", "/c", "dir")`. To
+#' connect commands with pipes, use [run_pipeline()]. One exception applies on
 #' Windows. Windows starts batch files (`.bat`, `.cmd`) through `cmd.exe`,
 #' which parses their arguments again.
 #'
@@ -44,6 +46,12 @@
 #' does not exist, `run()` creates it, empty, with the backend that `method`
 #' selects. `run()` never creates any other missing environment. The call
 #' fails, as `error` describes.
+#'
+#' `run()` does not wait for another R session that changes the
+#' environment, so do not change or remove an environment
+#' ([create_env()] with `overwrite = TRUE`, [install_packages()],
+#' [remove_env()]) while commands run in it. Several `run()` calls can run
+#' in parallel.
 #'
 #' The errors of a failed or timed-out command carry the fields `status`,
 #' `stdout`, `stderr` and `timeout`. A handler does not need to parse the

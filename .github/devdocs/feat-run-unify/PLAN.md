@@ -39,7 +39,7 @@ Related folders:
 | 14 | Optional backend hook for `activate = FALSE` | follow-up, after 0.2.0 |
 | 15 | `R_LIBS*` of a Conda R | done by D15 |
 | 16 | Soft-deprecate `run_bin()` | after 0.2.0 (post-0.2.0 21d) |
-| 17 | Smaller follow-ups | open (d, e, f done by D11 to D13) |
+| 17 | Smaller follow-ups | open (d, e, f done by D11 to D13; c done by D22) |
 | 18 | Commit the work | maintainer |
 | 19 | One activation level for every command (D11) | done 2026-11-16 |
 | 20 | Windows: R's own prefix leaves the command's `PATH` (D12) | done 2026-11-16 |
@@ -47,6 +47,13 @@ Related folders:
 | 22 | Windows: a program of R's own prefix gets its DLL directories (D14) | done 2026-11-17 |
 | 23 | Undo R's own startup in every child (D15) | done 2026-11-17 |
 | 24 | A warm call starts only the command: one file-system existence check (D16) | done 2026-11-17 |
+| 25 | The existence check of D16 reviewed: listing first, linked `envs`, tests of rule R5 (D17) | done 2026-11-18, round 7 on all three machines |
+| 26 | Python, pip and uv state of the session never reaches a child; venv and pixi global activations undone; read-only environment files (D18) | done 2026-11-18, Linux; omicron and kappa in the verify round |
+| 27 | One probe per call also in `install_packages()` and `list_packages()`; `install_packages(packages = NULL)` aborts on a failed probe; command found in a Windows environment gets `\` (D19) | done 2026-11-18, Linux; kappa in the verify round |
+| 28 | jarl with every rule: 0 findings, `jarl.toml`, `just lint` fails on a finding, 16 functions split (D20) | done 2026-11-18, Linux; omicron and kappa in the verify round |
+| 29 | Review of round 8: reticulate's `LD_LIBRARY_PATH` and Conda `PATH` undone, probe only for a pip file, docs fixes (D21) | done 2026-11-18, Linux; omicron and kappa in the verify round |
+| 30 | Round 8 verify findings: pip install settings for every child, pixi trampoline as the micromamba path, `parse_match_spec()` exact names, Windows test fix (D22) | done 2026-11-18, Linux; omicron and kappa in the verify round |
+| 31 | Review of round 9: a relative trampoline `exe` is not followed, `PIP_REQUIRE_VENV` removed, pip configuration install locations documented (D23) | done 2026-11-18, Linux; omicron and kappa in the verify round |
 
 ## Context
 
@@ -418,6 +425,656 @@ of the program's path:
 - A trace of a warm `run(activate = FALSE)`: no process but the command,
   no `fs::dir_exists()`, one `Sys.info()` of condathis
   (`processx_linux_pdeathsig()`).
+
+**D17. The existence check of D16, reviewed (2026-11-18).** The
+maintainer asked (typos fixed):
+
+> Fix this flakiness and think of better, more correct ways of testing
+> this. Also double review the implementation itself. Remember that
+> `run()` is a function that can be called in parallel multiple times.
+
+Three reviews (concurrency, correctness on every OS, tests) and an
+adversarial check of each finding. Confirmed:
+
+- C1 and os-2: `conda_prefix_env_exists()` read an empty listing of
+  `<root>/envs` as "cannot read". The listing is also empty when another
+  process removes the only environment between the checks, as
+  `micromamba env remove` does in place. The probe was then `NA`:
+  `run()` warned, and `env_exists()` aborted. Measured: 7 `NA` in 400000
+  probes, and 1 abort of `env_exists()` in 80000. New with D16.
+- F1: the probe said `FALSE`, not `NA`, when `<root>/envs` could be read
+  but not searched (`u=r`), had no permission at all, or `<root>` could
+  not be searched. Only `u=x` gave `NA`. This breaks rule R5.
+- os-1 (high): with `<root>/envs` a symbolic link (a junction on
+  Windows), for example to a larger disk, the probe compared with the
+  real root plus `/envs`, so every environment was missing. The
+  deletion guard (`check_exact_env_dir()`) resolves `<root>/envs`
+  itself, so it accepted the directory, and `create_env()` deleted the
+  real environment as a stale directory. The listings had the same
+  mismatch. Older than D16: 0.1.4 also did not list these environments,
+  and its `create_env()` deleted them.
+- os-4, F2, F3: the test of the unreadable directory passed on another
+  branch (`expect_true()`) when the account could read anyway, gave the
+  permission back outside `on.exit()`, and the Windows variant (a deny
+  entry with `icacls`, added in the working tree by another session) had
+  a wrong comment about the backup privilege. On kappa the SSH session's
+  administrator token can read the directory anyway, so that variant
+  never reached the `NA` branch.
+- F4: the test that a warm `run()` starts only the command counted only
+  `processx::run()`. A shell (`Sys.which()` starts one off Windows),
+  `system()`, `system2()` or `processx::process$new()` went unseen.
+- F5: the layout of the existence tests had no link on Windows.
+- C2 (older than D16): `run()` does not wait for another session that
+  replaces, installs into or removes the same environment. During
+  `create_env(overwrite = TRUE)` the environment is in `#trash`, so
+  `run()` in another session says it does not exist. `run()` calls
+  among themselves are fine: 6 processes x 5 calls that create
+  `"condathis-env"` gave one environment and 30 of 30 calls succeeded.
+- C3: `micromamba_unregister_env()` rewrites `~/.conda/environments.txt`
+  without a lock, so a line that another process appends meanwhile can be
+  lost. Handed to the session of `../fix-env-registry/`.
+
+- L1 (a second review of these changes): the first version of the new
+  probe read the names and the real paths with `fs`. In a locale that is
+  not UTF-8 (`LC_ALL=C`), `fs` returns a non-ASCII name as escaped text
+  (`"caf<c3><a9>"`), so an existing environment with such a name was
+  missing: `env_exists()` and `run()` said it did not exist, and
+  `create_env()` failed with `condathis_unsafe_env_dir_delete`. The probe
+  of 0.1.4 and of D16 used base R and found it. Nothing was deleted.
+
+Rejected: os-3 (a parallel `run()` that creates `"condathis-env"` sees a
+half-made environment). An empty environment has nothing to link, and
+`create_env()` keeps an environment that another session made under the
+lock.
+
+What changed:
+
+1. `conda_prefix_env_exists()` lists `<root>/envs` first, through
+   `read_dir_names()`. The names come from `list.files()`, native
+   strings that compare equal to the name in any locale (L1). Only an
+   empty result is read again with `fs::dir_ls()`, which tells a missing
+   directory or a file (`character(0)`) from one that cannot be read (the
+   error propagates, so the probe is `NA`). A warm `run()` has a
+   non-empty listing, so it pays for one listing only.
+   A name that is not listed is `FALSE`, also when the environment was
+   removed meanwhile. A listed entry that is not a directory is looked at
+   with `fs::file_info(fail = TRUE)`: an entry that cannot be looked at
+   errors (`NA`), a file or a dangling link is `FALSE`. No
+   `conda-meta/history` is `FALSE`. The real-path check is
+   `is_exact_env_dir()`, the same predicate as the deletion guard, with
+   the real paths of the entry and of `<root>/envs` both from
+   `normalizePath()` (L1). Both come from one function, so they agree
+   also where `normalizePath()` and `fs::path_real()` differ. A fresh root
+   stays `FALSE` and nothing is created (D3). The "empty listing means
+   unreadable" rule is gone.
+2. `condathis_env_names()` compares with `real_envs_dir()`, so
+   `list_conda_prefix_envs()` and `micromamba_backend_list_envs()` list
+   the environments of a linked `<root>/envs`. micromamba 2.10.0 lists
+   them too: `micromamba env list` reports `<root>/envs/x` (and a link
+   inside it under the link's own path, which realizes to the target).
+   `delete_stale_env_dir()` now refuses to delete a directory that the
+   listing rule counts as an environment (or cannot tell about), with
+   class `condathis_unsafe_env_dir_delete`. Only the cleanup after a
+   failed create of a new environment deletes such a directory
+   (`keep_env = FALSE`).
+3. Tests (`test-backend-micromamba.R`):
+   - `read_dir_names()`: a missing directory, a file, hidden names.
+   - L1, Linux and macOS: in the C locale, an environment named
+     `"env-"` plus a Greek lambda (written as its UTF-8 bytes; the
+     lambda has no decomposed form, so macOS stores the same bytes)
+     exists for the probe and for `env_exists()`, and is not deleted as
+     a stale directory. It fails on the first version of the probe.
+   - The listing replaced by one that fails with `EACCES` and with
+     `EPERM` (the class of a denied directory on Windows), on every OS:
+     the probe is `NA` with the error; `env_exists(method =
+     "micromamba")` aborts with `condathis_env_exists_failed`; with a
+     second backend `env_exists()` warns with
+     `condathis_backend_query_failed`; `create_env(overwrite = TRUE)`,
+     `install_packages()` and `remove_env()` abort with
+     `condathis_backend_probe_failed`; `run()` of an existing
+     environment and of `"condathis-env"` warns and runs the command,
+     and `"condathis-env"` is not created again; nothing is deleted.
+   - An environment removed while the probe reads (before the listing,
+     after it, and with only its `conda-meta/history` deleted) is
+     `FALSE`, not `NA`.
+   - Real permissions, Linux and macOS only (Windows is covered by the
+     replaced listing): `<root>/envs` at `u=x`, `u=r` and `u=`, and
+     `<root>` at `u=`. Each case gives the permission back with
+     `withr::defer()` in a `local()` block, before the sandbox is
+     deleted. When the account can read anyway (root), the test skips
+     with that reason instead of passing on another branch. Nothing
+     there runs as root, so it does not skip on the test machines.
+   - A linked `<root>/envs` (a junction on Windows) to a directory
+     outside the root: the environment exists, `list_envs()` and
+     micromamba list it, a failed replacement keeps it, a backend that
+     says no does not get it deleted, and `"condathis-env"` and another
+     environment are created next to it.
+   - `make_existence_layout()` makes its two links on Windows too, with
+     `Sys.junction()`, so the layout test and the comparison with
+     `micromamba env list` cover them there. Not yet run on kappa: a
+     different answer of micromamba there fails the comparison test.
+4. `test-polyglot.R`: the warm `run()` test also replaces `system()`,
+   `system2()` and `Sys.which()` with functions that fail, and counts
+   `processx::process$new()`: one process for `run()` and `run_bin()`,
+   two for a pipeline of two steps.
+5. `test-create_base_env.R`: four R sessions (callr) each run three
+   `run()` calls on a fresh root, started together. Every call succeeds
+   and `<root>/envs` holds one environment, `"condathis-env"`.
+6. C2 is documented, not fixed, in 0.2.0: one paragraph of `?run` says
+   that `run()` does not wait for another session that changes the
+   environment, and not to change or remove an environment while
+   commands run in it. A wait (a shared lock taken and released before
+   the probe when another session holds the environment's lock) can only
+   narrow the window: a change can start after the check, or while the
+   command runs. Deferred to after 0.2.0 (`../post-0.2.0/` item 22).
+7. NEWS: one bug-fix bullet for the linked `envs` directory. The `?run`
+   paragraph is documentation only.
+
+Results on Linux (R 4.5.3, micromamba 2.10.0; the tree before D17 and the
+final tree, each installed in a copy with isolated `HOME`, `XDG_*` and
+`TMPDIR`):
+
+- Developer suite: 9405 pass, 0 fail, 0 skip (with the L1 change).
+- The new tests fail on the tree before D17 (27 failures and 1 error in
+  `test-backend-micromamba.R`), as they should.
+- Stress, the same counts before and after unless noted:
+  - 6 processes x 50 `run()` calls, one every 0.3 s, while another
+    process creates and removes a second environment (12 cycles): 300 of
+    300 succeed.
+  - The same against the create and removal of the environment the calls
+    use, the only one in `<root>/envs` (15 cycles): status 0 or 127 ("does
+    not exist"), and one status 2 both before and after: a command that
+    started in an environment being created or removed (C2).
+  - 6 processes x 40000 `env_exists()` while a shell loop creates and
+    deletes the only environment in place: before, 25 aborts with
+    `condathis_env_exists_failed`; after, none (only `TRUE` and
+    `FALSE`).
+- Cost: the first version of the probe (`fs`) took about 0.5 ms
+  instead of 0.1 ms, and a warm `run(activate = FALSE)` took 23.1 and
+  23.8 ms instead of 22.2 and 22.3 ms (means of 300 calls, two rounds;
+  floor 16.1 to 17.0 ms). The final probe (base R, L1) takes about
+  0.1 ms again for an environment that exists: 0.13 ms against 0.68 ms
+  for the `fs` version, in the same run of 5000 calls.
+
+Round 7 (all three machines, the D17 tree):
+
+- Linux: developer suite 9405 pass, 0 fail, 0 skip; the fake nested host
+  the same; `R CMD check --as-cran --no-manual` OK; the stress run as
+  above (scenario 3: 0 aborts). The PDF manual does not build on this
+  machine: its TinyTeX has no Courier fonts and no `makeindex`. The Rd
+  files are not the cause.
+- omicron: developer suite 9403 pass, 0 fail, 0 skip (the permission
+  test and the C-locale test ran); check OK; stress: no aborts, no
+  warnings.
+- kappa: developer suite 9345 pass, 0 fail, 2 skips for another OS (the
+  C-locale and POSIX permission tests); check OK. micromamba 2.10.0 lists
+  the junctions of `make_existence_layout()` and a junctioned
+  `<root>/envs` as the file-system rule does; its JSON also has the
+  alias paths, which condathis collapses when it realizes the paths.
+  Stress: no aborts.
+- kappa also gave 2 test warnings: `base::unlink(recursive = TRUE)`
+  deleted `<root>/elsewhere` (it sorts before `envs`) and then could not
+  delete the dangling junction `envs/outside-link`, so
+  `with_sandbox_dir()` warned and left the sandbox. Fixed in the package:
+  after a failed attempt, `delete_sandbox_root()` deletes the links of the
+  sandbox (`delete_sandbox_links()`, `fs` listing that does not go into
+  links), and tries again. A test checks a dangling link, and that the
+  target of a link outside the sandbox is kept.
+- `delete_stale_env_dir()` says why it refuses: the directory is an
+  environment, or it cannot tell (`NA`).
+
+**D18. The Python state of the session, and two more host activations
+(2026-11-18).** An isolation survey of round 8 (Linux, micromamba
+2.10.0, each finding reproduced by a second reviewer) found that the
+user's Python settings changed what `create_env()` installed for the
+`pip:` section of an environment file, and what the python of an
+environment saw in the run family:
+
+- ISO-1: with `PYTHONPATH` or a user site that held the package, pip said
+  "Requirement already satisfied" and the package never reached the
+  environment; with `PIP_USER=1` (or `user = true` in `pip.conf`) it went
+  to `<root>/home/.local`. `create_env()` returned status 0.
+- ISO-2: `PIP_REQUIRE_VIRTUALENV=1`, or `require-virtualenv = true` in
+  `pip.conf`, made every `pip:` section fail.
+- ISO-3: with `VIRTUAL_ENV` set, the uv of an environment file installed
+  into that venv; `UV_PYTHON` did the same. `run("uv", "pip", ...)` used
+  the venv too. reticulate (1.47.0) sets `VIRTUAL_ENV` with
+  `Sys.setenv()` inside the R session, so no shell activation is needed.
+- ISO-4: after one `PIP_USER=1` create, every later create skipped the
+  packages found in `<root>/home/.local`, and `clean_cache()` did not
+  delete it.
+- ISO-5: `list_packages()` ran `python -m pip inspect` in R's working
+  directory, so a `pip/` package there ran instead of pip (code execution
+  from the working directory); `PIP_USER` and `PIP_PATH` hid packages.
+- ISO-6: `PYTHONPATH`, the user site and `PYTHONHOME` reached the
+  commands of the run family; a `PYTHONHOME` made python unusable.
+- ISO-7: `CONDA_OVERRIDE_*` change the solve of micromamba also with
+  `--no-env`, and were not documented.
+- Missed by the survey, found by the verifier: micromamba (2.10.0) writes
+  the requirements of a `pip:` section to a temporary file next to the
+  environment file, so a file in a read-only directory (the `extdata` of
+  a package in a site library) failed with "Permission denied".
+- The docs survey (its ISO-1): R started through a pixi global binary has
+  the whole activation of its environment, compiler variables included
+  (`CC`, `CFLAGS`, `CONDA_BUILD_SYSROOT`, `CONDA_TOOLCHAIN_*`, ...), with
+  no `CONDA_BACKUP_*`, and every command got them.
+
+The maintainer's decisions (2026-11-18), as built:
+
+1. Python state, isolated fully, in every child: the run family in both
+   modes and micromamba's own processes. `python_isolation_envvars()` in
+   `R/conda_envvars.R`, applied by `build_child_env()` after the
+   clean-conda overlay: `PYTHONHOME`, `PYTHONPATH`, `PYTHONUSERBASE`,
+   `PYTHONSTARTUP`, `UV_PYTHON`, `UV_SYSTEM_PYTHON` and
+   `UV_PROJECT_ENVIRONMENT` are removed, `PYTHONNOUSERSITE=1` (which also
+   covers the Windows user site under `APPDATA`). The activation comes
+   later, so an `activate.d` script can still set them. Breaking: a user
+   who passed `PYTHONPATH` with `Sys.setenv()` must set it in the command
+   (`run("env", "PYTHONPATH=...", "python", ...)` on Linux and macOS) or
+   in the script (`sys.path`).
+2. A venv activation is a host activation (step 5 of
+   `isolate_host_env()`, `undo_host_venv()` in `R/host_env.R`): when
+   `<VIRTUAL_ENV>/pyvenv.cfg` exists, `VIRTUAL_ENV` and
+   `VIRTUAL_ENV_PROMPT` are removed and `<VIRTUAL_ENV>/bin` (Windows:
+   `Scripts`) leaves `PATH`. Without `pyvenv.cfg` nothing changes, the
+   analogue of the `conda-meta` rule. It reads the live session, so the
+   `Sys.setenv()` of reticulate is covered.
+3. micromamba `create` and `install` (`micromamba_pip_install_vars()` in
+   `R/native_cmd.R`): `PIP_USER=false`, `PIP_REQUIRE_VIRTUALENV=false`
+   (both beat `pip.conf`, verified), `PIP_TARGET`, `PIP_PREFIX`,
+   `PIP_ROOT`, `VIRTUAL_ENV` and `VIRTUAL_ENV_PROMPT` removed whatever
+   their value. The index, credential, certificate and proxy settings
+   (`PIP_INDEX_URL`, `PIP_EXTRA_INDEX_URL`, `PIP_CERT`, `PIP_CONFIG_FILE`,
+   `UV_INDEX_URL`, `NETRC`, the proxy variables) pass through on purpose.
+   A `target` in `pip.conf` still applies: a variable cannot unset it,
+   and `PIP_CONFIG_FILE=os.devnull` would drop the index settings.
+4. micromamba `list` (`micromamba_pip_inspect_vars()`): runs with
+   `wd` = its per-call temporary directory (it passes only `-n <name>`),
+   `PIP_CONFIG_FILE` = the null device (`/dev/null`, Windows `nul`, the
+   `os.devnull` that pip compares with), `PIP_USER=false`, `PIP_PATH` and
+   `PIP_LOCAL` removed. The other commands keep R's working directory,
+   against which micromamba resolves relative paths of the user.
+5. `clean_cache()` deletes `<root>/home/.local` only; `<root>/home/.conda`
+   (micromamba's registry) stays. Only development versions of 0.2.0
+   moved the home, so NEWS does not mention it.
+6. `CONDA_OVERRIDE_*` are intended pass-through, documented in
+   `?condathis-options` ("Environment variables for downloads"), not
+   stripped: `CONDA_OVERRIDE_CUDA` is the documented conda-forge way to get
+   CUDA builds on a node without a GPU.
+7. An environment file in a directory that the user cannot write
+   (`dir_is_writable()`: `file.access(dir, 2)`, and on Windows, where it
+   reads only the read-only attribute, a probe file created and deleted
+   at once): when it runs pip (`env_file_runs_pip()`), it is
+   copied to the per-call `TMPDIR` of micromamba, which
+   `micromamba_backend_create_env()` and `micromamba_backend_install()`
+   now create and pass to `native_cmd()` (`micromamba_pip_env_file()` in
+   `R/backend-micromamba.R`). When an entry of a `pip:` section is a
+   relative path (`-r`, `-c`, `-e`, `-f` and long forms, `name @ path`,
+   `./x`, a path with a separator, an archive name), the copy would break
+   it, so the call aborts with class
+   `condathis_micromamba_env_file_dir_not_writable` (raised by
+   `create_env()` with `condathis_create_env_failed`). The scan is text
+   based (`env_file_pip_entries()`): no YAML parser is a dependency.
+8. Compiler activation of the host (docs-survey ISO-1). The verifier
+   proposed to defer it; the maintainer asked to handle it as the other
+   host activations are handled: remove what the host's activation set,
+   with exactly the value it set (the rule of D2 step 3 and D15). The one
+   record of what an activation set, with values, is the trampoline
+   configuration of pixi global:
+   `<pixi home>/bin/trampoline_configuration/<binary>.json` has `exe` and
+   `env` (every variable and value of the activation, compiler variables
+   included). `read_trampoline_env_vars()` in `R/host_env.R` reads the
+   first configuration whose `exe` is inside a host prefix
+   `<pixi home>/envs/<name>`, once per session and prefix
+   (`condathis_rscript_path_cache$trampoline_env`, about 40 ms for 145
+   files here), and `drop_host_env_vars()` removes each variable whose
+   value is exactly the recorded one, after the backups are restored (so
+   `XDG_DATA_DIRS`, restored from `XDG_DATA_DIRS_CONDA_BACKUP`, stays).
+   Not covered, documented as a limit: a host prefix activated by
+   `conda activate` or `micromamba activate` whose compiler scripts
+   (`_tc_activation`) saved no backup, which means the variable was unset
+   before. Undoing that needs the list of names that the scripts set
+   (parsing `activate.d` scripts, or running the prefix's deactivation):
+   after 0.2.0 (`../post-0.2.0/` item 23).
+
+Tests: `tests/testthat/test-python_isolation.R` (unit tests on every OS,
+with the Windows `Scripts` and trampoline rules run through
+`on_windows = TRUE`; network tests with conda-forge and a wheel built
+in the test, so pip needs no index: the run family with `PYTHONPATH`,
+`PYTHONHOME`, `PYTHONUSERBASE` and a real venv on `PATH`; a create with
+every pip variable; a create with a hostile `pip.conf` from an env file
+in a `0555` directory, Linux and macOS; the relative-path refusal; uv with
+`VIRTUAL_ENV` and `UV_PYTHON`; `list_packages()` from a working directory
+with a `pip/__main__.py` marker), `test-run_isolation.R` (all six run
+cases with the Python variables and a venv set through `Sys.setenv()`),
+and `test-list_packages_pypi.R`, whose check that pip would report the
+user site and `PYTHONPATH` now starts the environment's python directly,
+since `run()` no longer passes them. Without the changes, the new file
+has 34 failures and 2 errors.
+
+**D19. One probe per call in the other functions, and two leftovers of
+the run family (2026-11-18).** From the items survey of round 8
+(`../post-0.2.0/` items 17f and 20a, and one finding of its verifier):
+
+1. `install_packages()` and `list_packages()` read the existence probe
+   that `resolve_backend()` already ran (`resolved_env_exists()`), as
+   `run()` and `run_pipeline()` do since D16, instead of a second
+   `backend_probe_env()`. One listing fewer per call, and the answer
+   cannot change between the two probes.
+2. `install_packages(packages = NULL)` (or `character(0)`, the
+   deprecated alias) with a failed probe (`NA`) aborts with
+   `condathis_backend_probe_failed` (rule R5). It returned status 0
+   before: with nothing to install no backend call follows, so nothing
+   reported the failure. A call with specs keeps the rule of D3: the
+   backend gets the call and reports its own error. `list_packages()`
+   keeps its rule too: an `NA` probe goes on to the listing, which
+   reports the real error. In practice `resolve_backend(mutating = TRUE)`
+   already aborts on an `NA` probe (`find_owning_backends()`), so this
+   is reached only when the resolution gives no probe.
+3. On Windows, a command found inside the environment
+   (`resolve_env_bin_path()`, relative branch) is returned in the form
+   of `native_command_path()`, with `\`, as an absolute command already
+   was. It is the program's `argv[0]`, which some programs read (the
+   `cmd.exe` case). No change on Linux and macOS (`fs::path()`, as
+   before). Needs one kappa run: it changes `argv[0]` of every command
+   that `micromamba_resolve_run_in_dir()` finds in an environment.
+
+Tests: `test-install_packages.R` (an `NA` probe with `packages = NULL`,
+from the backend and from `resolve_backend()`), `test-list_packages.R`
+(one `backend_env_exists()` call), `test-resolve_env_bin_path.R` (the
+Windows rule with `is_windows()` mocked, and the `bin/` path off
+Windows).
+
+**D20. jarl with every rule, as a gate (2026-11-18).** The maintainer
+asked to fix every finding of `jarl check . --select ALL` (jarl 0.7.1),
+the 16 `cyclomatic_complexity` findings included, without raising the
+threshold or turning a rule off. There were 650 findings. Now:
+
+1. `jarl.toml` selects every rule and writes out `max-complexity = 20`.
+   It is in `.Rbuildignore`. `just lint` runs `jarl check .` with it and
+   fails on a finding, after a count by rule (the `|| true` is gone).
+   `jarl check .` reports 0 findings, and `air format --check R/ tests/`
+   passes.
+2. Behaviour is unchanged. Every split function keeps its arguments,
+   value, side effects, condition classes and messages. An error that
+   moved into a helper gets the user's call passed explicitly
+   (`rlang::current_env()` of the exported function, or its `call`
+   argument). A message whose cli template reads local variables is
+   built and signaled in the frame that has them. Only the bottom of a
+   backtrace can show one more frame. The functions and their new
+   helpers are listed in `../post-0.2.0/PLAN.md`, item 8. A differential
+   check of 1,248 cases (`parse_match_spec()`, `ms_normalize_version()`,
+   `vs_parse_predicate()`, `version_spec_contains()`, `parse_output()`,
+   `validate_backend_return()`, `broken_pipe_transition()`) gives
+   identical values and errors before and after.
+3. `<<-` is gone from `R/` and `tests/`. Closures share state through an
+   environment (`pump_pipeline_io()`, `rename_path()`, the
+   `micromamba_backend()` cache, the mocks and collectors of the tests);
+   a `tryCatch()` handler returns the condition in a list instead of
+   assigning it. `:::` is gone from the tests: `get(..., envir =
+   asNamespace("processx"))` and `utils::getFromNamespace()` for the
+   processx internals that the tests compare with, and the `px` program
+   of processx through processx's own lookup
+   (`utils::getFromNamespace("get_tool", "processx")`, see D21).
+4. A `# jarl-ignore <rule>: <reason>` comment stays only where jarl is
+   wrong or the code is the point: a variable read by a cli template that
+   another function built or that a condathis wrapper formats (jarl knows
+   only cli and glue calls), `stop()` of a condition object (`call.` does
+   not apply, and `stop(cnd, call. = FALSE)` warns "additional arguments
+   ignored"), and the two duplicated arguments that are the input under
+   test. This replaces the rule of item 8 of `../post-0.2.0/` that no
+   ignore comment is added without asking.
+5. Two autofixes of jarl were not safe here and were corrected:
+   `fixed_regex` turns `gsub("/", "\\\\", x)` into the same call with
+   `fixed = TRUE`, which doubles every backslash (the replacement is then
+   literal). The calls are `gsub("/", "\\", x, fixed = TRUE)`.
+   `condition_call` on `stop(cnd)` is the case of point 4.
+6. Test captures that were never read got the missing assertion (the
+   status of a result, the value of `install_micromamba()`); captures that
+   were dead (a value assigned inside `rlang::catch_cnd()`, which stops
+   at the condition first, or a `NULL` placeholder assigned again) were
+   removed.
+
+Found on the way, not changed (behaviour kept): `ms_format_canonical()`
+read `extra$license` with `$`, which partially matches `license_family`,
+so `pkg[license_family=MIT]` is written as
+`pkg[license=MIT,license_family=MIT]`. The rewrite keeps it with
+`exact = FALSE`; `../post-0.2.0/` item 26. Fixed by D22 item 4.
+
+**D21. Review of round 8 (2026-11-18).** Three reviewers read the
+round-8 stages (isolation, jarl, docs and CRAN). Their findings, each
+checked before it was changed:
+
+1. reticulate changes more of the session than `VIRTUAL_ENV` (D18 item 2
+   covered only that). Read in reticulate 1.47.0 (`initialize_python()`)
+   and reproduced on Linux with a real binding (a conda-forge python
+   3.12, which ships `libpython3.12.so`, and a venv made from it):
+   - on Linux, `prefix_python_lib_to_ld_library_path()` puts
+     `file.path(dirname(dirname(p)), "lib")` in front of
+     `LD_LIBRARY_PATH` for `p` the python and its real path, the ones
+     that exist, without removing duplicates. With `LD_LIBRARY_PATH`
+     unset (the pixi R sets none) the value ends in `:NA`. For a venv
+     the second entry is the `lib` of the python it was made from. R's
+     own part was then no longer in front, so D15 could not remove it
+     either.
+   - for a python of a Conda prefix (`conda-meta` in its root),
+     `python_munge_path()` replaces `PATH` with the activated `PATH` of
+     that prefix, and sets no `CONDA_PREFIX`.
+
+   As built: `reticulate_session_python()` asks reticulate only when its
+   namespace is loaded, through `py_available(initialize = FALSE)` and
+   `py_config()` (exported, never start Python; reticulate stays out of
+   DESCRIPTION). `reticulate_host_state()` gives the root of that python
+   and the `LD_LIBRARY_PATH` entries by reticulate's rule.
+   `isolate_host_env(reticulate =)` removes those entries from the front
+   of `LD_LIBRARY_PATH` before `undo_r_startup_env()`
+   (`undo_reticulate_library_path()`; a remaining `NA` unsets it), and
+   uses the root as one more host prefix, for `PATH` only (it changes no
+   other variable). With the real binding, the child of a venv or a
+   Conda python has neither entry, nor the python's directories on
+   `PATH`; a user's `LD_LIBRARY_PATH` after them stays. Limits, in
+   `?condathis-options`: the directory of any other python (such as
+   `/usr/bin`), moved to the front of `PATH` by reticulate's
+   `path_prepend()`, stays (its old position is lost); on macOS,
+   `OPENBLAS` and `OMP_NUM_THREADS=1` that reticulate's `.onLoad` sets
+   when `/usr/local/opt/openblas` exists stay.
+2. `micromamba_pip_env_file()` asked `dir_is_writable()` before it read
+   the file, so on Windows every environment file, also one without a
+   `pip:` section, got a probe file created and deleted next to it. It
+   now reads the file first and asks only for a file that runs pip.
+3. NEWS: the two `pip:` bug-fix bullets name `install_packages()` too
+   (same overlay, same copy of a read-only file).
+4. The jarl stage had added a line `cutoff` to the reticulate article,
+   which changed its rendered output (`[1] 20`). Reverted; the variable,
+   read only by the python chunk as `r.cutoff`, has a
+   `# jarl-ignore unused_object` comment instead.
+5. `test-run.R` found `px` with `system.file()` and skipped without it.
+   It uses processx's own lookup again (also `src/tools/px` of a processx
+   loaded from source) and fails, not skips, when `px` is missing.
+6. `cd` is a program on macOS (`/usr/bin/cd`, as `alias`, `command`,
+   `read`, `type` and `umask`; checked on omicron, macOS 26.4.1), so
+   `?run` and the README name `export` and `source` as builtins that are
+   no program (neither exists in `/usr/bin` there).
+7. The README links the mizu article on the pkgdown site, which answers
+   404 until the site is deployed: the incoming check with remote
+   checks gives a NOTE, so the "0 notes" of `cran-comments.md` holds only
+   after the deployment. Not changed here (deploying is an outward
+   action of the maintainer): `../post-0.2.0/` TODO, "Before
+   submitting".
+
+Tests: `test-python_isolation.R` ("what reticulate changed when it
+started Python is undone": the state of a venv python, also through a
+link off Windows, the `LD_LIBRARY_PATH` rule with R's part behind it,
+the `NA` case, the Conda `PATH` on Linux and Windows rules, and that a
+root that is no Conda prefix changes nothing; and a mock of
+`is_writable` that fails when it is called for a file without pip).
+Linux, isolated copy: the touched files pass, the developer suite gives
+9725 pass, 0 fail, 0 skip; `jarl check .` (every rule, complexity limit
+20) reports 0 findings and `air format --check R/ tests/` passes.
+
+Follow-up (D22 item 3): the kappa run of round 8 found three Windows-only
+failures in `test-python_isolation.R`, all in the tests: the
+`undo_host_venv(on_windows = FALSE)` case put a `C:\...` directory into
+a `:`-separated `PATH` (it now uses a POSIX name for the venv and maps it
+back to the real directory through the `is_venv` argument), and the
+reticulate case compared a `dirname()` (`/`) with a `\` path (the root is
+now normalized with `/` on Windows). The patch was tested on kappa and
+passes on Linux.
+
+**D22. The verify round of round 8 (2026-11-18).** The Linux run of the
+developer suite under a hostile host (a fake nested activation, a
+`PYTHONPATH` with shadowing modules, `PYTHONHOME=/nonexistent`,
+`PIP_USER=1`, `PIP_REQUIRE_VIRTUALENV=1`, a real venv first on `PATH`,
+bogus `.condarc` and `.mambarc`, `pip.conf` with
+`require-virtualenv = true`) gave 2 errors, and the rattlerthis run gave
+the trampoline findings. As built:
+
+1. pip settings for every child (extends D18). D18 set
+   `PYTHONNOUSERSITE=1` for the commands of the run family, so a host
+   `PIP_USER=1` (or `user = true` in `pip.conf`) made
+   `run("python", "-m", "pip", "install", ...)` fail ("User site-packages
+   are disabled for this Python"), and `PIP_REQUIRE_VIRTUALENV=1` or
+   `require-virtualenv = true` made it fail too ("Could not find an
+   activated virtualenv"): a Conda environment is not a virtual
+   environment. `python_isolation_envvars()` now also sets
+   `PIP_USER=false` and `PIP_REQUIRE_VIRTUALENV=false` and removes
+   `PIP_TARGET`, `PIP_PREFIX` and `PIP_ROOT`, the install-target
+   overrides that micromamba `create` and `install` had since D18 item 3.
+   It is applied by `build_child_env()`, so every child gets them: the
+   run family in both modes and every micromamba process.
+   `micromamba_pip_install_vars()` keeps only the removal of
+   `VIRTUAL_ENV` and `VIRTUAL_ENV_PROMPT` (the run family keeps a
+   `VIRTUAL_ENV` that names no virtual environment, D18 item 2). For
+   `micromamba list` (ISO-5) the new values change nothing:
+   `micromamba_pip_inspect_vars()` comes later in the overlay and still
+   sets `PIP_CONFIG_FILE` to the null device and `PIP_USER=false`, and
+   `pip inspect` reads neither `require-virtualenv` nor an install target.
+   The index, credential, certificate and proxy settings
+   (`PIP_INDEX_URL`, `PIP_EXTRA_INDEX_URL`, `PIP_CERT`, `PIP_CONFIG_FILE`,
+   the proxy variables) still pass through. A `target` in `pip.conf`
+   still applies (a variable cannot unset it). Documented in
+   `?condathis-options` and folded into the NEWS bullet of D18. The
+   second error, `test-list_packages_pypi.R`, came from the test: it
+   starts the environment's python directly with the session's
+   variables, so the host `PYTHONHOME` reached it. The test now unsets
+   `PYTHONHOME`, `PYTHONPATH`, `PYTHONSTARTUP`, `PYTHONSAFEPATH`,
+   `PYTHONINSPECT`, `PIP_USER`, `PIP_PATH`, `PIP_LOCAL`,
+   `PIP_REQUIRE_VIRTUALENV` and sets `PIP_CONFIG_FILE` to the null device
+   around those calls, keeping only the user site and `PYTHONPATH` it
+   sets on purpose.
+2. A pixi trampoline as the micromamba path (follow-up 17c,
+   `../post-0.2.0/` 21f). A trampoline of `pixi global` (pixi's
+   `trampoline/src/main.rs` and `crates/pixi_global/src/trampoline.rs`
+   on its main branch, read 2026-11-18; the layout matches pixi 0.84.2
+   here) resolves its own path (symbolic links off
+   Windows), reads `<its directory>/trampoline_configuration/<name>.json`
+   (`<name>` without a `PATHEXT` extension on Windows, so `micromamba.exe`
+   reads `micromamba.json`), and starts its `exe` with the variables of
+   `env`, here `CONDA_SHLVL=1` and `CONDA_PREFIX` of the pixi
+   environment. Started through it, micromamba left `<root>/condabin` out
+   of the activation and recorded a `MAMBA_EXE` of the pixi environment.
+   `resolve_pixi_trampoline()` (`R/host_env.R`) returns the `exe` of that
+   file when it is an existing file other than the trampoline itself, and
+   the path unchanged otherwise. It reads the file with
+   `read_trampoline_config()`, which `read_trampoline_env_vars()` now
+   uses too. `get_best_micromamba_path()` resolves every candidate with
+   it before the version check, so every caller (`native_cmd()`, the
+   version check, `micromamba_binary_in_env_dir()`, the activation
+   recorded through `native_cmd()`) runs the real binary; the
+   `condathis.micromamba_path` option and `CONDATHIS_MICROMAMBA_PATH`
+   keep the user's value. Documented in `?condathis-options` (micromamba
+   discovery) and NEWS. rattlerthis needs no change in its
+   `setup-micromamba.R`.
+3. The kappa patch of `test-python_isolation.R`, see the follow-up of
+   D21 above.
+4. `parse_match_spec()` (`../post-0.2.0/` item 26): every lookup in the
+   `extra` list is `[[` with an exact name, so
+   `pkg[license_family=MIT]` is written as `pkg[license_family=MIT]`, as
+   libmamba does. The other `$` lookups of the file are on lists whose
+   names are not prefixes of each other.
+5. rattlerthis: `configure`, `cleanup` and their `.win` files are mode
+   `0755` (they were `0750` and `0740` in the working tree, which R CMD
+   build reports as "did not have execute permissions"; git already
+   records `100755`). The WebAssembly test of
+   `test-rust-unavailable.R` runs its `Rscript` child with
+   `PATH = R.home("bin")` on purpose (R without Rust), so R could not
+   delete its temporary directory at exit (no `rm`); the child now gets
+   `TMPDIR` (and `TMP`, `TEMP`) inside the test's own temporary
+   directory, which the test deletes.
+
+Tests: `test-python_isolation.R` (every child gets the pip values and
+keeps the index, certificate and proxy settings; micromamba `info` now
+gets `PIP_USER=false` too; a network test where
+`run("python", "-m", "pip", "install", <local wheel>)` installs into the
+environment with a host `PIP_USER=1`, `PIP_REQUIRE_VIRTUALENV=1`, a
+`pip.conf` with `require-virtualenv = true` and `user = true` in a
+temporary `HOME` and `XDG_CONFIG_HOME` (and `APPDATA` on Windows), whose
+use `pip config list` confirms, and `PIP_TARGET` with `PIP_PREFIX`),
+`test-get_best_micromamba_path.R` (`resolve_pixi_trampoline()` on a fake
+layout: no configuration, a configuration, the Windows name rule, a
+symbolic link, a missing or directory or self `exe`, no JSON object; and
+discovery from the option and the variable checks only the real path),
+`test-run_isolation.R` (a fake trampoline, a script that sets the pixi
+activation off Windows and a copy of micromamba on Windows, as the
+micromamba path: the activation of `run()`, `run_bin()` and
+`run_pipeline()` has `<root>/condabin` on `PATH`, `MAMBA_EXE` is the real
+binary, `CONDA_SHLVL` is `1`, no `CONDA_PREFIX_1`), and
+`test-parse_match_spec.R`. Without the changes in `R/`, the new tests
+fail (pip: status 1 or 3 in every case; trampoline: `condabin` missing
+and `MAMBA_EXE` of the trampoline; discovery checks the trampoline).
+Linux, isolated copy, `NOT_CRAN=true`, micromamba given as the pixi
+trampoline: the developer suite gives 9796 pass, 0 fail, 0 error, 0
+skip, 0 warnings; the same suite under the hostile host above (with the
+venv recreated and both `pip.conf` files in place) gives the same 9796
+pass, 0 fail, 0 error, 0 skip, and none of its decoy programs ran.
+`jarl check .` (every rule) reports 0 findings and
+`air format --check R/ tests/` passes.
+
+**D23. Review of round 9 (2026-11-18).** Two reviewers read D22. As
+built:
+
+1. A relative `exe` in a trampoline configuration is not followed.
+   `resolve_pixi_trampoline()` checked the raw `exe` against R's working
+   directory and returned it still relative, so the micromamba that
+   discovery picked depended on `getwd()`, and `native_cmd()` resolved
+   it against whatever the working directory was later. pixi starts the
+   `exe` with `Command::new()`, which searches `PATH` for a bare name, so
+   R could not reproduce it either way. pixi itself always writes an
+   absolute `exe`; only a configuration edited by hand has a relative
+   one. The check of the `exe` moved to `trampoline_config_exe()`, which
+   accepts only an absolute path (`fs::is_absolute_path()`, so `C:/...`
+   on Windows) of an existing file other than the trampoline; otherwise
+   the candidate stays as it is and the version check decides. The split
+   also keeps `resolve_pixi_trampoline()` under the cyclomatic complexity
+   limit of jarl.
+2. pip also reads `PIP_REQUIRE_VENV`, an alias of
+   `PIP_REQUIRE_VIRTUALENV`; when both are set, the later one in the
+   environment block wins (pip 26.2.2, checked in an isolated `HOME`).
+   D22 only worked because `PIP_REQUIRE_VENV` sorts first and the `false`
+   value came later. `python_isolation_envvars()` now removes
+   `PIP_REQUIRE_VENV`, so the result no longer depends on the order.
+3. Docs: a `prefix` or a `root` in a pip configuration file still
+   applies, as does a `target` (an environment variable cannot unset
+   them; pip 26.2.2 keeps `prefix` and `root` of `pip.conf` with the D22
+   variables set). `?condathis-options` and the NEWS bullet of D18 now
+   say so. This is the accepted limit of D22, written down in full.
+
+Rejected: none. Not changed: the off-Windows extension strip of
+`resolve_pixi_trampoline()` is wider than pixi's (`micromamba-2.0.5`
+also tries `micromamba-2.0.json`); it acts only when such a file exists
+with an absolute, existing `exe`.
+
+Tests: `test-get_best_micromamba_path.R` (a relative `exe` that names an
+existing file of the working directory keeps the trampoline) and
+`test-python_isolation.R` (`PIP_REQUIRE_VENV` leaves every child). Both
+fail without the change in `R/`. `test-list_packages_pypi.R` also unsets
+`PIP_REQUIRE_VENV` around its direct python calls (rerun alone, plain and
+hostile: 52 pass). Linux, isolated copy, `NOT_CRAN=true`, micromamba
+given as the pixi trampoline: the developer suite gives 9798 pass, 0
+fail, 0 error, 0 skip; under the hostile host of D22, with
+`PIP_REQUIRE_VENV=1` added, the same 9798 pass, 0 fail, 0 error, 0 skip,
+and none of its decoy programs ran. `jarl check .` (every rule) reports
+0 findings and `air format --check R/ tests/` passes.
 
 ## Findings (investigation of 2026-11-16)
 

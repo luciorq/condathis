@@ -54,7 +54,8 @@ it with \code{\link[=env_definition]{env_definition()}}.
 empty environment. It is deprecated. It warns once per session (class
 \code{condathis_deprecated_packages_arg}) when the call comes from the
 console, a script or the tests of the package that makes it. Calls
-made inside other packages do not warn.
+made inside other packages do not warn, except in tests that use
+testthat's third edition (see \link{condathis-conditions}).
 
 \code{create_env()} aborts with class
 \code{condathis_create_env_positional_env_name} when \code{env_name} is not

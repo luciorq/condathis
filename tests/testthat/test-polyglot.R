@@ -58,13 +58,16 @@ testthat::test_that("a warm run() starts no process but the command", {
   # Warm the activation cache of the environment.
   run("polyglot", env_name = "polyglot-env", verbose = "silent")
 
-  no_micromamba <- function(...) stop("micromamba must not run here.")
+  no_micromamba <- function(...) {
+    stop("micromamba must not run here.", call. = FALSE)
+  }
   run_fns <- list(run = condathis::run, run_bin = condathis::run_bin)
-  started <- character(0L)
+  tracked <- new.env(parent = emptyenv())
+  tracked$started <- character(0L)
   real_processx_run <- processx::run
   testthat::local_mocked_bindings(
     run = function(command, ...) {
-      started <<- c(started, as.character(command))
+      tracked$started <- c(tracked$started, as.character(command))
       return(real_processx_run(command, ...))
     },
     .package = "processx"
@@ -75,19 +78,42 @@ testthat::test_that("a warm run() starts no process but the command", {
     check_micromamba_version = no_micromamba,
     install_micromamba = no_micromamba
   )
-  probes <- 0L
+  # No other way to start a process either: a shell (`Sys.which()` starts
+  # one on Linux and macOS), and every `processx` process, which
+  # `processx::run()` starts too.
+  no_shell <- function(...) {
+    stop("No shell may start in a warm run().", call. = FALSE)
+  }
+  testthat::local_mocked_bindings(
+    system = no_shell,
+    system2 = no_shell,
+    Sys.which = no_shell,
+    .package = "base"
+  )
+  tracked$spawned <- 0L
+  process_generator <- processx::process
+  real_process_new <- process_generator$new
+  process_generator$new <- function(...) {
+    tracked$spawned <- tracked$spawned + 1L
+    return(real_process_new(...))
+  }
+  withr::defer({
+    process_generator$new <- real_process_new
+  })
+  tracked$probes <- 0L
   real_probe <- backend_probe_env
   testthat::local_mocked_bindings(
     backend_probe_env = function(...) {
-      probes <<- probes + 1L
+      tracked$probes <- tracked$probes + 1L
       return(real_probe(...))
     }
   )
 
   for (activate in c(TRUE, FALSE)) {
     for (fn in run_fns) {
-      started <- character(0L)
-      probes <- 0L
+      tracked$started <- character(0L)
+      tracked$spawned <- 0L
+      tracked$probes <- 0L
       res <- fn(
         "polyglot",
         env_name = "polyglot-env",
@@ -96,10 +122,15 @@ testthat::test_that("a warm run() starts no process but the command", {
       )
       testthat::expect_identical(res$status, 0L)
       # The command only, and one existence check (of the one backend).
-      testthat::expect_length(started, 1L)
-      testthat::expect_identical(probes, length(backend_names_by_priority()))
+      testthat::expect_length(tracked$started, 1L)
+      testthat::expect_identical(tracked$spawned, 1L)
+      testthat::expect_identical(
+        tracked$probes,
+        length(backend_names_by_priority())
+      )
     }
-    probes <- 0L
+    tracked$spawned <- 0L
+    tracked$probes <- 0L
     res <- run_pipeline(
       run_step("polyglot"),
       run_step("polyglot"),
@@ -108,7 +139,12 @@ testthat::test_that("a warm run() starts no process but the command", {
       verbose = "silent"
     )
     testthat::expect_identical(res$statuses, c(0L, 0L))
-    testthat::expect_identical(probes, length(backend_names_by_priority()))
+    # One process per step.
+    testthat::expect_identical(tracked$spawned, 2L)
+    testthat::expect_identical(
+      tracked$probes,
+      length(backend_names_by_priority())
+    )
   }
 })
 

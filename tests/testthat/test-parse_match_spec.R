@@ -426,7 +426,8 @@ testthat::test_that("parse_match_spec matches libmambapy implementation", {
   testthat::skip_on_ci()
 
   # Load helper function
-  base::source(testthat::test_path("libmamba_wrappers.R"))
+  # Into this test only, not the global environment.
+  base::source(testthat::test_path("libmamba_wrappers.R"), local = TRUE)
 
   test_specs <- c(
     "numpy",
@@ -523,5 +524,69 @@ testthat::test_that("parse_match_spec() still reads archive URLs and comments af
   testthat::expect_identical(
     parse_match_spec("   # only a comment")$name,
     "*"
+  )
+})
+
+testthat::test_that("parse_match_spec writes the other bracket keys in a fixed order", {
+  # Characterization test of ms_format_canonical() and
+  # ms_apply_bracket_attributes(): the keys that parse_match_spec() keeps
+  # only in formatted_spec, quoted when the value needs it.
+  formatted <- function(spec) parse_match_spec(spec)$formatted_spec
+  testthat::expect_identical(
+    formatted(
+      "pkg[license=MIT,md5=1,fn=f,features=x,optional,build_number='>2',track_features=z]"
+    ),
+    "pkg[build_number=\">2\",track_features=\"z\",features=x,fn=f,md5=1,license=MIT,optional]"
+  )
+  testthat::expect_identical(
+    formatted("pkg[fn=a b.tar.bz2]"),
+    "pkg[fn=\"a b.tar.bz2\"]"
+  )
+  testthat::expect_identical(
+    formatted("pkg[filename='x.conda']"),
+    "pkg[fn=x.conda]"
+  )
+  testthat::expect_identical(
+    formatted("pkg[features=a b]"),
+    "pkg[features=\"a b\"]"
+  )
+  testthat::expect_identical(
+    formatted("pkg[md5=abc,sha256=def]"),
+    "pkg[md5=abc,sha256=def]"
+  )
+  testthat::expect_identical(
+    formatted("pkg[track_features='b a']"),
+    "pkg[track_features=\"a b\"]"
+  )
+  # Keys are read without regard to case; an unknown key is dropped.
+  testthat::expect_identical(formatted("pkg[Version=2]"), "pkg==2")
+  testthat::expect_identical(formatted("pkg[unknown=1]"), "pkg")
+})
+
+test_that("license_family is written only as license_family", {
+  # Names are matched exactly: `$` matched `license` to `license_family`
+  # (post-0.2.0 item 26).
+  withr::local_options(warnPartialMatchDollar = TRUE)
+  res <- testthat::expect_no_warning(
+    parse_match_spec("pkg[license_family=MIT]")
+  )
+  testthat::expect_identical(res$formatted_spec, "pkg[license_family=MIT]")
+  testthat::expect_identical(res$track_features, "set()")
+  testthat::expect_identical(
+    parse_match_spec("pkg[license=GPL,license_family=MIT]")$formatted_spec,
+    "pkg[license=GPL,license_family=MIT]"
+  )
+  testthat::expect_identical(
+    parse_match_spec("pkg[license=MIT]")$formatted_spec,
+    "pkg[license=MIT]"
+  )
+  # The other fields whose name starts another field's name.
+  testthat::expect_identical(
+    parse_match_spec("pkg[track_features=a]")$formatted_spec,
+    "pkg[track_features=\"a\"]"
+  )
+  testthat::expect_identical(
+    parse_match_spec("pkg[fn=x.conda]")$formatted_spec,
+    "pkg[fn=x.conda]"
   )
 })

@@ -49,10 +49,16 @@ same_dir <- function(x) {
 local_no_backend_calls <- function(envir = parent.frame()) {
   testthat::local_mocked_bindings(
     precreate_envs = function(...) {
-      stop("precreate_envs() must not run before every argument is checked.")
+      stop(
+        "precreate_envs() must not run before every argument is checked.",
+        call. = FALSE
+      )
     },
     resolve_backend = function(...) {
-      stop("resolve_backend() must not run before every argument is checked.")
+      stop(
+        "resolve_backend() must not run before every argument is checked.",
+        call. = FALSE
+      )
     },
     .env = envir
   )
@@ -70,8 +76,8 @@ testthat::test_that("run_pipeline() argument errors have the new and the old cla
     run_pipeline(run_step("cmd-a"), "cmd-b"),
     class = "condathis_run_pipeline_invalid_step"
   )
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_run_pipeline_invalid_step",
       "condathis_pipeline_invalid_step",
@@ -80,15 +86,16 @@ testthat::test_that("run_pipeline() argument errors have the new and the old cla
       "rlang_error",
       "error",
       "condition"
-    )
+    ),
+    exact = TRUE
   )
 
   cnd <- testthat::expect_error(
     run_pipeline(run_step("cmd-a")),
     class = "condathis_run_pipeline_too_few_commands"
   )
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_run_pipeline_too_few_commands",
       "condathis_pipeline_too_few_commands",
@@ -97,15 +104,16 @@ testthat::test_that("run_pipeline() argument errors have the new and the old cla
       "rlang_error",
       "error",
       "condition"
-    )
+    ),
+    exact = TRUE
   )
 
   cnd <- testthat::expect_error(
     run_pipeline(!!!two_steps(), binary = NA),
     class = "condathis_run_pipeline_invalid_binary"
   )
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_run_pipeline_invalid_binary",
       "condathis_pipeline_invalid_binary_arg",
@@ -115,7 +123,8 @@ testthat::test_that("run_pipeline() argument errors have the new and the old cla
       "rlang_error",
       "error",
       "condition"
-    )
+    ),
+    exact = TRUE
   )
 
   cnd <- testthat::expect_error(
@@ -125,8 +134,8 @@ testthat::test_that("run_pipeline() argument errors have the new and the old cla
     ),
     class = "condathis_run_pipeline_conflicting_method"
   )
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_run_pipeline_conflicting_method",
       "condathis_pipeline_conflicting_method",
@@ -135,7 +144,8 @@ testthat::test_that("run_pipeline() argument errors have the new and the old cla
       "rlang_error",
       "error",
       "condition"
-    )
+    ),
+    exact = TRUE
   )
 
   # These use helpers of other files, so their classes are checked one by
@@ -242,8 +252,8 @@ testthat::test_that("run_pipeline() classes invalid error and verbose values", {
     run_pipeline(!!!two_steps(), error = "stop"),
     class = "condathis_invalid_error"
   )
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_invalid_error",
       "condathis_invalid_arg",
@@ -251,7 +261,8 @@ testthat::test_that("run_pipeline() classes invalid error and verbose values", {
       "rlang_error",
       "error",
       "condition"
-    )
+    ),
+    exact = TRUE
   )
   testthat::expect_error(
     run_pipeline(!!!two_steps(), error = c("continue", "cancel", "x")),
@@ -319,8 +330,8 @@ testthat::test_that("run_step() checks cmd as run() and run_bin() do", {
       expr,
       class = "condathis_run_step_invalid_cmd"
     )
-    testthat::expect_identical(
-      class(cnd),
+    testthat::expect_s3_class(
+      cnd,
       c(
         "condathis_run_step_invalid_cmd",
         "condathis_invalid_cmd",
@@ -329,7 +340,8 @@ testthat::test_that("run_step() checks cmd as run() and run_bin() do", {
         "rlang_error",
         "error",
         "condition"
-      )
+      ),
+      exact = TRUE
     )
     testthat::expect_identical(rlang::call_name(conditionCall(cnd)), "run_step")
     return(invisible(cnd))
@@ -349,8 +361,8 @@ testthat::test_that("run_step() argument errors have the shared classes", {
     run_step("cmd", method = 1),
     class = "condathis_run_step_invalid_method"
   )
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_run_step_invalid_method",
       "condathis_invalid_method",
@@ -359,14 +371,15 @@ testthat::test_that("run_step() argument errors have the shared classes", {
       "rlang_error",
       "error",
       "condition"
-    )
+    ),
+    exact = TRUE
   )
   cnd <- testthat::expect_error(
     run_step("cmd", stderr = 1),
     class = "condathis_run_step_invalid_stderr"
   )
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_run_step_invalid_stderr",
       "condathis_invalid_stderr",
@@ -375,7 +388,8 @@ testthat::test_that("run_step() argument errors have the shared classes", {
       "rlang_error",
       "error",
       "condition"
-    )
+    ),
+    exact = TRUE
   )
   cnd <- testthat::expect_error(
     run_step("cmd", list("a")),
@@ -539,8 +553,8 @@ testthat::test_that("a failed pipeline aborts with the status fields and the res
     ),
     class = "condathis_run_pipeline_status_error"
   )
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_run_pipeline_status_error",
       "condathis_pipeline_status_error",
@@ -549,7 +563,8 @@ testthat::test_that("a failed pipeline aborts with the status fields and the res
       "rlang_error",
       "error",
       "condition"
-    )
+    ),
+    exact = TRUE
   )
   testthat::expect_identical(cnd$status, 3L)
   testthat::expect_identical(cnd$statuses, c(3L, 0L))
@@ -593,8 +608,8 @@ testthat::test_that("a pipeline timeout aborts with the timeout fields, or gives
     ),
     class = "condathis_run_pipeline_timeout_error"
   )
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_run_pipeline_timeout_error",
       "condathis_pipeline_timeout_error",
@@ -603,7 +618,8 @@ testthat::test_that("a pipeline timeout aborts with the timeout fields, or gives
       "rlang_error",
       "error",
       "condition"
-    )
+    ),
+    exact = TRUE
   )
   testthat::expect_identical(cnd$status, -9L)
   testthat::expect_true(cnd$timeout)
@@ -657,8 +673,8 @@ testthat::test_that("a missing step environment aborts with condathis_env_not_fo
     ),
     class = "condathis_run_pipeline_env_not_found"
   )
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_run_pipeline_env_not_found",
       "condathis_pipeline_env_not_found",
@@ -667,7 +683,8 @@ testthat::test_that("a missing step environment aborts with condathis_env_not_fo
       "rlang_error",
       "error",
       "condition"
-    )
+    ),
+    exact = TRUE
   )
   testthat::expect_identical(
     rlang::call_name(conditionCall(cnd)),
@@ -857,7 +874,7 @@ testthat::test_that("a plain error from a backend's backend_resolve_run() gets t
   local_pipeline_stub(
     backend_resolve_run = function(backend, cmd, args = character(0L), ...) {
       if (isTRUE(any(grepl("FAILME", args, fixed = TRUE)))) {
-        stop("plain backend failure")
+        stop("plain backend failure", call. = FALSE)
       }
       return(list(command = cmd, args = args, env = NULL, dir = NULL))
     }
@@ -871,8 +888,8 @@ testthat::test_that("a plain error from a backend's backend_resolve_run() gets t
     ),
     class = "condathis_run_pipeline_resolve_failed"
   )
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_run_pipeline_resolve_failed",
       "condathis_backend_error",
@@ -880,7 +897,8 @@ testthat::test_that("a plain error from a backend's backend_resolve_run() gets t
       "rlang_error",
       "error",
       "condition"
-    )
+    ),
+    exact = TRUE
   )
   testthat::expect_s3_class(cnd$parent, "simpleError")
   testthat::expect_identical(

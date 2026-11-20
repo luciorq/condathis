@@ -11,15 +11,16 @@ testthat::test_that("condathis_abort() adds the root class and names the caller"
     )
   }
   cnd <- rlang::catch_cnd(f(), classes = "error")
-  testthat::expect_identical(
-    class(cnd),
-    c("condathis_f_invalid_x", "condathis_error", rlang_tail)
+  testthat::expect_s3_class(
+    cnd,
+    c("condathis_f_invalid_x", "condathis_error", rlang_tail),
+    exact = TRUE
   )
   testthat::expect_identical(conditionCall(cnd), quote(f()))
   testthat::expect_identical(cnd$status, 3L)
 
   cnd <- rlang::catch_cnd(condathis_abort("No class."), classes = "error")
-  testthat::expect_identical(class(cnd), c("condathis_error", rlang_tail))
+  testthat::expect_s3_class(cnd, c("condathis_error", rlang_tail), exact = TRUE)
 })
 
 testthat::test_that("condathis_abort() interpolates in the caller and passes call on", {
@@ -37,15 +38,16 @@ testthat::test_that("condathis_warn() adds the root warning class", {
     condathis_warn(c(`!` = "Careful."), class = "condathis_some_warning"),
     classes = "warning"
   )
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_some_warning",
       "condathis_warning",
       "rlang_warning",
       "warning",
       "condition"
-    )
+    ),
+    exact = TRUE
   )
   res <- withVisible(suppressWarnings(condathis_warn("Plain.")))
   testthat::expect_null(res$value)
@@ -60,9 +62,10 @@ testthat::test_that("condathis_warn_once() warns once per id until reset", {
     condathis_warn_once(id, "First.", class = "x_once"),
     classes = "warning"
   )
-  testthat::expect_identical(
-    class(cnd),
-    c("x_once", "condathis_warning", "rlang_warning", "warning", "condition")
+  testthat::expect_s3_class(
+    cnd,
+    c("x_once", "condathis_warning", "rlang_warning", "warning", "condition"),
+    exact = TRUE
   )
   # catch_cnd() stopped at the warning; the id is marked all the same.
   testthat::expect_no_warning(
@@ -265,15 +268,16 @@ testthat::test_that("abort_env_not_found() has the shared class and takes hints"
     )
   }
   cnd <- rlang::catch_cnd(f("/some/dir"), classes = "error")
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_f_env_not_found",
       "condathis_f_missing_env",
       "condathis_env_not_found",
       "condathis_error",
       rlang_tail
-    )
+    ),
+    exact = TRUE
   )
   testthat::expect_identical(conditionCall(cnd), quote(f("/some/dir")))
   message <- cli::ansi_strip(conditionMessage(cnd))
@@ -302,15 +306,16 @@ testthat::test_that("with_backend_errors() re-raises backend errors with the sha
     )
   }
   cnd <- rlang::catch_cnd(f(), classes = "error")
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_create_env_failed",
       "condathis_backend_error",
       "condathis_cmd_status_error",
       "condathis_error",
       rlang_tail
-    )
+    ),
+    exact = TRUE
   )
   testthat::expect_identical(conditionCall(cnd), quote(f()))
   testthat::expect_s3_class(cnd$parent, "stub_boom")
@@ -324,21 +329,22 @@ testthat::test_that("with_backend_errors() re-raises backend errors with the sha
   # A base R error gets only the shared classes.
   cnd <- rlang::catch_cnd(
     with_backend_errors(
-      stop("plain"),
+      stop("plain", call. = FALSE),
       fn = "remove_env",
       backend_name = "b",
       action = "remove"
     ),
     classes = "error"
   )
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_remove_env_failed",
       "condathis_backend_error",
       "condathis_error",
       rlang_tail
-    )
+    ),
+    exact = TRUE
   )
   testthat::expect_s3_class(cnd$parent, "simpleError")
 })
@@ -373,7 +379,7 @@ testthat::test_that("with_backend_errors() passes values, warnings and backend e
     ),
     classes = "error"
   )
-  testthat::expect_identical(class(cnd), class(original))
+  testthat::expect_s3_class(cnd, class(original), exact = TRUE)
   testthat::expect_null(cnd$parent)
 })
 
@@ -503,14 +509,15 @@ testthat::test_that("new_backend_result() aborts on a non-zero or invalid status
     f(list(status = 1L, stderr = "bad")),
     classes = "error"
   )
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_install_packages_failed",
       "condathis_backend_error",
       "condathis_error",
       rlang_tail
-    )
+    ),
+    exact = TRUE
   )
   testthat::expect_identical(cnd$status, 1L)
   testthat::expect_identical(cnd$stderr, "bad")

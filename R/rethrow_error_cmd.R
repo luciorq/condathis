@@ -57,7 +57,6 @@ rethrow_error_cmd <- function(expr, env = parent.frame()) {
       additional_lines <- unique(additional_lines[nzchar(additional_lines)])
     }
 
-    status_code <- NULL
     if (isFALSE("status" %in% names(err_cnd))) {
       status_code <- 127L
       additional_lines <- c("micromamba: command not found", additional_lines)

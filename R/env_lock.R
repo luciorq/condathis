@@ -157,6 +157,7 @@ env_lock_before_change <- function(...) {
       next
     }
     if (identical(holder$kind, "env")) {
+      # jarl-ignore unused_object: interpolated by cli in the message below
       env_name <- holder$env_name
       message <- c(
         `!` = "Could not lock environment {.field {env_name}}, so another R session could change it at the same time.",

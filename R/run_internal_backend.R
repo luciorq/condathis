@@ -199,44 +199,20 @@ run_internal_backend <- function(
     error = function(cnd) cnd
   )
   if (isTRUE(activate)) {
-    if (isTRUE(time_left() <= 0)) {
-      return(activation_timeout_result(
-        env_label,
-        timeout = timeout,
-        error_var = error_var
-      ))
-    }
-    if (inherits(invocation, "condition")) {
-      if (isTRUE(error_var)) {
-        abort_resolve_failure(
-          invocation,
-          fn = fn,
-          cmd_name = cmd,
-          env_label = env_label,
-          backend_name = backend_name,
-          hint = run_family_resolve_hint(),
-          call = call
-        )
-      }
-      return(not_resolved(invocation))
-    }
-    contract_cnd <- tryCatch(
-      {
-        validate_resolve_run(
-          invocation,
-          env_name = env_label,
-          backend_name = backend_name,
-          call = call
-        )
-        NULL
-      },
-      error = function(cnd) cnd
+    early_result <- check_activated_invocation(
+      invocation,
+      cmd = cmd,
+      env_label = env_label,
+      backend_name = backend_name,
+      timeout = timeout,
+      time_left = time_left,
+      not_resolved = not_resolved,
+      error_var = error_var,
+      fn = fn,
+      call = call
     )
-    if (isFALSE(is.null(contract_cnd))) {
-      if (isTRUE(error_var)) {
-        rlang::cnd_signal(contract_cnd)
-      }
-      return(not_resolved(contract_cnd))
+    if (isFALSE(is.null(early_result))) {
+      return(invisible(early_result))
     }
   } else if (inherits(invocation, "condition")) {
     # No backend code ran: an error here is condathis's own.
@@ -312,6 +288,80 @@ run_internal_backend <- function(
   }
 
   return(invisible(px_res))
+}
+
+#' Check the invocation that a backend resolved with its activation
+#'
+#' The checks of `run_internal_backend()` with `activate = TRUE`: the
+#' activation used up the time, the backend failed, or its invocation
+#' breaks the contract of `validate_resolve_run()`. Under `error =
+#' "cancel"` a failure aborts; under `"continue"` it gives a failed result.
+#'
+#' @param invocation The invocation, or the condition of a failed
+#'   resolution.
+#' @param cmd,env_label,backend_name,timeout,fn,call As in
+#'   `run_internal_backend()`.
+#' @param time_left Function that returns the seconds left of `timeout`.
+#' @param not_resolved Function that gives the failed result for a
+#'   condition.
+#' @param error_var Logical. `TRUE` for `error = "cancel"`.
+#'
+#' @returns `NULL` when the invocation can run, else the result to return.
+#'
+#' @keywords internal
+#' @noRd
+check_activated_invocation <- function(
+  invocation,
+  cmd,
+  env_label,
+  backend_name,
+  timeout,
+  time_left,
+  not_resolved,
+  error_var,
+  fn,
+  call
+) {
+  if (isTRUE(time_left() <= 0)) {
+    return(activation_timeout_result(
+      env_label,
+      timeout = timeout,
+      error_var = error_var
+    ))
+  }
+  if (inherits(invocation, "condition")) {
+    if (isTRUE(error_var)) {
+      abort_resolve_failure(
+        invocation,
+        fn = fn,
+        cmd_name = cmd,
+        env_label = env_label,
+        backend_name = backend_name,
+        hint = run_family_resolve_hint(),
+        call = call
+      )
+    }
+    return(not_resolved(invocation))
+  }
+  contract_cnd <- tryCatch(
+    {
+      validate_resolve_run(
+        invocation,
+        env_name = env_label,
+        backend_name = backend_name,
+        call = call
+      )
+      NULL
+    },
+    error = function(cnd) cnd
+  )
+  if (isFALSE(is.null(contract_cnd))) {
+    if (isTRUE(error_var)) {
+      rlang::cnd_signal(contract_cnd)
+    }
+    return(not_resolved(contract_cnd))
+  }
+  return(NULL)
 }
 
 #' The invocation of a command of the run family
@@ -852,6 +902,7 @@ validate_resolve_run <- function(
       isTRUE(length(env_value) > 0L) &&
         (rlang::is_null(env_names) || isFALSE(all(nzchar(env_names))))
     ) {
+      # jarl-ignore unused_object: interpolated by cli in the message below
       unnamed <- which(!nzchar(env_names %||% rep("", length(env_value))))
       invalid(c(
         `i` = "Every element of {.field env} must be named.",
@@ -862,16 +913,15 @@ validate_resolve_run <- function(
   # Without this check, `processx` failed on a bad `dir` only after the
   # activation was resolved, with an error that names no backend.
   dir_value <- resolved[["dir"]]
-  if (isFALSE(rlang::is_null(dir_value))) {
-    if (
-      isFALSE(rlang::is_string(dir_value)) ||
+  if (
+    isFALSE(rlang::is_null(dir_value)) &&
+      (isFALSE(rlang::is_string(dir_value)) ||
         isTRUE(is.na(dir_value)) ||
-        isFALSE(isTRUE(fs::dir_exists(dir_value)))
-    ) {
-      invalid(c(
-        `i` = "{.field dir} must be {.code NULL} or the path of an existing directory."
-      ))
-    }
+        isFALSE(isTRUE(fs::dir_exists(dir_value))))
+  ) {
+    invalid(c(
+      `i` = "{.field dir} must be {.code NULL} or the path of an existing directory."
+    ))
   }
   return(invisible(resolved))
 }

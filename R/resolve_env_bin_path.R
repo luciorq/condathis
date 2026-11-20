@@ -41,9 +41,9 @@ env_bin_search_dirs <- function(env_dir, on_windows = is_windows()) {
 #'   environment directory.
 #' @param cmd Character string with the command name (or path) to resolve.
 #'
-#' @returns An absolute path (character string) if found inside `env_dir`,
-#'   otherwise `NULL`. An absolute `cmd` is returned in the form of
-#'   `native_command_path()`.
+#' @returns An absolute path in the form of `native_command_path()` (with
+#'   `\\` on Windows), for a command found inside `env_dir` and for an
+#'   absolute `cmd` that exists; otherwise `NULL`.
 #'
 #' @keywords internal
 #' @noRd
@@ -65,7 +65,7 @@ resolve_env_bin_path <- function(env_dir, cmd) {
     for (name in candidate_names) {
       candidate <- fs::path(dir, name)
       if (isTRUE(fs::file_exists(candidate))) {
-        return(candidate)
+        return(native_command_path(candidate))
       }
     }
   }

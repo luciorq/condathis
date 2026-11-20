@@ -33,7 +33,7 @@ testthat::test_that("a local channel with white space in its path gets a path wi
     }
     arg <- micromamba_channel_arg(channel)
     testthat::expect_match(arg, "^file://", info = form)
-    testthat::expect_false(grepl("[[:space:]]", arg), info = form)
+    testthat::expect_no_match(arg, "[[:space:]]", info = form)
     new_path <- file_url_path(arg)
     if (isTRUE(is_windows())) {
       testthat::expect_identical(

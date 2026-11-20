@@ -6,6 +6,7 @@ test_that("create nested environment", {
     env_name = "test-nested-env",
     verbose = FALSE
   )
+  testthat::expect_identical(create_res$status, 0L)
   testthat::expect_true(env_exists("test-nested-env"))
 
   pkgs_res <- list_packages(env_name = "test-nested-env", verbose = "silent")
@@ -35,6 +36,7 @@ test_that("create nested environment", {
     env_name = "test-nested-env",
     verbose = FALSE
   )
+  testthat::expect_identical(nested_create_res$status, 0L)
   testthat::expect_true(env_exists("test-inside-env"))
   remove_env("test-nested-env", verbose = FALSE)
   remove_env("test-inside-env", verbose = FALSE)

@@ -243,7 +243,7 @@ activation_cache_rule <- function(
       for (spelling in unique(c(
         one,
         gsub("\\\\", "/", one),
-        gsub("/", "\\\\", one)
+        gsub("/", "\\", one, fixed = TRUE)
       ))) {
         values <- gsub(spelling, "", values, fixed = TRUE)
       }
@@ -287,7 +287,7 @@ values_name_dir <- function(values, dir) {
   spellings <- unique(c(
     dir,
     gsub("\\\\", "/", dir),
-    gsub("/", "\\\\", dir)
+    gsub("/", "\\", dir, fixed = TRUE)
   ))
   return(any(vapply(
     spellings,
@@ -987,7 +987,7 @@ rewrite_capture_dirs <- function(activated_vars, capture_vars) {
     spellings <- unique(c(
       seen,
       gsub("\\\\", "/", seen),
-      gsub("/", "\\\\", seen)
+      gsub("/", "\\", seen, fixed = TRUE)
     ))
     for (nm in setdiff(names(activated_vars), seen_name)) {
       value <- activated_vars[[nm]]
@@ -1053,7 +1053,7 @@ rewrite_micromamba_tmp_dir <- function(
   spellings <- unique(c(
     mamba_tmp_dir,
     gsub("\\\\", "/", mamba_tmp_dir),
-    gsub("/", "\\\\", mamba_tmp_dir)
+    gsub("/", "\\", mamba_tmp_dir, fixed = TRUE)
   ))
   tmp_name <- match_env_name(names(activated_vars), "TMP")
   for (nm in names(activated_vars)) {

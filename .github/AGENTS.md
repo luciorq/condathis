@@ -20,7 +20,7 @@ It achieves this by using `micromamba` to create and manage sandboxed Conda envi
 * **Language:** R (requires R >= 4.3)
 * **Core External Tool:** `micromamba` (which the package already manages internally).
 * **Core R Dependencies:** `processx` and `ps` (processes), `rlang` and `cli` (conditions and messages), `fs` and `filelock` (files and locks), `withr`, `jsonlite`, `stringr`.
-* **Testing:** `testthat` (>= 3.2.1).
+* **Testing:** `testthat` (>= 3.3.2).
 * **Task Runner:** `just` (a `justfile` is present in the repository).
 
 ## Project Structure

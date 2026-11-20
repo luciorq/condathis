@@ -30,10 +30,25 @@
 #'    (`PIXI_HOME`, `PIXI_CACHE_DIR`, ...) stays.
 #' 3. A variable that the `conda-meta/state` file or an
 #'    `etc/conda/env_vars.d` file of a host prefix sets is removed when
-#'    the session has exactly that value.
+#'    the session has exactly that value. So is a variable that a pixi
+#'    global binary of a host prefix sets (see
+#'    `read_trampoline_env_vars()`): R started through such a binary gets
+#'    the whole activation of its environment, the compiler variables
+#'    (`CC`, `CFLAGS`, `CONDA_BUILD_SYSROOT`, ...) included, without the
+#'    backups of step 1.
 #' 4. The binary directories (`env_bin_search_dirs()`) of every host
 #'    prefix are removed from `PATH` (see `host_env_prefixes()`).
-#' 5. What R's own startup changed is undone, and every `R_*` and `_R_*`
+#' 5. An activated Python virtual environment is undone: when
+#'    `<VIRTUAL_ENV>/pyvenv.cfg` exists, `<VIRTUAL_ENV>/bin` (on Windows
+#'    `<VIRTUAL_ENV>/Scripts`) leaves `PATH`, and `VIRTUAL_ENV` and
+#'    `VIRTUAL_ENV_PROMPT` are removed (see `undo_host_venv()`). reticulate
+#'    sets `VIRTUAL_ENV` inside the R session itself.
+#' 6. What reticulate changed when it started Python in the R session is
+#'    undone (see `reticulate_host_state()`): on Linux, the `lib`
+#'    directories it put in front of `LD_LIBRARY_PATH` are removed
+#'    (`undo_reticulate_library_path()`), and the binary directories of
+#'    the Conda prefix of its python leave `PATH` as in step 4.
+#' 7. What R's own startup changed is undone, and every `R_*` and `_R_*`
 #'    variable is removed (see `undo_r_startup_env()`).
 #'
 #' `CONDA_PREFIX`, `CONDA_SHLVL`, `CONDA_DEFAULT_ENV` and the other
@@ -60,6 +75,8 @@
 #'   prefix. For the tests.
 #' @param r_startup Named character vector, the values of R's startup
 #'   (see `r_startup_env_vars()`), or `NULL`.
+#' @param reticulate List from `reticulate_host_state()`, or `NULL` when
+#'   reticulate did not start Python in the session.
 #'
 #' @returns `env` with the activation of the host undone. When nothing
 #'   applies, `env` itself, identical.
@@ -71,7 +88,8 @@ isolate_host_env <- function(
   r_prefix = condathis_r_prefix(),
   on_windows = is_windows(),
   is_prefix = is_conda_prefix,
-  r_startup = r_startup_env_vars()
+  r_startup = r_startup_env_vars(),
+  reticulate = reticulate_host_state(on_windows = on_windows)
 ) {
   prefixes <- host_env_prefixes(
     env,
@@ -79,6 +97,17 @@ isolate_host_env <- function(
     on_windows = on_windows,
     is_prefix = is_prefix
   )
+  # reticulate changed only `PATH` for its python: that prefix, when it is
+  # a Conda prefix, leaves `PATH` and nothing else.
+  path_prefixes <- prefixes
+  if (isFALSE(is.null(reticulate[["prefix"]]))) {
+    path_prefixes <- host_env_prefixes(
+      env,
+      r_prefix = c(r_prefix, reticulate[["prefix"]]),
+      on_windows = on_windows,
+      is_prefix = is_prefix
+    )
+  }
   env <- restore_host_backups(env, on_windows = on_windows)
   env <- drop_host_markers(env, on_windows = on_windows)
   env <- drop_host_env_vars(env, prefixes, on_windows = on_windows)
@@ -86,11 +115,18 @@ isolate_host_env <- function(
   path_name <- match_env_name(names(env), "PATH", on_windows = on_windows)
   if (isFALSE(is.na(path_name))) {
     path <- as.character(env[[path_name]])
-    stripped <- strip_host_path(path, prefixes, on_windows = on_windows)
+    stripped <- strip_host_path(path, path_prefixes, on_windows = on_windows)
     if (isFALSE(identical(stripped, path))) {
       env[[path_name]] <- stripped
     }
   }
+  env <- undo_host_venv(env, on_windows = on_windows)
+  # Before R's startup: reticulate put its entries in front of R's own.
+  env <- undo_reticulate_library_path(
+    env,
+    reticulate[["ld_library_path"]],
+    on_windows = on_windows
+  )
   env <- undo_r_startup_env(
     env,
     r_startup = r_startup,
@@ -365,7 +401,8 @@ isolated_session_path <- function() {
 #' The candidates, in this order: `CONDA_PREFIX`, every
 #' `CONDA_PREFIX_<n>` (the stack of conda and micromamba), every
 #' `CONDA_ENV_SHLVL_<n>_CONDA_PREFIX` (the stack of rattler and pixi), and
-#' R's own prefix. Only a candidate that is a Conda prefix (a directory
+#' `r_prefix`: R's own prefix, and for the `PATH` of `isolate_host_env()`
+#' also the root of the python that reticulate started. Only a candidate that is a Conda prefix (a directory
 #' with `conda-meta`) counts: a `CONDA_PREFIX` such as `/usr` must never
 #' remove `/usr/bin` from `PATH`.
 #'
@@ -449,27 +486,265 @@ strip_host_path <- function(path, prefixes, on_windows = is_windows()) {
   ) {
     return(path)
   }
-  sep <- if (isTRUE(on_windows)) ";" else ":"
-  # The separator added at the end keeps a trailing empty entry, which
-  # `strsplit()` drops.
-  parts <- strsplit(paste0(path, sep), sep, fixed = TRUE)[[1L]]
   bin_dirs <- unlist(lapply(
     prefixes,
     function(prefix) {
       return(as.character(env_bin_search_dirs(prefix, on_windows = on_windows)))
     }
   ))
-  bin_keys <- path_entry_key(bin_dirs, on_windows = on_windows)
+  return(strip_path_dirs(path, bin_dirs, on_windows = on_windows))
+}
+
+#' A `PATH` without some directories
+#'
+#' The entries are split on `;` on Windows and on `:` elsewhere. An entry
+#' is removed when it names one of `dirs`, compared with
+#' `path_entry_key()` (on Windows, also without the quotes around an
+#' entry). The other entries stay as they are, empty ones included.
+#'
+#' @param path Character string, a `PATH` value.
+#' @param dirs Character vector of directories.
+#' @param on_windows Logical. Whether to apply the Windows rules.
+#'
+#' @returns A character string. `path` itself when nothing is removed.
+#'
+#' @keywords internal
+#' @noRd
+strip_path_dirs <- function(path, dirs, on_windows = is_windows()) {
+  if (
+    identical(length(dirs), 0L) ||
+      isFALSE(length(path) == 1L) ||
+      isTRUE(is.na(path)) ||
+      isFALSE(nzchar(path))
+  ) {
+    return(path)
+  }
+  sep <- if (isTRUE(on_windows)) ";" else ":"
+  # The separator added at the end keeps a trailing empty entry, which
+  # `strsplit()` drops.
+  parts <- strsplit(paste0(path, sep), sep, fixed = TRUE)[[1L]]
+  dir_keys <- path_entry_key(as.character(dirs), on_windows = on_windows)
   entries <- parts
   if (isTRUE(on_windows)) {
     entries <- gsub("^\"|\"$", "", entries)
   }
   drop <- nzchar(entries) &
-    path_entry_key(entries, on_windows = on_windows) %in% bin_keys
+    path_entry_key(entries, on_windows = on_windows) %in% dir_keys
   if (isFALSE(any(drop))) {
     return(path)
   }
   return(paste(parts[!drop], collapse = sep))
+}
+
+#' Undo the activation of a Python virtual environment
+#'
+#' See step 5 of `isolate_host_env()`. A venv's `activate` script, and
+#' reticulate when it uses a virtual environment, set `VIRTUAL_ENV`, and the
+#' script puts `<VIRTUAL_ENV>/bin` (on Windows `<VIRTUAL_ENV>/Scripts`) in
+#' front of `PATH`. uv, pip and other tools then install into that
+#' environment, not into the one of the command. Only a directory with a
+#' `pyvenv.cfg` file counts as a virtual environment, as only a directory
+#' with `conda-meta` counts as a Conda prefix: a stray value never removes
+#' a `PATH` entry. Without one, `VIRTUAL_ENV` stays.
+#'
+#' @inheritParams isolate_host_env
+#' @param is_venv Function of one directory, `TRUE` when it is a virtual
+#'   environment. For the tests.
+#'
+#' @returns `env`, without the activation of the virtual environment.
+#'
+#' @keywords internal
+#' @noRd
+undo_host_venv <- function(
+  env,
+  on_windows = is_windows(),
+  is_venv = is_python_venv
+) {
+  venv_name <- match_env_name(
+    names(env),
+    "VIRTUAL_ENV",
+    on_windows = on_windows
+  )
+  if (isTRUE(is.na(venv_name))) {
+    return(env)
+  }
+  venv <- as.character(env[[venv_name]])
+  if (isFALSE(rlang::is_string(venv)) || isFALSE(isTRUE(is_venv(venv)))) {
+    return(env)
+  }
+  env <- unset_env_value(env, "VIRTUAL_ENV", on_windows = on_windows)
+  env <- unset_env_value(env, "VIRTUAL_ENV_PROMPT", on_windows = on_windows)
+  path_name <- match_env_name(names(env), "PATH", on_windows = on_windows)
+  if (isFALSE(is.na(path_name))) {
+    # The directory as the activate script writes it: `$VIRTUAL_ENV/bin`,
+    # or `%VIRTUAL_ENV%\\Scripts`, without a trailing separator of the
+    # value itself.
+    bin_dir <- if (isTRUE(on_windows)) {
+      paste0(sub("(.)[\\\\/]+$", "\\1", venv), "\\Scripts")
+    } else {
+      paste0(sub("(.)/+$", "\\1", venv), "/bin")
+    }
+    path <- as.character(env[[path_name]])
+    stripped <- strip_path_dirs(path, bin_dir, on_windows = on_windows)
+    if (isFALSE(identical(stripped, path))) {
+      env[[path_name]] <- stripped
+    }
+  }
+  return(env)
+}
+
+#' What reticulate changed in the R session when it started Python
+#'
+#' When reticulate (1.47.0, `initialize_python()`) starts Python in the R
+#' session, it changes the session's environment with `Sys.setenv()`, and
+#' every child inherited the changes. `VIRTUAL_ENV` and the `bin`
+#' directory of a virtual environment are undone by `undo_host_venv()`.
+#' This function describes the other two changes, for the python that
+#' reticulate started:
+#'
+#' 1. On Linux, `prefix_python_lib_to_ld_library_path()` puts
+#'    `file.path(dirname(dirname(p)), "lib")` in front of
+#'    `LD_LIBRARY_PATH`, for `p` the python and its real path
+#'    (`normalizePath()`), each when the directory exists, in this order
+#'    and without removing duplicates. For a virtual environment that is
+#'    `<venv>/lib` and the `lib` directory of the python it was made from.
+#'    A command then loaded the libraries of that python in place of those
+#'    of its environment.
+#' 2. For a python of a Conda prefix (its root has `conda-meta`: on Windows
+#'    the directory of `python.exe`, elsewhere the parent of `bin`),
+#'    `python_munge_path()` replaces `PATH` with the `PATH` of that prefix
+#'    activated. Its binary directories are then in front of `PATH`, and no
+#'    variable names the prefix. The root is returned as a host prefix
+#'    candidate (see `host_env_prefixes()`), so `strip_host_path()` removes
+#'    those directories.
+#'
+#' The `PATH` change for any other python (its directory moved to the front
+#' of `PATH`, without its other copies) cannot be undone: the old position
+#' is lost, and the directory, such as `/usr/bin`, is the user's.
+#'
+#' @param python Character string, the python that reticulate started, or
+#'   `NULL` (see `reticulate_session_python()`).
+#' @param on_windows Logical. Whether to apply the Windows rules.
+#' @param on_linux Logical. Whether reticulate changed `LD_LIBRARY_PATH`.
+#'
+#' @returns `NULL` when `python` is `NULL`. Otherwise a list:
+#'   `prefix`, a character string, the root of the python (a host prefix
+#'   only when it is a Conda prefix), and `ld_library_path`, a character
+#'   vector, the entries that reticulate put in front of `LD_LIBRARY_PATH`
+#'   (empty off Linux).
+#'
+#' @keywords internal
+#' @noRd
+reticulate_host_state <- function(
+  python = reticulate_session_python(),
+  on_windows = is_windows(),
+  on_linux = is_linux()
+) {
+  if (isFALSE(rlang::is_string(python)) || isFALSE(nzchar(python))) {
+    return(NULL)
+  }
+  prefix <- if (isTRUE(on_windows)) {
+    dirname(python)
+  } else {
+    dirname(dirname(python))
+  }
+  lib_dirs <- character(0L)
+  if (isTRUE(on_linux)) {
+    pythons <- c(python, normalizePath(python, mustWork = FALSE))
+    lib_dirs <- file.path(dirname(dirname(pythons)), "lib")
+    lib_dirs <- lib_dirs[file.exists(lib_dirs)]
+  }
+  return(list(prefix = prefix, ld_library_path = lib_dirs))
+}
+
+#' The python that reticulate started in the R session
+#'
+#' reticulate is not a dependency: it is asked only when its namespace is
+#' already loaded, and only through exported functions that never start
+#' Python (`py_available(initialize = FALSE)`, then `py_config()`, which
+#' returns the configuration of the started python).
+#'
+#' @returns A character string, or `NULL` when reticulate is not loaded or
+#'   started no python.
+#'
+#' @keywords internal
+#' @noRd
+reticulate_session_python <- function() {
+  if (isFALSE(isNamespaceLoaded("reticulate"))) {
+    return(NULL)
+  }
+  python <- tryCatch(
+    {
+      started <- getExportedValue("reticulate", "py_available")(
+        initialize = FALSE
+      )
+      if (isTRUE(started)) {
+        getExportedValue("reticulate", "py_config")()[["python"]]
+      }
+    },
+    error = function(cnd) NULL
+  )
+  if (isFALSE(rlang::is_string(python)) || isFALSE(nzchar(python))) {
+    return(NULL)
+  }
+  return(python)
+}
+
+#' Remove the entries that reticulate put in front of `LD_LIBRARY_PATH`
+#'
+#' See `reticulate_host_state()`. The entries are removed only when the
+#' value starts with all of them, in their order
+#' (`strip_leading_path_entries()`); what follows them stays, so R's own
+#' part is in front again for `undo_r_startup_env()`. When
+#' `LD_LIBRARY_PATH` was unset, reticulate wrote `NA` after its entries;
+#' that value is removed.
+#'
+#' @param env Named list, an environment snapshot.
+#' @param entries Character vector, the entries of reticulate.
+#' @param on_windows Logical. Nothing changes on Windows.
+#'
+#' @returns `env`.
+#'
+#' @keywords internal
+#' @noRd
+undo_reticulate_library_path <- function(
+  env,
+  entries,
+  on_windows = is_windows()
+) {
+  if (isTRUE(on_windows) || identical(length(entries), 0L)) {
+    return(env)
+  }
+  hit <- match_env_name(names(env), "LD_LIBRARY_PATH", on_windows = FALSE)
+  if (isTRUE(is.na(hit))) {
+    return(env)
+  }
+  value <- as.character(env[[hit]])
+  stripped <- strip_leading_path_entries(value, entries, on_windows = FALSE)
+  if (identical(stripped, value)) {
+    return(env)
+  }
+  if (identical(stripped, "NA")) {
+    env[[hit]] <- NULL
+  } else {
+    env[[hit]] <- stripped
+  }
+  return(env)
+}
+
+#' Whether a directory is a Python virtual environment
+#'
+#' @param dir Character string.
+#'
+#' @returns `TRUE` when `dir` has a `pyvenv.cfg` file.
+#'
+#' @keywords internal
+#' @noRd
+is_python_venv <- function(dir) {
+  if (isFALSE(rlang::is_string(dir)) || isFALSE(nzchar(dir))) {
+    return(FALSE)
+  }
+  return(isTRUE(file.exists(file.path(dir, "pyvenv.cfg"))))
 }
 
 #' Restore the variables that a host activation saved
@@ -585,18 +860,31 @@ drop_host_markers <- function(env, on_windows = is_windows()) {
 #' writes) and each `etc/conda/env_vars.d/*.json` file (a flat JSON
 #' object). A file that cannot be read or parsed is skipped. Only a
 #' variable with exactly the value of the file is removed: the user may
-#' have set another value since.
+#' have set another value since. The same rule applies to the variables
+#' that a pixi global binary of the prefix sets (see
+#' `read_trampoline_env_vars()`).
 #'
 #' @inheritParams isolate_host_env
 #' @param prefixes Character vector of host prefixes.
+#' @param read_trampoline Function of a prefix (and `on_windows`), the
+#'   variables of its pixi global binaries. For the tests.
 #'
 #' @returns `env` without those variables.
 #'
 #' @keywords internal
 #' @noRd
-drop_host_env_vars <- function(env, prefixes, on_windows = is_windows()) {
+drop_host_env_vars <- function(
+  env,
+  prefixes,
+  on_windows = is_windows(),
+  read_trampoline = read_trampoline_env_vars
+) {
   for (prefix in prefixes) {
-    for (vars in read_prefix_env_vars(prefix)) {
+    sources <- c(
+      read_prefix_env_vars(prefix),
+      list(read_trampoline(prefix, on_windows = on_windows))
+    )
+    for (vars in sources) {
       for (name in names(vars)) {
         value <- vars[[name]]
         if (isFALSE(rlang::is_string(value)) || isFALSE(nzchar(name))) {
@@ -657,6 +945,235 @@ read_prefix_env_vars <- function(prefix) {
     }
   }
   return(result)
+}
+
+#' The variables that the pixi global binaries of a prefix set
+#'
+#' `pixi global install` puts a small program (a trampoline) in
+#' `<pixi home>/bin` for each exposed binary of an environment
+#' `<pixi home>/envs/<name>`. It starts the binary with the activation of
+#' that environment, which pixi recorded once in
+#' `<pixi home>/bin/trampoline_configuration/<binary>.json`: `exe`, the
+#' path of the binary, and `env`, every variable and its value. The
+#' activation scripts of conda-forge compiler packages run without the
+#' backups that `restore_host_backups()` reads there, so R started through
+#' such a binary had `CC`, `CFLAGS`, `CONDA_BUILD_SYSROOT` and the other
+#' variables of R's environment, and so did every child. The first
+#' configuration whose `exe` is in `prefix` gives the variables. `PATH` is
+#' left to `strip_host_path()`.
+#'
+#' The answer is kept for the R session in `condathis_rscript_path_cache`,
+#' as `trampoline_env`, one entry per prefix.
+#'
+#' @param prefix Character string, a host prefix.
+#' @param on_windows Logical. Whether to apply the Windows rules (see
+#'   `path_entry_key()`).
+#' @param use_cache Logical. Whether to use and fill the session cache.
+#'
+#' @returns A named list of character strings, empty when the prefix is not
+#'   an environment of pixi global or no configuration names it.
+#'
+#' @keywords internal
+#' @noRd
+read_trampoline_env_vars <- function(
+  prefix,
+  on_windows = is_windows(),
+  use_cache = TRUE
+) {
+  if (isFALSE(rlang::is_string(prefix)) || isFALSE(nzchar(prefix))) {
+    return(list())
+  }
+  prefix_key <- path_entry_key(
+    sub("(.)[\\\\/]+$", "\\1", prefix),
+    on_windows = on_windows
+  )
+  if (isTRUE(use_cache)) {
+    cached <- condathis_rscript_path_cache$trampoline_env[[prefix_key]]
+    if (isFALSE(is.null(cached))) {
+      return(cached)
+    }
+  }
+  vars <- list()
+  envs_dir <- dirname(prefix)
+  if (
+    identical(
+      path_entry_key(basename(envs_dir), on_windows = on_windows),
+      "envs"
+    )
+  ) {
+    config_dir <- file.path(
+      dirname(envs_dir),
+      "bin",
+      "trampoline_configuration"
+    )
+    files <- if (isTRUE(dir.exists(config_dir))) {
+      sort(list.files(config_dir, pattern = "\\.json$", full.names = TRUE))
+    }
+    sep <- if (isTRUE(on_windows)) "\\" else "/"
+    for (file in files) {
+      config <- read_trampoline_config(file)
+      exe <- config[["exe"]]
+      if (isFALSE(rlang::is_string(exe))) {
+        next
+      }
+      exe_key <- path_entry_key(exe, on_windows = on_windows)
+      if (isFALSE(startsWith(exe_key, paste0(prefix_key, sep)))) {
+        next
+      }
+      env <- config[["env"]]
+      if (isTRUE(is.list(env)) && isTRUE(rlang::is_named(env))) {
+        is_text <- vapply(env, rlang::is_string, logical(1L))
+        vars <- env[is_text]
+        vars <- vars[
+          env_name_key(names(vars), on_windows = on_windows) != "PATH"
+        ]
+      }
+      break
+    }
+  }
+  if (isTRUE(use_cache)) {
+    cache <- condathis_rscript_path_cache$trampoline_env %||% list()
+    cache[[prefix_key]] <- vars
+    condathis_rscript_path_cache$trampoline_env <- cache
+  }
+  return(vars)
+}
+
+#' One trampoline configuration of pixi global, parsed
+#'
+#' `<pixi home>/bin/trampoline_configuration/<binary>.json` (see
+#' `read_trampoline_env_vars()` and `resolve_pixi_trampoline()`): `exe`,
+#' the path of the binary that the trampoline starts, `path_diff`, and
+#' `env`, the variables that it sets.
+#'
+#' @param file Character string, the path of the configuration file.
+#'
+#' @returns A named list, or `NULL` when the file cannot be read or holds
+#'   no JSON object. Its `exe` element is a string or `NULL`.
+#'
+#' @keywords internal
+#' @noRd
+read_trampoline_config <- function(file) {
+  config <- tryCatch(
+    jsonlite::read_json(file, simplifyVector = FALSE),
+    error = function(e) NULL
+  )
+  if (isFALSE(is.list(config)) || isFALSE(rlang::is_named(config))) {
+    return(NULL)
+  }
+  if (isFALSE(rlang::is_string(config[["exe"]]))) {
+    config[["exe"]] <- NULL
+  }
+  return(config)
+}
+
+#' The binary that a pixi global trampoline starts
+#'
+#' `pixi global install` exposes each binary of an environment as a
+#' trampoline in `<pixi home>/bin`: one small program (a hard link of
+#' `trampoline_bin` on Linux and macOS, a copy named `<name>.exe` on
+#' Windows), which reads
+#' `<its directory>/trampoline_configuration/<name>.json` and starts the
+#' `exe` of that file with the variables of `env` (the activation of the
+#' environment, `CONDA_SHLVL` and `CONDA_PREFIX` included). The name is
+#' the file name of the trampoline after its symbolic links are resolved
+#' (Linux and macOS), without a known executable extension (on Windows
+#' the extensions of `PATHEXT`, such as `.exe`).
+#'
+#' A micromamba started through its trampoline ran in that activation:
+#' with `CONDA_SHLVL=1` it left `<root>/condabin` out of every activation
+#' it computed, and it recorded `CONDA_PREFIX_1` and a `MAMBA_EXE` of the
+#' pixi environment. `get_best_micromamba_path()` resolves every
+#' candidate with this function, so `condathis` runs the binary itself.
+#' A path that is no trampoline is returned as it is. pixi writes an
+#' absolute `exe`; a relative one (a configuration edited by hand) is not
+#' followed, since its meaning would depend on the working directory.
+#'
+#' @param path Character string, a candidate path of a binary.
+#' @param on_windows Logical. Whether to apply the Windows rules.
+#'
+#' @returns The `exe` of the configuration when `path` is a trampoline whose
+#'   `exe` is an absolute path of an existing file other than `path`
+#'   itself, else `path`.
+#'
+#' @keywords internal
+#' @noRd
+resolve_pixi_trampoline <- function(path, on_windows = is_windows()) {
+  if (
+    isFALSE(rlang::is_string(path)) ||
+      isFALSE(nzchar(path)) ||
+      isFALSE(file.exists(path)) ||
+      isTRUE(dir.exists(path))
+  ) {
+    return(path)
+  }
+  real <- tryCatch(as.character(fs::path_real(path)), error = function(e) {
+    as.character(path)
+  })
+  config_dir <- file.path(dirname(real), "trampoline_configuration")
+  if (isFALSE(dir.exists(config_dir))) {
+    return(path)
+  }
+  name <- basename(real)
+  names <- name
+  if (isTRUE(on_windows)) {
+    names <- c(
+      names,
+      sub("\\.(exe|com|bat|cmd)$", "", name, ignore.case = TRUE)
+    )
+  } else {
+    names <- c(names, tools::file_path_sans_ext(name))
+  }
+  for (candidate in unique(names[nzchar(names)])) {
+    file <- file.path(config_dir, paste0(candidate, ".json"))
+    if (isFALSE(file.exists(file))) {
+      next
+    }
+    exe <- trampoline_config_exe(file, real = real, on_windows = on_windows)
+    if (is.null(exe)) {
+      return(path)
+    }
+    return(exe)
+  }
+  return(path)
+}
+
+#' The `exe` of a trampoline configuration that may be followed
+#'
+#' Used by `resolve_pixi_trampoline()`.
+#'
+#' @param file Character string, the path of the configuration file.
+#' @param real Character string, the real path of the trampoline.
+#' @param on_windows Logical. Whether to apply the Windows rules.
+#'
+#' @returns The `exe` of `file` when it is an absolute path of an existing
+#'   file other than `real`, else `NULL`. A relative `exe` is not followed:
+#'   its meaning would depend on the working directory.
+#'
+#' @keywords internal
+#' @noRd
+trampoline_config_exe <- function(file, real, on_windows = is_windows()) {
+  exe <- read_trampoline_config(file)[["exe"]]
+  if (
+    isFALSE(rlang::is_string(exe)) ||
+      isFALSE(fs::is_absolute_path(exe)) ||
+      isFALSE(file.exists(exe)) ||
+      isTRUE(dir.exists(exe))
+  ) {
+    return(NULL)
+  }
+  real_exe <- tryCatch(as.character(fs::path_real(exe)), error = function(e) {
+    as.character(exe)
+  })
+  if (
+    identical(
+      path_entry_key(real_exe, on_windows = on_windows),
+      path_entry_key(real, on_windows = on_windows)
+    )
+  ) {
+    return(NULL)
+  }
+  return(exe)
 }
 
 #' Whether a directory is a Conda prefix

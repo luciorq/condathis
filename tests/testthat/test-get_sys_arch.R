@@ -62,7 +62,7 @@ testthat::test_that("sys_arch_is_windows()/is_macos()/is_linux() agree with get_
 
 testthat::test_that("is_windows() never calls Sys.info()", {
   testthat::local_mocked_bindings(
-    Sys.info = function() stop("Sys.info() must not be called."),
+    Sys.info = function() stop("Sys.info() must not be called.", call. = FALSE),
     .package = "base"
   )
   testthat::expect_identical(

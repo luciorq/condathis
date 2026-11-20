@@ -180,7 +180,7 @@ testthat::test_that("activation_cache_stamp() changes when the activation's own 
   writeLines("{}", fs::path(env_dir, "conda-meta", "pkg-1.0-0.json"))
   stamps <- list(activation_cache_stamp(env_dir))
   # The time is a number: formatting it would set TZDIR on macOS.
-  testthat::expect_false(grepl(":", stamps[[1L]][[1L]], fixed = TRUE))
+  testthat::expect_no_match(stamps[[1L]][[1L]], ":", fixed = TRUE)
 
   activate_dir <- fs::path(env_dir, "etc", "conda", "activate.d")
   fs::dir_create(activate_dir)
@@ -206,10 +206,11 @@ testthat::test_that("the cached activation is resolved again when its files or t
   # its activation also notices.
   env_dir <- fs::path(withr::local_tempdir(), "cache-env")
   fs::dir_create(fs::path(env_dir, "conda-meta"))
-  resolutions <- 0L
+  tracked <- new.env(parent = emptyenv())
+  tracked$resolutions <- 0L
   testthat::local_mocked_bindings(
     resolve_micromamba_activation_envvars = function(...) {
-      resolutions <<- resolutions + 1L
+      tracked$resolutions <- tracked$resolutions + 1L
       return(list(envvars = c(CACHE_TEST = "1"), path_prepend = character(0L)))
     }
   )
@@ -222,32 +223,33 @@ testthat::test_that("the cached activation is resolved again when its files or t
   }
   testthat::expect_identical(get_env()[["CACHE_TEST"]], "1")
   get_env()
-  testthat::expect_identical(resolutions, 1L)
+  testthat::expect_identical(tracked$resolutions, 1L)
   withr::with_envvar(c(CONDATHIS_CACHE_TEST_VAR = "x"), get_env())
-  testthat::expect_identical(resolutions, 2L)
+  testthat::expect_identical(tracked$resolutions, 2L)
   get_env()
-  testthat::expect_identical(resolutions, 3L)
+  testthat::expect_identical(tracked$resolutions, 3L)
   get_env()
-  testthat::expect_identical(resolutions, 3L)
+  testthat::expect_identical(tracked$resolutions, 3L)
   activate_dir <- fs::path(env_dir, "etc", "conda", "activate.d")
   fs::dir_create(activate_dir)
   writeLines("export CACHE_TEST=2", fs::path(activate_dir, "cache.sh"))
   get_env()
-  testthat::expect_identical(resolutions, 4L)
+  testthat::expect_identical(tracked$resolutions, 4L)
   get_env()
-  testthat::expect_identical(resolutions, 4L)
+  testthat::expect_identical(tracked$resolutions, 4L)
 })
 
 testthat::test_that("the priming micromamba run on Windows uses an empty throwaway environment", {
   # Priming `condabin/` in the environment being activated ran its
   # activate.d scripts once more on the first activation on Windows.
   with_sandbox_dir({
-    calls <- list()
+    tracked <- new.env(parent = emptyenv())
+    tracked$calls <- list()
     testthat::local_mocked_bindings(
       is_windows = function() TRUE,
       native_cmd = function(conda_cmd, conda_args, ...) {
         prefix <- conda_args[[match("-p", conda_args) + 1L]]
-        calls[[length(calls) + 1L]] <<- list(
+        tracked$calls[[length(tracked$calls) + 1L]] <- list(
           conda_cmd = conda_cmd,
           conda_args = conda_args,
           cmd = c(...)[[1L]],
@@ -257,8 +259,8 @@ testthat::test_that("the priming micromamba run on Windows uses an empty throwaw
       }
     )
     ensure_windows_micromamba_bat()
-    testthat::expect_length(calls, 1L)
-    call <- calls[[1L]]
+    testthat::expect_length(tracked$calls, 1L)
+    call <- tracked$calls[[1L]]
     testthat::expect_identical(call$conda_cmd, "run")
     testthat::expect_identical(call$conda_args[[1L]], "-p")
     testthat::expect_false("-n" %in% call$conda_args)
@@ -318,13 +320,14 @@ testthat::test_that("the activation dump script loads no package", {
     env_name = "run-bin-cli-tools-env",
     verbose = "silent"
   )
-  scripts <- character(0L)
+  tracked <- new.env(parent = emptyenv())
+  tracked$scripts <- character(0L)
   testthat::local_mocked_bindings(
     native_cmd = function(conda_cmd, conda_args = NULL, ...) {
       dots <- Filter(rlang::is_string, list(...))
       script <- Filter(function(x) grepl("dump_env\\.R$", x), dots)
       if (isTRUE(length(script) == 1L)) {
-        scripts <<- c(scripts, readLines(script[[1L]]))
+        tracked$scripts <- c(tracked$scripts, readLines(script[[1L]]))
         saveRDS(
           as.list(Sys.getenv()),
           sub("dump_env\\.R$", "activated_env.rds", script[[1L]])
@@ -337,9 +340,9 @@ testthat::test_that("the activation dump script loads no package", {
     env_name = "run-bin-cli-tools-env",
     env_dir = get_env_dir("run-bin-cli-tools-env")
   )
-  testthat::expect_length(scripts, 1L)
-  testthat::expect_false(grepl("::", scripts, fixed = TRUE))
-  testthat::expect_false(grepl("library\\(|require\\(", scripts))
+  testthat::expect_length(tracked$scripts, 1L)
+  testthat::expect_no_match(tracked$scripts, "::", fixed = TRUE)
+  testthat::expect_no_match(tracked$scripts, "library\\(|require\\(")
 })
 
 testthat::test_that("activation resolution never routes through the public get_env_dir()", {
@@ -401,10 +404,11 @@ testthat::test_that("the activation baseline starts once for two environments", 
   withr::defer(reset_micromamba_activation_cache())
 
   real_dump_activation_baseline <- dump_activation_baseline
-  n_baseline <- 0L
+  tracked <- new.env(parent = emptyenv())
+  tracked$n_baseline <- 0L
   testthat::local_mocked_bindings(
     dump_activation_baseline = function(...) {
-      n_baseline <<- n_baseline + 1L
+      tracked$n_baseline <- tracked$n_baseline + 1L
       return(real_dump_activation_baseline(...))
     },
     # Writes the activated dump in this process, so no micromamba is
@@ -430,14 +434,14 @@ testthat::test_that("the activation baseline starts once for two environments", 
     env_name = NULL,
     env_dir = env_dirs[[2L]]
   )
-  testthat::expect_identical(n_baseline, 1L)
+  testthat::expect_identical(tracked$n_baseline, 1L)
   testthat::expect_identical(overlay_a[["CONDA_PREFIX"]], env_dirs[[1L]])
   testthat::expect_identical(overlay_b[["CONDA_PREFIX"]], env_dirs[[2L]])
 
   # A change to the session's environment invalidates the baseline.
   withr::local_envvar(CONDATHIS_TEST_BASELINE_KEY = "changed")
   get_micromamba_activation_envvars(env_name = NULL, env_dir = env_dirs[[3L]])
-  testthat::expect_identical(n_baseline, 2L)
+  testthat::expect_identical(tracked$n_baseline, 2L)
 
   # `use_cache = FALSE` dumps the baseline again.
   get_micromamba_activation_envvars(
@@ -445,7 +449,7 @@ testthat::test_that("the activation baseline starts once for two environments", 
     env_dir = env_dirs[[1L]],
     use_cache = FALSE
   )
-  testthat::expect_identical(n_baseline, 3L)
+  testthat::expect_identical(tracked$n_baseline, 3L)
 
   # Clearing the whole cache clears the baseline too.
   reset_micromamba_activation_cache()

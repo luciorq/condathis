@@ -47,9 +47,12 @@
 #'   `packages = <specs>` still works. It is deprecated. It warns once per
 #'   session (class `condathis_deprecated_packages_arg`) when the call comes
 #'   from the console, a script or the tests of the package that makes it.
-#'   Calls made inside other packages do not warn. `packages = NULL` and
-#'   `packages = character(0)` install nothing and return status 0, as in
-#'   0.1.4.
+#'   Calls made inside other packages do not warn, except in tests that use
+#'   testthat's third edition (see [condathis-conditions]).
+#'   `packages = NULL` and `packages = character(0)` install nothing and
+#'   return status 0, as in 0.1.4. When the backend cannot tell whether the
+#'   environment exists, they abort with class
+#'   `condathis_backend_probe_failed`.
 #'
 #'   Invalid specs abort with these classes:
 #'   * `condathis_install_packages_missing_packages`: no specs and no
@@ -179,7 +182,8 @@ install_packages <- function(
     dots,
     fn = "install_packages",
     allow_empty = isTRUE(length(split_dots$definitions) > 0L),
-    user_env = user_env
+    user_env = user_env,
+    given_args = if (missing(env_name)) character(0L) else "env_name"
   )
   validate_env_name(
     env_name,
@@ -250,12 +254,9 @@ install_packages <- function(
 
   # Decision D3: only the default environment is created. A failed probe
   # (`NA`, rule R5) is not read as "absent": the backend gets the call and
-  # reports its own error.
-  env_probe <- backend_probe_env(
-    resolved$backend,
-    env_name = env_name,
-    verbose = "silent"
-  )
+  # reports its own error. The probe is the one `resolve_backend()` already
+  # ran (one probe per call, decision D16 of feat-run-unify).
+  env_probe <- resolved_env_exists(resolved, env_name)
   if (isFALSE(env_probe)) {
     if (isFALSE(identical(env_name, "condathis-env"))) {
       abort_env_not_found(
@@ -272,6 +273,15 @@ install_packages <- function(
   }
 
   if (identical(length(packages), 0L) && is.null(definition)) {
+    # No backend call follows, so nothing would report a failed probe:
+    # never return success on an unknown state (rule R5).
+    if (isTRUE(is.na(env_probe))) {
+      abort_env_probe_failed(
+        attr(env_probe, "condition"),
+        backend_name = resolved$name,
+        env_name = env_name
+      )
+    }
     # `packages = NULL` or `character(0)` (the deprecated alias): 0.1.4 ran
     # an empty install with status 0. Nothing to install, so nothing runs.
     if (isTRUE(verbose_list$strategy %in% c("full", "output"))) {
@@ -501,6 +511,7 @@ check_install_definition <- function(
     )
   }
   if (identical(description$kind, "lock")) {
+    # jarl-ignore unused_object: interpolated by cli in the message below
     path <- definition$path
     condathis_abort(
       message = c(

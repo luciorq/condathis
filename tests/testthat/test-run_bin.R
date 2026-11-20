@@ -381,7 +381,7 @@ test_that("run_bin(activate = FALSE) sets the fixed activation", {
 })
 
 test_that("run_bin() reports a missing environment for both activate values", {
-  stub <- local_run_family_stub()
+  local_run_family_stub()
   for (activate in c(TRUE, FALSE)) {
     res <- run_bin(
       "Rfakeexec",
@@ -639,7 +639,7 @@ test_that("run_bin(activate = FALSE) calls no backend function to resolve the co
   # through backend_resolve_run(), so a broken activation made it fail.
   stub <- local_run_family_stub(
     backend_resolve_run = function(...) {
-      stop("backend_resolve_run() must not be called.")
+      stop("backend_resolve_run() must not be called.", call. = FALSE)
     }
   )
   res <- run_bin(
@@ -674,7 +674,7 @@ test_that("run_bin() reports the user's command line, not the backend's wrapper"
   # Regression test: the reported cmd mixed the user's command with the
   # arguments of the backend's wrapper.
   rscript <- run_family_rscript()
-  stub <- local_run_family_stub(
+  local_run_family_stub(
     backend_resolve_run = function(backend, cmd, args = character(0L), ...) {
       return(list(
         command = rscript,
@@ -698,7 +698,7 @@ test_that("run_bin() runs in the dir that backend_resolve_run() returns, and che
   # Regression test: only run() applied `dir`, and its type was not
   # checked.
   work_dir <- withr::local_tempdir()
-  stub <- local_run_family_stub(
+  local_run_family_stub(
     backend_resolve_run = function(backend, cmd, args = character(0L), ...) {
       return(list(command = cmd, args = args, env = NULL, dir = work_dir))
     }
@@ -717,7 +717,7 @@ test_that("run_bin() runs in the dir that backend_resolve_run() returns, and che
   )
 
   bad_dir <- NULL
-  stub <- local_run_family_stub(
+  local_run_family_stub(
     "stub-run-bad-dir",
     backend_resolve_run = function(backend, cmd, args = character(0L), ...) {
       return(list(command = cmd, args = args, env = NULL, dir = bad_dir))
@@ -750,7 +750,7 @@ test_that("run_bin() gives one text for a failed resolution under error = contin
   # Regression test: run_bin() kept the ANSI codes of the message and ended
   # without a newline, unlike run() and run_pipeline().
   withr::local_options(cli.num_colors = 256L)
-  stub <- local_run_family_stub(
+  local_run_family_stub(
     backend_resolve_run = function(...) {
       cli::cli_abort(
         "Hook {.val broken} failed.",
@@ -779,17 +779,17 @@ test_that("run_bin() wraps a backend's resolution error with its own class", {
   # Regression test: under error = "cancel", run_bin() re-raised the
   # backend's error unchanged, with an internal call, and a backend that
   # calls stop() gave a bare simpleError without condathis_error.
-  stub <- local_run_family_stub(
+  local_run_family_stub(
     backend_resolve_run = function(...) {
-      stop("plain resolution failure")
+      stop("plain resolution failure", call. = FALSE)
     }
   )
   cnd <- rlang::catch_cnd(
     run_bin("echo", env_name = "stub-env", verbose = "silent"),
     classes = "error"
   )
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_run_bin_resolve_failed",
       "condathis_backend_error",
@@ -797,7 +797,8 @@ test_that("run_bin() wraps a backend's resolution error with its own class", {
       "rlang_error",
       "error",
       "condition"
-    )
+    ),
+    exact = TRUE
   )
   testthat::expect_s3_class(cnd$parent, "simpleError")
   testthat::expect_identical(rlang::call_name(conditionCall(cnd)), "run_bin")
@@ -809,7 +810,7 @@ test_that("run_bin() wraps a backend's resolution error with its own class", {
 
   # A value that breaks the contract is not wrapped: its own error already
   # names the backend and the call.
-  stub <- local_run_family_stub(
+  local_run_family_stub(
     "stub-run-bad-value",
     backend_resolve_run = function(...) list(command = 1)
   )
@@ -837,7 +838,7 @@ test_that("run_bin() wraps a backend's resolution error with its own class", {
 
 test_that("run_bin() status and timeout errors have its own and the shared classes", {
   testthat::skip_on_cran()
-  stub <- local_run_family_stub()
+  local_run_family_stub()
   rscript <- run_family_rscript()
   cnd <- testthat::expect_error(
     run_bin(
@@ -923,7 +924,7 @@ test_that("run_bin() finds a command that only the activation PATH provides", {
   # start failed with status 127.
   tool_dir <- withr::local_tempdir()
   run_family_write_tool(tool_dir, "condathis-activation-tool", "activated")
-  stub <- local_run_family_stub(
+  local_run_family_stub(
     backend_resolve_run = function(backend, cmd, args = character(0L), ...) {
       activation_path <- paste(
         tool_dir,

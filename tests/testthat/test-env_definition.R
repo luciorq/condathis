@@ -146,7 +146,9 @@ testthat::test_that("env_definition() has format() and print() methods", {
     paste0("<env_definition> ", definition$path)
   )
   testthat::expect_output(
-    out <- withVisible(print(definition)),
+    {
+      out <- withVisible(print(definition))
+    },
     "<env_definition> ",
     fixed = TRUE
   )
@@ -175,7 +177,11 @@ testthat::test_that("env_definition() rejects invalid arguments", {
     "condathis_error",
     rlang_tail
   )
-  testthat::expect_identical(class(catch_error(env_definition())), path_class)
+  testthat::expect_s3_class(
+    catch_error(env_definition()),
+    path_class,
+    exact = TRUE
+  )
   for (bad in list(NA_character_, "", c("a", "b"), 1L, NULL, list("a"))) {
     testthat::expect_identical(
       class(catch_error(env_definition(bad))),
@@ -220,13 +226,16 @@ testthat::test_that("env_definition() rejects invalid arguments", {
     "condathis_error",
     rlang_tail
   )
-  testthat::expect_identical(
-    class(catch_error(env_definition("a.yml", NULL, "main"))),
-    options_class
+  testthat::expect_s3_class(
+    catch_error(env_definition("a.yml", NULL, "main")),
+    options_class,
+    exact = TRUE
   )
-  testthat::expect_identical(
-    class(catch_error(env_definition("a.yml", a = 1, a = 2))),
-    options_class
+  testthat::expect_s3_class(
+    # jarl-ignore duplicated_arguments: the option given twice is the input under test
+    catch_error(env_definition("a.yml", a = 1, a = 2)),
+    options_class,
+    exact = TRUE
   )
 })
 
@@ -247,21 +256,25 @@ testthat::test_that("a malformed env_definition object aborts where it is used",
     structure("a.yml", class = "condathis_env_definition")
   )
   for (x in malformed) {
-    testthat::expect_identical(
-      class(catch_error(validate_env_definition_object(x))),
-      invalid_class
+    testthat::expect_s3_class(
+      catch_error(validate_env_definition_object(x)),
+      invalid_class,
+      exact = TRUE
     )
   }
   # create_env() checks it before any backend call.
   testthat::local_mocked_bindings(
-    resolve_backend = function(...) stop("resolve_backend() must not be called")
+    resolve_backend = function(...) {
+      stop("resolve_backend() must not be called", call. = FALSE)
+    }
   )
-  testthat::expect_identical(
-    class(catch_error(create_env(new_env_definition("relative.yml")))),
-    invalid_class
+  testthat::expect_s3_class(
+    catch_error(create_env(new_env_definition("relative.yml"))),
+    invalid_class,
+    exact = TRUE
   )
-  testthat::expect_identical(
-    class(validate_env_definition_object(good)),
+  testthat::expect_s3_class(
+    validate_env_definition_object(good),
     "condathis_env_definition"
   )
 })
@@ -294,15 +307,18 @@ testthat::test_that("create_env() takes at most one env_definition() and no spec
     rlang_tail
   )
   testthat::local_mocked_bindings(
-    resolve_backend = function(...) stop("resolve_backend() must not be called")
+    resolve_backend = function(...) {
+      stop("resolve_backend() must not be called", call. = FALSE)
+    }
   )
   path_a <- local_definition_file("a.yml")
   path_b <- local_definition_file("b.yml")
+  # bquote() puts the paths in the calls.
   for (call in list(
-    quote(create_env(env_definition(path_a), env_definition(path_b))),
-    quote(create_env(env_definition(path_a), "zlib")),
-    quote(create_env("zlib", env_definition(path_a))),
-    quote(create_env(env_definition(path_a), env_file = path_b))
+    bquote(create_env(env_definition(.(path_a)), env_definition(.(path_b)))),
+    bquote(create_env(env_definition(.(path_a)), "zlib")),
+    bquote(create_env("zlib", env_definition(.(path_a)))),
+    bquote(create_env(env_definition(.(path_a)), env_file = .(path_b)))
   )) {
     testthat::expect_identical(
       class(catch_error(eval(call))),
@@ -314,12 +330,14 @@ testthat::test_that("create_env() takes at most one env_definition() and no spec
 
 testthat::test_that("create_env() rejects an env_definition() of a missing file", {
   testthat::local_mocked_bindings(
-    resolve_backend = function(...) stop("resolve_backend() must not be called")
+    resolve_backend = function(...) {
+      stop("resolve_backend() must not be called", call. = FALSE)
+    }
   )
   missing_path <- fs::path(withr::local_tempdir(), "missing.yml")
   cnd <- catch_error(create_env(env_definition(missing_path)))
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_create_env_missing_env_file",
       "condathis_create_missing_env_file",
@@ -327,7 +345,8 @@ testthat::test_that("create_env() rejects an env_definition() of a missing file"
       "condathis_invalid_arg",
       "condathis_error",
       rlang_tail
-    )
+    ),
+    exact = TRUE
   )
   testthat::expect_match(conditionMessage(cnd), "missing.yml", fixed = TRUE)
 })
@@ -389,7 +408,7 @@ testthat::test_that("create_env(env_file =) warns only for direct use", {
   id <- "deprecated_env_file_arg"
   reset_warn_once(id)
   withr::defer(reset_warn_once(id))
-  stub <- local_definition_stub("stub-def-env-file-soft")
+  local_definition_stub("stub-def-env-file-soft")
   path <- local_definition_file()
   # A function of another package's namespace.
   pkg_env <- new.env(parent = asNamespace("tools"))
@@ -423,7 +442,9 @@ testthat::test_that("an invalid env_file aborts before its deprecation warning",
   reset_warn_once(id)
   withr::defer(reset_warn_once(id))
   testthat::local_mocked_bindings(
-    resolve_backend = function(...) stop("resolve_backend() must not be called")
+    resolve_backend = function(...) {
+      stop("resolve_backend() must not be called", call. = FALSE)
+    }
   )
   testthat::expect_no_warning(
     cnd <- catch_error(create_env(env_file = "definitely-missing.yml"))
@@ -520,7 +541,7 @@ local_formals_backend <- function(
       }
     ),
     class = c(
-      paste0("condathis_backend_test_", gsub("-", "_", name)),
+      paste0("condathis_backend_test_", gsub("-", "_", name, fixed = TRUE)),
       "condathis_backend"
     )
   )
@@ -602,15 +623,16 @@ testthat::test_that("a definition with format or options aborts for a backend wi
     cnd <- catch_error(
       create_env(definition, env_name = "unsupported", verbose = "silent")
     )
-    testthat::expect_identical(
-      class(cnd),
+    testthat::expect_s3_class(
+      cnd,
       c(
         "condathis_create_env_unsupported_definition",
         "condathis_backend_unsupported",
         "condathis_invalid_arg",
         "condathis_error",
         rlang_tail
-      )
+      ),
+      exact = TRUE
     )
     testthat::expect_match(
       conditionMessage(cnd),
@@ -636,7 +658,7 @@ testthat::test_that("a definition with format or options aborts for a backend wi
 # --- backend_describe_definition() ------------------------------------------
 
 testthat::test_that("the default description is NA, or FALSE for details a backend cannot get", {
-  record <- local_formals_backend("formals-only-3")
+  local_formals_backend("formals-only-3")
   backend <- get_backend("formals-only-3")
   path <- local_definition_file()
   testthat::expect_identical(
@@ -670,19 +692,22 @@ testthat::test_that("a description that is FALSE aborts before any lock or creat
     }
   )
   testthat::local_mocked_bindings(
-    local_env_lock = function(...) stop("local_env_lock() must not be called")
+    local_env_lock = function(...) {
+      stop("local_env_lock() must not be called", call. = FALSE)
+    }
   )
   path <- local_definition_file()
   cnd <- catch_error(create_env(env_definition(path), env_name = "x"))
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_create_env_unsupported_definition",
       "condathis_backend_unsupported",
       "condathis_invalid_arg",
       "condathis_error",
       rlang_tail
-    )
+    ),
+    exact = TRUE
   )
   testthat::expect_match(
     conditionMessage(cnd),
@@ -698,7 +723,9 @@ testthat::test_that("a description that is FALSE aborts before any lock or creat
 testthat::test_that("a description that fails counts as NA, and an invalid one aborts", {
   stub <- local_definition_stub(
     "stub-def-error",
-    backend_describe_definition = function(backend, ...) stop("broken")
+    backend_describe_definition = function(backend, ...) {
+      stop("broken", call. = FALSE)
+    }
   )
   path <- local_definition_file()
   res <- create_env(env_definition(path), env_name = "x", verbose = "silent")
@@ -810,7 +837,9 @@ testthat::test_that("a lock is never solved, and gets a platform it lists", {
       return(lock_description(platforms = platforms))
     },
     backend_native_platform = function(backend) "osx-arm64",
-    backend_can_solve = function(backend, ...) stop("a lock is never solved")
+    backend_can_solve = function(backend, ...) {
+      stop("a lock is never solved", call. = FALSE)
+    }
   )
   path <- local_definition_file("explicit.txt", "@EXPLICIT")
   # The native platform: `platform` stays NULL.
@@ -837,7 +866,8 @@ testthat::test_that("a lock is never solved, and gets a platform it lists", {
   )
   # The emulated platform, when only it is listed.
   platforms <- c("osx-64", "noarch")
-  msgs <- character(0L)
+  tracked <- new.env(parent = emptyenv())
+  tracked$msgs <- character(0L)
   withCallingHandlers(
     create_env(
       env_definition(path),
@@ -845,12 +875,12 @@ testthat::test_that("a lock is never solved, and gets a platform it lists", {
       verbose = "output"
     ),
     message = function(m) {
-      msgs <<- c(msgs, cli::ansi_strip(conditionMessage(m)))
+      tracked$msgs <- c(tracked$msgs, cli::ansi_strip(conditionMessage(m)))
       invokeRestart("muffleMessage")
     }
   )
   testthat::expect_match(
-    paste(msgs, collapse = "\n"),
+    paste(tracked$msgs, collapse = "\n"),
     "Rosetta 2",
     fixed = TRUE
   )
@@ -883,17 +913,19 @@ testthat::test_that("a lock for other platforms aborts before any work", {
   )
   testthat::local_mocked_bindings(
     get_sys_arch = function() "Linux-x86_64",
-    local_env_lock = function(...) stop("local_env_lock() must not be called")
+    local_env_lock = function(...) {
+      stop("local_env_lock() must not be called", call. = FALSE)
+    }
   )
   cnd <- catch_error(create_env(env_definition(path), env_name = "x"))
-  testthat::expect_identical(class(cnd), not_locked_class)
+  testthat::expect_s3_class(cnd, not_locked_class, exact = TRUE)
   message <- cli::ansi_strip(conditionMessage(cnd))
   testthat::expect_match(message, "linux-64", fixed = TRUE)
   testthat::expect_match(message, "win-64", fixed = TRUE)
   cnd <- catch_error(
     create_env(env_definition(path), env_name = "x", platform = "osx-64")
   )
-  testthat::expect_identical(class(cnd), not_locked_class)
+  testthat::expect_s3_class(cnd, not_locked_class, exact = TRUE)
   testthat::expect_length(stub_calls(stub, "backend_create_env"), 0L)
 })
 
@@ -936,10 +968,14 @@ testthat::test_that("a lock with channels, additional_channels or channel_priori
     backend_native_platform = function(backend) "linux-64"
   )
   path <- local_definition_file("explicit.txt", "@EXPLICIT")
+  # bquote() puts the path in the calls.
   for (call in list(
-    quote(create_env(env_definition(path), channels = "conda-forge")),
-    quote(create_env(env_definition(path), additional_channels = "bioconda")),
-    quote(create_env(env_definition(path), channel_priority = "strict"))
+    bquote(create_env(env_definition(.(path)), channels = "conda-forge")),
+    bquote(create_env(
+      env_definition(.(path)),
+      additional_channels = "bioconda"
+    )),
+    bquote(create_env(env_definition(.(path)), channel_priority = "strict"))
   )) {
     cnd <- catch_error(eval(call))
     testthat::expect_identical(
@@ -1010,15 +1046,16 @@ request_description <- function() {
 }
 
 collect_messages <- function(expr) {
-  msgs <- character(0L)
+  tracked <- new.env(parent = emptyenv())
+  tracked$msgs <- character(0L)
   value <- withCallingHandlers(
     expr,
     message = function(m) {
-      msgs <<- c(msgs, cli::ansi_strip(conditionMessage(m)))
+      tracked$msgs <- c(tracked$msgs, cli::ansi_strip(conditionMessage(m)))
       invokeRestart("muffleMessage")
     }
   )
-  return(list(value = value, messages = paste(msgs, collapse = "\n")))
+  return(list(value = value, messages = paste(tracked$msgs, collapse = "\n")))
 }
 
 testthat::test_that("install_packages() installs a request file with the backend's install", {
@@ -1075,21 +1112,24 @@ testthat::test_that("install_packages() sends a lock to create_env(), before any
     backend_describe_definition = function(backend, ...) lock_description()
   )
   testthat::local_mocked_bindings(
-    local_env_lock = function(...) stop("local_env_lock() must not be called")
+    local_env_lock = function(...) {
+      stop("local_env_lock() must not be called", call. = FALSE)
+    }
   )
   path <- local_definition_file("explicit.txt", "@EXPLICIT")
   cnd <- catch_error(install_packages(
     env_definition(path),
     env_name = "inst-env"
   ))
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_install_packages_unsupported_definition",
       "condathis_invalid_arg",
       "condathis_error",
       rlang_tail
-    )
+    ),
+    exact = TRUE
   )
   message <- cli::ansi_strip(conditionMessage(cnd))
   testthat::expect_match(message, "lock file", fixed = TRUE)
@@ -1106,22 +1146,25 @@ testthat::test_that("install_packages() aborts for a file the backend cannot rea
     }
   )
   testthat::local_mocked_bindings(
-    local_env_lock = function(...) stop("local_env_lock() must not be called")
+    local_env_lock = function(...) {
+      stop("local_env_lock() must not be called", call. = FALSE)
+    }
   )
   path <- local_definition_file()
   cnd <- catch_error(install_packages(
     env_definition(path),
     env_name = "inst-env"
   ))
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_install_packages_unsupported_definition",
       "condathis_backend_unsupported",
       "condathis_invalid_arg",
       "condathis_error",
       rlang_tail
-    )
+    ),
+    exact = TRUE
   )
   testthat::expect_match(
     conditionMessage(cnd),
@@ -1208,7 +1251,9 @@ testthat::test_that("install_packages() gives the path to an install that takes 
 
 testthat::test_that("install_packages() and validate_env() take one definition and no specs with it", {
   testthat::local_mocked_bindings(
-    resolve_backend = function(...) stop("resolve_backend() must not be called")
+    resolve_backend = function(...) {
+      stop("resolve_backend() must not be called", call. = FALSE)
+    }
   )
   path_a <- local_definition_file("a.yml")
   path_b <- local_definition_file("b.yml")
@@ -1324,9 +1369,10 @@ testthat::test_that("create_env() keeps an environment that has exactly the pack
   installed <- definition_pkgs_df(c("pkg", "extra"), platform = "linux-64")
   installed$version[[1L]] <- "2.0"
   cnd <- catch_error(create_env(env_definition(path), env_name = "lock-env"))
-  testthat::expect_identical(
-    class(cnd),
-    c("condathis_create_env_exists", "condathis_error", rlang_tail)
+  testthat::expect_s3_class(
+    cnd,
+    c("condathis_create_env_exists", "condathis_error", rlang_tail),
+    exact = TRUE
   )
   message <- cli::ansi_strip(conditionMessage(cnd))
   testthat::expect_match(message, "pkg-1.0-h0_0", fixed = TRUE)
@@ -1354,7 +1400,7 @@ testthat::test_that("create_env() compares only the records for the platform of 
     platform = c("linux-64", "osx-arm64", "noarch"),
     stringsAsFactors = FALSE
   )
-  stub <- local_definition_stub(
+  local_definition_stub(
     "stub-cmp-platform",
     envs = "lock-env",
     backend_list_packages = function(backend, ...) installed,
@@ -1526,9 +1572,10 @@ testthat::test_that("validate_env() compares an environment with the records of 
   testthat::expect_identical(attr(res, "unsatisfied"), character(0L))
   testthat::expect_identical(attr(res, "unexpected"), "extra-1.0-h0_0")
   cnd <- catch_error(validate_env(env_definition(path), env_name = "lock-env"))
-  testthat::expect_identical(
-    class(cnd),
-    c("condathis_validate_env_unsatisfied", "condathis_error", rlang_tail)
+  testthat::expect_s3_class(
+    cnd,
+    c("condathis_validate_env_unsatisfied", "condathis_error", rlang_tail),
+    exact = TRUE
   )
   message <- cli::ansi_strip(conditionMessage(cnd))
   testthat::expect_match(message, "extra-1.0-h0_0", fixed = TRUE)
@@ -1550,14 +1597,15 @@ testthat::test_that("validate_env() compares an environment with the records of 
     env_name = "lock-env",
     platform = "win-64"
   ))
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_validate_env_unsupported_definition",
       "condathis_invalid_arg",
       "condathis_error",
       rlang_tail
-    )
+    ),
+    exact = TRUE
   )
   testthat::expect_length(stub_calls(stub, "backend_create_env"), 0L)
   testthat::expect_length(stub_calls(stub, "backend_install"), 0L)
@@ -1594,24 +1642,26 @@ testthat::test_that("validate_env() aborts for a definition it cannot compare", 
     fixed = TRUE
   )
   value <- list(supported = NA)
-  testthat::expect_identical(
-    class(catch_error(validate_env(
+  testthat::expect_s3_class(
+    catch_error(validate_env(
       env_definition(path),
       env_name = "val-env"
-    ))),
-    unsupported_class
+    )),
+    unsupported_class,
+    exact = TRUE
   )
   value <- list(supported = FALSE, reason = "Not a format I read.")
   cnd <- catch_error(validate_env(env_definition(path), env_name = "val-env"))
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_validate_env_unsupported_definition",
       "condathis_backend_unsupported",
       "condathis_invalid_arg",
       "condathis_error",
       rlang_tail
-    )
+    ),
+    exact = TRUE
   )
   testthat::expect_match(
     conditionMessage(cnd),
@@ -1719,22 +1769,25 @@ testthat::test_that("method = 'auto' aborts when no available backend reads the 
     backend_names_by_priority = function() {
       c("stub-none-a", "stub-none-b", "stub-none-c")
     },
-    local_env_lock = function(...) stop("local_env_lock() must not be called")
+    local_env_lock = function(...) {
+      stop("local_env_lock() must not be called", call. = FALSE)
+    }
   )
   path <- local_definition_file("env.custom")
   cnd <- catch_error(create_env(
     env_definition(path, format = "my-format"),
     env_name = "nowhere"
   ))
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_create_env_unsupported_definition",
       "condathis_backend_unsupported",
       "condathis_invalid_arg",
       "condathis_error",
       rlang_tail
-    )
+    ),
+    exact = TRUE
   )
   message <- cli::ansi_strip(conditionMessage(cnd))
   testthat::expect_match(message, "No available backend", fixed = TRUE)
@@ -1770,7 +1823,7 @@ testthat::test_that("registered S3 methods match the generics, and optional argu
   }
   # A function without optional arguments is its own method, as
   # rattlerthis's tests require.
-  record <- local_formals_backend("formals-s3")
+  local_formals_backend("formals-s3")
   backend <- get_backend("formals-s3")
   testthat::expect_identical(
     utils::getS3method("backend_create_env", class(backend)[[1L]], envir = ns),

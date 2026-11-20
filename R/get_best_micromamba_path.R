@@ -12,6 +12,10 @@
 #' 6. condathis managed micromamba-env fallback
 #' 7. System PATH (`Sys.which("micromamba")`)
 #'
+#' A candidate that is a pixi global trampoline is replaced by the binary
+#' that it starts (`resolve_pixi_trampoline()`); the option and the
+#' variable keep the value the user set.
+#'
 #' @returns A character path to a compatible micromamba binary, or `NULL` when
 #'   no compatible binary is found.
 #'
@@ -97,8 +101,11 @@ get_best_micromamba_path <- function() {
   # Deduplicate while preserving priority order
   paths_to_check <- unique(paths_to_check)
 
-  # Return the first path with a valid version
+  # Return the first path with a valid version. A pixi global trampoline
+  # is replaced by the binary it starts, so its activation never reaches
+  # micromamba (see `resolve_pixi_trampoline()`).
   for (path in paths_to_check) {
+    path <- resolve_pixi_trampoline(as.character(path))
     if (is_umamba_version_available(path)) {
       return(fs::path(path))
     }

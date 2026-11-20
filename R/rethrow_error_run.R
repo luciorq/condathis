@@ -93,82 +93,12 @@ rethrow_error_run <- function(
   }
 
   if (isFALSE(rlang::is_null(err_cnd)) && !isFALSE(env[["error_var"]])) {
-    additional_lines <- NULL
-    if (isTRUE("stderr" %in% names(err_cnd))) {
-      additional_lines <- stream_display_lines(err_cnd[["stderr"]])
-    }
-
-    status_code <- NULL
-    if (isFALSE("status" %in% names(err_cnd))) {
-      status_code <- 127L
-      additional_lines <- c("{cmd}: command not found", additional_lines)
-    } else {
-      status_code <- err_cnd[["status"]]
-    }
-    # The same value as the `status` of a result under `error = "continue"`.
-    status_code <- if (isTRUE(is_timeout)) -9L else as.integer(status_code)
-    env[["status_code"]] <- status_code
-
-    # A stream that was not captured is `NA`, as in `condathis_result`. A
-    # command that never started gets the streams of the result of
-    # `error = "continue"` (see below).
-    not_started <- isFALSE("status" %in% names(err_cnd))
-    error_stream <- function(name, not_started_value) {
-      value <- err_cnd[[name]]
-      if (isTRUE(not_started)) {
-        value <- not_started_value
-      }
-      if (
-        is.null(value) ||
-          (exists(name, envir = env, inherits = FALSE) &&
-            isFALSE(identical(env[[name]], "|")))
-      ) {
-        return(NA_character_)
-      }
-      return(value)
-    }
-    stdout_field <- error_stream("stdout", "")
-    stderr_field <- error_stream(
-      "stderr",
-      paste("System command", hide_secrets(env[["cmd"]]), "not found")
-    )
-
-    if (isTRUE(is_timeout)) {
-      condathis_abort(
-        message = c(
-          `x` = "Command {.code {cmd}} timed out after {timeout} second{?s}.",
-          additional_lines
-        ),
-        class = unique(c(
-          paste0("condathis_", fn, "_timeout_error"),
-          "condathis_run_timeout_error",
-          "condathis_timeout_error"
-        )),
-        status = status_code,
-        stdout = stdout_field,
-        stderr = stderr_field,
-        timeout = TRUE,
-        call = call,
-        .envir = env
-      )
-    }
-
-    condathis_abort(
-      message = c(
-        `x` = "Command {.code {cmd}} failed with exit status {status_code}.",
-        additional_lines
-      ),
-      class = unique(c(
-        paste0("condathis_", fn, "_status_error"),
-        "condathis_run_status_error",
-        "condathis_status_error"
-      )),
-      status = status_code,
-      stdout = stdout_field,
-      stderr = stderr_field,
-      timeout = FALSE,
+    abort_run_failure(
+      err_cnd,
+      env = env,
+      fn = fn,
       call = call,
-      .envir = env
+      is_timeout = is_timeout
     )
   }
 
@@ -177,36 +107,7 @@ rethrow_error_run <- function(
   # would pass this check and be returned as the process result when the
   # wrapped expression errors before assigning locally.
   if (isFALSE(exists("px_res", inherits = FALSE))) {
-    if (isTRUE(rlang::is_null(err_cnd[["status"]]))) {
-      status_code <- 127L
-    } else {
-      status_code <- err_cnd[["status"]]
-    }
-
-    if (isTRUE(is_timeout)) {
-      stderr_msg <- sprintf(
-        "Command timed out after %s seconds",
-        env[["timeout"]]
-      )
-    } else if (
-      inherits(err_cnd, "condathis_command_not_found") ||
-        (isFALSE(rlang::is_null(err_cnd[["message"]])) &&
-          isTRUE(stringr::str_detect(err_cnd[["message"]], "Native call to")))
-    ) {
-      if (isFALSE(rlang::is_null(env[["cmd"]]))) {
-        cmd_str <- env[["cmd"]]
-      }
-      stderr_msg <- paste("System command", hide_secrets(cmd_str), "not found")
-    } else {
-      stderr_msg <- "Unknown Error"
-    }
-
-    px_res <- list(
-      status = status_code,
-      stdout = "",
-      stderr = stderr_msg,
-      timeout = is_timeout
-    )
+    px_res <- run_result_without_process(err_cnd, env, is_timeout)
   }
 
   # Normalize to a fixed sentinel regardless of how `px_res` was produced.
@@ -220,6 +121,144 @@ rethrow_error_run <- function(
   }
 
   return(px_res)
+}
+
+#' Abort for a command that failed or timed out
+#'
+#' The condathis error of `rethrow_error_run()` for `error = "cancel"`:
+#' the classes and fields are described there.
+#'
+#' @param err_cnd The condition caught from `processx`.
+#' @param env,fn,call As in `rethrow_error_run()`.
+#' @param is_timeout Logical. Whether the command timed out.
+#'
+#' @returns Does not return.
+#'
+#' @keywords internal
+#' @noRd
+abort_run_failure <- function(err_cnd, env, fn, call, is_timeout) {
+  additional_lines <- NULL
+  if (isTRUE("stderr" %in% names(err_cnd))) {
+    additional_lines <- stream_display_lines(err_cnd[["stderr"]])
+  }
+
+  if (isFALSE("status" %in% names(err_cnd))) {
+    status_code <- 127L
+    additional_lines <- c("{cmd}: command not found", additional_lines)
+  } else {
+    status_code <- err_cnd[["status"]]
+  }
+  # The same value as the `status` of a result under `error = "continue"`.
+  status_code <- if (isTRUE(is_timeout)) -9L else as.integer(status_code)
+  env[["status_code"]] <- status_code
+
+  # A stream that was not captured is `NA`, as in `condathis_result`. A
+  # command that never started gets the streams of the result of
+  # `error = "continue"` (see below).
+  not_started <- isFALSE("status" %in% names(err_cnd))
+  error_stream <- function(name, not_started_value) {
+    value <- err_cnd[[name]]
+    if (isTRUE(not_started)) {
+      value <- not_started_value
+    }
+    if (
+      is.null(value) ||
+        (exists(name, envir = env, inherits = FALSE) &&
+          isFALSE(identical(env[[name]], "|")))
+    ) {
+      return(NA_character_)
+    }
+    return(value)
+  }
+  stdout_field <- error_stream("stdout", "")
+  stderr_field <- error_stream(
+    "stderr",
+    paste("System command", hide_secrets(env[["cmd"]]), "not found")
+  )
+
+  if (isTRUE(is_timeout)) {
+    condathis_abort(
+      message = c(
+        `x` = "Command {.code {cmd}} timed out after {timeout} second{?s}.",
+        additional_lines
+      ),
+      class = unique(c(
+        paste0("condathis_", fn, "_timeout_error"),
+        "condathis_run_timeout_error",
+        "condathis_timeout_error"
+      )),
+      status = status_code,
+      stdout = stdout_field,
+      stderr = stderr_field,
+      timeout = TRUE,
+      call = call,
+      .envir = env
+    )
+  }
+
+  condathis_abort(
+    message = c(
+      `x` = "Command {.code {cmd}} failed with exit status {status_code}.",
+      additional_lines
+    ),
+    class = unique(c(
+      paste0("condathis_", fn, "_status_error"),
+      "condathis_run_status_error",
+      "condathis_status_error"
+    )),
+    status = status_code,
+    stdout = stdout_field,
+    stderr = stderr_field,
+    timeout = FALSE,
+    call = call,
+    .envir = env
+  )
+}
+
+#' The result of a command that has no process result
+#'
+#' For `error = "continue"` when the evaluated expression failed before it
+#' returned a result, as for a command that could not start.
+#'
+#' @param err_cnd The condition caught from `processx`, or `NULL`.
+#' @param env As in `rethrow_error_run()`.
+#' @param is_timeout Logical. Whether the command timed out.
+#'
+#' @returns A list with `status`, `stdout`, `stderr` and `timeout`.
+#'
+#' @keywords internal
+#' @noRd
+run_result_without_process <- function(err_cnd, env, is_timeout) {
+  if (isTRUE(rlang::is_null(err_cnd[["status"]]))) {
+    status_code <- 127L
+  } else {
+    status_code <- err_cnd[["status"]]
+  }
+
+  if (isTRUE(is_timeout)) {
+    stderr_msg <- sprintf(
+      "Command timed out after %s seconds",
+      env[["timeout"]]
+    )
+  } else if (
+    inherits(err_cnd, "condathis_command_not_found") ||
+      (isFALSE(rlang::is_null(err_cnd[["message"]])) &&
+        isTRUE(stringr::str_detect(err_cnd[["message"]], "Native call to")))
+  ) {
+    if (isFALSE(rlang::is_null(env[["cmd"]]))) {
+      cmd_str <- env[["cmd"]]
+    }
+    stderr_msg <- paste("System command", hide_secrets(cmd_str), "not found")
+  } else {
+    stderr_msg <- "Unknown Error"
+  }
+
+  return(list(
+    status = status_code,
+    stdout = "",
+    stderr = stderr_msg,
+    timeout = is_timeout
+  ))
 }
 
 #' Did `processx` fail to start the process?

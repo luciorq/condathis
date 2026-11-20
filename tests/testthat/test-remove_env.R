@@ -22,17 +22,20 @@ local_remove_stub <- function(
 
 testthat::test_that("remove_env validates its arguments before any backend call", {
   testthat::local_mocked_bindings(
-    resolve_backend = function(...) stop("resolve_backend() must not be called")
+    resolve_backend = function(...) {
+      stop("resolve_backend() must not be called", call. = FALSE)
+    }
   )
   cnd <- catch_error(remove_env("e", verbose = "bogus"))
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_invalid_verbose",
       "condathis_invalid_arg",
       "condathis_error",
       rlang_tail
-    )
+    ),
+    exact = TRUE
   )
   testthat::expect_identical(
     conditionCall(cnd),
@@ -60,15 +63,16 @@ testthat::test_that("remove_env aborts for a missing environment before the back
     remove_env("never-created", method = "stub-remove-missing")
   )
   # The new class and the old one.
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_remove_env_env_not_found",
       "condathis_error_env_remove",
       "condathis_env_not_found",
       "condathis_error",
       rlang_tail
-    )
+    ),
+    exact = TRUE
   )
   testthat::expect_false(inherits(cnd, "stub_missing"))
   testthat::expect_length(stub_calls(stub, "backend_remove_env"), 0L)
@@ -92,14 +96,15 @@ testthat::test_that("remove_env passes a failed probe on to the backend", {
     }
   )
   cnd <- catch_error(remove_env("probe-env", verbose = "silent"))
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_remove_env_failed",
       "condathis_backend_error",
       "condathis_error",
       rlang_tail
-    )
+    ),
+    exact = TRUE
   )
   testthat::expect_s3_class(cnd$parent, "stub_remove_failed")
   testthat::expect_false(rlang::cnd_inherits(cnd, "condathis_env_not_found"))
@@ -109,9 +114,11 @@ testthat::test_that("remove_env passes a failed probe on to the backend", {
 testthat::test_that("remove_env aborts for a missing micromamba environment without a process", {
   condathis::with_sandbox_dir({
     testthat::local_mocked_bindings(
-      native_cmd = function(...) stop("native_cmd() must not be called"),
+      native_cmd = function(...) {
+        stop("native_cmd() must not be called", call. = FALSE)
+      },
       install_micromamba = function(...) {
-        stop("install_micromamba() must not be called")
+        stop("install_micromamba() must not be called", call. = FALSE)
       }
     )
     testthat::expect_error(
@@ -149,14 +156,15 @@ testthat::test_that("remove_env re-raises a backend error with its own classes",
     backend_remove_env = stub_boom
   )
   cnd <- catch_error(remove_env("boom-env", verbose = "silent"))
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_remove_env_failed",
       "condathis_backend_error",
       "condathis_error",
       rlang_tail
-    )
+    ),
+    exact = TRUE
   )
   testthat::expect_s3_class(cnd$parent, "stub_boom")
 })
@@ -275,7 +283,7 @@ testthat::test_that("remove_env emits no message at verbose = 'silent'", {
 testthat::test_that("remove_env() warns about the pre-unlink scripts it did not run", {
   # The default remove of condathis does not run pre-unlink scripts, and
   # reports the packages that have one.
-  stub <- local_stub_backend(
+  local_stub_backend(
     "stub-remove-scripts",
     default_root = TRUE,
     backend_remove_env = NULL,
@@ -305,38 +313,39 @@ testthat::test_that("remove_env() warns about the pre-unlink scripts it did not 
     fs::path(env_dir, "conda-meta", "plink-1.0-0.json"),
     auto_unbox = TRUE
   )
-  msgs <- character(0L)
-  cnd <- NULL
+  tracked <- new.env(parent = emptyenv())
+  tracked$msgs <- character(0L)
+  tracked$cnd <- NULL
   res <- withCallingHandlers(
     remove_env("scripts-env", verbose = "output"),
     message = function(m) {
-      msgs <<- c(msgs, cli::ansi_strip(conditionMessage(m)))
+      tracked$msgs <- c(tracked$msgs, cli::ansi_strip(conditionMessage(m)))
       invokeRestart("muffleMessage")
     },
     warning = function(w) {
-      cnd <<- w
+      tracked$cnd <- w
       invokeRestart("muffleWarning")
     }
   )
   testthat::expect_identical(res$status, 0L)
   testthat::expect_false(fs::dir_exists(env_dir))
   testthat::expect_match(
-    paste(msgs, collapse = "\n"),
+    paste(tracked$msgs, collapse = "\n"),
     "successfully removed",
     fixed = TRUE
   )
   testthat::expect_identical(
-    class(cnd)[1:3],
+    class(tracked$cnd)[1:3],
     c(
       "condathis_remove_env_link_scripts_skipped",
       "condathis_link_scripts_skipped",
       "condathis_warning"
     )
   )
-  testthat::expect_identical(cnd$backend, "stub-remove-scripts")
-  testthat::expect_identical(cnd$packages, "plink")
-  testthat::expect_identical(cnd$scripts$script, "pre-unlink")
-  message <- cli::ansi_strip(conditionMessage(cnd))
+  testthat::expect_identical(tracked$cnd$backend, "stub-remove-scripts")
+  testthat::expect_identical(tracked$cnd$packages, "plink")
+  testthat::expect_identical(tracked$cnd$scripts$script, "pre-unlink")
+  message <- cli::ansi_strip(conditionMessage(tracked$cnd))
   testthat::expect_match(
     message,
     "Backend stub-remove-scripts did not run the pre-unlink scripts of plink before it removed them.",

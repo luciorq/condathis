@@ -29,8 +29,6 @@ download_micromamba_file <- function(
   method = "auto",
   quiet = TRUE
 ) {
-  dl_success <- FALSE
-
   if (isFALSE(rlang::is_interactive())) {
     quiet <- TRUE
   }
@@ -260,10 +258,13 @@ try_download_from_mirrors <- function(
       method = method,
       quiet = quiet
     )
-    if (isTRUE(success) && file.exists(destfile) && file.size(destfile) > 0L) {
-      if (is.null(accept) || isTRUE(accept(destfile, url))) {
-        return(TRUE)
-      }
+    if (
+      isTRUE(success) &&
+        file.exists(destfile) &&
+        file.size(destfile) > 0L &&
+        (is.null(accept) || isTRUE(accept(destfile, url)))
+    ) {
+      return(TRUE)
     }
     # Clean up failed download
     if (file.exists(destfile)) {

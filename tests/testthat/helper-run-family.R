@@ -44,7 +44,7 @@ local_run_family_stub <- function(
 local_no_backend_calls <- function(envir = parent.frame()) {
   fail_called <- function(...) {
     testthat::fail("A backend was resolved before the arguments were checked.")
-    stop("unreachable")
+    stop("unreachable", call. = FALSE)
   }
   testthat::local_mocked_bindings(
     resolve_backend = fail_called,
@@ -107,10 +107,11 @@ local_run_family_daemon <- function(envir = parent.frame()) {
     spawner
   )
   lib_paths <- paste(.libPaths(), collapse = .Platform$path.sep)
-  pid_files <- character(0L)
+  tracked <- new.env(parent = emptyenv())
+  tracked$pid_files <- character(0L)
   withr::defer(
     {
-      for (pid_file in pid_files) {
+      for (pid_file in tracked$pid_files) {
         pid <- run_family_read_pid(pid_file)
         if (isTRUE(run_family_pid_running(pid))) {
           tryCatch(
@@ -123,7 +124,7 @@ local_run_family_daemon <- function(envir = parent.frame()) {
     envir = envir
   )
   args <- function(pid_file) {
-    pid_files <<- c(pid_files, pid_file)
+    tracked$pid_files <- c(tracked$pid_files, pid_file)
     return(c(
       "--vanilla",
       spawner,

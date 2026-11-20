@@ -181,7 +181,9 @@ testthat::test_that("micromamba_native_platform() reads the Machine field of the
   # Regression test: it ran `micromamba info --json`, a process on every
   # create_env() with specs or an env_file on every Windows machine.
   testthat::local_mocked_bindings(
-    native_cmd = function(...) stop("native_cmd() must not be called")
+    native_cmd = function(...) {
+      stop("native_cmd() must not be called", call. = FALSE)
+    }
   )
   dir <- withr::local_tempdir()
   fake <- function(name, ...) {

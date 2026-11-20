@@ -151,6 +151,7 @@ abort_unsupported_definition <- function(
   fn = "create_env",
   call = rlang::caller_env()
 ) {
+  # jarl-ignore unused_object: interpolated by cli in the message below
   path <- definition$path
   message <- c(
     `x` = "Backend {.field {backend_name}} cannot read environment definition {.path {path}}."
@@ -195,6 +196,7 @@ abort_no_backend_for_definition <- function(
   fn = "create_env",
   call = rlang::caller_env()
 ) {
+  # jarl-ignore unused_object: interpolated by cli in the message below
   path <- definition$path
   tried <- names(refused)
   message <- c(
@@ -265,6 +267,7 @@ resolve_call_definition <- function(
     )
   }
   if (isTRUE(length(packages) > 0L)) {
+    # jarl-ignore unused_object: interpolated by cli in the message below
     spec <- packages[[length(packages)]]
     condathis_abort(
       message = c(

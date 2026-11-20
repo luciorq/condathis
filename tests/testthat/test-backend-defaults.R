@@ -328,8 +328,8 @@ testthat::test_that("the default backend_remove_env() deletes the history first,
   testthat::expect_false(fs::dir_exists(env_dir))
   testthat::expect_false(env_exists("remove-env", method = stub$name))
   # The trash holds nothing afterwards.
-  testthat::expect_identical(
-    length(fs::dir_ls(fs::path(envs_dir, env_trash_name()), all = TRUE)),
+  testthat::expect_length(
+    fs::dir_ls(fs::path(envs_dir, env_trash_name()), all = TRUE),
     0L
   )
 
@@ -337,7 +337,9 @@ testthat::test_that("the default backend_remove_env() deletes the history first,
   # every listing.
   env_dir <- write_conda_prefix(fs::path(envs_dir, "half-env"))
   testthat::local_mocked_bindings(
-    delete_env_dir_via_trash = function(...) stop("interrupted delete")
+    delete_env_dir_via_trash = function(...) {
+      stop("interrupted delete", call. = FALSE)
+    }
   )
   testthat::expect_error(
     backend_remove_env(backend, env_name = "half-env", verbose = "silent"),
@@ -626,12 +628,13 @@ testthat::test_that("an environment directory gets its trash marker only after i
   backend <- stub$backend
   envs_dir <- fs::path(backend_root_dir(stub$name), "envs")
   env_dir <- write_conda_prefix(fs::path(envs_dir, "trash-order-env"))
-  marker_at_rename <- NA
+  tracked <- new.env(parent = emptyenv())
+  tracked$marker_at_rename <- NA
   real_rename_path <- rename_path
   testthat::local_mocked_bindings(
     rename_path = function(from, to) {
       if (identical(as.character(from), as.character(env_dir))) {
-        marker_at_rename <<- fs::file_exists(paste0(to, ".discard"))
+        tracked$marker_at_rename <- fs::file_exists(paste0(to, ".discard"))
       }
       return(real_rename_path(from, to))
     }
@@ -641,8 +644,9 @@ testthat::test_that("an environment directory gets its trash marker only after i
     env_name = "trash-order-env",
     verbose = "silent"
   )
-  testthat::expect_false(isTRUE(marker_at_rename))
-  testthat::expect_false(is.na(marker_at_rename))
+  testthat::expect_identical(res$status, 0L)
+  testthat::expect_false(isTRUE(tracked$marker_at_rename))
+  testthat::expect_false(is.na(tracked$marker_at_rename))
   testthat::expect_false(fs::dir_exists(env_dir))
   trash_dir <- fs::path(envs_dir, env_trash_name())
   testthat::expect_length(fs::dir_ls(trash_dir, all = TRUE), 0L)

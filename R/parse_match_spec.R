@@ -85,7 +85,7 @@ parse_match_spec <- function(spec_string) {
   # Parse channel if present
   channel_location <- NULL
   channel_pf <- NULL
-  if (!rlang::is_null(channel_str) && nchar(channel_str) > 0L) {
+  if (!rlang::is_null(channel_str) && nzchar(channel_str, keepNA = TRUE)) {
     ch <- ms_parse_channel(channel_str)
     channel_location <- ch$location
     channel_pf <- ch$platform_filters
@@ -97,62 +97,18 @@ parse_match_spec <- function(spec_string) {
   attrs <- bracket_result$attributes
 
   # 3. Apply bracket attributes
-  extra <- list()
-  bracket_version <- NULL
-  bracket_build <- NULL
-
-  for (key in names(attrs)) {
-    val <- attrs[[key]]
-    lkey <- tolower(trimws(key))
-
-    if (identical(lkey, "version")) {
-      bracket_version <- val
-    } else if (lkey %in% c("build", "build_string")) {
-      bracket_build <- val
-    } else if (lkey %in% c("channel", "url")) {
-      if (rlang::is_null(channel_location)) {
-        ch <- ms_parse_channel(val)
-        channel_location <- ch$location
-        channel_pf <- ch$platform_filters
-      }
-    } else if (identical(lkey, "subdir")) {
-      # subdir sets platform filters
-      new_pf <- ms_parse_platform_list(val)
-      if (rlang::is_null(channel_location)) {
-        # No channel yet: these become extra_platforms
-        if (rlang::is_null(channel_pf) || identical(length(channel_pf), 0L)) {
-          channel_pf <- new_pf
-        }
-      } else {
-        # Channel exists: set platform filters if empty
-        if (rlang::is_null(channel_pf) || identical(length(channel_pf), 0L)) {
-          channel_pf <- new_pf
-        }
-      }
-    } else if (identical(lkey, "namespace")) {
-      if (identical(name_space, "")) {
-        name_space <- val
-      }
-    } else if (identical(lkey, "build_number")) {
-      extra$build_number <- val
-    } else if (identical(lkey, "track_features")) {
-      extra$track_features <- ms_split_features(val)
-    } else if (lkey %in% c("fn", "filename")) {
-      extra$filename <- val
-    } else if (identical(lkey, "md5")) {
-      extra$md5 <- val
-    } else if (identical(lkey, "sha256")) {
-      extra$sha256 <- val
-    } else if (identical(lkey, "license")) {
-      extra$license <- val
-    } else if (identical(lkey, "license_family")) {
-      extra$license_family <- val
-    } else if (identical(lkey, "features")) {
-      extra$features <- val
-    } else if (identical(lkey, "optional")) {
-      extra$optional <- TRUE
-    }
-  }
+  applied <- ms_apply_bracket_attributes(
+    attrs,
+    channel_location = channel_location,
+    channel_pf = channel_pf,
+    name_space = name_space
+  )
+  channel_location <- applied[["channel_location"]]
+  channel_pf <- applied[["channel_pf"]]
+  name_space <- applied[["name_space"]]
+  bracket_version <- applied[["version"]]
+  bracket_build <- applied[["build"]]
+  extra <- applied[["extra"]]
 
   # 4. Split name, version, build from remaining positional spec
   remaining <- trimws(remaining)
@@ -175,16 +131,16 @@ parse_match_spec <- function(spec_string) {
   }
 
   # 5. Set final values: bracket overrides positional, except name
-  if (!rlang::is_null(bracket_version)) {
-    final_version <- bracket_version
-  } else {
+  if (rlang::is_null(bracket_version)) {
     final_version <- pos_version
+  } else {
+    final_version <- bracket_version
   }
 
-  if (!rlang::is_null(bracket_build)) {
-    final_build <- bracket_build
-  } else {
+  if (rlang::is_null(bracket_build)) {
     final_build <- pos_build
+  } else {
+    final_build <- bracket_build
   }
 
   # Normalize version and build
@@ -216,6 +172,110 @@ parse_match_spec <- function(spec_string) {
   )
 }
 
+
+#' Apply the bracket attributes of a MatchSpec
+#'
+#' Step 3 of `parse_match_spec()`. `version` and `build` (or
+#' `build_string`) override the positional parts. `channel` (or `url`)
+#' applies only when the spec names no channel, `subdir` only when no
+#' platform filter is set yet, and `namespace` only when the spec names
+#' none. The other keys go to `extra` (see `ms_extra_attribute()`).
+#'
+#' @param attrs Named list of bracket attributes, from
+#'   `ms_rparse_brackets()`.
+#' @param channel_location,channel_pf The channel location and platform
+#'   filters from the `channel::` prefix, or `NULL`.
+#' @param name_space Character string, the namespace (`""` when not set).
+#'
+#' @returns A list with `channel_location`, `channel_pf`, `name_space`,
+#'   `version` and `build` (`NULL` when not given) and `extra` (a list).
+#'
+#' @keywords internal
+#' @noRd
+ms_apply_bracket_attributes <- function(
+  attrs,
+  channel_location,
+  channel_pf,
+  name_space
+) {
+  bracket_version <- NULL
+  bracket_build <- NULL
+  extra <- list()
+  for (key in names(attrs)) {
+    val <- attrs[[key]]
+    lkey <- tolower(trimws(key))
+
+    if (identical(lkey, "version")) {
+      bracket_version <- val
+    } else if (lkey %in% c("build", "build_string")) {
+      bracket_build <- val
+    } else if (lkey %in% c("channel", "url")) {
+      if (rlang::is_null(channel_location)) {
+        ch <- ms_parse_channel(val)
+        channel_location <- ch$location
+        channel_pf <- ch$platform_filters
+      }
+    } else if (identical(lkey, "subdir")) {
+      # subdir sets platform filters when none are set. Without a channel
+      # they become extra_platforms (see parse_match_spec()).
+      new_pf <- ms_parse_platform_list(val)
+      if (rlang::is_null(channel_pf) || identical(length(channel_pf), 0L)) {
+        channel_pf <- new_pf
+      }
+    } else if (identical(lkey, "namespace")) {
+      if (identical(name_space, "")) {
+        name_space <- val
+      }
+    } else {
+      extra <- ms_extra_attribute(extra, lkey = lkey, val = val)
+    }
+  }
+  return(list(
+    channel_location = channel_location,
+    channel_pf = channel_pf,
+    name_space = name_space,
+    version = bracket_version,
+    build = bracket_build,
+    extra = extra
+  ))
+}
+
+#' Store a bracket attribute of a MatchSpec in `extra`
+#'
+#' @param extra List, the extra attributes so far.
+#' @param lkey Character string, the key in lower case.
+#' @param val Character string, the value.
+#'
+#' @returns `extra`, with the attribute set. An unknown key is ignored.
+#'
+#' @keywords internal
+#' @noRd
+ms_extra_attribute <- function(extra, lkey, val) {
+  field <- switch(
+    lkey,
+    build_number = "build_number",
+    track_features = "track_features",
+    fn = ,
+    filename = "filename",
+    md5 = "md5",
+    sha256 = "sha256",
+    license = "license",
+    license_family = "license_family",
+    features = "features",
+    optional = "optional",
+    NULL
+  )
+  if (is.null(field)) {
+    return(extra)
+  }
+  extra[[field]] <- switch(
+    field,
+    track_features = ms_split_features(val),
+    optional = TRUE,
+    val
+  )
+  return(extra)
+}
 
 #' Bracket attributes of a MatchSpec string
 #'
@@ -349,7 +409,11 @@ ms_make_result <- function(
   )
 
   # Format channel output
-  if (!rlang::is_null(channel_location)) {
+  if (rlang::is_null(channel_location)) {
+    channel_str <- "None"
+    channel_location_str <- "None"
+    channel_pf_str <- "None"
+  } else {
     pf <- channel_platform_filters
     if (rlang::is_null(pf)) {
       pf <- base::character(0L)
@@ -357,10 +421,6 @@ ms_make_result <- function(
     channel_str <- ms_format_channel_display(channel_location, pf)
     channel_location_str <- channel_location
     channel_pf_str <- ms_format_python_set(pf)
-  } else {
-    channel_str <- "None"
-    channel_location_str <- "None"
-    channel_pf_str <- "None"
   }
 
   # Determine platforms display
@@ -382,19 +442,19 @@ ms_make_result <- function(
   # Format track_features
   # When ExtraMembers is allocated (md5, sha256, etc. are set),
   # track_features becomes set() instead of None
-  has_extra_members <- !rlang::is_null(extra$md5) ||
-    !rlang::is_null(extra$sha256) ||
-    !rlang::is_null(extra$license) ||
-    !rlang::is_null(extra$license_family) ||
-    !rlang::is_null(extra$features) ||
-    !rlang::is_null(extra$filename) ||
-    isTRUE(extra$optional)
+  has_extra_members <- !rlang::is_null(extra[["md5"]]) ||
+    !rlang::is_null(extra[["sha256"]]) ||
+    !rlang::is_null(extra[["license"]]) ||
+    !rlang::is_null(extra[["license_family"]]) ||
+    !rlang::is_null(extra[["features"]]) ||
+    !rlang::is_null(extra[["filename"]]) ||
+    isTRUE(extra[["optional"]])
 
   if (
-    !rlang::is_null(extra$track_features) &&
-      isTRUE(length(extra$track_features) > 0L)
+    !rlang::is_null(extra[["track_features"]]) &&
+      isTRUE(length(extra[["track_features"]]) > 0L)
   ) {
-    track_features_str <- ms_format_python_set(extra$track_features)
+    track_features_str <- ms_format_python_set(extra[["track_features"]])
   } else if (has_extra_members) {
     track_features_str <- "set()"
   } else {
@@ -491,9 +551,46 @@ ms_format_canonical <- function(
   extra_platforms,
   extra
 ) {
-  out <- ""
+  # Channel prefix (channel:namespace:), then the name
+  out <- paste0(
+    ms_format_channel_prefix(
+      channel_location,
+      channel_platform_filters,
+      name_space
+    ),
+    name
+  )
 
-  # Channel prefix: channel:namespace:name
+  version_build <- ms_format_version_build(version, build_string)
+  out <- paste0(out, version_build$positional)
+
+  # Bracket attributes
+  bracket_parts <- c(version_build$brackets, ms_format_extra_brackets(extra))
+  if (length(bracket_parts) > 0L) {
+    out <- paste0(out, "[", paste(bracket_parts, collapse = ","), "]")
+  }
+
+  return(out)
+}
+
+#' The channel prefix of a canonical MatchSpec string
+#'
+#' @param channel_location Channel location value or `NULL`.
+#' @param channel_platform_filters Character vector of channel platform
+#'   filters.
+#' @param name_space Namespace value.
+#'
+#' @returns A character string: `"channel:namespace:"`, `"namespace:"` or
+#'   `""`.
+#'
+#' @keywords internal
+#' @noRd
+ms_format_channel_prefix <- function(
+  channel_location,
+  channel_platform_filters,
+  name_space
+) {
+  out <- ""
   if (!rlang::is_null(channel_location)) {
     chan_str <- ms_format_channel_display(
       channel_location,
@@ -504,13 +601,27 @@ ms_format_canonical <- function(
       out <- paste0(out, name_space)
     }
     out <- paste0(out, ":")
-  } else if (!rlang::is_null(name_space) && nchar(name_space) > 0L) {
+  } else if (!rlang::is_null(name_space) && nzchar(name_space, keepNA = TRUE)) {
     out <- paste0(out, name_space, ":")
   }
+  return(out)
+}
 
-  # Name
-  out <- paste0(out, name)
-
+#' The version and build of a canonical MatchSpec string
+#'
+#' A simple version and an exact build are written after the name
+#' (`=1.2=py_0`); a complex version or a build with a wildcard go in
+#' brackets.
+#'
+#' @param version Normalized version string.
+#' @param build_string Normalized build string.
+#'
+#' @returns A list with `positional` (a character string, possibly empty)
+#'   and `brackets` (a character vector of bracket attributes).
+#'
+#' @keywords internal
+#' @noRd
+ms_format_version_build <- function(version, build_string) {
   # Determine complexity of version and build
   is_free_version <- rlang::is_null(version) ||
     identical(version, "") ||
@@ -523,18 +634,17 @@ ms_format_canonical <- function(
   is_complex_version <- ms_is_complex_version(version)
   is_complex_build <- !is_free_build && !is_exact_build
 
+  positional <- ""
   if (!is_complex_version && !is_complex_build) {
     # Simple: write positionally
     if (!is_free_build) {
-      out <- paste0(out, version, "=", build_string)
+      positional <- paste0(version, "=", build_string)
     } else if (!is_free_version) {
-      out <- paste0(out, version)
+      positional <- paste0(version)
     }
   }
 
-  # Bracket attributes
   bracket_parts <- character(0L)
-
   if (is_complex_version || is_complex_build) {
     if (!is_free_version) {
       bracket_parts <- c(
@@ -549,71 +659,61 @@ ms_format_canonical <- function(
       )
     }
   }
+  return(list(positional = positional, brackets = bracket_parts))
+}
 
-  if (!rlang::is_null(extra$build_number)) {
+#' The bracket attributes of the extra fields of a canonical MatchSpec
+#'
+#' @param extra Named list of extra MatchSpec fields.
+#'
+#' @returns A character vector of bracket attributes, in libmamba's order.
+#'
+#' @keywords internal
+#' @noRd
+ms_format_extra_brackets <- function(extra) {
+  bracket_parts <- character(0L)
+
+  if (!rlang::is_null(extra[["build_number"]])) {
     bracket_parts <- c(
       bracket_parts,
-      paste0("build_number=\"", extra$build_number, "\"")
+      paste0("build_number=\"", extra[["build_number"]], "\"")
     )
   }
 
   if (
-    !rlang::is_null(extra$track_features) &&
-      isTRUE(length(extra$track_features) > 0L)
+    !rlang::is_null(extra[["track_features"]]) &&
+      isTRUE(length(extra[["track_features"]]) > 0L)
   ) {
-    tf_str <- paste(sort(extra$track_features), collapse = " ")
+    tf_str <- paste(sort(extra[["track_features"]]), collapse = " ")
     bracket_parts <- c(
       bracket_parts,
       paste0("track_features=\"", tf_str, "\"")
     )
   }
 
-  if (!rlang::is_null(extra$features) && nchar(extra$features) > 0L) {
-    q <- ms_find_needed_quote(extra$features)
-    bracket_parts <- c(
-      bracket_parts,
-      paste0("features=", q, extra$features, q)
-    )
+  # Exact names only: `$` and `[[exact = FALSE]]` match partially, so a
+  # `license_family` without a `license` was also written as `license`.
+  for (field in c("features", "filename")) {
+    value <- extra[[field]]
+    if (!rlang::is_null(value) && nzchar(value, keepNA = TRUE)) {
+      q <- ms_find_needed_quote(value)
+      key <- if (identical(field, "filename")) "fn" else field
+      bracket_parts <- c(bracket_parts, paste0(key, "=", q, value, q))
+    }
   }
 
-  if (!rlang::is_null(extra$filename) && nchar(extra$filename) > 0L) {
-    q <- ms_find_needed_quote(extra$filename)
-    bracket_parts <- c(
-      bracket_parts,
-      paste0("fn=", q, extra$filename, q)
-    )
+  for (field in c("md5", "sha256", "license", "license_family")) {
+    value <- extra[[field]]
+    if (!rlang::is_null(value) && nzchar(value, keepNA = TRUE)) {
+      bracket_parts <- c(bracket_parts, paste0(field, "=", value))
+    }
   }
 
-  if (!rlang::is_null(extra$md5) && nchar(extra$md5) > 0L) {
-    bracket_parts <- c(bracket_parts, paste0("md5=", extra$md5))
-  }
-
-  if (!rlang::is_null(extra$sha256) && nchar(extra$sha256) > 0L) {
-    bracket_parts <- c(bracket_parts, paste0("sha256=", extra$sha256))
-  }
-
-  if (!rlang::is_null(extra$license) && nchar(extra$license) > 0L) {
-    bracket_parts <- c(bracket_parts, paste0("license=", extra$license))
-  }
-
-  if (
-    !rlang::is_null(extra$license_family) && nchar(extra$license_family) > 0L
-  ) {
-    bracket_parts <- c(
-      bracket_parts,
-      paste0("license_family=", extra$license_family)
-    )
-  }
-
-  if (isTRUE(extra$optional)) {
+  if (isTRUE(extra[["optional"]])) {
     bracket_parts <- c(bracket_parts, "optional")
   }
 
-  if (length(bracket_parts) > 0L) {
-    out <- paste0(out, "[", paste(bracket_parts, collapse = ","), "]")
-  }
-
-  return(out)
+  return(bracket_parts)
 }
 
 
@@ -822,7 +922,7 @@ ms_parse_channel <- function(str) {
 ms_parse_platform_list <- function(str) {
   parts <- strsplit(str, "[,|;]")[[1]]
   parts <- trimws(parts)
-  parts <- parts[nchar(parts) > 0L]
+  parts <- parts[nzchar(parts, keepNA = TRUE)]
   tolower(parts)
 }
 
@@ -870,7 +970,7 @@ ms_is_known_platform <- function(str) {
 ms_split_features <- function(str) {
   parts <- strsplit(str, "[ ,;]+")[[1]]
   parts <- trimws(parts)
-  parts[nchar(parts) > 0L]
+  parts[nzchar(parts, keepNA = TRUE)]
 }
 
 
@@ -1048,7 +1148,7 @@ ms_split_bracket_pairs <- function(str) {
     }
   }
 
-  if (isTRUE(nchar(current) > 0L)) {
+  if (isTRUE(nzchar(current, keepNA = TRUE))) {
     result <- c(result, current)
   }
 
@@ -1186,7 +1286,7 @@ ms_split_version_and_build <- function(str) {
         version_part <- trimws(base::substring(str, 1L, abs_space))
         build_start_pos <- abs_space + 1L
         build_part <- trimws(base::substring(str, build_start_pos))
-        if (isTRUE(nchar(build_part) > 0L)) {
+        if (isTRUE(nzchar(build_part, keepNA = TRUE))) {
           return(list(version = version_part, build = build_part))
         }
       }
@@ -1287,6 +1387,20 @@ ms_normalize_version <- function(version) {
     return(ms_normalize_compound_version(ver))
   }
 
+  return(ms_normalize_single_version(ver))
+}
+
+#' Normalize a version without `,`, `|` or parentheses
+#'
+#' The rules of `ms_normalize_version()` for a single version.
+#'
+#' @param ver Trimmed version string, not free.
+#'
+#' @returns A normalized version specification string.
+#'
+#' @keywords internal
+#' @noRd
+ms_normalize_single_version <- function(ver) {
   # A `*` left after one trailing glob, as in "=1.3.*.*": the version is
   # kept, so version_spec_is_compared() sees it and it is not compared.
   if (grepl("\\*", sub("\\.?\\*$", "", ver))) {

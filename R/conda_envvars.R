@@ -70,6 +70,68 @@ get_clean_conda_envvars <- function(tmp_dir, conda_dirs = NULL) {
   return(envvar_list)
 }
 
+#' Python variables of every child process
+#'
+#' The Python state of the R session never reaches a child of `condathis`:
+#' the commands of [run()], [run_bin()] and [run_pipeline()], with and
+#' without activation, and `micromamba` itself, which runs `pip` or `uv`
+#' for the `pip:` section of an environment file and `pip inspect` for
+#' [list_packages()]. A python of an environment otherwise found the
+#' modules of `PYTHONPATH` and of the user's site directory, built for
+#' another Python, before its own, and a `PYTHONHOME` made it unusable.
+#' `uv` installed into the interpreter of `UV_PYTHON` instead of the
+#' environment (decision D18 of `feat-run-unify`).
+#'
+#' * `PYTHONHOME`, `PYTHONPATH`, `PYTHONUSERBASE` and `PYTHONSTARTUP` are
+#'   removed.
+#' * `PYTHONNOUSERSITE` is `"1"`: the user's site directory (`~/.local`, on
+#'   Windows under `%APPDATA%`) is not on `sys.path`.
+#' * `UV_PYTHON`, `UV_SYSTEM_PYTHON` and `UV_PROJECT_ENVIRONMENT` are
+#'   removed.
+#' * `PIP_USER` and `PIP_REQUIRE_VIRTUALENV` are `"false"`, and
+#'   `PIP_REQUIRE_VENV` (an alias that pip also reads; the later one in
+#'   the environment block wins), `PIP_TARGET`, `PIP_PREFIX` and
+#'   `PIP_ROOT` are removed (decisions D22, D23):
+#'   with `PYTHONNOUSERSITE`, `PIP_USER=1` (or `user = true` in a pip
+#'   configuration file) made every `pip install` fail ("User
+#'   site-packages are disabled"), `require-virtualenv` refused to install
+#'   into a Conda environment, which is not a virtual environment, and the
+#'   other three sent the packages out of the environment. Environment
+#'   variables override the configuration files of pip. A `target`,
+#'   `prefix` or `root` of a configuration file stays: a variable cannot
+#'   unset it. The settings of
+#'   the package index, the credentials, the certificates and the proxy
+#'   reach pip unchanged. `micromamba list` sets more (see
+#'   `micromamba_pip_inspect_vars()`).
+#'
+#' The activation of an environment comes later, so a variable that an
+#' `activate.d` script sets reaches the command. A venv activation of the
+#' R session (`VIRTUAL_ENV`) is undone by `isolate_host_env()`.
+#'
+#' @returns A named list of overrides for `apply_env_overrides()`: a
+#'   `NULL` entry removes the variable. Does no file system access.
+#'
+#' @keywords internal
+#' @noRd
+python_isolation_envvars <- function() {
+  return(list(
+    `PYTHONHOME` = NULL,
+    `PYTHONPATH` = NULL,
+    `PYTHONUSERBASE` = NULL,
+    `PYTHONSTARTUP` = NULL,
+    `PYTHONNOUSERSITE` = "1",
+    `UV_PYTHON` = NULL,
+    `UV_SYSTEM_PYTHON` = NULL,
+    `UV_PROJECT_ENVIRONMENT` = NULL,
+    `PIP_USER` = "false",
+    `PIP_REQUIRE_VIRTUALENV` = "false",
+    `PIP_REQUIRE_VENV` = NULL,
+    `PIP_TARGET` = NULL,
+    `PIP_PREFIX` = NULL,
+    `PIP_ROOT` = NULL
+  ))
+}
+
 #' Conda directories of the micromamba root
 #'
 #' @param root_dir Character string with the already-resolved root of the

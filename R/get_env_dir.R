@@ -32,7 +32,8 @@ get_env_dir <- function(env_name = "condathis-env", method = "auto") {
   resolved <- resolve_backend(
     env_name = env_name,
     method = method,
-    mutating = FALSE
+    mutating = FALSE,
+    user_env = rlang::caller_env()
   )
   # Checked at the boundary: always an absolute `fs_path`. The check is
   # called here, not through `env_dir_for_backend()`, so that its error

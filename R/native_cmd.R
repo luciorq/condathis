@@ -178,6 +178,12 @@ native_cmd <- function(
     command = umamba_exec_path,
     args = cmd_args,
     env = child_env,
+    # `list` starts `python -m pip`, which imports `pip` from its working
+    # directory first: it runs in its temporary directory. It passes only
+    # `-n <name>` or an absolute `-p <prefix>`. The other commands keep
+    # R's working directory, against which micromamba resolves relative
+    # paths of the user.
+    wd = if (isTRUE(identical(conda_cmd, "list"))) tmp_dir_path,
     spinner = verbose_list$spinner_flag,
     echo_cmd = verbose_list$cmd,
     echo = verbose_output,
@@ -233,8 +239,10 @@ install_micromamba_for_command <- function(verbose_list) {
   verbose_list <- parse_strategy_verbose(
     verbose = call_verbose() %||% verbose_list$strategy %||% "output"
   )
+  # jarl-ignore unused_object: interpolated by cli in the message below
   umamba_bin_path <- micromamba_bin_path()
   if (isFALSE(identical(verbose_list$strategy, "silent"))) {
+    # jarl-ignore unused_object: interpolated by cli in the message below
     micromamba_version <- micromamba_default_version
     condathis_inform(
       message = c(
@@ -321,9 +329,13 @@ install_micromamba_for_command <- function(verbose_list) {
 #' It is not the `TMPDIR` itself, so a script that sets `TMP` to the
 #' command's `TMPDIR` is still recorded.
 #'
-#' `list` runs `python -m pip inspect` in the environment, so it gets
-#' `PYTHONNOUSERSITE=1` and no `PYTHONPATH` or `PYTHONHOME`: pip then
-#' reports only the PyPI packages of the environment itself.
+#' `create` and `install` run the pip or uv of the environment for the
+#' `pip:` section of an environment file, so they get the variables of
+#' `micromamba_pip_install_vars()`. `list` runs `python -m pip inspect` in
+#' the environment, so it gets the variables of
+#' `micromamba_pip_inspect_vars()`. With the Python variables of every
+#' child (see `python_isolation_envvars()`), pip then installs into and
+#' reports only the environment itself.
 #'
 #' @param conda_cmd Character string with the micromamba subcommand.
 #' @param conda_args Character vector of the options `condathis` passes.
@@ -385,15 +397,72 @@ micromamba_cmd_overlay <- function(
     # `micromamba run` starts the `Rscript` that records an activation.
     overlay <- c(overlay, as.list(internal_rscript_vars()))
   }
+  if (isTRUE(conda_cmd %in% c("create", "install"))) {
+    overlay <- c(overlay, micromamba_pip_install_vars())
+  }
   if (isTRUE(identical(conda_cmd, "list"))) {
-    # `list` asks the environment's pip for its PyPI packages, and pip also
-    # reports the user's site directory and `PYTHONPATH`, which are not part
-    # of the environment (see `read_pypi_package_records()`).
-    overlay[["PYTHONNOUSERSITE"]] <- "1"
-    overlay[["PYTHONPATH"]] <- NA_character_
-    overlay[["PYTHONHOME"]] <- NA_character_
+    overlay <- c(overlay, micromamba_pip_inspect_vars())
   }
   return(overlay)
+}
+
+#' The pip and uv variables of `micromamba create` and `micromamba install`
+#'
+#' micromamba installs the `pip:` section of an environment file with the
+#' environment's `pip`, or with `uv` when the file lists it. Both read the
+#' user's settings, which could send the packages elsewhere or stop the
+#' install, and `create_env()` still succeeded without them.
+#'
+#' `PIP_USER` and `PIP_REQUIRE_VIRTUALENV` are `"false"`, and
+#' `PIP_REQUIRE_VENV`, `PIP_TARGET`, `PIP_PREFIX` and `PIP_ROOT` are
+#' removed, for every child (see `python_isolation_envvars()`, decisions
+#' D22 and D23), as are the other Python
+#' variables. Here, in addition, `VIRTUAL_ENV` and `VIRTUAL_ENV_PROMPT` are
+#' removed, whatever their value: uv installed into the virtual environment
+#' of `VIRTUAL_ENV`. The commands of the run family keep a `VIRTUAL_ENV`
+#' that names no virtual environment (see `undo_host_venv()`).
+#'
+#' The settings of the package index, the credentials, the certificates
+#' and the proxy (`PIP_INDEX_URL`, `PIP_EXTRA_INDEX_URL`, `PIP_CERT`,
+#' `PIP_CONFIG_FILE`, `UV_INDEX_URL`, ...) reach pip and uv unchanged.
+#'
+#' @returns A named list for the `overlay` of `build_child_env()`: an `NA`
+#'   entry removes the variable.
+#'
+#' @keywords internal
+#' @noRd
+micromamba_pip_install_vars <- function() {
+  return(list(
+    `VIRTUAL_ENV` = NA_character_,
+    `VIRTUAL_ENV_PROMPT` = NA_character_
+  ))
+}
+
+#' The pip variables of `micromamba list`
+#'
+#' `list` runs `python -m pip inspect` in the environment for its PyPI
+#' packages (see `read_pypi_package_records()`). pip reads no index for
+#' it, so it reads no configuration file at all: `PIP_CONFIG_FILE` is the
+#' null device (`os.devnull` of Python: `/dev/null`, on Windows `nul`),
+#' which pip reads as "no configuration files". `PIP_USER` is `"false"`,
+#' and `PIP_PATH` and `PIP_LOCAL` are removed: they restricted what
+#' `inspect` reported. The working directory of `list` is its temporary
+#' directory (see `native_cmd()`), so a `pip` package in the working
+#' directory of R never runs in place of the environment's pip.
+#'
+#' @param on_windows Logical. Whether to use the Windows null device.
+#'
+#' @returns A named list for the `overlay` of `build_child_env()`.
+#'
+#' @keywords internal
+#' @noRd
+micromamba_pip_inspect_vars <- function(on_windows = is_windows()) {
+  return(list(
+    `PIP_CONFIG_FILE` = if (isTRUE(on_windows)) "nul" else "/dev/null",
+    `PIP_USER` = "false",
+    `PIP_PATH` = NA_character_,
+    `PIP_LOCAL` = NA_character_
+  ))
 }
 
 #' Variables of the `Rscript` processes of `condathis` itself
@@ -607,6 +676,25 @@ micromamba_env_file_needs_home <- function(
   if (isTRUE(any(names_home))) {
     return(TRUE)
   }
+  if (isFALSE(env_file_runs_pip(text))) {
+    return(FALSE)
+  }
+  return(isTRUE(micromamba_pip_needs_home(home = home)))
+}
+
+#' Whether micromamba runs pip or uv for an environment file
+#'
+#' A text search, which errs on the side of `TRUE`: any `pip:` key, any
+#' pip package manager of a conda-lock file and any `pipPackages` key of a
+#' mambajs lock file (`env_lockfile_mambajs.cpp` of libmamba 2.10.0).
+#'
+#' @param text Character vector, the lines of the file.
+#'
+#' @returns Logical scalar.
+#'
+#' @keywords internal
+#' @noRd
+env_file_runs_pip <- function(text) {
   runs_pip <- grepl(
     paste0(
       "pip[\"']?[[:space:]]*:|",
@@ -617,10 +705,7 @@ micromamba_env_file_needs_home <- function(
     ignore.case = TRUE,
     useBytes = TRUE
   )
-  if (isFALSE(any(runs_pip))) {
-    return(FALSE)
-  }
-  return(isTRUE(micromamba_pip_needs_home(home = home)))
+  return(isTRUE(any(runs_pip)))
 }
 
 #' Whether pip or uv would read a file from micromamba's home
@@ -823,7 +908,9 @@ micromamba_tmp_dir <- function(tmp_dir) {
 #' @noRd
 ensure_condathis_rc_file <- function(root_dir) {
   rc_path <- fs::path(root_dir, "condathis-micromamba.yaml")
-  yaml_quote <- function(x) paste0("'", gsub("'", "''", as.character(x)), "'")
+  yaml_quote <- function(x) {
+    paste0("'", gsub("'", "''", as.character(x), fixed = TRUE), "'")
+  }
   content <- c(
     "# Written by condathis. Changes are overwritten.",
     "pkgs_dirs:",

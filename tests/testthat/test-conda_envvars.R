@@ -274,7 +274,7 @@ testthat::test_that("children of a stub backend get its conda-pkgs, with and wit
   # The rule of `child_conda_dirs()`, end to end through run(), run_bin()
   # and run_pipeline() (both `activate` values), for a backend with the
   # root condathis assigns.
-  stub <- local_stub_backend(
+  local_stub_backend(
     "stub-pkgs",
     envs = "pkgs-env",
     default_root = TRUE

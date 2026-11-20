@@ -171,6 +171,7 @@ backend_resolve_run_in_dir.default <- function(
   # condathis asks only a backend that has this function (see
   # `resolve_env_path_target()`), so this is reached when it is called
   # directly.
+  # jarl-ignore unused_object: interpolated by cli in the message below
   backend_name <- backend_display_name(backend)
   condathis_abort(
     message = c(
@@ -441,7 +442,8 @@ is_cache_content <- function(path) {
 #'
 #' What `micromamba env list` reports for `<root>/envs`: the directories
 #' that contain `conda-meta/history` (checked with micromamba 2.9.0 and
-#' 2.10.0). A directory without that file is not an environment, so the
+#' 2.10.0), also when `<root>/envs` is a link to another directory. A
+#' directory without that file is not an environment, so the
 #' stale-directory cleanup of `create_env()` and `remove_env()` treats it
 #' as micromamba would. Symbolic links are not listed, and neither is
 #' `env_trash_dir()`. The default `backend_list_envs()`, and the listing of
@@ -473,26 +475,39 @@ list_conda_prefix_envs <- function(env_root_dir) {
 
 #' Is one name a conda prefix in `<root>/envs`?
 #'
-#' `env_name %in% list_conda_prefix_envs(env_root_dir)`, for one name and
-#' with base R calls only: it starts no process, creates nothing, and does
-#' not look up the owner of files, as `fs::dir_exists()` does. The rule is
-#' the one of `list_conda_prefix_envs()`, which is what `micromamba env
-#' list` reports for `<root>/envs`:
+#' `env_name %in% list_conda_prefix_envs(env_root_dir)`, for one name: it
+#' starts no process, creates nothing, and looks up the owner of a file
+#' only for a listed entry that is not a directory. The rule is the one of
+#' `list_conda_prefix_envs()`, which is what `micromamba env list` reports
+#' for `<root>/envs`:
 #'
-#' * the directory `<root>/envs/<env_name>` exists and has
-#'   `conda-meta/history`;
 #' * `<root>/envs` has an entry of exactly that name: on a file system that
 #'   ignores case, `envs/myenv` also opens `envs/MyEnv`;
-#' * its real path is a direct child of the real `<root>/envs`. A symbolic
-#'   link to another environment, or to a directory outside `<root>/envs`,
-#'   is not listed under its own name;
+#' * that entry is a directory with `conda-meta/history`;
+#' * its real path is a direct child of the real `<root>/envs`
+#'   (`is_exact_env_dir()`, the check that guards every deletion). A
+#'   symbolic link to another environment, or to a directory outside
+#'   `<root>/envs`, is not listed under its own name. `<root>/envs` itself
+#'   can be a link, for example to another disk;
 #' * it is not `env_trash_dir()`.
+#'
+#' `<root>/envs` is listed first (`read_dir_names()`). A missing
+#' `<root>/envs` gives `FALSE` and nothing is created (decision D3). An
+#' environment removed meanwhile gives `FALSE` at whichever step finds it
+#' gone.
+#'
+#' Names and real paths come from base R (`list.files()`,
+#' `normalizePath()`), as native strings that compare equal to `env_name`.
+#' In a locale that is not UTF-8, `fs` returns a non-ASCII name as escaped
+#' text (`"caf<c3><a9>"`), which never equals the name, so the environment
+#' looked absent.
 #'
 #' @param env_root_dir Character string, the root (need not be realized).
 #' @param env_name Character string with the environment name.
 #'
-#' @returns `TRUE` or `FALSE`. Errors when `<root>/envs` cannot be read,
-#'   so that `backend_probe_env()` reads it as `NA` (rule R5).
+#' @returns `TRUE` or `FALSE`. Errors when `<root>/envs` cannot be read, or
+#'   its entry `env_name` cannot be looked at, so that `backend_probe_env()`
+#'   reads it as `NA` (rule R5).
 #'
 #' @keywords internal
 #' @noRd
@@ -501,31 +516,111 @@ conda_prefix_env_exists <- function(env_root_dir, env_name) {
     return(FALSE)
   }
   envs_dir <- file.path(env_root_dir, "envs")
+  if (isFALSE(env_name %in% read_dir_names(envs_dir))) {
+    return(FALSE)
+  }
   env_dir <- file.path(envs_dir, env_name)
-  if (
-    isFALSE(dir.exists(env_dir)) ||
-      isFALSE(file.exists(file.path(env_dir, "conda-meta", "history")))
-  ) {
+  if (isFALSE(dir.exists(env_dir))) {
+    # Listed, but not a directory: a file or a dangling link, or an entry
+    # that cannot be looked at, which errors here. Gone meanwhile is no
+    # error.
+    fs::file_info(env_dir, fail = TRUE, follow = FALSE)
     return(FALSE)
   }
-  entries <- list.files(envs_dir, all.files = TRUE, no.. = TRUE)
-  if (identical(length(entries), 0L)) {
-    # `env_dir` exists, so `<root>/envs` is not empty: it cannot be read.
-    stop("Cannot read the directory ", envs_dir, ".", call. = FALSE)
-  }
-  if (isFALSE(env_name %in% entries)) {
+  if (isFALSE(file.exists(file.path(env_dir, "conda-meta", "history")))) {
     return(FALSE)
   }
-  real_env_dir <- normalizePath(env_dir, winslash = "/", mustWork = FALSE)
-  real_root <- normalizePath(env_root_dir, winslash = "/", mustWork = FALSE)
-  return(isTRUE(env_name %in% condathis_env_names(real_env_dir, real_root)))
+  # Both real paths come from the same function, so they agree also where
+  # `normalizePath()` and `fs::path_real()` differ.
+  return(is_exact_env_dir(
+    real_target = native_real_path_or_na(env_dir),
+    real_envs_dir = native_real_path_or_na(envs_dir),
+    env_name = env_name
+  ))
+}
+
+#' The real path of a file, as a native string
+#'
+#' `real_path_or_na()` with `normalizePath()`, which keeps a non-ASCII name
+#' as the bytes on disk in a locale that is not UTF-8.
+#'
+#' @param path Character string.
+#'
+#' @returns Character string with `/` separators, or `NA` when `path`
+#'   cannot be resolved.
+#'
+#' @keywords internal
+#' @noRd
+native_real_path_or_na <- function(path) {
+  return(tryCatch(
+    normalizePath(path, winslash = "/", mustWork = TRUE),
+    error = function(e) NA_character_,
+    warning = function(w) NA_character_
+  ))
+}
+
+#' The names in a directory
+#'
+#' The one listing of `conda_prefix_env_exists()`, a function of its own so
+#' that tests can replace it. Hidden names are included.
+#'
+#' @param path Character string, a directory.
+#'
+#' The names come from `list.files()`, native strings that compare equal
+#' to the name the user typed in any locale. `list.files()` gives an empty
+#' result also for a directory that cannot be read, so only then `fs` reads
+#' it again, to raise that error. The listing of a warm `run()` is not empty
+#' and costs no more.
+#'
+#' @returns A character vector of names. `character(0)` when `path` does
+#'   not exist or is not a directory. Errors when it cannot be read (`EACCES`
+#'   on Linux and macOS, `EPERM` on Windows).
+#'
+#' @keywords internal
+#' @noRd
+read_dir_names <- function(path) {
+  names <- list.files(path, all.files = TRUE, no.. = TRUE)
+  if (length(names) > 0L) {
+    return(names)
+  }
+  # Empty, missing, not a directory, or cannot be read.
+  return(tryCatch(
+    {
+      fs::dir_ls(path, all = TRUE)
+      character(0L)
+    },
+    ENOENT = function(e) character(0L),
+    ENOTDIR = function(e) character(0L)
+  ))
+}
+
+#' The real path of `<root>/envs`
+#'
+#' The parent that every environment of the root has, also when
+#' `<root>/envs` is a symbolic link or, on Windows, a junction.
+#'
+#' @param env_root_dir Character string, the root.
+#'
+#' @returns Character string, the real path of `<root>/envs`, or
+#'   `<root>/envs` itself when it cannot be resolved (it does not exist).
+#'
+#' @keywords internal
+#' @noRd
+real_envs_dir <- function(env_root_dir) {
+  envs_dir <- file.path(env_root_dir, "envs")
+  real <- real_path_or_na(envs_dir)
+  if (isTRUE(is.na(real))) {
+    return(to_slash_path(envs_dir))
+  }
+  return(real)
 }
 
 #' Keep the env paths that live under the condathis install root, return names
 #'
-#' A path is kept when its parent directory is exactly `<env_root_dir>/envs`,
-#' compared as a literal string, never as a regex or a substring. A regex
-#' would treat the `.` characters of the path as "any character" (matching
+#' A path is kept when its parent directory is exactly the real
+#' `<env_root_dir>/envs` (`real_envs_dir()`), compared as a literal string,
+#' never as a regex or a substring. A regex would treat the `.` characters
+#' of the path as "any character" (matching
 #' `~/Xlocal/share/R/condathis/...`). A substring match would claim any path
 #' that contains the root, for example a backup copy at
 #' `/backup/home/user/.local/share/R/condathis/envs/x`. The root itself and
@@ -547,8 +642,12 @@ condathis_env_names <- function(envs_str, env_root_dir) {
   # and `remove_env()`. Backslashes are folded too: on Windows a path that
   # `fs::path_real()` could not realize falls back to the backslash form of
   # `normalizePath()`.
+  # The parent is the real `<root>/envs`, as for `is_exact_env_dir()`:
+  # `envs_str` is realized, so with `<root>/envs` a link to another disk,
+  # the real root plus "/envs" matched none of its environments, and
+  # `create_env()` then deleted them as stale directories.
   envs_str <- to_slash_path(envs_str)
-  envs_parent <- paste0(to_slash_path(env_root_dir), "/envs")
+  envs_parent <- to_slash_path(real_envs_dir(env_root_dir))
   in_envs_dir <- tolower_on_windows(dirname(envs_str)) ==
     tolower_on_windows(envs_parent)
   return(base::basename(envs_str[in_envs_dir]))

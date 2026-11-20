@@ -71,6 +71,14 @@ Or get the development version from R-universe:
 install.packages("condathis", repos = c("https://luciorq.r-universe.dev", getOption("repos")))
 ```
 
+On Windows (x64) and macOS with R 4.5 or later, `install.packages()`
+installs every dependency of `condathis` from binaries. On R 4.3, and on
+R 4.4 on Apple silicon (arm64) Macs, CRAN has no binaries of the
+versions of `processx` and `ps` (and, on R 4.3, `fs`) that `condathis`
+needs. They are built from source, which needs
+[Rtools](https://cran.r-project.org/bin/windows/Rtools/) on Windows and
+the Xcode Command Line Tools (`xcode-select --install`) on macOS.
+
 ## Why `condathis`?
 
 R's `system()` and `system2()` depend on tools being installed on the
@@ -236,8 +244,10 @@ Every error of `condathis` has the class `condathis_error`, and
 No shell is involved, so shell syntax in an argument is passed
 literally.
 
-- Shell builtins, such as `echo`, are not available as commands. To use
-  shell features, run a shell explicitly, for example
+- Shell builtins, such as `export`, `source` or, on Windows, `dir` and
+  `echo`, are not programs, so they cannot be run directly (unless a
+  program of that name, such as `echo.exe` of Git for Windows, is on
+  `PATH`). To use shell features, run a shell explicitly, for example
   `condathis::run("bash", "-c", "...")`.
 - Shell operators such as `|` and `>` are not interpreted.
   - Instead of `>`, use the `stdout`/`stderr` arguments (a file path
@@ -277,8 +287,10 @@ literally.
   `reticulate`](https://luciorq.github.io/condathis/articles/python-and-reticulate.html),
   [stream binary data through
   pipelines](https://luciorq.github.io/condathis/articles/whole-slide-images.html),
-  and [choose a
-  backend](https://luciorq.github.io/condathis/articles/backends.html).
+  [choose a
+  backend](https://luciorq.github.io/condathis/articles/backends.html),
+  and [run parallel Python workers with
+  `mizu`](https://luciorq.github.io/condathis/articles/python-and-mizu.html).
 - `?condathis::run`, `?condathis::run_pipeline` and
   `?condathis::create_env` describe every argument.
   `` ?condathis::`condathis-options` `` lists the options and

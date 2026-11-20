@@ -33,7 +33,8 @@ host, and an environment never lists it.
 deprecated. It warns once per session (class
 \code{condathis_deprecated_packages_arg}) when the call comes from the
 console, a script or the tests of the package that makes it. Calls
-made inside other packages do not warn.
+made inside other packages do not warn, except in tests that use
+testthat's third edition (see \link{condathis-conditions}).
 
 Or one lock file, given by \code{\link[=env_definition]{env_definition()}}, such as
 \code{env_definition("conda-lock.yml")}, without package specs. Then the

@@ -38,8 +38,8 @@ testthat::test_that("version_spec_contains errors have the shared classes", {
     quote(version_spec_contains("1.0", 42))
   )) {
     cnd <- rlang::catch_cnd(eval(call), classes = "error")
-    testthat::expect_identical(
-      class(cnd),
+    testthat::expect_s3_class(
+      cnd,
       c(
         "condathis_version_spec_contains_invalid_input",
         "condathis_invalid_arg",
@@ -47,7 +47,8 @@ testthat::test_that("version_spec_contains errors have the shared classes", {
         "rlang_error",
         "error",
         "condition"
-      )
+      ),
+      exact = TRUE
     )
   }
 })
@@ -447,7 +448,8 @@ testthat::test_that("ms_version_compare: matches libmambapy implementation", {
   testthat::skip_on_ci()
 
   # Load helper function
-  base::source(testthat::test_path("libmamba_wrappers.R"))
+  # Into this test only, not the global environment.
+  base::source(testthat::test_path("libmamba_wrappers.R"), local = TRUE)
 
   # All cases below were verified against libmambapy (0 mismatches in 142 cases)
 

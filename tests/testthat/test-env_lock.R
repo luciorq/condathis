@@ -59,7 +59,7 @@ testthat::test_that("a session that holds the lock gets it again, and releases i
 
     fails <- function() {
       local_env_lock("lk-nested", verbose = "silent")
-      stop("lk-boom")
+      stop("lk-boom", call. = FALSE)
     }
     testthat::expect_error(fails(), "lk-boom")
     testthat::expect_true(env_lock_is_free("lk-nested"))
@@ -108,7 +108,8 @@ testthat::test_that("a call goes on without the lock where files cannot be locke
     withr::defer(reset_warn_once("env_lock_unavailable"))
     local_stub_backend("stub-lk", default_root = TRUE)
 
-    warnings <- list()
+    tracked <- new.env(parent = emptyenv())
+    tracked$warnings <- list()
     withCallingHandlers(
       create_env(
         env_name = "lk-nolock",
@@ -116,13 +117,16 @@ testthat::test_that("a call goes on without the lock where files cannot be locke
         verbose = "silent"
       ),
       warning = function(cnd) {
-        warnings[[length(warnings) + 1L]] <<- cnd
+        tracked$warnings[[length(tracked$warnings) + 1L]] <- cnd
         invokeRestart("muffleWarning")
       }
     )
-    testthat::expect_length(warnings, 1L)
-    testthat::expect_s3_class(warnings[[1L]], "condathis_env_lock_unavailable")
-    testthat::expect_s3_class(warnings[[1L]], "condathis_warning")
+    testthat::expect_length(tracked$warnings, 1L)
+    testthat::expect_s3_class(
+      tracked$warnings[[1L]],
+      "condathis_env_lock_unavailable"
+    )
+    testthat::expect_s3_class(tracked$warnings[[1L]], "condathis_warning")
     testthat::expect_true(env_exists("lk-nolock", method = "stub-lk"))
     # Once per session.
     testthat::expect_no_warning(
@@ -136,7 +140,7 @@ testthat::test_that("an interrupt of the wait on Windows is an interrupt, as on 
   # filelock turns an interrupt during a wait on Windows into the error
   # "Locking interrupted"; condathis signals it as an interrupt again.
   testthat::local_mocked_bindings(
-    lock = function(...) stop("Locking interrupted"),
+    lock = function(...) stop("Locking interrupted", call. = FALSE),
     .package = "filelock"
   )
   path <- fs::path(withr::local_tempdir(), "locks", "lk-int.lock")
@@ -148,7 +152,7 @@ testthat::test_that("an interrupt of the wait on Windows is an interrupt, as on 
 
   # Any other error means that the file cannot be locked.
   testthat::local_mocked_bindings(
-    lock = function(...) stop("No locks available"),
+    lock = function(...) stop("No locks available", call. = FALSE),
     .package = "filelock"
   )
   value <- try_env_lock(path, timeout = 0L)
@@ -633,7 +637,7 @@ testthat::test_that("two sessions never change one environment at once (micromam
   # environments can contain "lock" anywhere.
   env_names <- list_envs(method = "micromamba")$env_name
   testthat::expect_false("locks" %in% env_names)
-  testthat::expect_false(any(grepl("lock", env_names)))
+  testthat::expect_false(any(grepl("lock", env_names, fixed = TRUE)))
 })
 
 testthat::test_that("a call that changes nothing does not warn that it could not lock", {
@@ -699,11 +703,12 @@ testthat::test_that("a session waits for a lock without a timed attempt, and say
       )
     )
     fs::file_create(other_entry)
-    timeouts <- numeric(0L)
+    tracked <- new.env(parent = emptyenv())
+    tracked$timeouts <- numeric(0L)
     real_lock <- filelock::lock
     testthat::local_mocked_bindings(
       lock = function(path, exclusive = TRUE, timeout = Inf) {
-        timeouts <<- c(timeouts, timeout)
+        tracked$timeouts <- c(tracked$timeouts, timeout)
         return(real_lock(path, exclusive = exclusive, timeout = timeout))
       },
       .package = "filelock"
@@ -715,7 +720,7 @@ testthat::test_that("a session waits for a lock without a timed attempt, and say
       return(as.character(fs::path_file(fs::dir_ls(owners_dir))))
     }
     take_lock <- function(verbose) {
-      holder <- local_env_lock("lk-owner", verbose = verbose)
+      local_env_lock("lk-owner", verbose = verbose)
       return(owner_entries())
     }
     started <- Sys.time()
@@ -727,7 +732,7 @@ testthat::test_that("a session waits for a lock without a timed attempt, and say
       as.numeric(difftime(Sys.time(), started, units = "secs")),
       env_lock_notice_ms() / 1000 - 0.1
     )
-    testthat::expect_identical(timeouts, Inf)
+    testthat::expect_identical(tracked$timeouts, Inf)
     # While it held the lock, its own entry was there too; afterwards only
     # the other process's.
     testthat::expect_true(any(startsWith(
@@ -750,7 +755,7 @@ testthat::test_that("a session waits for a lock without a timed attempt, and say
     )
     # The directory of the entries goes with the last one.
     testthat::expect_false(fs::dir_exists(owners_dir))
-    testthat::expect_true(all(timeouts == Inf))
+    testthat::expect_true(all(tracked$timeouts == Inf))
     # A shared lock waits only for an exclusive owner.
     fs::dir_create(owners_dir)
     fs::file_create(fs::path(
@@ -767,8 +772,8 @@ testthat::test_that("a session that waited for a lock leaves no lock file open",
   # for the rest of the session, so with_sandbox_dir() could not delete its
   # directory.
   testthat::skip_if_not_installed("callr")
-  warnings <- list()
-  sandbox_root <- NULL
+  tracked <- new.env(parent = emptyenv())
+  tracked$warnings <- list()
   withCallingHandlers(
     with_sandbox_dir({
       sandbox_root <- dirname(Sys.getenv("XDG_DATA_HOME"))
@@ -846,11 +851,11 @@ testthat::test_that("a session that waited for a lock leaves no lock file open",
       )
     }),
     warning = function(cnd) {
-      warnings[[length(warnings) + 1L]] <<- cnd
+      tracked$warnings[[length(tracked$warnings) + 1L]] <- cnd
       invokeRestart("muffleWarning")
     }
   )
-  testthat::expect_length(warnings, 0L)
+  testthat::expect_length(tracked$warnings, 0L)
   testthat::expect_false(dir.exists(sandbox_root))
 })
 
@@ -986,20 +991,21 @@ testthat::test_that("the owner entry of a process that has ended but was not rea
   # first process never reaps (`docker run` without `--init`), a session
   # killed after its parent ended stays a zombie.
   with_sandbox_dir({
+    tracked <- new.env(parent = emptyenv())
     if (isTRUE(is_windows())) {
       # Windows has no zombies: an ended process is gone.
       proc <- processx::process$new(
         file.path(R.home("bin"), "Rscript"),
         c("-e", "invisible()")
       )
-      owner <- proc$as_ps_handle()
+      tracked$owner <- proc$as_ps_handle()
       proc$wait(timeout = 10000)
     } else {
       # `sh` starts `sleep 0`, then becomes `sleep 60`, which never reaps
       # it.
       parent <- processx::process$new("sh", c("-c", "sleep 0 & exec sleep 60"))
       withr::defer(parent$kill())
-      owner <- NULL
+      tracked$owner <- NULL
       lock_wait_until(
         function() {
           # The parent's handle comes from ps, not processx: ps_children()
@@ -1011,7 +1017,7 @@ testthat::test_that("the owner entry of a process that has ended but was not rea
             identical(length(children), 1L) &&
               identical(ps::ps_status(children[[1L]]), "zombie")
           ) {
-            owner <<- children[[1L]]
+            tracked$owner <- children[[1L]]
             return(TRUE)
           }
           return(FALSE)
@@ -1020,15 +1026,15 @@ testthat::test_that("the owner entry of a process that has ended but was not rea
         what = "the zombie of `sleep 0`"
       )
     }
-    testthat::expect_false(process_running(owner))
+    testthat::expect_false(process_running(tracked$owner))
     owners_dir <- lock_owners_dir(as.character(env_lock_path("lk-zombie")))
     fs::dir_create(owners_dir)
     entry <- fs::path(
       owners_dir,
       sprintf(
         "x-%d-%.3f",
-        ps::ps_pid(owner),
-        as.numeric(ps::ps_create_time(owner))
+        ps::ps_pid(tracked$owner),
+        as.numeric(ps::ps_create_time(tracked$owner))
       )
     )
     fs::file_create(entry)
@@ -1036,4 +1042,26 @@ testthat::test_that("the owner entry of a process that has ended but was not rea
     # The entry of an ended process is deleted.
     testthat::expect_false(fs::file_exists(entry))
   })
+})
+
+test_that("sigint_ignored_in_proc() reads the SigIgn mask of a status file", {
+  # The helper decides whether the interrupt tests can run; it reads a
+  # file, so every case runs on every OS.
+  status_file <- withr::local_tempfile()
+  read_mask <- function(lines) {
+    writeLines(lines, status_file)
+    return(sigint_ignored_in_proc(status_file = status_file))
+  }
+  testthat::expect_true(read_mask(c("Name:\tR", "SigIgn:\t0000000000000002")))
+  testthat::expect_false(read_mask("SigIgn:\t0000000000000000"))
+  # Bit 2 of the last digit, also with other signals ignored.
+  testthat::expect_true(read_mask("SigIgn:\t0000000001001006"))
+  testthat::expect_false(read_mask("SigIgn:\t0000000001001004"))
+  # Not a hexadecimal mask, or no SigIgn line: it cannot tell.
+  testthat::expect_identical(read_mask("SigIgn:\tzz"), NA)
+  testthat::expect_identical(read_mask("Name:\tR"), NA)
+  testthat::expect_identical(
+    sigint_ignored_in_proc(status_file = fs::path(withr::local_tempdir(), "x")),
+    NA
+  )
 })

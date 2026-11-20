@@ -45,7 +45,7 @@ Part of the \strong{experimental} backend extension API. See the
 # object in its own constructor, for example `new_backend_mybackend()` in
 # *Registering from a backend package* of `?register_backend`.
 not_implemented <- function(...) {
-  stop("Not implemented by this example backend.")
+  stop("Not implemented by this example backend.", call. = FALSE)
 }
 mybackend <- structure(
   list(

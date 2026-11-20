@@ -195,9 +195,11 @@ tasks <- lapply(1:4, function(i) {
 })
 
 # The R session is free while the workers sleep
-r_side <- sum(seq_len(1e6))
+invisible(sum(seq_len(1e6)))
 
-system.time(pids <- mizu_collect_all(tasks))
+system.time({
+  pids <- mizu_collect_all(tasks)
+})
 table(unlist(pids))
 ```
 
@@ -229,9 +231,9 @@ Ten million doubles, 80 MB, reach Python in a fraction of a second.
 #| label: large-data
 x <- stats::rnorm(1e7)
 
-system.time(
+system.time({
   py_sd <- mizu_collect(mizu_submit_call(pool, mizu_call("numpy.std", x)))
-)
+})
 
 all.equal(py_sd, stats::sd(x), tolerance = 1e-6)
 ```

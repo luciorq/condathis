@@ -90,7 +90,6 @@ testthat::test_that("with_sandbox_dir restores everything before it returns", {
   # the directories stayed on disk for the rest of the session.
   old_envvars <- Sys.getenv()
   old_wd <- getwd()
-  sandbox_home <- NULL
 
   with_sandbox_dir({
     sandbox_home <- Sys.getenv("HOME")
@@ -108,12 +107,11 @@ testthat::test_that("with_sandbox_dir restores everything before it returns", {
 testthat::test_that("with_sandbox_dir cleans up after an error", {
   testthat::skip_on_cran()
   old_envvars <- Sys.getenv()
-  sandbox_home <- NULL
 
   testthat::expect_error(
     with_sandbox_dir({
       sandbox_home <- Sys.getenv("HOME")
-      stop("error inside the sandbox")
+      stop("error inside the sandbox", call. = FALSE)
     }),
     "error inside the sandbox"
   )
@@ -195,9 +193,6 @@ testthat::test_that("with_sandbox_dir stops the processes that use the sandbox",
   )
   withr::defer(started_before$kill())
   outside_dir <- withr::local_tempdir()
-  script_child <- NULL
-  env_child <- NULL
-  grandchild_pid <- NULL
   with_sandbox_dir({
     # Scripts inside the sandbox: a path on the command line ties a process
     # to the sandbox, as `-r <root>` does for micromamba.
@@ -282,7 +277,6 @@ testthat::test_that("with_sandbox_dir leaves session helpers started inside it r
   # directories.
   local_child_tempdir()
   sleeper_script <- local_r_script(sleeper_code)
-  helper <- NULL
   with_sandbox_dir({
     helper <- start_r_sleeper(
       c(sleeper_script, file.path(outside_dir, "helper.pid")),
@@ -306,7 +300,8 @@ testthat::test_that("with_sandbox_dir leaves the processx supervisor running", {
   local_child_tempdir()
   # The supervisor must start inside the sandbox, so stop the one an
   # earlier test may have started.
-  processx:::supervisor_reset()
+  # These are processx internals: the test is about the processx supervisor.
+  get("supervisor_reset", envir = asNamespace("processx"))()
   with_sandbox_dir({
     inside <- processx::process$new(
       rscript,
@@ -315,7 +310,7 @@ testthat::test_that("with_sandbox_dir leaves the processx supervisor running", {
     )
     inside$wait(timeout = 10000)
   })
-  supervisor_pid <- processx:::supervisor_info$pid
+  supervisor_pid <- get("supervisor_info", envir = asNamespace("processx"))$pid
   testthat::expect_length(supervisor_pid, 1L)
 
   later <- processx::process$new(
@@ -325,7 +320,10 @@ testthat::test_that("with_sandbox_dir leaves the processx supervisor running", {
   )
   withr::defer(later$kill())
   # The later process is watched by the same supervisor, which still runs.
-  testthat::expect_identical(processx:::supervisor_info$pid, supervisor_pid)
+  testthat::expect_identical(
+    get("supervisor_info", envir = asNamespace("processx"))$pid,
+    supervisor_pid
+  )
   testthat::expect_true(run_family_pid_running(supervisor_pid))
 
   # Both ways of recognizing the supervisor work on this platform.
@@ -617,8 +615,6 @@ testthat::test_that("the sandbox cleanup stops a process that names the root wit
 testthat::test_that("nested with_sandbox_dir calls restore the outer sandbox", {
   testthat::skip_on_cran()
   old_envvars <- Sys.getenv()
-  outer_home <- NULL
-  inner_home <- NULL
 
   with_sandbox_dir({
     outer_home <- Sys.getenv("HOME")
@@ -637,11 +633,9 @@ testthat::test_that("nested with_sandbox_dir calls restore the outer sandbox", {
 testthat::test_that("with_sandbox_dir gives each call a fresh, unique sandbox", {
   testthat::skip_on_cran()
   wrapper_fn <- function() {
-    home_1 <- NULL
     with_sandbox_dir({
       home_1 <- Sys.getenv("HOME")
     })
-    home_2 <- NULL
     with_sandbox_dir({
       home_2 <- Sys.getenv("HOME")
     })
@@ -652,7 +646,7 @@ testthat::test_that("with_sandbox_dir gives each call a fresh, unique sandbox", 
 
 testthat::test_that("with_sandbox_dir returns the value of the code", {
   testthat::skip_on_cran()
-  testthat::expect_identical(with_sandbox_dir(Sys.getenv("HOME") != ""), TRUE)
+  testthat::expect_true(with_sandbox_dir(nzchar(Sys.getenv("HOME"))))
   testthat::expect_visible(with_sandbox_dir(1L))
   testthat::expect_invisible(with_sandbox_dir(invisible(1L)))
 })
@@ -676,8 +670,8 @@ testthat::test_that("a sandbox that cannot be deleted warns with the new and the
     ),
     class = "condathis_with_sandbox_dir_cleanup_failed"
   )
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_with_sandbox_dir_cleanup_failed",
       "condathis_sandbox_cleanup_failed",
@@ -685,7 +679,8 @@ testthat::test_that("a sandbox that cannot be deleted warns with the new and the
       "rlang_warning",
       "warning",
       "condition"
-    )
+    ),
+    exact = TRUE
   )
   testthat::expect_match(conditionMessage(cnd), "sandbox directory")
 })
@@ -697,7 +692,6 @@ testthat::test_that("with_sandbox_dir() restores the session when a value has in
   # cleanup: HOME stayed in the sandbox, and the sandbox stayed on disk.
   withr::defer(Sys.unsetenv("CONDATHIS_TEST_BAD_BYTES"))
   old_home <- Sys.getenv("HOME")
-  sandbox_home <- NULL
   with_sandbox_dir({
     sandbox_home <- Sys.getenv("HOME")
     # Windows may refuse such a value; the cleanup is checked either way.
@@ -723,18 +717,19 @@ testthat::test_that("an interrupt while the cleanup waits leaves the session res
   old_wd <- getwd()
   withr::local_envvar(CONDATHIS_TEST_SANDBOX_VAR = "inside")
   withr::local_dir(withr::local_tempdir())
-  events <- character(0L)
+  tracked <- new.env(parent = emptyenv())
+  tracked$events <- character(0L)
   testthat::local_mocked_bindings(
     stop_sandbox_processes = function(...) {
-      events <<- c(events, "stop")
+      tracked$events <- c(tracked$events, "stop")
       return(invisible(list()))
     },
     quiesce_registered_backends = function(timeout = 30, call = NULL) {
-      events <<- c(events, "quiesce")
+      tracked$events <- c(tracked$events, "quiesce")
       rlang::interrupt()
     },
     delete_sandbox_root = function(sandbox_root) {
-      events <<- c(events, "delete")
+      tracked$events <- c(tracked$events, "delete")
       return(TRUE)
     }
   )
@@ -749,7 +744,7 @@ testthat::test_that("an interrupt while the cleanup waits leaves the session res
     interrupt = function(cnd) cnd
   )
   testthat::expect_s3_class(cnd, "interrupt")
-  testthat::expect_identical(events, c("stop", "quiesce"))
+  testthat::expect_identical(tracked$events, c("stop", "quiesce"))
   testthat::expect_identical(
     Sys.getenv("CONDATHIS_TEST_SANDBOX_VAR", unset = NA),
     NA_character_
@@ -766,6 +761,48 @@ testthat::test_that("delete_sandbox_root() reports whether the directory is gone
   testthat::expect_true(delete_sandbox_root(sandbox_root))
 })
 
+testthat::test_that("delete_sandbox_root() deletes a dangling link, and never what a link points to", {
+  # On kappa (Windows 11), base::unlink(recursive = TRUE) deleted the target
+  # of a junction first, and then could not delete the dangling junction:
+  # with_sandbox_dir() warned and left the sandbox. A symbolic link on Linux
+  # and macOS, a junction on Windows.
+  make_link <- function(target, link) {
+    if (isTRUE(is_windows())) {
+      testthat::expect_true(Sys.junction(
+        as.character(target),
+        as.character(link)
+      ))
+    } else {
+      fs::link_create(target, link)
+    }
+  }
+  base_dir <- withr::local_tempdir(pattern = "condathis-links-")
+  sandbox_root <- fs::path(base_dir, "condathis-sandbox-links")
+  outside <- fs::path(base_dir, "outside")
+  fs::dir_create(outside)
+  fs::file_create(fs::path(outside, "keep"))
+  # `a-target` sorts before `envs`, so it is deleted before the link to it.
+  inside <- fs::path(sandbox_root, "a-target", "env")
+  fs::dir_create(inside)
+  fs::dir_create(fs::path(sandbox_root, "envs"))
+  make_link(inside, fs::path(sandbox_root, "envs", "inside-link"))
+  make_link(outside, fs::path(sandbox_root, "envs", "outside-link"))
+
+  testthat::expect_true(delete_sandbox_root(sandbox_root))
+  testthat::expect_false(fs::dir_exists(sandbox_root))
+  testthat::expect_true(fs::file_exists(fs::path(outside, "keep")))
+
+  # A link that is already dangling.
+  fs::dir_create(fs::path(sandbox_root, "envs"))
+  gone <- fs::path(base_dir, "gone")
+  fs::dir_create(gone)
+  make_link(gone, fs::path(sandbox_root, "envs", "dangling"))
+  fs::dir_delete(gone)
+  testthat::expect_true(delete_sandbox_root(sandbox_root))
+  testthat::expect_false(fs::dir_exists(sandbox_root))
+  testthat::expect_true(fs::file_exists(fs::path(outside, "keep")))
+})
+
 # --- Backends other than micromamba ------------------------------------------
 
 testthat::test_that("with_sandbox_dir() moves the root of a backend with the default root", {
@@ -775,8 +812,6 @@ testthat::test_that("with_sandbox_dir() moves the root of a backend with the def
   # directory, so the sandbox moves it, as it moves the micromamba root.
   outside_root <- backend_root_dir("stub-sandboxed")
   outside_existed <- fs::dir_exists(outside_root)
-  sandbox_root <- NULL
-  inside_root <- NULL
   with_sandbox_dir({
     sandbox_root <- fs::path_real(fs::path_dir(Sys.getenv("HOME")))
     stub <- local_stub_backend(
@@ -821,9 +856,8 @@ testthat::test_that("with_sandbox_dir() stops a process that only an activated C
   testthat::skip_on_cran()
   daemon <- local_run_family_daemon()
   pid_file <- file.path(daemon$dir, "prefix-child.pid")
-  leftover_pid <- NA_integer_
   with_sandbox_dir({
-    stub <- local_stub_backend(
+    local_stub_backend(
       "stub-prefix-child",
       envs = "prefix-env",
       default_root = TRUE,
@@ -873,7 +907,7 @@ testthat::test_that("with_sandbox_dir() waits for every backend before it delete
   # backend to finish first.
   seen <- new.env(parent = emptyenv())
   seen$calls <- list()
-  stub <- local_stub_backend(
+  local_stub_backend(
     "stub-quiesce",
     backend_quiesce = function(backend, timeout = 30) {
       seen$calls[[length(seen$calls) + 1L]] <- list(
@@ -893,11 +927,10 @@ testthat::test_that("with_sandbox_dir() waits for every backend before it delete
 
   # A backend that cannot tell gives a warning, and the sandbox is still
   # deleted.
-  failing <- local_stub_backend(
+  local_stub_backend(
     "stub-quiesce-fails",
-    backend_quiesce = function(backend, ...) stop("still busy")
+    backend_quiesce = function(backend, ...) stop("still busy", call. = FALSE)
   )
-  sandbox_root <- NULL
   cnd <- testthat::expect_warning(
     with_sandbox_dir({
       sandbox_root <- dirname(Sys.getenv("HOME"))
@@ -910,7 +943,7 @@ testthat::test_that("with_sandbox_dir() waits for every backend before it delete
 
   # A value that breaks the contract: the error names the user's call.
   # Regression test: it named `quiesce_registered_backends()`.
-  invalid <- local_stub_backend(
+  local_stub_backend(
     "stub-quiesce-invalid",
     backend_quiesce = function(backend, ...) "yes"
   )
@@ -927,18 +960,19 @@ testthat::test_that("with_sandbox_dir() waits for every backend before it delete
 
 testthat::test_that("cleanup_sandbox() quiesces the backends after it stops the processes and before it deletes", {
   sandbox_root <- withr::local_tempdir(pattern = "condathis-sandbox-")
-  events <- character(0L)
+  tracked <- new.env(parent = emptyenv())
+  tracked$events <- character(0L)
   testthat::local_mocked_bindings(
     stop_sandbox_processes = function(...) {
-      events <<- c(events, "stop")
+      tracked$events <- c(tracked$events, "stop")
       return(invisible(list()))
     },
     quiesce_registered_backends = function(timeout = 30, call = NULL) {
-      events <<- c(events, "quiesce")
+      tracked$events <- c(tracked$events, "quiesce")
       return(invisible(TRUE))
     },
     delete_sandbox_root = function(sandbox_root) {
-      events <<- c(events, "delete")
+      tracked$events <- c(tracked$events, "delete")
       return(TRUE)
     }
   )
@@ -949,14 +983,14 @@ testthat::test_that("cleanup_sandbox() quiesces the backends after it stops the 
     old_envvars = Sys.getenv(),
     old_wd = getwd()
   )
-  testthat::expect_identical(events, c("stop", "quiesce", "delete"))
+  testthat::expect_identical(tracked$events, c("stop", "quiesce", "delete"))
 
   # An error from the quiesce step does not stop the cleanup.
-  events <- character(0L)
+  tracked$events <- character(0L)
   testthat::local_mocked_bindings(
     quiesce_registered_backends = function(timeout = 30, call = NULL) {
-      events <<- c(events, "quiesce")
-      stop("unexpected")
+      tracked$events <- c(tracked$events, "quiesce")
+      stop("unexpected", call. = FALSE)
     }
   )
   testthat::expect_no_error(cleanup_sandbox(
@@ -966,5 +1000,5 @@ testthat::test_that("cleanup_sandbox() quiesces the backends after it stops the 
     old_envvars = Sys.getenv(),
     old_wd = getwd()
   ))
-  testthat::expect_identical(events, c("stop", "quiesce", "delete"))
+  testthat::expect_identical(tracked$events, c("stop", "quiesce", "delete"))
 })

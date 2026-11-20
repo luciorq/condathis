@@ -24,7 +24,7 @@ local_install_stub <- function(
 local_no_backend <- function(envir = parent.frame()) {
   testthat::local_mocked_bindings(
     resolve_backend = function(...) {
-      stop("resolve_backend() must not be called")
+      stop("resolve_backend() must not be called", call. = FALSE)
     },
     .env = envir
   )
@@ -39,13 +39,15 @@ testthat::test_that("install_packages requires package specs", {
     "condathis_error",
     rlang_tail
   )
-  testthat::expect_identical(
-    class(catch_error(install_packages(env_name = "some-env"))),
-    missing_class
+  testthat::expect_s3_class(
+    catch_error(install_packages(env_name = "some-env")),
+    missing_class,
+    exact = TRUE
   )
-  testthat::expect_identical(
-    class(catch_error(install_packages(character(0L), env_name = "some-env"))),
-    missing_class
+  testthat::expect_s3_class(
+    catch_error(install_packages(character(0L), env_name = "some-env")),
+    missing_class,
+    exact = TRUE
   )
 })
 
@@ -142,14 +144,15 @@ testthat::test_that("install_packages validates verbose, method and channel_prio
   # backend.
   local_no_backend()
   cnd <- catch_error(install_packages("python", verbose = "bogus"))
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_invalid_verbose",
       "condathis_invalid_arg",
       "condathis_error",
       rlang_tail
-    )
+    ),
+    exact = TRUE
   )
   testthat::expect_s3_class(
     catch_error(install_packages("python", method = "no-such-backend")),
@@ -158,15 +161,16 @@ testthat::test_that("install_packages validates verbose, method and channel_prio
   cnd <- catch_error(
     install_packages("python", env_name = "e", channel_priority = "bogus")
   )
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_install_packages_invalid_channel_priority",
       "condathis_invalid_channel_priority",
       "condathis_invalid_arg",
       "condathis_error",
       rlang_tail
-    )
+    ),
+    exact = TRUE
   )
 })
 
@@ -235,14 +239,15 @@ testthat::test_that("install_packages does not create a missing custom environme
   cnd <- catch_error(
     install_packages("zlib", env_name = "never-created", verbose = "silent")
   )
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_install_packages_env_not_found",
       "condathis_env_not_found",
       "condathis_error",
       rlang_tail
-    )
+    ),
+    exact = TRUE
   )
   testthat::expect_match(conditionMessage(cnd), "create_env()", fixed = TRUE)
   testthat::expect_length(stub_calls(stub, "backend_create_env"), 0L)
@@ -259,9 +264,11 @@ testthat::test_that("install_packages aborts for a missing micromamba environmen
   # neither run nor installed.
   condathis::with_sandbox_dir({
     testthat::local_mocked_bindings(
-      native_cmd = function(...) stop("native_cmd() must not be called"),
+      native_cmd = function(...) {
+        stop("native_cmd() must not be called", call. = FALSE)
+      },
       install_micromamba = function(...) {
-        stop("install_micromamba() must not be called")
+        stop("install_micromamba() must not be called", call. = FALSE)
       }
     )
     testthat::expect_error(
@@ -355,6 +362,49 @@ testthat::test_that("install_packages passes a failed probe that resolve_backend
   testthat::expect_length(stub_calls(stub, "backend_install"), 2L)
 })
 
+testthat::test_that("install_packages(packages = NULL) aborts on a failed existence check", {
+  # Regression test: with nothing to install, no backend call follows, so
+  # a failed probe (`NA`) returned status 0 (rule R5).
+  withr::local_options(lifecycle_verbosity = "quiet")
+  stub_boom <- function(...) rlang::abort("boom", class = "stub_boom")
+  stub <- local_stub_backend(
+    "stub-install-empty-probe",
+    backend_env_exists = stub_boom
+  )
+  testthat::local_mocked_bindings(
+    resolve_backend = function(...) {
+      return(list(backend = stub$backend, name = "stub-install-empty-probe"))
+    }
+  )
+  for (env_name in c("probe-env", "condathis-env")) {
+    cnd <- catch_error(
+      install_packages(packages = NULL, env_name = env_name, verbose = "silent")
+    )
+    testthat::expect_s3_class(cnd, "condathis_backend_probe_failed")
+    testthat::expect_s3_class(cnd, "condathis_backend_error")
+    testthat::expect_true(
+      rlang::cnd_inherits(cnd, "stub_boom"),
+      info = env_name
+    )
+  }
+  # The probe that resolve_backend() ran is used, not a second one.
+  testthat::local_mocked_bindings(
+    resolve_backend = function(...) {
+      return(list(
+        backend = stub$backend,
+        name = "stub-install-empty-probe",
+        env_exists = structure(NA, condition = simpleError("listing failed"))
+      ))
+    }
+  )
+  testthat::expect_error(
+    install_packages(packages = NULL, env_name = "e", verbose = "silent"),
+    class = "condathis_backend_probe_failed"
+  )
+  testthat::expect_length(stub_calls(stub, "backend_create_env"), 0L)
+  testthat::expect_length(stub_calls(stub, "backend_install"), 0L)
+})
+
 testthat::test_that("install_packages re-raises a backend error with its own classes", {
   stub_boom <- function(...) rlang::abort("boom", class = "stub_boom")
   local_install_stub(
@@ -365,14 +415,15 @@ testthat::test_that("install_packages re-raises a backend error with its own cla
   cnd <- catch_error(
     install_packages("zlib", env_name = "boom-env", verbose = "silent")
   )
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_install_packages_failed",
       "condathis_backend_error",
       "condathis_error",
       rlang_tail
-    )
+    ),
+    exact = TRUE
   )
   testthat::expect_s3_class(cnd$parent, "stub_boom")
   testthat::expect_match(
@@ -509,8 +560,8 @@ testthat::test_that("the previous-channel warning has the old and new class", {
     ),
     classes = "warning"
   )
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_install_packages_missing_previous_channels",
       "condathis_install_missing_previous_channels",
@@ -518,7 +569,8 @@ testthat::test_that("the previous-channel warning has the old and new class", {
       "rlang_warning",
       "warning",
       "condition"
-    )
+    ),
+    exact = TRUE
   )
   # A channel named in a spec counts as included.
   testthat::expect_no_warning(
@@ -621,7 +673,8 @@ testthat::test_that("install_packages() gives an empty environment of any backen
   )
   # Every message is caught, so the success message of verbose = "output"
   # does not reach the test output.
-  msgs <- character(0L)
+  tracked <- new.env(parent = emptyenv())
+  tracked$msgs <- character(0L)
   withCallingHandlers(
     install_packages(
       "r-base",
@@ -632,18 +685,18 @@ testthat::test_that("install_packages() gives an empty environment of any backen
       verbose = "output"
     ),
     message = function(m) {
-      msgs <<- c(msgs, cli::ansi_strip(conditionMessage(m)))
+      tracked$msgs <- c(tracked$msgs, cli::ansi_strip(conditionMessage(m)))
       invokeRestart("muffleMessage")
     }
   )
   testthat::expect_match(
-    msgs,
+    tracked$msgs,
     "Using Rosetta 2 emulation.",
     fixed = TRUE,
     all = FALSE
   )
   testthat::expect_match(
-    msgs,
+    tracked$msgs,
     "Package r-base successfully installed in environment empty-env.",
     fixed = TRUE,
     all = FALSE
@@ -661,7 +714,7 @@ testthat::test_that("install_packages() gives an empty environment of any backen
 })
 
 testthat::test_that("install_packages() warns when the backend did not run link scripts", {
-  stub <- local_install_stub(
+  local_install_stub(
     "stub-install-scripts",
     envs = "scripts-env",
     backend_install = function(backend, ...) {
@@ -702,8 +755,8 @@ testthat::test_that("install_packages() warns when the backend did not run link 
   res <- suppressWarnings(
     install_packages("plink", env_name = "scripts-env", verbose = "silent")
   )
-  testthat::expect_identical(
-    names(unclass(res)),
+  testthat::expect_named(
+    unclass(res),
     c("status", "stdout", "stderr", "timeout", "pid", "cmd", "env_name")
   )
 })
@@ -838,7 +891,7 @@ testthat::test_that("channels with a /t/<word> part count as included channels",
   # The local channel as a URL and as a path, with `\` on Windows.
   local_forms <- c(channel_url, as.character(channel_dir))
   if (isTRUE(is_windows())) {
-    local_forms <- c(local_forms, gsub("/", "\\\\", channel_dir))
+    local_forms <- c(local_forms, gsub("/", "\\", channel_dir, fixed = TRUE))
   }
   for (local_channel in local_forms) {
     testthat::expect_no_warning(
@@ -956,7 +1009,8 @@ local_fake_emulation <- function(sys_arch, emulated, envir = parent.frame()) {
       ...,
       verbose = "silent",
       error = "cancel",
-      cleanup_tree = FALSE
+      cleanup_tree = FALSE,
+      tmp_dir = NULL
     ) {
       stdout <- ""
       if (identical(conda_cmd, "env")) {
@@ -1019,11 +1073,14 @@ testthat::test_that("install_packages() gives the new default environment the em
   check_default_env <- function(sys_arch, native, emulated, message) {
     condathis::with_sandbox_dir({
       log <- local_fake_emulation(sys_arch = sys_arch, emulated = emulated)
-      msgs <- character(0L)
+      tracked <- new.env(parent = emptyenv())
+      tracked$msgs <- character(0L)
       withCallingHandlers(
-        res <- install_packages("r-base", verbose = "output"),
+        {
+          res <- install_packages("r-base", verbose = "output")
+        },
         message = function(m) {
-          msgs <<- c(msgs, cli::ansi_strip(conditionMessage(m)))
+          tracked$msgs <- c(tracked$msgs, cli::ansi_strip(conditionMessage(m)))
           invokeRestart("muffleMessage")
         }
       )
@@ -1056,7 +1113,7 @@ testthat::test_that("install_packages() gives the new default environment the em
         info = sys_arch
       )
       testthat::expect_match(
-        paste(msgs, collapse = "\n"),
+        paste(tracked$msgs, collapse = "\n"),
         message,
         fixed = TRUE,
         info = sys_arch
@@ -1113,24 +1170,25 @@ testthat::test_that("install_packages() keeps the platform that the first instal
     if (identical(real_micromamba_platform(), "win-64")) {
       other_platform <- "win-arm64"
     }
-    fallback_calls <- 0L
+    tracked <- new.env(parent = emptyenv())
+    tracked$fallback_calls <- 0L
     testthat::local_mocked_bindings(
       # As on Apple Silicon and Windows, the systems with a fallback.
       has_platform_fallback = function() TRUE,
       define_platform = function(backend, packages, ...) {
-        fallback_calls <<- fallback_calls + 1L
+        tracked$fallback_calls <- tracked$fallback_calls + 1L
         return(other_platform)
       }
     )
     install_res <- install_packages("zlib", verbose = "silent")
     testthat::expect_equal(install_res$status, 0L)
-    testthat::expect_identical(fallback_calls, 1L)
+    testthat::expect_identical(tracked$fallback_calls, 1L)
     env_dir <- get_env_dir("condathis-env")
     testthat::expect_false(fs::file_exists(fs::path(env_dir, ".mambarc")))
 
     install_res <- install_packages("zstd", verbose = "silent")
     testthat::expect_equal(install_res$status, 0L)
-    testthat::expect_identical(fallback_calls, 1L)
+    testthat::expect_identical(tracked$fallback_calls, 1L)
     # `shQuote()` quotes with `'` on Unix and with `"` on Windows.
     testthat::expect_match(
       install_res$cmd,
@@ -1156,7 +1214,7 @@ testthat::test_that("install_packages() says that bioconda is no longer a defaul
       )
     )
   }
-  stub <- local_install_stub(
+  local_install_stub(
     "stub-install-default-channels",
     envs = "bioc-env",
     backend_install = not_found
@@ -1167,15 +1225,16 @@ testthat::test_that("install_packages() says that bioconda is no longer a defaul
   cnd <- catch_error(
     install_packages("samtools", env_name = "bioc-env", verbose = "silent")
   )
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_install_packages_failed",
       "condathis_backend_error",
       "condathis_micromamba_status_error",
       "condathis_error",
       rlang_tail
-    )
+    ),
+    exact = TRUE
   )
   testthat::expect_identical(cnd$status, 1L)
   message <- flat(cnd)

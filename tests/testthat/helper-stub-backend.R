@@ -155,7 +155,11 @@ local_stub_backend <- function(
     )
   )
   if (length(unknown) > 0L) {
-    stop("Unknown generic(s) for the stub: ", paste(unknown, collapse = ", "))
+    stop(
+      "Unknown generic(s) for the stub: ",
+      paste(unknown, collapse = ", "),
+      call. = FALSE
+    )
   }
   if (isTRUE(default_root)) {
     defaults[c(

@@ -255,10 +255,12 @@ as in a shell.
 
 Arguments in \code{...} reach the command exactly as given on every platform.
 No shell is involved. Characters such as \code{>}, \code{|}, \code{&}, \verb{\%}, \code{$}, \code{*} and
-quotes have no special meaning. Shell builtins (for example \code{echo} or
-\code{dir} on Windows) are not available as commands. To use shell features,
-run a shell explicitly, as in \code{run("bash", "-c", "...")}. To connect
-commands with pipes, use \code{\link[=run_pipeline]{run_pipeline()}}. One exception applies on
+quotes have no special meaning. Shell builtins (for example \code{export} or
+\code{source}, or \code{dir} and \code{echo} on Windows) are not programs and cannot be
+run, unless a program of that name is on the \code{PATH} of the command (as
+\code{echo.exe} of Git for Windows). To use shell features, run a shell explicitly, as in
+\code{run("bash", "-c", "...")}, or on Windows \code{run("cmd", "/c", "dir")}. To
+connect commands with pipes, use \code{\link[=run_pipeline]{run_pipeline()}}. One exception applies on
 Windows. Windows starts batch files (\code{.bat}, \code{.cmd}) through \code{cmd.exe},
 which parses their arguments again.
 
@@ -266,6 +268,12 @@ When \code{env_name} is the default \code{"condathis-env"} and that environment
 does not exist, \code{run()} creates it, empty, with the backend that \code{method}
 selects. \code{run()} never creates any other missing environment. The call
 fails, as \code{error} describes.
+
+\code{run()} does not wait for another R session that changes the
+environment, so do not change or remove an environment
+(\code{\link[=create_env]{create_env()}} with \code{overwrite = TRUE}, \code{\link[=install_packages]{install_packages()}},
+\code{\link[=remove_env]{remove_env()}}) while commands run in it. Several \code{run()} calls can run
+in parallel.
 
 The errors of a failed or timed-out command carry the fields \code{status},
 \code{stdout}, \code{stderr} and \code{timeout}. A handler does not need to parse the

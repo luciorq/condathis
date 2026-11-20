@@ -126,10 +126,13 @@ testthat::test_that("clean_cache() starts no process when there is no micromamba
   condathis::with_sandbox_dir({
     testthat::local_mocked_bindings(
       native_cmd = function(...) {
-        stop("clean_cache() must not start micromamba without a cache")
+        stop(
+          "clean_cache() must not start micromamba without a cache",
+          call. = FALSE
+        )
       },
       install_micromamba = function(...) {
-        stop("clean_cache() must not install micromamba")
+        stop("clean_cache() must not install micromamba", call. = FALSE)
       }
     )
     r_user_cache <- fs::path(
@@ -199,7 +202,7 @@ testthat::test_that("clean_cache() reports the command that native_cmd() ran", {
 testthat::test_that("clean_cache() validates verbose and reports success with a check mark", {
   condathis::with_sandbox_dir({
     testthat::local_mocked_bindings(
-      native_cmd = function(...) stop("no process may start")
+      native_cmd = function(...) stop("no process may start", call. = FALSE)
     )
     cnd <- testthat::expect_error(
       clean_cache(verbose = "bogus"),
@@ -299,12 +302,14 @@ testthat::test_that("clean_cache() runs every backend's hook, then raises the fi
   # a failure would have stopped the backends after it.
   condathis::with_sandbox_dir({
     testthat::local_mocked_bindings(
-      native_cmd = function(...) stop("no micromamba cache, no process")
+      native_cmd = function(...) {
+        stop("no micromamba cache, no process", call. = FALSE)
+      }
     )
     stub_a <- local_stub_backend(
       "stub-cache-a",
       backend_clean_cache = function(backend, ...) {
-        stop("stub-cache-a could not clean")
+        stop("stub-cache-a could not clean", call. = FALSE)
       }
     )
     stub_b <- local_stub_backend(
@@ -336,12 +341,13 @@ testthat::test_that("clean_cache() runs every backend's hook, then raises the fi
     fs::dir_create(conda_pkgs)
     fs::file_touch(fs::path(conda_pkgs, "pkg.conda"))
 
-    cnd <- NULL
     msgs <- testthat::capture_messages(
-      cnd <- testthat::expect_error(
-        clean_cache(verbose = "output"),
-        class = "condathis_clean_cache_failed"
-      )
+      {
+        cnd <- testthat::expect_error(
+          clean_cache(verbose = "output"),
+          class = "condathis_clean_cache_failed"
+        )
+      }
     )
     testthat::expect_identical(
       class(cnd)[1:3],
@@ -464,7 +470,7 @@ testthat::test_that("clean_cache() checks what backend_clean_cache() returns", {
   testthat::skip_on_cran()
   condathis::with_sandbox_dir({
     status <- NULL
-    stub <- local_stub_backend(
+    local_stub_backend(
       "stub-cache-result",
       backend_clean_cache = function(backend, ...) {
         return(status)
@@ -498,7 +504,9 @@ testthat::test_that("clean_cache() checks what backend_clean_cache() returns", {
     testthat::expect_s3_class(cnd, "condathis_backend_contract_violation")
     # Any other value counts as an empty list. The result is micromamba's,
     # which ran no command here.
-    for (status in list(NULL, list(), "cleaned", list(status = 0, cmd = "x"))) {
+    # The stub reads `status`, so each value is bound to it in turn.
+    for (value in list(NULL, list(), "cleaned", list(status = 0, cmd = "x"))) {
+      status <- value
       res <- clean_cache(verbose = "silent")
       testthat::expect_s3_class(res, "condathis_result")
       testthat::expect_identical(res$status, 0L)
@@ -523,10 +531,12 @@ testthat::test_that("clean_cache() empties the conda-pkgs of every backend root"
   # `<root>/conda-pkgs` as their package cache, and nothing emptied it.
   condathis::with_sandbox_dir({
     testthat::local_mocked_bindings(
-      native_cmd = function(...) stop("no micromamba cache, no process")
+      native_cmd = function(...) {
+        stop("no micromamba cache, no process", call. = FALSE)
+      }
     )
     # The root condathis assigns, and a root of the backend's own.
-    stub_default <- local_stub_backend(
+    local_stub_backend(
       "stub-pkgs-default",
       envs = "kept-env",
       default_root = TRUE
@@ -567,13 +577,15 @@ testthat::test_that("clean_cache() keeps a conda-pkgs directory outside the back
   # which can belong to another tool.
   condathis::with_sandbox_dir({
     testthat::local_mocked_bindings(
-      native_cmd = function(...) stop("no micromamba cache, no process")
+      native_cmd = function(...) {
+        stop("no micromamba cache, no process", call. = FALSE)
+      }
     )
     shared <- fs::path_real(withr::local_tempdir())
     user_file <- fs::path(shared, "conda-pkgs", "user-cache-file")
     fs::dir_create(fs::path_dir(user_file))
     writeLines("precious", user_file)
-    stub <- local_stub_backend(
+    local_stub_backend(
       "stub-pkgs-far",
       backend_get_env_dir = function(backend, env_name = "condathis-env") {
         return(fs::path(shared, "envs", env_name))
@@ -591,7 +603,9 @@ testthat::test_that("clean_cache() warns about the caches of a known backend tha
   withr::defer(reset_known_backend_state())
   condathis::with_sandbox_dir({
     testthat::local_mocked_bindings(
-      native_cmd = function(...) stop("no micromamba cache, no process")
+      native_cmd = function(...) {
+        stop("no micromamba cache, no process", call. = FALSE)
+      }
     )
     root <- backend_root_path("rattler")
     # Only environments: no cache, no warning. setup.R makes every known
@@ -638,7 +652,9 @@ testthat::test_that("a known backend whose package fails to load gets one warnin
   withr::defer(reset_warn_once(known_backend_warn_id("rattler")))
   condathis::with_sandbox_dir({
     testthat::local_mocked_bindings(
-      native_cmd = function(...) stop("no micromamba cache, no process"),
+      native_cmd = function(...) {
+        stop("no micromamba cache, no process", call. = FALSE)
+      },
       load_backend_namespace = function(pkg) {
         return(structure(FALSE, condition = simpleError("broken package")))
       },
@@ -651,16 +667,20 @@ testthat::test_that("a known backend whose package fails to load gets one warnin
       "abc.json"
     ))
     for (i in 1:2) {
-      warnings <- list()
+      tracked <- new.env(parent = emptyenv())
+      tracked$warnings <- list()
       withCallingHandlers(
         clean_cache(verbose = "silent"),
         warning = function(w) {
-          warnings[[length(warnings) + 1L]] <<- w
+          tracked$warnings[[length(tracked$warnings) + 1L]] <- w
           invokeRestart("muffleWarning")
         }
       )
-      testthat::expect_length(warnings, 1L)
-      testthat::expect_s3_class(warnings[[1L]], "condathis_backend_load_failed")
+      testthat::expect_length(tracked$warnings, 1L)
+      testthat::expect_s3_class(
+        tracked$warnings[[1L]],
+        "condathis_backend_load_failed"
+      )
     }
   })
 })
@@ -669,25 +689,28 @@ testthat::test_that("clean_cache() waits for every backend before it deletes any
   testthat::skip_on_cran()
   condathis::with_sandbox_dir({
     testthat::local_mocked_bindings(
-      native_cmd = function(...) stop("no micromamba cache, no process")
+      native_cmd = function(...) {
+        stop("no micromamba cache, no process", call. = FALSE)
+      }
     )
-    events <- character(0L)
+    tracked <- new.env(parent = emptyenv())
+    tracked$events <- character(0L)
     stub <- local_stub_backend(
       "stub-cache-quiesce",
       backend_quiesce = function(backend, timeout = 30) {
         state <- if (fs::dir_exists(pkgs_dir)) "present" else "gone"
-        events <<- c(events, paste("quiesce", timeout, state))
+        tracked$events <- c(tracked$events, paste("quiesce", timeout, state))
         return(invisible(TRUE))
       },
       backend_clean_cache = function(backend, ...) {
-        events <<- c(events, "clean")
+        tracked$events <- c(tracked$events, "clean")
         return(NULL)
       }
     )
     pkgs_dir <- fs::path(stub$root, "conda-pkgs")
     fs::dir_create(pkgs_dir)
     clean_cache(verbose = "silent")
-    testthat::expect_identical(events, c("quiesce 30 present", "clean"))
+    testthat::expect_identical(tracked$events, c("quiesce 30 present", "clean"))
     testthat::expect_false(fs::dir_exists(pkgs_dir))
   })
 })
@@ -698,9 +721,11 @@ testthat::test_that("an invalid value of backend_quiesce() names clean_cache()",
   # `quiesce_registered_backends()`.
   condathis::with_sandbox_dir({
     testthat::local_mocked_bindings(
-      native_cmd = function(...) stop("no micromamba cache, no process")
+      native_cmd = function(...) {
+        stop("no micromamba cache, no process", call. = FALSE)
+      }
     )
-    stub <- local_stub_backend(
+    local_stub_backend(
       "stub-cache-quiesce-invalid",
       backend_quiesce = function(backend, ...) "yes"
     )
@@ -723,10 +748,14 @@ testthat::test_that("clean_cache() creates no root", {
   # condathis data directory and not the root of any backend.
   condathis::with_sandbox_dir({
     testthat::local_mocked_bindings(
-      native_cmd = function(...) stop("no micromamba cache, no process"),
-      install_micromamba = function(...) stop("no micromamba install")
+      native_cmd = function(...) {
+        stop("no micromamba cache, no process", call. = FALSE)
+      },
+      install_micromamba = function(...) {
+        stop("no micromamba install", call. = FALSE)
+      }
     )
-    stub <- local_stub_backend("stub-no-root", default_root = TRUE)
+    local_stub_backend("stub-no-root", default_root = TRUE)
     res <- clean_cache(verbose = "silent")
     testthat::expect_identical(res$status, 0L)
     testthat::expect_false(fs::dir_exists(get_condathis_path()))

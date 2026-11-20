@@ -8,7 +8,7 @@
 # man/examples/backend-stub.R, registered for the calling test only.
 register_env_path_stub_backend <- function(name, envir = parent.frame()) {
   not_implemented <- function(...) {
-    stop("Not implemented by this stub backend.")
+    stop("Not implemented by this stub backend.", call. = FALSE)
   }
   stub_root <- function() {
     root <- file.path(tempdir(), name)
@@ -129,9 +129,9 @@ testthat::test_that("env_path() does not check that the directory exists", {
 testthat::test_that("env_path() returns a classed list, not a character vector", {
   ep <- env_path(withr::local_tempdir())
   testthat::expect_s3_class(ep, "condathis_env_path", exact = TRUE)
-  testthat::expect_true(is.list(ep))
+  testthat::expect_type(ep, "list")
   testthat::expect_false(is.character(ep))
-  testthat::expect_identical(names(ep), "path")
+  testthat::expect_named(ep, "path")
   testthat::expect_true(rlang::is_string(ep$path))
 })
 
@@ -139,7 +139,9 @@ testthat::test_that("env_path() has format and print methods", {
   ep <- env_path(withr::local_tempdir())
   testthat::expect_identical(format(ep), paste0("<env_path> ", ep$path))
 
-  out <- utils::capture.output(visible <- withVisible(print(ep)))
+  out <- utils::capture.output({
+    visible <- withVisible(print(ep))
+  })
   testthat::expect_identical(out, paste0("<env_path> ", ep$path))
   testthat::expect_false(visible$visible)
   testthat::expect_identical(visible$value, ep)
@@ -735,7 +737,7 @@ testthat::test_that("a backend with backend_resolve_run_in_dir() runs an environ
     testthat::expect_identical(call$args$env_dir, ep$path)
     testthat::expect_identical(call$args$cmd, rscript)
     testthat::expect_true(rlang::is_string(call$args$verbose))
-    testthat::expect_true(is.character(call$args$base_env))
+    testthat::expect_type(call$args$base_env, "character")
     testthat::expect_true(isFALSE(is.null(names(call$args$base_env))))
   }
   # The environment is never looked up by name, created or changed.
@@ -806,7 +808,9 @@ testthat::test_that("the value and the errors of backend_resolve_run_in_dir() ar
 
   local_stub_backend(
     "stub-failindir",
-    backend_resolve_run_in_dir = function(backend, ...) stop("no activation")
+    backend_resolve_run_in_dir = function(backend, ...) {
+      stop("no activation", call. = FALSE)
+    }
   )
   cnd <- testthat::expect_error(
     run(rscript, env_name = ep, method = "stub-failindir", verbose = "silent"),

@@ -177,10 +177,13 @@ test_that("env_exists() on a fresh data directory starts no process", {
   condathis::with_sandbox_dir({
     testthat::local_mocked_bindings(
       native_cmd = function(...) {
-        stop("env_exists() must not start micromamba on a fresh root")
+        stop(
+          "env_exists() must not start micromamba on a fresh root",
+          call. = FALSE
+        )
       },
       install_micromamba = function(...) {
-        stop("env_exists() must not install micromamba")
+        stop("env_exists() must not install micromamba", call. = FALSE)
       }
     )
     testthat::expect_false(env_exists("x", method = "micromamba"))

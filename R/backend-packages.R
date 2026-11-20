@@ -52,21 +52,19 @@ reset_known_backend_state <- function() {
 #' @keywords internal
 #' @noRd
 load_backend_namespace <- function(pkg) {
-  failure <- NULL
-  loaded <- tryCatch(
+  res <- tryCatch(
     {
       loadNamespace(pkg)
-      TRUE
+      list(loaded = TRUE, cnd = NULL)
     },
     error = function(e) {
-      failure <<- e
-      return(FALSE)
+      return(list(loaded = FALSE, cnd = e))
     }
   )
-  if (isTRUE(loaded)) {
+  if (isTRUE(res$loaded)) {
     return(TRUE)
   }
-  return(structure(FALSE, condition = failure))
+  return(structure(FALSE, condition = res$cnd))
 }
 
 #' Is the namespace of a backend package loaded?
@@ -246,7 +244,12 @@ load_known_backend <- function(name) {
   }
   was_loading <- known_backend_state$loading
   known_backend_state$loading <- TRUE
-  on.exit(known_backend_state$loading <- was_loading, add = TRUE)
+  on.exit(
+    {
+      known_backend_state$loading <- was_loading
+    },
+    add = TRUE
+  )
   res <- load_backend_namespace(pkg)
   known_backend_state$loading <- was_loading
   if (isTRUE(res)) {
@@ -389,6 +392,7 @@ unregistered_known_owner <- function(env_name) {
 #' @keywords internal
 #' @noRd
 abort_known_backend_unloaded <- function(name, status, call) {
+  # jarl-ignore unused_object: interpolated by cli in the messages below
   pkg <- known_backend_packages[[name]]
   method_class <- c(
     "condathis_invalid_method",
@@ -460,8 +464,10 @@ warn_known_backend_load_failed <- function(
   why = c("data", "priority")
 ) {
   why <- rlang::arg_match(why)
+  # jarl-ignore-start unused_object: read by the cli templates of known_backend_cause() and known_backend_remedy(), and the messages below
   pkg <- known_backend_packages[[name]]
   root <- backend_root_path(name)
+  # jarl-ignore-end unused_object
   cause <- known_backend_cause(status$reason, form = "its")
   message <- if (identical(why, "priority")) {
     c(
@@ -529,6 +535,7 @@ check_unregistered_known_owners <- function(
     if (isFALSE(dir_exists_quick(env_dir))) {
       next
     }
+    # jarl-ignore unused_object: read by the cli templates of known_backend_cause() and known_backend_remedy()
     pkg <- known_backend_packages[[name]]
     status <- known_backend_unloaded_status(name)
     first_class <- known_backend_condition_class(status)
@@ -586,8 +593,10 @@ warn_unregistered_known_backends <- function() {
     if (isFALSE(backend_has_env_dirs(name))) {
       next
     }
+    # jarl-ignore-start unused_object: read by the cli templates of known_backend_cause() and known_backend_remedy(), and the messages below
     pkg <- known_backend_packages[[name]]
     root <- backend_root_path(name)
+    # jarl-ignore-end unused_object
     status <- known_backend_unloaded_status(name)
     cause <- known_backend_cause(status$reason, form = "its")
     condathis_warn_once(

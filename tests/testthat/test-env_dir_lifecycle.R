@@ -23,8 +23,8 @@ testthat::test_that("is_exact_env_dir accepts only the directory of that exact n
   )
   testthat::expect_true(
     is_exact_env_dir(
-      gsub("/", "\\\\", myenv),
-      gsub("/", "\\\\", envs),
+      gsub("/", "\\", myenv, fixed = TRUE),
+      gsub("/", "\\", envs, fixed = TRUE),
       "myenv"
     )
   )
@@ -175,7 +175,10 @@ local_lifecycle_backend <- function(kind, envir = parent.frame()) {
     },
     micromamba_binary_in_env_dir = function(backend, env_name) {
       if (isFALSE(inherits(backend, "condathis_backend_micromamba"))) {
-        stop("Only the micromamba backend is asked for its binary.")
+        stop(
+          "Only the micromamba backend is asked for its binary.",
+          call. = FALSE
+        )
       }
       return(NULL)
     },
@@ -242,14 +245,15 @@ testthat::test_that("a successful replacement deletes the old environment", {
     backend <- local_lifecycle_backend(kind)
     env_name <- "condathis-replace-discard-env"
     env_dir <- local_fake_env(backend, env_name)
-    seen_free <- NA
+    tracked <- new.env(parent = emptyenv())
+    tracked$seen_free <- NA
     res <- replace_with(backend, env_name, function(env_dir) {
       # The backend gets a free environment directory.
-      seen_free <<- isFALSE(fs::dir_exists(env_dir))
+      tracked$seen_free <- isFALSE(fs::dir_exists(env_dir))
       return(make_new_env(env_dir))
     })
     testthat::expect_identical(res$status, 0L, info = kind)
-    testthat::expect_true(seen_free, info = kind)
+    testthat::expect_true(tracked$seen_free, info = kind)
     testthat::expect_true(fs::file_exists(fs::path(env_dir, "new-file")))
     testthat::expect_false(fs::file_exists(fs::path(env_dir, "old-file")))
     testthat::expect_length(trash_entries(backend), 0L)
@@ -262,7 +266,8 @@ testthat::test_that("a failed replacement moves the old environment back", {
     env_name <- "condathis-replace-restore-env"
     env_dir <- local_fake_env(backend, env_name)
     # A handler of the caller already sees the old environment.
-    seen_in_handler <- NA
+    tracked <- new.env(parent = emptyenv())
+    tracked$seen_in_handler <- NA
     testthat::expect_error(
       withCallingHandlers(
         replace_with(backend, env_name, function(env_dir) {
@@ -270,16 +275,19 @@ testthat::test_that("a failed replacement moves the old environment back", {
           testthat::expect_false(fs::dir_exists(env_dir))
           fs::dir_create(env_dir)
           fs::file_create(fs::path(env_dir, "partial-file"))
-          stop("create failed")
+          stop("create failed", call. = FALSE)
         }),
         error = function(cnd) {
-          seen_in_handler <<- fs::file_exists(fs::path(env_dir, "old-file"))
+          tracked$seen_in_handler <- fs::file_exists(fs::path(
+            env_dir,
+            "old-file"
+          ))
         }
       ),
       "create failed",
       fixed = TRUE
     )
-    testthat::expect_true(seen_in_handler, info = kind)
+    testthat::expect_true(tracked$seen_in_handler, info = kind)
     testthat::expect_true(fs::file_exists(fs::path(env_dir, "old-file")))
     testthat::expect_false(fs::file_exists(fs::path(env_dir, "partial-file")))
     testthat::expect_length(trash_entries(backend), 0L)
@@ -346,7 +354,7 @@ testthat::test_that("an environment that cannot be moved aside is left as it was
     env_dir <- local_fake_env(backend, env_name)
     cnd <- rlang::catch_cnd(
       replace_with(backend, env_name, function(env_dir) {
-        stop("The backend must not run.")
+        stop("The backend must not run.", call. = FALSE)
       }),
       classes = "error"
     )
@@ -383,11 +391,12 @@ testthat::test_that("an environment that cannot be moved back is kept and named 
     backend <- local_lifecycle_backend(kind)
     env_name <- "condathis-replace-stuck-env"
     local_fake_env(backend, env_name)
-    calls <- 0L
+    tracked <- new.env(parent = emptyenv())
+    tracked$calls <- 0L
     testthat::local_mocked_bindings(
       rename_path = function(from, to) {
-        calls <<- calls + 1L
-        if (calls > 1L) {
+        tracked$calls <- tracked$calls + 1L
+        if (tracked$calls > 1L) {
           return("Access is denied.")
         }
         return(real_rename_path(from, to))
@@ -396,20 +405,20 @@ testthat::test_that("an environment that cannot be moved back is kept and named 
 
     # No warning: a warning signaled while the error is on its way can
     # replace it (for example under `options(warn = 2)`).
-    warnings <- list()
+    tracked$warnings <- list()
     cnd <- withCallingHandlers(
       rlang::catch_cnd(
         replace_with(backend, env_name, function(env_dir) {
-          stop("create failed")
+          stop("create failed", call. = FALSE)
         }),
         classes = "error"
       ),
       warning = function(cnd) {
-        warnings[[length(warnings) + 1L]] <<- cnd
+        tracked$warnings[[length(tracked$warnings) + 1L]] <- cnd
         invokeRestart("muffleWarning")
       }
     )
-    testthat::expect_length(warnings, 0L)
+    testthat::expect_length(tracked$warnings, 0L)
     testthat::expect_s3_class(cnd, "simpleError")
     testthat::expect_s3_class(cnd, "condathis_env_not_restored")
     kept <- trash_entries(backend)
@@ -443,18 +452,19 @@ testthat::test_that("an interrupted replacement that cannot be moved back warns"
     backend <- local_lifecycle_backend(kind)
     env_name <- "condathis-replace-stuck-interrupt-env"
     local_fake_env(backend, env_name)
-    calls <- 0L
+    tracked <- new.env(parent = emptyenv())
+    tracked$calls <- 0L
     testthat::local_mocked_bindings(
       rename_path = function(from, to) {
-        calls <<- calls + 1L
-        if (calls > 1L) {
+        tracked$calls <- tracked$calls + 1L
+        if (tracked$calls > 1L) {
           return("Access is denied.")
         }
         return(real_rename_path(from, to))
       }
     )
 
-    warnings <- list()
+    tracked$warnings <- list()
     res <- withCallingHandlers(
       tryCatch(
         replace_with(backend, env_name, function(env_dir) {
@@ -463,14 +473,14 @@ testthat::test_that("an interrupted replacement that cannot be moved back warns"
         interrupt = function(cnd) "interrupted"
       ),
       condathis_env_restore_failed = function(cnd) {
-        warnings[[length(warnings) + 1L]] <<- cnd
+        tracked$warnings[[length(tracked$warnings) + 1L]] <- cnd
         invokeRestart("muffleWarning")
       }
     )
     testthat::expect_identical(res, "interrupted", info = kind)
-    testthat::expect_length(warnings, 1L)
+    testthat::expect_length(tracked$warnings, 1L)
     testthat::expect_identical(
-      class(warnings[[1L]]),
+      class(tracked$warnings[[1L]]),
       c(
         expected[[kind]],
         "condathis_warning",
@@ -482,9 +492,9 @@ testthat::test_that("an interrupted replacement that cannot be moved back warns"
     )
     kept <- trash_entries(backend)
     testthat::expect_length(kept, 1L)
-    testthat::expect_identical(warnings[[1L]]$kept_env_dir, kept)
+    testthat::expect_identical(tracked$warnings[[1L]]$kept_env_dir, kept)
     testthat::expect_match(
-      cli::ansi_strip(conditionMessage(warnings[[1L]])),
+      cli::ansi_strip(conditionMessage(tracked$warnings[[1L]])),
       basename(kept),
       fixed = TRUE
     )
@@ -522,21 +532,22 @@ testthat::test_that("a failed or interrupted create of a new environment deletes
     env_name <- "condathis-new-env-fail-env"
     env_dir <- local_env_dir_cleanup(backend, env_name)
     # Deleted before the caller's handlers run.
-    seen_in_handler <- NA
+    tracked <- new.env(parent = emptyenv())
+    tracked$seen_in_handler <- NA
     testthat::expect_error(
       withCallingHandlers(
         replace_with(backend, env_name, function(env_dir) {
           make_new_env(env_dir)
-          stop("create failed")
+          stop("create failed", call. = FALSE)
         }),
         error = function(cnd) {
-          seen_in_handler <<- fs::dir_exists(env_dir)
+          tracked$seen_in_handler <- fs::dir_exists(env_dir)
         }
       ),
       "create failed",
       fixed = TRUE
     )
-    testthat::expect_false(seen_in_handler, info = kind)
+    testthat::expect_false(tracked$seen_in_handler, info = kind)
     testthat::expect_false(fs::dir_exists(env_dir))
 
     res <- tryCatch(
@@ -566,12 +577,13 @@ testthat::test_that("a directory that is not an environment is deleted before th
     env_dir <- local_env_dir_cleanup(backend, env_name)
     fs::dir_create(env_dir)
     fs::file_create(fs::path(env_dir, "stale-file"))
-    seen_free <- NA
+    tracked <- new.env(parent = emptyenv())
+    tracked$seen_free <- NA
     replace_with(backend, env_name, function(env_dir) {
-      seen_free <<- isFALSE(fs::dir_exists(env_dir))
+      tracked$seen_free <- isFALSE(fs::dir_exists(env_dir))
       return(make_new_env(env_dir))
     })
-    testthat::expect_true(seen_free, info = kind)
+    testthat::expect_true(tracked$seen_free, info = kind)
     testthat::expect_false(fs::file_exists(fs::path(env_dir, "stale-file")))
     testthat::expect_true(fs::file_exists(fs::path(env_dir, "new-file")))
   }
@@ -593,7 +605,7 @@ testthat::test_that("a failed existence check stops the replacement and changes 
     )
     cnd <- rlang::catch_cnd(
       replace_with(backend, env_name, function(env_dir) {
-        stop("The backend must not run.")
+        stop("The backend must not run.", call. = FALSE)
       }),
       classes = "error"
     )
@@ -605,7 +617,7 @@ testthat::test_that("a failed existence check stops the replacement and changes 
     testthat::local_mocked_bindings(backend_env_exists = function(...) "yes")
     cnd <- rlang::catch_cnd(
       replace_with(backend, env_name, function(env_dir) {
-        stop("The backend must not run.")
+        stop("The backend must not run.", call. = FALSE)
       }),
       classes = "error"
     )
@@ -646,23 +658,24 @@ testthat::test_that("a replacement runs a micromamba that lives in the environme
     micromamba_binary_in_env_dir = function(backend, env_name) "bin/micromamba"
   )
   withr::local_options(condathis.micromamba_path = NULL)
-  seen_path <- NULL
+  tracked <- new.env(parent = emptyenv())
+  tracked$seen_path <- NULL
   replace_with(backend, env_name, function(env_dir) {
-    seen_path <<- getOption("condathis.micromamba_path")
+    tracked$seen_path <- getOption("condathis.micromamba_path")
     return(make_new_env(env_dir))
   })
-  testthat::expect_match(seen_path, "/bin/micromamba$")
-  testthat::expect_match(seen_path, env_trash_name(), fixed = TRUE)
+  testthat::expect_match(tracked$seen_path, "/bin/micromamba$")
+  testthat::expect_match(tracked$seen_path, env_trash_name(), fixed = TRUE)
   testthat::expect_null(getOption("condathis.micromamba_path"))
 
   stub <- local_lifecycle_backend("stub")
   local_fake_env(stub, env_name)
-  seen_path <- "unset"
+  tracked$seen_path <- "unset"
   replace_with(stub, env_name, function(env_dir) {
-    seen_path <<- getOption("condathis.micromamba_path")
+    tracked$seen_path <- getOption("condathis.micromamba_path")
     return(make_new_env(env_dir))
   })
-  testthat::expect_null(seen_path)
+  testthat::expect_null(tracked$seen_path)
 })
 
 # --- create_env() and the life cycle ----------------------------------------
@@ -673,6 +686,7 @@ testthat::test_that("create_env() reports an environment it could not move back"
   kept <- list(path = "/root/envs/#trash/1a2b", target = "/t", reason = "")
   cnd <- rlang::catch_cnd(
     with_backend_errors(
+      # jarl-ignore condition_call: re-signals a condition object, which `call.` does not apply to
       stop(note_kept_env_dir(simpleError("solve failed"), kept, "e")),
       fn = "create_env",
       backend_name = "micromamba",
@@ -733,7 +747,8 @@ testthat::test_that("create_env(overwrite = TRUE) gives every backend a free dir
     make_new_env(env_dir, file = "partial-file")
     rlang::abort("solve failed", class = "stub_solve_failed")
   }
-  seen_in_handler <- NA
+  tracked <- new.env(parent = emptyenv())
+  tracked$seen_in_handler <- NA
   cnd <- rlang::catch_cnd(
     withCallingHandlers(
       create_env(
@@ -743,14 +758,17 @@ testthat::test_that("create_env(overwrite = TRUE) gives every backend a free dir
         verbose = "silent"
       ),
       condathis_create_env_failed = function(cnd) {
-        seen_in_handler <<- fs::file_exists(fs::path(env_dir, "old-file"))
+        tracked$seen_in_handler <- fs::file_exists(fs::path(
+          env_dir,
+          "old-file"
+        ))
       }
     ),
     classes = "error"
   )
   testthat::expect_s3_class(cnd, "condathis_create_env_failed")
   testthat::expect_true(rlang::cnd_inherits(cnd, "stub_solve_failed"))
-  testthat::expect_true(seen_in_handler)
+  testthat::expect_true(tracked$seen_in_handler)
   testthat::expect_true(fs::file_exists(fs::path(env_dir, "old-file")))
   testthat::expect_false(fs::file_exists(fs::path(env_dir, "partial-file")))
   testthat::expect_true(env_exists("life-env"))
@@ -780,13 +798,14 @@ testthat::test_that("create_env(overwrite = TRUE) gives every backend a free dir
 testthat::test_that("create_env() names an environment that it could not move back", {
   stub <- local_create_stub("stub-lifecycle-stuck")
   create_env(env_name = "stuck-env", verbose = "silent")
-  stub$state$create <- function(env_dir) stop("solve failed")
+  stub$state$create <- function(env_dir) stop("solve failed", call. = FALSE)
   real_rename_path <- rename_path
-  calls <- 0L
+  tracked <- new.env(parent = emptyenv())
+  tracked$calls <- 0L
   testthat::local_mocked_bindings(
     rename_path = function(from, to) {
-      calls <<- calls + 1L
-      if (calls > 1L) {
+      tracked$calls <- tracked$calls + 1L
+      if (tracked$calls > 1L) {
         return("Access is denied.")
       }
       return(real_rename_path(from, to))
@@ -855,7 +874,8 @@ testthat::test_that("a failed create_env(overwrite = TRUE) keeps the environment
   fs::file_create(extra_file)
 
   # The environment is back before the caller's handlers run.
-  seen_in_handler <- NA
+  tracked <- new.env(parent = emptyenv())
+  tracked$seen_in_handler <- NA
   cnd <- rlang::catch_cnd(
     withCallingHandlers(
       create_env(
@@ -866,13 +886,13 @@ testthat::test_that("a failed create_env(overwrite = TRUE) keeps the environment
         verbose = "silent"
       ),
       condathis_create_env_failed = function(cnd) {
-        seen_in_handler <<- fs::file_exists(extra_file)
+        tracked$seen_in_handler <- fs::file_exists(extra_file)
       }
     ),
     classes = "error"
   )
   testthat::expect_s3_class(cnd, "condathis_create_env_failed")
-  testthat::expect_true(seen_in_handler)
+  testthat::expect_true(tracked$seen_in_handler)
   testthat::expect_true(env_exists(env_name))
   testthat::expect_true(
     "polyglot" %in% list_packages(env_name)$name

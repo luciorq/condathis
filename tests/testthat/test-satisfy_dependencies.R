@@ -218,10 +218,14 @@ testthat::test_that("build strings are compared only with letters, digits, `_`, 
   )
   testthat::expect_identical(check$unsatisfied, specs[1:3])
   testthat::expect_identical(check$uncompared_builds, specs[1:3])
+  # The bullets are cli templates that cli::format_inline() fills in from
+  # these variables of this frame.
+  # jarl-ignore-start unused_object: read by cli::format_inline() through the bullet templates
   unsatisfied <- check$unsatisfied
   uncompared <- check$uncompared
   uncompared_versions <- check$uncompared_versions
   uncompared_builds <- check$uncompared_builds
+  # jarl-ignore-end unused_object
   bullets <- cli::format_inline(unsatisfied_spec_bullets(check)[[2L]])
   testthat::expect_match(bullets, "Build strings with characters", fixed = TRUE)
   testthat::expect_match(bullets, "zlib=1.3.1=((", fixed = TRUE)
@@ -315,9 +319,11 @@ testthat::test_that("specs with a version that is not compared are named and nev
   )
 
   # The bullet that names them.
+  # jarl-ignore-start unused_object: read by cli::format_inline() through the bullet templates
   unsatisfied <- check$unsatisfied
   uncompared <- check$uncompared
   uncompared_versions <- check$uncompared_versions
+  # jarl-ignore-end unused_object
   bullets <- cli::format_inline(unsatisfied_spec_bullets(check)[[2L]])
   testthat::expect_match(bullets, "are not compared", fixed = TRUE)
   testthat::expect_match(bullets, "zlib<2.*", fixed = TRUE)

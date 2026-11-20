@@ -532,6 +532,9 @@ validate_channels_arg <- function(
 #'   `rlang::caller_env()` evaluated in the exported function, for the soft
 #'   deprecation of `packages =` (see `is_direct_use()`). `NULL` counts as
 #'   direct use.
+#' @param given_args Character vector. The named arguments of the calling
+#'   function that the user supplied (not `missing()`), so that a hint
+#'   never suggests an argument the call already has.
 #' @param call Environment of the function the error is reported for.
 #'
 #' @returns An unnamed character vector of specs, `character(0)` when none
@@ -542,11 +545,11 @@ validate_channels_arg <- function(
 #' create_env <- function(..., env_name = "condathis-env") {
 #'   user_env <- rlang::caller_env()
 #'   dots <- rlang::list2(...)
-#'   packages <- collect_package_specs(
+#'   return(collect_package_specs(
 #'     dots,
 #'     fn = "create_env",
 #'     user_env = user_env
-#'   )
+#'   ))
 #' }
 #' }
 #'
@@ -559,6 +562,7 @@ collect_package_specs <- function(
   missing_class = paste0("condathis_", fn, "_missing_packages"),
   formal_names = NULL,
   user_env = NULL,
+  given_args = character(0L),
   call = rlang::caller_env()
 ) {
   if (is.null(formal_names)) {
@@ -577,53 +581,16 @@ collect_package_specs <- function(
 
   unknown_names <- setdiff(dot_names[nzchar(dot_names)], "packages")
   if (isTRUE(length(unknown_names) > 0L)) {
-    bad_name <- unknown_names[[1L]]
-    suggestion <- closest_names(bad_name, setdiff(formal_names, "..."))
-    message <- c(`x` = "{.arg {bad_name}} is not an argument of {.fn {fn}}.")
-    if (isTRUE(startsWith("packages", bad_name))) {
-      # 0.1.4 matched an abbreviation of `packages`, unless it abbreviated
-      # another formal too (`p` in create_env(), with `platform`).
-      other_matches <- setdiff(formal_names, c("...", "packages"))
-      other_matches <- other_matches[startsWith(other_matches, bad_name)]
-      unnamed_hint <- "Pass package specs unnamed, before the named arguments: {.code {fn}(\"pkg\", env_name = \"my-env\")}."
-      if (isTRUE(length(other_matches) > 0L)) {
-        message <- c(
-          message,
-          `i` = "Did you mean {.or {.arg {other_matches}}}?",
-          `i` = unnamed_hint
-        )
-      } else if (isTRUE(fn %in% c("create_env", "install_packages"))) {
-        message <- c(
-          message,
-          `i` = "In condathis 0.1.4, {.arg {bad_name}} abbreviated {.arg packages}.",
-          `i` = unnamed_hint
-        )
-      } else {
-        message <- c(message, `i` = unnamed_hint)
-      }
-    } else if (
-      identical(bad_name, "additional_channels") &&
-        isTRUE("channels" %in% formal_names)
-    ) {
-      # validate_env() has one channel vector: the request of
-      # create_env(channels = a, additional_channels = b) is c(a, b).
-      message <- c(
-        message,
-        `i` = "Pass every channel in {.arg channels}: {.code channels = c(channels, additional_channels)} checks the channels of {.code create_env(channels = channels, additional_channels = additional_channels)}."
-      )
-    } else if (isTRUE(length(suggestion) > 0L)) {
-      message <- c(message, `i` = "Did you mean {.or {.arg {suggestion}}}?")
-    } else {
-      message <- c(
-        message,
-        `i` = "Package specs in {.arg ...} must be unnamed."
-      )
-    }
-    condathis_abort(message = message, class = invalid_class, call = call)
+    abort_unknown_package_arg(
+      unknown_names[[1L]],
+      fn = fn,
+      formal_names = formal_names,
+      invalid_class = invalid_class,
+      call = call
+    )
   }
 
   is_alias <- dot_names == "packages"
-  specs <- character(0L)
   if (isTRUE(any(is_alias))) {
     if (isTRUE(sum(is_alias) > 1L)) {
       condathis_abort(
@@ -632,31 +599,15 @@ collect_package_specs <- function(
         call = call
       )
     }
-    if (isTRUE(any(!is_alias))) {
-      hint <- c(`i` = "Pass every spec unnamed, before the other arguments.")
-      extra <- dots[!is_alias]
-      if (
-        isTRUE(identical(length(extra), 1L)) &&
-          isTRUE(rlang::is_string(extra[[1L]]))
-      ) {
-        # The 0.1.4 positional meaning of the value: `env_file` was the
-        # second argument of create_env(), `env_name` the second of
-        # install_packages().
-        extra_value <- extra[[1L]]
-        extra_hint <- if (
-          isTRUE(is_env_file_name(extra_value)) &&
-            isTRUE("env_file" %in% formal_names)
-        ) {
-          "If {.val {extra_value}} is an environment file, pass it as {.code env_definition(\"{extra_value}\")}."
-        } else {
-          "If {.val {extra_value}} is not a package spec, name its argument: {.code env_name = \"{extra_value}\"}."
-        }
-        hint <- c(`i` = extra_hint, hint)
-      }
+    if (isTRUE(!all(is_alias))) {
       condathis_abort(
         message = c(
           `x` = "Use either {.arg packages} or unnamed package specs, not both.",
-          hint
+          packages_alias_conflict_hint(
+            dots[!is_alias],
+            formal_names = formal_names,
+            given_args = given_args
+          )
         ),
         class = invalid_class,
         call = call
@@ -681,45 +632,18 @@ collect_package_specs <- function(
       call = call
     )
   } else {
-    for (i in seq_along(dots)) {
-      problem <- package_specs_problem(dots[[i]])
-      if (isFALSE(is.null(problem))) {
-        message <- c(
-          `x` = "{.arg ...} must contain only package specs: character strings.",
-          `x` = paste0("Element ", i, " ", problem, ".")
-        )
-        if (is.null(dots[[i]]) && isTRUE(i < length(dots))) {
-          # 0.1.4's positional `create_env("pkg", NULL, "env")`.
-          message <- c(
-            message,
-            `i` = "Arguments after the package specs must be named, as in {.code env_name = \"my-env\"}."
-          )
-          if (isTRUE("env_file" %in% formal_names)) {
-            message <- c(
-              message,
-              `i` = "Pass an environment file with {.fn env_definition}, as in {.code create_env(env_definition(\"environment.yml\"), env_name = \"my-env\")}."
-            )
-          }
-        } else if (is.null(dots[[i]]) && isTRUE(allow_empty)) {
-          message <- c(
-            message,
-            `i` = "For no packages, pass no package specs."
-          )
-        } else if (isTRUE(is_env_definition(dots[[i]]))) {
-          # The functions that take a definition take it unnamed only.
-          message <- c(
-            message,
-            `i` = "Pass {.fn env_definition} unnamed, in {.arg ...}."
-          )
-        }
-        condathis_abort(message = message, class = invalid_class, call = call)
-      }
-      specs <- c(specs, unname(as.character(dots[[i]])))
-    }
+    specs <- collect_unnamed_package_specs(
+      dots,
+      allow_empty = allow_empty,
+      formal_names = formal_names,
+      invalid_class = invalid_class,
+      call = call
+    )
   }
 
   file_like <- specs[is_env_file_name(specs)]
   if (isTRUE(length(file_like) > 0L)) {
+    # jarl-ignore unused_object: interpolated by cli in the message below
     env_file_spec <- file_like[[1L]]
     # create_env(), install_packages() and validate_env() all take one.
     hint <- c(
@@ -756,4 +680,236 @@ collect_package_specs <- function(
     )
   }
   return(unname(specs))
+}
+
+#' Abort for a named argument in `...` that is not `packages`
+#'
+#' The error of `collect_package_specs()`, with a hint for an abbreviation
+#' of `packages`, for `additional_channels` of `validate_env()`, or for a
+#' misspelled argument.
+#'
+#' @param bad_name Character string, the first unknown name.
+#' @param fn,formal_names,call As in `collect_package_specs()`.
+#' @param invalid_class Character vector, the classes of the error.
+#'
+#' @returns Does not return.
+#'
+#' @keywords internal
+#' @noRd
+abort_unknown_package_arg <- function(
+  bad_name,
+  fn,
+  formal_names,
+  invalid_class,
+  call
+) {
+  suggestion <- closest_names(bad_name, setdiff(formal_names, "..."))
+  message <- c(`x` = "{.arg {bad_name}} is not an argument of {.fn {fn}}.")
+  if (isTRUE(startsWith("packages", bad_name))) {
+    # 0.1.4 matched an abbreviation of `packages`, unless it abbreviated
+    # another formal too (`p` in create_env(), with `platform`).
+    other_matches <- setdiff(formal_names, c("...", "packages"))
+    other_matches <- other_matches[startsWith(other_matches, bad_name)]
+    unnamed_hint <- "Pass package specs unnamed, before the named arguments: {.code {fn}(\"pkg\", env_name = \"my-env\")}."
+    if (isTRUE(length(other_matches) > 0L)) {
+      message <- c(
+        message,
+        `i` = "Did you mean {.or {.arg {other_matches}}}?",
+        `i` = unnamed_hint
+      )
+    } else if (isTRUE(fn %in% c("create_env", "install_packages"))) {
+      message <- c(
+        message,
+        `i` = "In condathis 0.1.4, {.arg {bad_name}} abbreviated {.arg packages}.",
+        `i` = unnamed_hint
+      )
+    } else {
+      message <- c(message, `i` = unnamed_hint)
+    }
+  } else if (
+    identical(bad_name, "additional_channels") &&
+      isTRUE("channels" %in% formal_names)
+  ) {
+    # validate_env() has one channel vector: the request of
+    # create_env(channels = a, additional_channels = b) is c(a, b).
+    message <- c(
+      message,
+      `i` = "Pass every channel in {.arg channels}: {.code channels = c(channels, additional_channels)} checks the channels of {.code create_env(channels = channels, additional_channels = additional_channels)}."
+    )
+  } else if (isTRUE(length(suggestion) > 0L)) {
+    message <- c(message, `i` = "Did you mean {.or {.arg {suggestion}}}?")
+  } else {
+    message <- c(
+      message,
+      `i` = "Package specs in {.arg ...} must be unnamed."
+    )
+  }
+  condathis_abort(message = message, class = invalid_class, call = call)
+}
+
+#' The package specs given unnamed in `...`
+#'
+#' @param dots,allow_empty,formal_names,call As in
+#'   `collect_package_specs()`.
+#' @param invalid_class Character vector, the classes of the error.
+#'
+#' @returns An unnamed character vector of specs. An element that is not a
+#'   character vector aborts.
+#'
+#' @keywords internal
+#' @noRd
+collect_unnamed_package_specs <- function(
+  dots,
+  allow_empty,
+  formal_names,
+  invalid_class,
+  call
+) {
+  specs <- character(0L)
+  for (i in seq_along(dots)) {
+    problem <- package_specs_problem(dots[[i]])
+    if (isFALSE(is.null(problem))) {
+      message <- c(
+        `x` = "{.arg ...} must contain only package specs: character strings.",
+        `x` = paste0("Element ", i, " ", problem, ".")
+      )
+      if (is.null(dots[[i]]) && isTRUE(i < length(dots))) {
+        # 0.1.4's positional `create_env("pkg", NULL, "env")`.
+        message <- c(
+          message,
+          positional_null_hint(dots, i = i, formal_names = formal_names)
+        )
+      } else if (is.null(dots[[i]]) && isTRUE(allow_empty)) {
+        message <- c(
+          message,
+          `i` = "For no packages, pass no package specs."
+        )
+      } else if (isTRUE(is_env_definition(dots[[i]]))) {
+        # The functions that take a definition take it unnamed only.
+        message <- c(
+          message,
+          `i` = "Pass {.fn env_definition} unnamed, in {.arg ...}."
+        )
+      }
+      condathis_abort(message = message, class = invalid_class, call = call)
+    }
+    specs <- c(specs, unname(as.character(dots[[i]])))
+  }
+  return(specs)
+}
+
+#' Hint for `packages =` given together with unnamed values
+#'
+#' One unnamed string had a positional meaning in 0.1.4: `env_file` was the
+#' second argument of `create_env()`, `env_name` the second of
+#' `install_packages()`. The hint names the argument to use only when the
+#' call does not already have it: following it must not give "matched by
+#' multiple actual arguments".
+#'
+#' @param extra List of the unnamed values of `...`.
+#' @param formal_names Character vector, the formals of the calling
+#'   function.
+#' @param given_args Character vector, the named arguments the user
+#'   supplied.
+#'
+#' @returns A named character vector of `cli` bullets.
+#'
+#' @keywords internal
+#' @noRd
+packages_alias_conflict_hint <- function(extra, formal_names, given_args) {
+  hint <- c(`i` = "Pass every spec unnamed, before the other arguments.")
+  if (
+    isFALSE(identical(length(extra), 1L)) ||
+      isFALSE(rlang::is_string(extra[[1L]]))
+  ) {
+    return(hint)
+  }
+  extra_value <- extra[[1L]]
+  as_env_file <- isTRUE(is_env_file_name(extra_value)) &&
+    isTRUE("env_file" %in% formal_names) &&
+    isFALSE("env_file" %in% given_args)
+  if (isTRUE(as_env_file)) {
+    return(c(
+      format_hint(
+        "If {.val {value}} is an environment file, pass it as {.code env_definition(\"{value}\")}.",
+        value = extra_value
+      ),
+      hint
+    ))
+  }
+  if (isTRUE("env_name" %in% given_args)) {
+    return(hint)
+  }
+  return(c(
+    format_hint(
+      "If {.val {value}} is not a package spec, name its argument: {.code env_name = \"{value}\"}.",
+      value = extra_value
+    ),
+    hint
+  ))
+}
+
+#' Interpolate one `cli` hint bullet with the values it names
+#'
+#' The result goes into the message of `condathis_abort()`, which
+#' interpolates it again in another environment: its braces are escaped,
+#' so the second pass gives the same text.
+#'
+#' @param x Character string, a `cli` template.
+#' @param ... Named values that `x` refers to.
+#'
+#' @returns A character string named `i`.
+#'
+#' @keywords internal
+#' @noRd
+format_hint <- function(x, ...) {
+  values <- rlang::env(baseenv(), ...)
+  return(c(`i` = escape_cli_braces(cli::format_inline(x, .envir = values))))
+}
+
+#' Hint for a `NULL` in `...` followed by more values
+#'
+#' 0.1.4's positional `create_env("pkg", NULL, "env")` or
+#' `create_env(NULL, "env.yml", "env")`. When a later value looks like an
+#' environment file, the `env_definition()` example names it.
+#'
+#' @param dots List of the values of `...`.
+#' @param i Integer, the position of the `NULL`.
+#' @param formal_names Character vector, the formals of the calling
+#'   function.
+#'
+#' @returns A named character vector of `cli` bullets.
+#'
+#' @keywords internal
+#' @noRd
+positional_null_hint <- function(dots, i, formal_names) {
+  hint <- if (identical(i, 1L)) {
+    c(
+      `i` = "Arguments other than package specs must be named, as in {.code env_name = \"my-env\"}."
+    )
+  } else {
+    c(
+      `i` = "Arguments after the package specs must be named, as in {.code env_name = \"my-env\"}."
+    )
+  }
+  if (isFALSE("env_file" %in% formal_names)) {
+    return(hint)
+  }
+  later <- dots[-seq_len(i)]
+  is_file <- vapply(
+    later,
+    function(x) isTRUE(rlang::is_string(x)) && isTRUE(is_env_file_name(x)),
+    logical(1L)
+  )
+  return(c(
+    hint,
+    format_hint(
+      "Pass an environment file with {.fn env_definition}, as in {.code create_env(env_definition(\"{env_file}\"), env_name = \"my-env\")}.",
+      env_file = if (isTRUE(any(is_file))) {
+        later[[which(is_file)[[1L]]]]
+      } else {
+        "environment.yml"
+      }
+    )
+  ))
 }

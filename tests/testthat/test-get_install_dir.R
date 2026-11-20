@@ -138,10 +138,10 @@ testthat::test_that("get_install_dir() on a fresh data directory creates only th
   condathis::with_sandbox_dir({
     testthat::local_mocked_bindings(
       native_cmd = function(...) {
-        stop("get_install_dir() must not start micromamba")
+        stop("get_install_dir() must not start micromamba", call. = FALSE)
       },
       install_micromamba = function(...) {
-        stop("get_install_dir() must not install micromamba")
+        stop("get_install_dir() must not install micromamba", call. = FALSE)
       }
     )
     root <- get_condathis_path()

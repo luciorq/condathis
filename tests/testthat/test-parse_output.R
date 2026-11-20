@@ -166,6 +166,7 @@ testthat::test_that("parse_output() reads run_pipeline() results", {
 testthat::test_that("parse_output() never reads raw_text from the caller", {
   # Regression test: `exists("raw_text")` also found a workspace variable
   # of that name and returned its value.
+  # jarl-ignore unused_object: the caller variable that parse_output() must not read
   raw_text <- "LEAKED"
   testthat::expect_error(
     parse_output(list(stdout = "x"), stream = "stderr"),

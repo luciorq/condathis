@@ -82,7 +82,10 @@
 #'
 #' @export
 get_install_dir <- function(method = "auto") {
-  method <- resolve_method_alias(validate_method_arg(method))
+  method <- resolve_method_alias(
+    validate_method_arg(method),
+    user_env = rlang::caller_env()
+  )
 
   # "auto" reports every registered backend, available or not (rule R6),
   # in the order that backend resolution uses.

@@ -140,10 +140,13 @@ testthat::test_that("list_packages() on a fresh data directory starts no process
   condathis::with_sandbox_dir({
     testthat::local_mocked_bindings(
       native_cmd = function(...) {
-        stop("list_packages() must not start micromamba on a fresh root")
+        stop(
+          "list_packages() must not start micromamba on a fresh root",
+          call. = FALSE
+        )
       },
       install_micromamba = function(...) {
-        stop("list_packages() must not install micromamba")
+        stop("list_packages() must not install micromamba", call. = FALSE)
       }
     )
     testthat::expect_error(
@@ -181,6 +184,22 @@ testthat::test_that("list_packages() defaults to verbose = 'silent' and always r
     list_packages("ea", verbose = "output"),
     regexp = "Retrieved 2 packages from environment"
   )
+})
+
+testthat::test_that("list_packages() probes the environment once", {
+  # The probe of resolve_backend() decides, not a second listing (decision
+  # D16 of feat-run-unify: one probe per call).
+  stub <- local_stub_backend(
+    "stub-probe-once",
+    envs = "ea",
+    backend_list_packages = function(backend, ...) stub_packages(1L)
+  )
+  testthat::local_mocked_bindings(
+    backend_names_by_priority = function() "stub-probe-once"
+  )
+  pkgs <- list_packages("ea")
+  testthat::expect_identical(nrow(pkgs), 1L)
+  testthat::expect_length(stub_calls(stub, "backend_env_exists"), 1L)
 })
 
 testthat::test_that("list_packages() pluralizes its message", {
@@ -257,8 +276,8 @@ testthat::test_that("list_packages() rejects a listing without the six columns",
   )
   # The same classes as a failed listing, as in list_envs() and
   # validate_env(): one handler for condathis_backend_error catches both.
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_list_packages_failed",
       "condathis_backend_error",
@@ -268,7 +287,8 @@ testthat::test_that("list_packages() rejects a listing without the six columns",
       "rlang_error",
       "error",
       "condition"
-    )
+    ),
+    exact = TRUE
   )
   testthat::expect_s3_class(cnd$parent, "condathis_backend_invalid_return")
   testthat::expect_match(conditionMessage(cnd$parent), "platform")

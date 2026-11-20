@@ -46,7 +46,8 @@
 #'   empty environment. It is deprecated. It warns once per session (class
 #'   `condathis_deprecated_packages_arg`) when the call comes from the
 #'   console, a script or the tests of the package that makes it. Calls
-#'   made inside other packages do not warn.
+#'   made inside other packages do not warn, except in tests that use
+#'   testthat's third edition (see [condathis-conditions]).
 #'
 #'   `create_env()` aborts with class
 #'   `condathis_create_env_positional_env_name` when `env_name` is not
@@ -316,7 +317,10 @@ create_env <- function(
   packages <- collect_package_specs(
     dots,
     fn = "create_env",
-    user_env = user_env
+    user_env = user_env,
+    given_args = c("env_name", "env_file")[
+      c(isFALSE(missing(env_name)), isFALSE(missing(env_file)))
+    ]
   )
   validate_env_name(
     env_name,
@@ -731,6 +735,7 @@ validate_platform_arg <- function(platform, class, call = rlang::caller_env()) {
   if (isTRUE(length(suggestion) > 0L)) {
     message <- c(message, `i` = "Did you mean {.or {.val {suggestion}}}?")
   }
+  # jarl-ignore unused_object: interpolated by cli in the message below
   examples <- c("linux-64", "linux-aarch64", "osx-64", "osx-arm64", "win-64")
   message <- c(
     message,
@@ -845,6 +850,7 @@ resolve_create_definition <- function(
     # micromamba merges the specs into an environment YAML file or a list
     # of specs, and drops them for an `@EXPLICIT` or lock file.
     message <- if (is.null(env_file)) {
+      # jarl-ignore unused_object: interpolated by cli in the message below
       spec <- packages[[length(packages)]]
       c(
         `x` = "Use either package specs in {.arg ...} or {.fn env_definition}, not both.",
@@ -1057,6 +1063,7 @@ choose_lock_platform <- function(
   if (identical(length(listed), 0L)) {
     return(list(platform = platform, target = platform %||% NA_character_))
   }
+  # jarl-ignore unused_object: interpolated by cli in the message below
   path <- definition$path
   not_locked <- function(target, bullets) {
     condathis_abort(
@@ -1171,6 +1178,7 @@ check_lock_installed <- function(
   if (isTRUE(NROW(installed) > 0L)) {
     return(invisible(NULL))
   }
+  # jarl-ignore unused_object: interpolated by cli in the message below
   path <- definition$path
   condathis_abort(
     message = c(
@@ -1395,7 +1403,8 @@ is_virtual_package_spec <- function(packages) {
 #'
 #' @returns A data frame with the character columns `spec`, `name` (the
 #'   installed name), `channel` (the installed channel, as
-#'   `normalize_channel_name()` gives it) and `spec_hint`
+#'   `normalize_channel_name()` gives it), `display` (the channel as the
+#'   message shows it, see `channel_display_name()`) and `spec_hint`
 #'   (`"<channel>::<name>"`, or `NA` when the channel is a URL or a path).
 #'   One row for each spec without a channel that an installed package
 #'   satisfies when the channel is not compared. Zero rows when `channels`
@@ -1440,9 +1449,8 @@ specs_from_other_channels <- function(
         drop = FALSE
       ][1L, , drop = FALSE]
       name <- as.character(installed[["name"]])
-      channel <- normalize_channel_name(
-        as.character(installed[["channel"]] %||% "")
-      )
+      raw_channel <- as.character(installed[["channel"]] %||% "")
+      channel <- normalize_channel_name(raw_channel)
       # A package that pip installed is listed with the channel `pypi`,
       # which is not a Conda channel: neither `channels` nor a spec can
       # name it.
@@ -1460,6 +1468,7 @@ specs_from_other_channels <- function(
         spec = spec_str,
         name = name,
         channel = channel,
+        display = channel_display_name(raw_channel, channel, is_name),
         spec_hint = if (isTRUE(is_name)) {
           paste0(channel, "::", name)
         } else {
@@ -1474,6 +1483,7 @@ specs_from_other_channels <- function(
       spec = character(0L),
       name = character(0L),
       channel = character(0L),
+      display = character(0L),
       spec_hint = character(0L),
       stringsAsFactors = FALSE
     ))
@@ -1481,6 +1491,35 @@ specs_from_other_channels <- function(
   result <- do.call(rbind, rows)
   rownames(result) <- NULL
   return(result)
+}
+
+#' How a hint shows the channel of an installed package
+#'
+#' The normalized form of a URL channel that is not a channel name
+#' (`example.org/chan`) is not a valid `channels` value: micromamba would
+#' read it as a name under its channel alias. Such a channel is shown as
+#' its URL, without the platform directory and without credentials. Every
+#' other channel keeps its normalized form: a name (`bioconda`,
+#' `pkgs/main`) or a local path, which are both valid `channels` values.
+#'
+#' @param raw Character string, the channel as the backend listed it.
+#' @param channel Character string, `normalize_channel_name(raw)`.
+#' @param is_name Logical, whether `channel` is a channel name.
+#'
+#' @returns A character string.
+#'
+#' @keywords internal
+#' @noRd
+channel_display_name <- function(raw, channel, is_name) {
+  if (
+    isTRUE(is_name) ||
+      isFALSE(grepl("^https?://", raw, ignore.case = TRUE))
+  ) {
+    return(channel)
+  }
+  url <- drop_channel_platform(raw)
+  url <- sub("^([A-Za-z][A-Za-z0-9+.-]*://)[^/@]*@", "\\1", url)
+  return(hide_secrets(url))
 }
 
 #' Message bullets for the specs that `check_env_request()` rejected
@@ -1529,16 +1568,16 @@ unsatisfied_spec_bullets <- function(check) {
       bullets <- c(
         bullets,
         `x` = sprintf(
-          "{.val {other_channels$name[[%d]]}} is installed from {.val {other_channels$channel[[%d]]}}, which is not in {.arg channels}.",
+          "{.val {other_channels$name[[%d]]}} is installed from {.val {other_channels$display[[%d]]}}, which is not in {.arg channels}.",
           i,
           i
         )
       )
     }
     hint <- if (isTRUE(all(is.na(check$other_channels$spec_hint)))) {
-      "Add {.or {.val {unique(other_channels$channel)}}} to {.arg channels}."
+      "Add {.or {.val {unique(other_channels$display)}}} to {.arg channels}."
     } else {
-      "Add {.or {.val {unique(other_channels$channel)}}} to {.arg channels}, or name the channel in the spec, as in {.val {other_channels$spec_hint[!is.na(other_channels$spec_hint)]}}."
+      "Add {.or {.val {unique(other_channels$display)}}} to {.arg channels}, or name the channel in the spec, as in {.val {other_channels$spec_hint[!is.na(other_channels$spec_hint)]}}."
     }
     bullets <- c(bullets, `i` = hint)
   }
@@ -1620,6 +1659,7 @@ with_default_channels_hint <- function(
         cnd[["message"]] <- c(cnd[["message"]], hint)
       }
       cnd[["condathis_default_channels_hint"]] <- TRUE
+      # jarl-ignore condition_call: re-signals a condition object, which `call.` does not apply to
       stop(cnd)
     }
   ))
@@ -1796,6 +1836,7 @@ keep_existing_env <- function(
     channels = channels,
     platform = platform
   )
+  # jarl-ignore unused_object: interpolated by cli in the message below
   env_platforms <- check$env_platforms
   if (identical(check$reason, "platform_mismatch")) {
     condathis_abort(
@@ -1816,6 +1857,7 @@ keep_existing_env <- function(
       records = described$description$records,
       target = lock_target
     )
+    # jarl-ignore unused_object: interpolated by cli in the message below
     path <- definition$path
     if (isFALSE(comparison$satisfied)) {
       condathis_abort(
@@ -1861,11 +1903,13 @@ keep_existing_env <- function(
       call = call
     )
   }
+  # jarl-ignore-start unused_object: read by the cli templates of unsatisfied_spec_bullets() and the messages below
   unsatisfied <- check$unsatisfied
   uncompared <- check$uncompared
   uncompared_versions <- check$uncompared_versions
   uncompared_builds <- check$uncompared_builds
   other_channels <- check$other_channels
+  # jarl-ignore-end unused_object
   if (isFALSE(check$satisfied)) {
     # When only the channel differs, `overwrite = TRUE` with the same
     # channels fails: the package is not on them.

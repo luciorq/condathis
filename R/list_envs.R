@@ -69,7 +69,10 @@
 #' @export
 list_envs <- function(method = "auto", verbose = "silent") {
   # Rule R2: every argument is checked before the first backend call.
-  method <- resolve_method_alias(validate_method_arg(method))
+  method <- resolve_method_alias(
+    validate_method_arg(method),
+    user_env = rlang::caller_env()
+  )
   verbose_list <- parse_verbose_arg(verbose)
 
   # "auto" lists every registered backend, available or not (rule R6):

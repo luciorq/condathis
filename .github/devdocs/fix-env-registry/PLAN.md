@@ -66,7 +66,16 @@ the documented behaviour.
 - Keeps every other line byte for byte, with its own line ending.
 - Does not touch the file when no line matches.
 - Writes a file in the same directory and renames it over the registry;
-  keeps the file mode on Unix. libmamba takes no lock either.
+  keeps the file mode on Unix.
+- No process locks the file (libmamba's `register_env()` and
+  `clean_environments_txt()`, conda and mamba take none). Found in the
+  run/run_bin session's review (2026-11-18): a line appended between the
+  read and the rename was lost. Now the registry is read again right
+  before the rename; when it changed, the work starts over, up to 3
+  times, then gives up and leaves the file as it is. A write between that
+  last read and the rename can still be lost (a few system calls). No
+  condathis lock: it would not cover the outside writers, and two
+  `remove_env()` calls on one registry are caught by the same re-read.
 - Best effort: any failure is swallowed, and the removal still succeeds.
 
 `micromamba env remove` still runs with `<root>/home`, so libmamba never

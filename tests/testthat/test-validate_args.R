@@ -22,7 +22,7 @@ testthat::test_that("validate_cmd_arg() rejects a missing or non-string cmd", {
     rlang_tail
   )
   cnd <- catch_error(f())
-  testthat::expect_identical(class(cnd), expected)
+  testthat::expect_s3_class(cnd, expected, exact = TRUE)
   testthat::expect_match(conditionMessage(cnd), "absent", fixed = TRUE)
   testthat::expect_identical(conditionCall(cnd), quote(f()))
   for (bad in list(NULL, 1, NA_character_, "", c("echo", "x"), TRUE)) {
@@ -230,11 +230,16 @@ testthat::test_that("validate_packages_arg() checks a vector of package specs", 
     "condathis_error",
     rlang_tail
   )
-  testthat::expect_identical(class(catch_error(f())), missing_expected)
-  testthat::expect_identical(class(catch_error(f(NULL))), missing_expected)
-  testthat::expect_identical(
-    class(catch_error(f(character(0L)))),
-    missing_expected
+  testthat::expect_s3_class(catch_error(f()), missing_expected, exact = TRUE)
+  testthat::expect_s3_class(
+    catch_error(f(NULL)),
+    missing_expected,
+    exact = TRUE
+  )
+  testthat::expect_s3_class(
+    catch_error(f(character(0L))),
+    missing_expected,
+    exact = TRUE
   )
   for (bad in list(
     NA,
@@ -415,15 +420,20 @@ testthat::test_that("collect_package_specs() rejects values that are not specs",
     )
     testthat::expect_match(conditionMessage(cnd), "Element 2", fixed = TRUE)
   }
-  testthat::expect_identical(
-    class(catch_error(d6_install_packages(1))),
-    invalid_packages_class("install_packages")
+  testthat::expect_s3_class(
+    catch_error(d6_install_packages(1)),
+    invalid_packages_class("install_packages"),
+    exact = TRUE
   )
 })
 
 testthat::test_that("collect_package_specs() names the closest formal for a misspelled option", {
   cnd <- catch_error(d6_create_env("python", chanels = "bioconda"))
-  testthat::expect_identical(class(cnd), invalid_packages_class("create_env"))
+  testthat::expect_s3_class(
+    cnd,
+    invalid_packages_class("create_env"),
+    exact = TRUE
+  )
   message <- cli::ansi_strip(conditionMessage(cnd))
   testthat::expect_match(
     message,
@@ -439,7 +449,11 @@ testthat::test_that("collect_package_specs() names the closest formal for a miss
   testthat::expect_match(conditionMessage(cnd), "overwrite", fixed = TRUE)
 
   cnd <- catch_error(d6_create_env("python", zzzzzzzz = 1))
-  testthat::expect_identical(class(cnd), invalid_packages_class("create_env"))
+  testthat::expect_s3_class(
+    cnd,
+    invalid_packages_class("create_env"),
+    exact = TRUE
+  )
   testthat::expect_match(conditionMessage(cnd), "unnamed", fixed = TRUE)
 })
 
@@ -469,9 +483,10 @@ testthat::test_that("collect_package_specs() rejects an environment file as a sp
     testthat::expect_no_match(conditionMessage(cnd), "env_file", fixed = TRUE)
   }
   cnd <- catch_error(d6_install_packages("python", "env.yml"))
-  testthat::expect_identical(
-    class(cnd),
-    invalid_packages_class("install_packages")
+  testthat::expect_s3_class(
+    cnd,
+    invalid_packages_class("install_packages"),
+    exact = TRUE
   )
   testthat::expect_match(
     conditionMessage(cnd),
@@ -488,9 +503,10 @@ testthat::test_that("collect_package_specs() rejects an environment file as a sp
 testthat::test_that("collect_package_specs() rejects an env_definition() object", {
   definition <- env_definition("environment.yml")
   cnd <- catch_error(d6_install_packages(definition))
-  testthat::expect_identical(
-    class(cnd),
-    invalid_packages_class("install_packages")
+  testthat::expect_s3_class(
+    cnd,
+    invalid_packages_class("install_packages"),
+    exact = TRUE
   )
   message <- cli::ansi_strip(conditionMessage(cnd))
   testthat::expect_match(message, "environment definition", fixed = TRUE)
@@ -498,7 +514,11 @@ testthat::test_that("collect_package_specs() rejects an env_definition() object"
   # create_env() takes the unnamed ones out first; a named one stays.
   withr::local_options(lifecycle_verbosity = "quiet")
   cnd <- catch_error(d6_create_env(packages = definition))
-  testthat::expect_identical(class(cnd), invalid_packages_class("create_env"))
+  testthat::expect_s3_class(
+    cnd,
+    invalid_packages_class("create_env"),
+    exact = TRUE
+  )
   testthat::expect_match(
     cli::ansi_strip(conditionMessage(cnd)),
     "environment definition",
@@ -511,15 +531,16 @@ testthat::test_that("collect_package_specs() requires specs when allow_empty is 
     catch_error(d6_install_packages()),
     catch_error(d6_install_packages(character(0L)))
   )) {
-    testthat::expect_identical(
-      class(call_result),
+    testthat::expect_s3_class(
+      call_result,
       c(
         "condathis_install_packages_missing_packages",
         "condathis_invalid_packages",
         "condathis_invalid_arg",
         "condathis_error",
         rlang_tail
-      )
+      ),
+      exact = TRUE
     )
   }
   # An explicit `packages = NULL` or `character(0)` is the 0.1.4 empty
@@ -539,20 +560,20 @@ testthat::test_that("collect_package_specs() accepts `packages =` as a deprecate
   id <- "deprecated_packages_arg_create_env"
   reset_warn_once(id)
   withr::defer(reset_warn_once(id))
-  res <- NULL
   cnd <- rlang::catch_cnd(
-    res <- d6_create_env(packages = c("a", "b"), env_name = "e"),
+    d6_create_env(packages = c("a", "b"), env_name = "e"),
     classes = "warning"
   )
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_deprecated_packages_arg",
       "condathis_warning",
       "rlang_warning",
       "warning",
       "condition"
-    )
+    ),
+    exact = TRUE
   )
   # catch_cnd() stops at the warning, so run the call again for its value.
   reset_warn_once(id)
@@ -581,18 +602,22 @@ testthat::test_that("collect_package_specs() accepts `packages =` as a deprecate
   )
 
   # Invalid alias values are invalid packages.
-  testthat::expect_identical(
-    class(catch_error(d6_create_env(packages = NA))),
-    invalid_packages_class("create_env")
+  testthat::expect_s3_class(
+    catch_error(d6_create_env(packages = NA)),
+    invalid_packages_class("create_env"),
+    exact = TRUE
   )
   # The alias with unnamed specs, or twice, aborts.
-  testthat::expect_identical(
-    class(catch_error(d6_create_env(packages = "a", "b"))),
-    invalid_packages_class("create_env")
+  testthat::expect_s3_class(
+    catch_error(d6_create_env(packages = "a", "b")),
+    invalid_packages_class("create_env"),
+    exact = TRUE
   )
-  testthat::expect_identical(
-    class(catch_error(d6_create_env(packages = "a", packages = "b"))),
-    invalid_packages_class("create_env")
+  testthat::expect_s3_class(
+    # jarl-ignore duplicated_arguments: the alias given twice is the input under test
+    catch_error(d6_create_env(packages = "a", packages = "b")),
+    invalid_packages_class("create_env"),
+    exact = TRUE
   )
 })
 
@@ -646,9 +671,10 @@ testthat::test_that("collect_package_specs() warns about `packages =` only for d
 testthat::test_that("collect_package_specs() points 0.1.4 positional values to their argument", {
   # install_packages(packages = x, "env"): 0.1.4's positional env_name.
   cnd <- catch_error(d6_install_packages(packages = "a", "my-env"))
-  testthat::expect_identical(
-    class(cnd),
-    invalid_packages_class("install_packages")
+  testthat::expect_s3_class(
+    cnd,
+    invalid_packages_class("install_packages"),
+    exact = TRUE
   )
   testthat::expect_match(
     conditionMessage(cnd),
@@ -658,7 +684,11 @@ testthat::test_that("collect_package_specs() points 0.1.4 positional values to t
   # create_env(packages = x, "env.yml"): 0.1.4's positional env_file,
   # which is now an env_definition().
   cnd <- catch_error(d6_create_env(packages = "a", "env.yml"))
-  testthat::expect_identical(class(cnd), invalid_packages_class("create_env"))
+  testthat::expect_s3_class(
+    cnd,
+    invalid_packages_class("create_env"),
+    exact = TRUE
+  )
   testthat::expect_match(
     conditionMessage(cnd),
     "env_definition(\"env.yml\")",
@@ -673,12 +703,20 @@ testthat::test_that("collect_package_specs() points 0.1.4 positional values to t
   )
   # More than one value: only the general hint.
   cnd <- catch_error(d6_create_env(packages = "a", "b", "c"))
-  testthat::expect_identical(class(cnd), invalid_packages_class("create_env"))
+  testthat::expect_s3_class(
+    cnd,
+    invalid_packages_class("create_env"),
+    exact = TRUE
+  )
   testthat::expect_no_match(conditionMessage(cnd), "env_name", fixed = TRUE)
 
   # create_env("pkg", NULL, "env"): 0.1.4's positional env_file = NULL.
   cnd <- catch_error(d6_create_env("a", NULL, "my-env"))
-  testthat::expect_identical(class(cnd), invalid_packages_class("create_env"))
+  testthat::expect_s3_class(
+    cnd,
+    invalid_packages_class("create_env"),
+    exact = TRUE
+  )
   message <- cli::ansi_strip(conditionMessage(cnd))
   testthat::expect_match(message, "must be named", fixed = TRUE)
   testthat::expect_match(message, "env_definition(", fixed = TRUE)
@@ -716,9 +754,10 @@ testthat::test_that("collect_package_specs() names `packages` for its 0.1.4 abbr
     )
   }
   cnd <- catch_error(d6_install_packages(p = "a"))
-  testthat::expect_identical(
-    class(cnd),
-    invalid_packages_class("install_packages")
+  testthat::expect_s3_class(
+    cnd,
+    invalid_packages_class("install_packages"),
+    exact = TRUE
   )
   testthat::expect_match(
     cli::ansi_strip(conditionMessage(cnd)),
@@ -748,6 +787,10 @@ testthat::test_that("collect_package_specs() takes explicit formal names", {
     fn = "validate_env",
     formal_names = c("...", "env_name", "verbose")
   ))
-  testthat::expect_identical(class(cnd), invalid_packages_class("validate_env"))
+  testthat::expect_s3_class(
+    cnd,
+    invalid_packages_class("validate_env"),
+    exact = TRUE
+  )
   testthat::expect_match(conditionMessage(cnd), "verbose", fixed = TRUE)
 })

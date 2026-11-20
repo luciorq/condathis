@@ -340,10 +340,13 @@ testthat::test_that("list_envs() on a fresh data directory starts no process", {
   condathis::with_sandbox_dir({
     testthat::local_mocked_bindings(
       native_cmd = function(...) {
-        stop("list_envs() must not start micromamba on a fresh root")
+        stop(
+          "list_envs() must not start micromamba on a fresh root",
+          call. = FALSE
+        )
       },
       install_micromamba = function(...) {
-        stop("list_envs() must not install micromamba")
+        stop("list_envs() must not install micromamba", call. = FALSE)
       }
     )
     for (envs in list(list_envs(method = "micromamba"), list_envs())) {

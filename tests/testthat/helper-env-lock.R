@@ -17,7 +17,14 @@ lock_wait_until <- function(condition, timeout = 120, what = "the condition") {
     }
     waited <- as.numeric(difftime(Sys.time(), started, units = "secs"))
     if (isTRUE(waited > timeout)) {
-      stop("Timed out after ", timeout, " s waiting for ", what, ".")
+      stop(
+        "Timed out after ",
+        timeout,
+        " s waiting for ",
+        what,
+        ".",
+        call. = FALSE
+      )
     }
     Sys.sleep(0.05)
   }
@@ -197,9 +204,10 @@ start_lock_call <- function(
       })
       suppressMessages(trace(hook, tracer = tracer, where = ns, print = FALSE))
       on.exit(suppressMessages(untrace(hook, where = ns)), add = TRUE)
-      error_class <- NULL
-      error_message <- NULL
-      messages <- character(0L)
+      tracked <- new.env(parent = emptyenv())
+      tracked$error_class <- NULL
+      tracked$error_message <- NULL
+      tracked$messages <- character(0L)
       value <- withCallingHandlers(
         tryCatch(
           {
@@ -208,8 +216,8 @@ start_lock_call <- function(
           },
           interrupt = function(cnd) "interrupted",
           error = function(cnd) {
-            error_class <<- class(cnd)
-            error_message <<- conditionMessage(cnd)
+            tracked$error_class <- class(cnd)
+            tracked$error_message <- conditionMessage(cnd)
             return("error")
           }
         ),
@@ -222,18 +230,18 @@ start_lock_call <- function(
           ) {
             file.create(waiting_file)
           }
-          messages <<- c(messages, class(cnd)[[1L]])
+          tracked$messages <- c(tracked$messages, class(cnd)[[1L]])
           invokeRestart("muffleMessage")
         }
       )
       return(list(
         value = value,
-        error_class = error_class,
-        error_message = error_message,
-        messages = messages,
+        error_class = tracked$error_class,
+        error_message = tracked$error_message,
+        messages = tracked$messages,
         waited = any(
           c("condathis_env_lock_waiting", "condathis_cache_lock_waiting") %in%
-            messages
+            tracked$messages
         )
       ))
     },
@@ -342,7 +350,7 @@ register_lock_stub <- function(env = NULL) {
         ...
       ) {
         if (isFALSE(dir.exists(file.path(env_dir(env_name), "conda-meta")))) {
-          stop("Environment '", env_name, "' is missing.")
+          stop("Environment '", env_name, "' is missing.", call. = FALSE)
         }
         write_records(env_name, packages)
         return(invisible(NULL))

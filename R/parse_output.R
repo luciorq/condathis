@@ -126,43 +126,21 @@ parse_output <- function(
     )
   }
 
-  if (rlang::is_list(res)) {
-    binary_streams <- Filter(
-      x = c("stdout", "stderr"),
-      f = function(nm) rlang::has_name(res, nm) && isTRUE(is.raw(res[[nm]]))
+  binary_streams <- output_binary_streams(res)
+  if (
+    length(binary_streams) > 0L &&
+      (identical(stream, "both") || stream %in% binary_streams)
+  ) {
+    condathis_abort(
+      c(
+        `x` = "{.field {binary_streams}}: raw binary data, not text.",
+        `i` = "{.fn parse_output} only works on character output. Read the raw vector directly instead (e.g. with {.fn writeBin})."
+      ),
+      class = c("condathis_parse_output_binary_stream", res_class)
     )
-    if (
-      length(binary_streams) > 0L &&
-        (identical(stream, "both") || stream %in% binary_streams)
-    ) {
-      condathis_abort(
-        c(
-          `x` = "{.field {binary_streams}}: raw binary data, not text.",
-          `i` = "{.fn parse_output} only works on character output. Read the raw vector directly instead (e.g. with {.fn writeBin})."
-        ),
-        class = c("condathis_parse_output_binary_stream", res_class)
-      )
-    }
   }
 
-  # Start from `NULL`: an `exists("raw_text")` check also found a
-  # same-named variable in the caller's workspace and returned its value.
-  raw_text <- NULL
-  if (stream %in% c("stdout", "stderr") && rlang::has_name(res, stream)) {
-    if (isFALSE(is_uncaptured_stream(res[[stream]]))) {
-      raw_text <- res[[stream]]
-    }
-  } else if (identical(stream, "both") && rlang::is_list(res)) {
-    # `[[` and not `$`, which would read a `stdout_file` field as `stdout`.
-    parts <- list(res[["stdout"]], res[["stderr"]])
-    captured <- !vapply(parts, is_uncaptured_stream, logical(1L))
-    if (isTRUE(any(captured))) {
-      raw_text <- join_output_parts(parts[captured])
-    }
-  } else if (identical(stream, "plain") && rlang::is_character(res)) {
-    raw_text <- paste0(res, collapse = "\n")
-  }
-
+  raw_text <- output_raw_text(res, stream)
   if (is.null(raw_text)) {
     hint <- if (isTRUE(rlang::is_character(res))) {
       c(`i` = "Use {.code stream = \"plain\"} to read a character vector.")
@@ -180,6 +158,72 @@ parse_output <- function(
     )
   }
 
+  return(split_output_lines(raw_text, trim = trim))
+}
+
+#' The streams of a result that hold raw bytes
+#'
+#' @param res The `res` of `parse_output()`, after a pipeline result is
+#'   collapsed.
+#'
+#' @returns A character vector: `"stdout"`, `"stderr"`, both or none. None
+#'   for a character vector.
+#'
+#' @keywords internal
+#' @noRd
+output_binary_streams <- function(res) {
+  if (isFALSE(rlang::is_list(res))) {
+    return(character(0L))
+  }
+  return(Filter(
+    x = c("stdout", "stderr"),
+    f = function(nm) rlang::has_name(res, nm) && isTRUE(is.raw(res[[nm]]))
+  ))
+}
+
+#' The text that `parse_output()` splits into lines
+#'
+#' @param res The `res` of `parse_output()`, after a pipeline result is
+#'   collapsed.
+#' @param stream The `stream` of `parse_output()`.
+#'
+#' @returns A character string, or `NULL` when `res` does not contain the
+#'   stream (or it was not captured).
+#'
+#' @keywords internal
+#' @noRd
+output_raw_text <- function(res, stream) {
+  # Start from `NULL`: an `exists("raw_text")` check also found a
+  # same-named variable in the caller's workspace and returned its value.
+  raw_text <- NULL
+  if (stream %in% c("stdout", "stderr") && rlang::has_name(res, stream)) {
+    if (isFALSE(is_uncaptured_stream(res[[stream]]))) {
+      raw_text <- res[[stream]]
+    }
+  } else if (identical(stream, "both") && rlang::is_list(res)) {
+    # `[[` and not `$`, which would read a `stdout_file` field as `stdout`.
+    parts <- list(res[["stdout"]], res[["stderr"]])
+    captured <- !vapply(parts, is_uncaptured_stream, logical(1L))
+    if (isTRUE(any(captured))) {
+      raw_text <- join_output_parts(parts[captured])
+    }
+  } else if (identical(stream, "plain") && rlang::is_character(res)) {
+    raw_text <- paste0(res, collapse = "\n")
+  }
+  return(raw_text)
+}
+
+#' Split text into lines, as `parse_output()` does
+#'
+#' @param raw_text A character string.
+#' @param trim Logical, as in `parse_output()`.
+#'
+#' @returns A character vector with one line per element, without line
+#'   ends.
+#'
+#' @keywords internal
+#' @noRd
+split_output_lines <- function(raw_text, trim) {
   # The line ends `readLines()` recognizes. The alternation tries "\r\n"
   # first, so a Windows line end is one line end, not two.
   lines <- stringr::str_split(

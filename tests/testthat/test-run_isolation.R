@@ -176,7 +176,7 @@ test_that("a host program never runs in place of a missing one", {
   # `.com` files only: the `.cmd` tool of the fake host is not found
   # either. A host `.exe` would be (a known limit).
   local_fake_nested_host()
-  stub <- local_run_family_stub()
+  local_run_family_stub()
   results <- list()
   for (activate in c(TRUE, FALSE)) {
     results[[paste0("run_", activate)]] <- run(
@@ -222,8 +222,8 @@ test_that("activate = FALSE never runs a PATH program for a missing environment"
   # The probe fails (NA, rule R5), so the call goes on, and no backend code
   # runs with activate = FALSE. The environment directory is missing.
   # The failed probe also warns when the backend is resolved.
-  stub <- local_run_family_stub(
-    backend_env_exists = function(...) stop("listing failed")
+  local_run_family_stub(
+    backend_env_exists = function(...) stop("listing failed", call. = FALSE)
   )
   path_dir <- withr::local_tempdir(pattern = "path-tool")
   run_family_write_tool(path_dir, "condathis-path-tool", "from-path")
@@ -259,7 +259,7 @@ test_that("activate = FALSE never runs a PATH program for a missing environment"
   ))
   for (res in list(res_run, res_run_bin)) {
     testthat::expect_identical(res$status, 127L)
-    testthat::expect_false(grepl("from-path", res$stdout, fixed = TRUE))
+    testthat::expect_no_match(res$stdout, "from-path", fixed = TRUE)
     testthat::expect_match(res$stderr, "does not exist", fixed = TRUE)
   }
   testthat::expect_identical(res_pipeline$statuses[[1L]], 127L)
@@ -389,7 +389,7 @@ test_that("condathis keeps the order of an activation PATH that names the enviro
 test_that("run(activate = FALSE) calls no backend function to resolve the command", {
   stub <- local_run_family_stub(
     backend_resolve_run = function(...) {
-      stop("backend_resolve_run() must not be called.")
+      stop("backend_resolve_run() must not be called.", call. = FALSE)
     }
   )
   res <- run(
@@ -525,17 +525,9 @@ test_that("a micromamba started through an activating wrapper records a clean ac
     # A wrapper that activates an environment of its own before it starts
     # micromamba, as a pixi global binary does. micromamba refuses to run
     # under another name, so the wrapper is called `micromamba`.
+    # A pixi global binary is such a wrapper itself: discovery gives the
+    # binary that it starts (see the pixi trampoline test below).
     real_micromamba <- as.character(get_best_micromamba_path())
-    # A pixi global binary is such a wrapper itself, and its activation
-    # would hide the one of this wrapper: start the binary it starts.
-    trampoline_config <- fs::path(
-      fs::path_dir(real_micromamba),
-      "trampoline_configuration",
-      paste0(fs::path_file(real_micromamba), ".json")
-    )
-    if (isTRUE(fs::file_exists(trampoline_config))) {
-      real_micromamba <- jsonlite::read_json(trampoline_config)$exe
-    }
     wrapper_dir <- withr::local_tempdir()
     wrapper_prefix <- fs::path(wrapper_dir, "wrapper-env")
     fs::dir_create(fs::path(wrapper_prefix, c("conda-meta", "bin")))
@@ -574,6 +566,92 @@ test_that("a micromamba started through an activating wrapper records a clean ac
     verbose = "silent"
   )
   testthat::expect_identical(res$stdout, "1 unset FALSE")
+})
+
+# A fake pixi global trampoline for `real`: a program in `dir` named as
+# micromamba, and `trampoline_configuration/micromamba.json` next to it,
+# whose `exe` is `real` and whose `env` is an activation of a pixi
+# environment. Off Windows the program is a script that sets that
+# activation, as the trampoline does; on Windows a copy of `real` (a
+# script cannot be the micromamba of condathis there).
+make_fake_trampoline <- function(dir, real) {
+  pixi_env <- file.path(dir, "envs", "micromamba")
+  dir.create(file.path(pixi_env, "conda-meta"), recursive = TRUE)
+  bin_dir <- file.path(dir, "bin")
+  dir.create(file.path(bin_dir, "trampoline_configuration"), recursive = TRUE)
+  if (isTRUE(is_windows())) {
+    trampoline <- file.path(bin_dir, "micromamba.exe")
+    file.copy(real, trampoline)
+  } else {
+    trampoline <- file.path(bin_dir, "micromamba")
+    writeLines(
+      c(
+        "#!/bin/sh",
+        paste0(
+          "CONDA_SHLVL=1 CONDA_PREFIX=",
+          shQuote(pixi_env),
+          " exec ",
+          shQuote(real),
+          " \"$@\""
+        )
+      ),
+      trampoline
+    )
+    Sys.chmod(trampoline, "0755")
+  }
+  jsonlite::write_json(
+    list(
+      exe = real,
+      path_diff = file.path(pixi_env, "bin"),
+      env = list(CONDA_SHLVL = "1", CONDA_PREFIX = pixi_env)
+    ),
+    file.path(bin_dir, "trampoline_configuration", "micromamba.json"),
+    auto_unbox = TRUE
+  )
+  return(list(trampoline = trampoline, pixi_env = pixi_env))
+}
+
+test_that("a pixi trampoline as the micromamba path runs the binary it starts", {
+  testthat::skip_on_cran()
+  skip_if_no_micromamba_offline()
+
+  env_name <- "run-isolation-env"
+  create_polyglot_env(env_name)
+  real <- as.character(get_best_micromamba_path())
+  fake <- make_fake_trampoline(
+    normalizePath(withr::local_tempdir(pattern = "pixi-home-"), winslash = "/"),
+    real
+  )
+  withr::local_options(condathis.micromamba_path = fake$trampoline)
+  testthat::expect_identical(
+    path_entry_key(as.character(get_best_micromamba_path())),
+    path_entry_key(real)
+  )
+  # The option keeps the value of the user.
+  testthat::expect_identical(
+    getOption("condathis.micromamba_path"),
+    fake$trampoline
+  )
+  reset_micromamba_activation_cache()
+  withr::defer(reset_micromamba_activation_cache())
+  condabin <- file.path(
+    install_dir_for_backend(micromamba_backend()),
+    "condabin"
+  )
+  for (case in run_isolation_cases()[c(TRUE, FALSE)]) {
+    info <- paste(case$fn, "activate:", case$activate)
+    seen <- run_isolation_dump(case$fn, case$activate, env_name = env_name)
+    path <- seen[[match_env_name(names(seen), "PATH")]]
+    testthat::expect_true(path_names_any(path, condabin), info = info)
+    testthat::expect_no_match(path, fake$pixi_env, fixed = TRUE, info = info)
+    testthat::expect_identical(
+      path_entry_key(normalizePath(seen[["MAMBA_EXE"]], winslash = "/")),
+      path_entry_key(normalizePath(real, winslash = "/")),
+      info = info
+    )
+    testthat::expect_identical(seen[["CONDA_SHLVL"]], "1", info = info)
+    testthat::expect_null(seen[["CONDA_PREFIX_1"]], info = info)
+  }
 })
 
 test_that("the commands never see the variables of R's own startup", {
@@ -636,5 +714,43 @@ test_that("the commands never see the variables of R's own startup", {
         info = info
       )
     }
+  }
+})
+
+test_that("the commands never see the Python state of the R session", {
+  # Decision D18: a python of the environment never finds the modules of
+  # PYTHONPATH or of the user's site directory, a PYTHONHOME never breaks
+  # it, and uv never installs into a virtual environment of the session.
+  # The variables are set with Sys.setenv(), as reticulate sets
+  # VIRTUAL_ENV, not only in the shell that started R.
+  local_run_family_stub()
+  venv <- withr::local_tempdir(pattern = "host-venv")
+  file.create(file.path(venv, "pyvenv.cfg"))
+  venv_bin <- file.path(venv, if (isTRUE(is_windows())) "Scripts" else "bin")
+  dir.create(venv_bin)
+  withr::local_path(venv_bin, action = "prefix")
+  removed <- c(
+    VIRTUAL_ENV = venv,
+    VIRTUAL_ENV_PROMPT = "(host-venv) ",
+    PYTHONHOME = file.path(venv, "home"),
+    PYTHONPATH = file.path(venv, "pythonpath"),
+    PYTHONUSERBASE = file.path(venv, "userbase"),
+    PYTHONSTARTUP = file.path(venv, "startup.py"),
+    UV_PYTHON = file.path(venv_bin, "python"),
+    UV_SYSTEM_PYTHON = "1",
+    UV_PROJECT_ENVIRONMENT = venv
+  )
+  withr::local_envvar(c(removed, PYTHONNOUSERSITE = ""))
+  for (case in run_isolation_cases()) {
+    info <- paste(case$fn, "activate:", case$activate)
+    seen <- run_isolation_dump(case$fn, case$activate)
+    for (name in names(removed)) {
+      testthat::expect_null(seen[[name]], info = paste(info, name))
+    }
+    testthat::expect_identical(seen[["PYTHONNOUSERSITE"]], "1", info = info)
+    testthat::expect_false(
+      path_names_any(seen[[match_env_name(names(seen), "PATH")]], venv_bin),
+      info = info
+    )
   }
 })

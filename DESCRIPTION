@@ -22,23 +22,23 @@ Depends:
 Imports:
     cli (>= 3.4.0),
     filelock (>= 1.0.3),
-    fs,
+    fs (>= 1.6.7),
     jsonlite,
     processx (>= 3.9.0),
     ps (>= 1.9.3),
-    rlang (>= 1.0.0),
-    stringr,
+    rlang (>= 1.1.0),
+    stringr (>= 1.5.0),
     tools,
     utils,
-    withr
+    withr (>= 3.0.2)
 Suggests:
     callr,
-    curl,
+    curl (>= 5.0.0),
     digest,
     knitr,
     pkgload,
     quarto,
-    testthat (>= 3.2.1)
+    testthat (>= 3.3.2)
 VignetteBuilder:
     quarto
 Config/Needs/dev: devtools, pkgload, remotes, rcmdcheck, covr, testthat,
@@ -46,7 +46,7 @@ Config/Needs/dev: devtools, pkgload, remotes, rcmdcheck, covr, testthat,
     cyclocomp, urlchecker
 Config/Needs/website: quarto, png, reticulate, mirai, mori, mizu, arrow
 Config/roxygen2/markdown: TRUE
-Config/roxygen2/version: 8.1.0
+Config/roxygen2/version: 8.1.1
 Config/testthat/edition: 3
 Config/testthat/parallel: true
 Config/testthat/start-first: create_env, rethrow_error, parse_match_spec,

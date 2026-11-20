@@ -51,7 +51,9 @@ jobs:
       fail-fast: false
       matrix:
         config:
+          # macos-latest is arm64; macos-26-intel is the newest x86_64 image.
           - {os: macos-latest, r: 'release'}
+          - {os: macos-26-intel, r: 'release'}
           - {os: windows-latest, r: 'release'}
           # Native ARM64 R on Windows 11. setup-r turns off the public RSPM
           # + there (it has no ARM64 binaries), and setup-pandoc and Quarto
@@ -62,6 +64,11 @@ jobs:
           - {os: ubuntu-latest, r: 'devel', http-user-agent: 'release'}
           - {os: ubuntu-latest, r: 'release'}
           - {os: ubuntu-latest, r: 'oldrel-1'}
+          - {os: ubuntu-latest, r: 'oldrel-2'}
+          # Linux on arm64 runs the linux-aarch64 build of micromamba.
+          # + cran.r-universe.dev has aarch64 binaries for Linux too, in case
+          # + the public RSPM has none for a dependency.
+          - {os: ubuntu-24.04-arm, r: 'release', extra-repositories: 'https://cran.r-universe.dev'}
           # The oldest R that DESCRIPTION allows, `Depends: R (>= 4.3)`.
           # + setup-r resolves '4.3' to the last 4.3.x release.
           - {os: ubuntu-latest, r: '4.3'}

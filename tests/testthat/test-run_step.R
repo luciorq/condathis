@@ -4,9 +4,9 @@
 testthat::test_that("run_step() records a command without running it", {
   step <- run_step("polyglot", "a", "b c", env_name = "run-step-env")
   testthat::expect_s3_class(step, "condathis_run_step", exact = TRUE)
-  testthat::expect_true(is.list(step))
-  testthat::expect_identical(
-    names(step),
+  testthat::expect_type(step, "list")
+  testthat::expect_named(
+    step,
     c("cmd", "args", "env_name", "method", "stderr", "stderr_set")
   )
   testthat::expect_identical(step$cmd, "polyglot")
@@ -88,7 +88,7 @@ testthat::test_that("run_step() writes numbers in full, never in scientific nota
     .Machine$double.xmax
   )) {
     text <- run_step("x", value)$args
-    testthat::expect_false(grepl("e", text, fixed = TRUE), label = text)
+    testthat::expect_no_match(text, "e", fixed = TRUE, label = text)
     # R reads these extreme values back exactly only with an extended
     # precision long double. Without one (arm64 macOS), subnormals read back
     # as 0 and the largest double as Inf, so the formatter falls back to 17
@@ -417,7 +417,9 @@ testthat::test_that("run_step() has format and print methods", {
   )
 
   step <- run_step("cmd", "arg", env_name = "run-step-env")
-  out <- utils::capture.output(visible <- withVisible(print(step)))
+  out <- utils::capture.output({
+    visible <- withVisible(print(step))
+  })
   testthat::expect_identical(out, "<run_step> cmd arg [env: run-step-env]")
   testthat::expect_false(visible$visible)
   testthat::expect_identical(visible$value, step)

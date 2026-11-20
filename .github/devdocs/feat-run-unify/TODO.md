@@ -1,7 +1,7 @@
 # TODO: feat-run-unify
 
 Checklist companion to `PLAN.md` in this folder. Item numbers match the
-status summary there. Decisions D0 to D16 are in PLAN.md.
+status summary there. Decisions D0 to D22 are in PLAN.md.
 
 ## Investigation and design (2026-11-16)
 
@@ -139,6 +139,163 @@ status summary there. Decisions D0 to D16 are in PLAN.md.
 - [x] Round 6 on Linux, omicron and kappa after D16, also the rattlerthis
       suite (PLAN.md "Verification")
 
+## Maintainer answers (2026-11-18, D17)
+
+- [x] 25: answer from the maintainer, "Fix this flakiness and think of
+      better, more correct ways of testing this. Also double review the
+      implementation itself. Remember that `run()` is a function that can
+      be called in parallel multiple times."
+- [x] 25: review of D16 (concurrency, every OS, tests) with an
+      adversarial check: C1, os-1, os-2, os-4, F1 to F5 and C2 confirmed;
+      os-3 rejected; C3 handed to `../fix-env-registry/`
+- [x] 25: `conda_prefix_env_exists()` lists `<root>/envs` first
+      (`read_dir_names()`); a name not listed is `FALSE`; an entry that
+      cannot be looked at, or a listing that fails, errors (`NA`); no
+      "empty listing means unreadable" rule
+- [x] 25: a linked `<root>/envs` (symbolic link, Windows junction):
+      `real_envs_dir()` in `conda_prefix_env_exists()` and
+      `condathis_env_names()`, the predicate of the deletion guard
+      (`is_exact_env_dir()`); `delete_stale_env_dir()` refuses to delete
+      a directory that the listing rule counts as an environment
+- [x] 25: tests: `read_dir_names()`; rule R5 with the listing replaced
+      (`EACCES`, `EPERM`) on every OS for the probe, `env_exists()`,
+      `create_env()`, `install_packages()`, `remove_env()` and `run()`;
+      an environment removed while the probe reads; real permissions on
+      Linux and macOS (four cases, permissions given back in `local()`,
+      a skip with a reason for root); a linked `envs` directory with
+      micromamba; Windows junctions in `make_existence_layout()`; no
+      shell and one `processx` process per warm `run()`; four parallel
+      sessions of `run()` on a fresh root
+- [x] 25: L1: in a locale that is not UTF-8, the `fs` names made an
+      environment with a non-ASCII name missing; the probe reads names
+      with `list.files()` and real paths with `normalizePath()`, with a
+      C-locale test on Linux and macOS
+- [x] 25: the `icacls` variant of the unreadable-directory test, and its
+      backup-privilege comment, removed
+- [x] 25: `?run`: `run()` does not wait for another session that changes
+      the environment (C2), documentation only
+- [x] 25: NEWS: one bug-fix bullet for the linked `envs` directory
+- [x] 25: Linux: affected test files, the developer suite (9405 pass,
+      0 fail, 0 skip), a stress run and the timing (PLAN.md D17)
+- [x] 25: omicron: developer suite with zero skips (the permission test
+      runs there): 9403 pass (round 7)
+- [x] 25: kappa: developer suite with only skips for another OS; check
+      that micromamba lists the junctions of `make_existence_layout()`
+      and of the linked `envs` test as the file-system rule does (round 7)
+- [x] 25: kappa: the sandbox with a dangling junction is deleted
+      (`delete_sandbox_links()`), with a test
+- [ ] After 0.2.0: `run()` waits for another session that changes the
+      environment (C2, `../post-0.2.0/` item 22)
+
+## D18 (2026-11-18): Python state, venv and pixi global activation
+
+- [x] 26: `python_isolation_envvars()` in every child (run family in both
+      modes, micromamba's processes)
+- [x] 26: venv as a host activation (`undo_host_venv()`, `pyvenv.cfg`)
+- [x] 26: pip and uv overrides of `micromamba create`/`install`; `list`
+      in its temporary directory with no pip configuration
+- [x] 26: `clean_cache()` deletes `<root>/home/.local`
+- [x] 26: environment file in a read-only directory: copy, or classed
+      abort for relative pip paths
+- [x] 26: variables of a pixi global binary that started R removed
+      (`read_trampoline_env_vars()`)
+- [x] 26: `?condathis-options`, `?condathis-conditions`, `?clean_cache`,
+      NEWS
+- [ ] 26: verify round on omicron (macOS) and kappa (Windows): the
+      `Scripts` rule with a real venv, `PIP_CONFIG_FILE=nul`, the user
+      site under `APPDATA`, `file.access()` of a read-only directory, a
+      pixi global R on Windows if available
+- [ ] After 0.2.0: compiler variables of a `conda activate`d host prefix
+      without backups (`../post-0.2.0/` item 23)
+- [x] 27: `install_packages()` and `list_packages()` read the probe of
+      `resolve_backend()`; `install_packages(packages = NULL)` aborts
+      with `condathis_backend_probe_failed` on a failed probe (D19)
+- [x] 27: Windows: a command found inside the environment is returned
+      with backslashes (`native_command_path()`, D19)
+- [ ] 27: verify round on kappa: a command found in
+      `Library/bin` starts with the `\` path; the issue #12
+      double-quote assertion of `test-create_env.R` is off Windows only
+      until R.exe is checked there
+
+## D20 (2026-11-18): jarl with every rule
+
+- [x] 28: `jarl check .` with every rule (`jarl.toml`): 0 findings, from
+      650; `just lint` fails on a finding
+- [x] 28: the 16 functions above the complexity limit split into helpers
+      (`../post-0.2.0/PLAN.md` item 8), with a differential check
+- [x] 28: `<<-` and `:::` gone from `R/` and `tests/`; ignore comments
+      only for false positives and inputs under test
+- [ ] 28: verify round on omicron and kappa: the full suite, in
+      particular `test-run_pipeline.R` on kappa (the `reaped` state of
+      `pump_pipeline_io()` and `broken_pipe_transition()` run only on
+      Windows) and `test-run.R` (the `px` path of processx)
+
+## D21 (2026-11-18): review of round 8
+
+- [x] 29: reticulate's `LD_LIBRARY_PATH` entries removed, and the
+      binary directories of its Conda python leave `PATH`
+      (`reticulate_host_state()`); checked with a real reticulate binding
+      on Linux
+- [x] 29: `micromamba_pip_env_file()` probes writability only for a file
+      that runs pip
+- [x] 29: NEWS pip bullets name `install_packages()`; `?run` and README
+      name `export` and `source` (not `cd`, a program on macOS)
+- [x] 29: reticulate article output restored (ignore comment); `px`
+      found by processx's own lookup, no skip
+- [ ] 29: verify round on omicron and kappa: `test-python_isolation.R`
+      (the Windows root rule, the link case on macOS)
+- [x] 29: kappa's patch of `test-python_isolation.R` (POSIX venv name
+      for the `on_windows = FALSE` case, `/` root for the reticulate
+      case) applied; passes on Linux (D22 item 3)
+
+## D22 (2026-11-18): verify round of round 8
+
+- [x] 30: `PIP_USER=false`, `PIP_REQUIRE_VIRTUALENV=false`, no
+      `PIP_TARGET`/`PIP_PREFIX`/`PIP_ROOT` for every child
+      (`python_isolation_envvars()`); `?condathis-options`, NEWS
+- [x] 30: `test-list_packages_pypi.R` direct python call isolated from
+      the host's Python and pip state
+- [x] 30: pixi trampoline as the micromamba path resolved to its `exe`
+      in discovery (`resolve_pixi_trampoline()`, 17c)
+- [x] 30: `parse_match_spec()` exact names (`../post-0.2.0/` item 26)
+- [x] 30: rattlerthis: `configure`/`cleanup` mode 0755; the WebAssembly
+      test's child gets its `TMPDIR` in the test's temporary directory
+- [x] 30: Linux: developer suite and the hostile-host suite, 0 failures,
+      0 errors, 0 skips
+- [ ] 30: verify round on omicron and kappa (the trampoline test on
+      Windows uses a copy of micromamba; the pip tests on every OS)
+
+## D23 (2026-11-18): review of round 9
+
+- [x] 31: `resolve_pixi_trampoline()` follows only an absolute `exe`
+      (`trampoline_config_exe()`); test with a relative `exe`
+- [x] 31: `PIP_REQUIRE_VENV` removed for every child; test
+- [x] 31: `?condathis-options` and NEWS: `target`, `prefix` and `root`
+      in a pip configuration file still apply
+- [x] 31: Linux: developer suite and the hostile-host suite (with
+      `PIP_REQUIRE_VENV=1`), 0 failures, 0 errors, 0 skips
+- [x] 31: verify round on omicron and kappa (round 9): Linux 9798 pass
+      plain and under the hostile host, omicron 9796 pass, both 0 skip;
+      kappa 9733 pass with 1 test failure, fixed below; R CMD check
+      --as-cran --no-manual OK on all three apart from the 404 NOTE of the
+      mizu article URL (site not deployed yet)
+- [x] 31: kappa: the pip.conf scenario of `test-python_isolation.R`
+      set only HOME and APPDATA; pip on Windows finds its user
+      configuration through USERPROFILE (`<home>/pip/pip.ini` and the
+      roaming folder of the profile). The test now sets USERPROFILE and
+      writes both files (158 of 158 pass on kappa)
+- [x] 31: `?run` and README: `dir` and `echo` on Windows run when a
+      program of that name is on `PATH` (Git for Windows, pixi
+      m2-coreutils); the docs say so
+- [x] 31: rattlerthis `test-parity-childenv.R` expected the configured
+      micromamba path as `MAMBA_EXE`; with a pixi trampoline condathis
+      now runs the real binary, so the test compares with
+      `get_best_micromamba_path()` (926 of 926 pass with the trampoline
+      and with the real binary)
+- [ ] Before submitting: deploy the pkgdown site so the mizu article URL
+      in README resolves, then rerun `R CMD check --as-cran` with remote
+      URL checks
+
 ## Before submitting 0.2.0
 
 - [x] 12: Linux developer suite, the fake nested host, and
@@ -186,8 +343,8 @@ status summary there. Decisions D0 to D16 are in PLAN.md.
 
 - [ ] 14: optional backend hook to describe a command without activation
       or refuse `activate = FALSE` (container or remote backends)
-- [ ] 17c: resolve a pixi trampoline given as the micromamba path to its
-      real binary
+- [x] 17c: resolve a pixi trampoline given as the micromamba path to its
+      real binary (done in 0.2.0, D22)
 - [ ] 17g: `CONDA_DEFAULT_ENV` of the fixed activation for an
       `env_path()` environment (its directory now)
 - [ ] 17b follow-up: a public way for a backend to get the child block

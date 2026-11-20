@@ -76,7 +76,10 @@ env_exists <- function(
 ) {
   # Rule R2: every argument is checked before the first backend call.
   validate_env_name(env_name, class = "condathis_env_exists_invalid_env_name")
-  method <- resolve_method_alias(validate_method_arg(method))
+  method <- resolve_method_alias(
+    validate_method_arg(method),
+    user_env = rlang::caller_env()
+  )
   verbose_list <- parse_verbose_arg(verbose)
 
   # Do not call `resolve_backend()` here: it finds the owner of an existing

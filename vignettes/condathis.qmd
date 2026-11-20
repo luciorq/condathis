@@ -148,7 +148,8 @@ By using `condathis`, you get:
 ## Next Steps
 
 - `install_packages()` adds packages to an existing environment, and `list_packages()` lists them.
-- `env_definition()` creates an environment from a file, such as an environment YAML file or a lock file:
+- `env_definition()` marks a file, such as an environment YAML file or a lock file, as the definition of an environment.
+  `create_env()` then creates the environment from it:
   `create_env(env_definition("environment.yml"), env_name = "my-env")`.
   A lock file, such as an `@EXPLICIT` or conda-lock file, installs the exact packages it lists, without a solve.
 - `run_pipeline()` connects commands with pipes, as `|` does in a shell, each in its own environment if needed.
@@ -157,4 +158,5 @@ By using `condathis`, you get:
 - `get_install_dir()` shows the data directory of `condathis`, which holds `micromamba`, the environments and the package cache.
   To remove everything that `condathis` installed, see the section *Removing everything* in `?clean_cache`.
 - The [articles](https://luciorq.github.io/condathis/articles/) on the package website show how to use Python with `reticulate`,
-  how to stream binary data through pipelines, and how to choose a backend.
+  how to stream binary data through pipelines, how to choose a backend,
+  and how to run parallel Python workers with `mizu`.

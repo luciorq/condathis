@@ -60,6 +60,12 @@ testthat::test_that("is_micromamba_available_for_arch handles custom sys_arch in
     "linux-ppc64le"
   )
 
+  # Test case for Linux-riscv64
+  testthat::expect_equal(
+    is_micromamba_available_for_arch("Linux-riscv64"),
+    "linux-riscv64"
+  )
+
   # Test case for unsupported architecture
   testthat::expect_error(
     is_micromamba_available_for_arch("unsupported-arch"),
@@ -130,10 +136,88 @@ testthat::test_that("is_micromamba_available_for_arch returns correct architectu
   )
 
   with_mocked_bindings(
+    get_sys_arch = mock_get_sys_arch("Linux-riscv64"),
+    testthat::expect_equal(is_micromamba_available_for_arch(), "linux-riscv64")
+  )
+
+  with_mocked_bindings(
     get_sys_arch = mock_get_sys_arch("Unknown-arch"),
     testthat::expect_error(
       is_micromamba_available_for_arch(),
       class = "condathis_umamba_not_available_for_arch"
     )
   )
+})
+
+testthat::test_that("linux-riscv64 has micromamba builds from 2.9.0 on", {
+  # conda-forge has linux-riscv64 builds from 2.9.0 on, and the GitHub
+  # releases from 2.10.0-0 on.
+  for (version in c("2.9.0", "2.10.0", "2.11.0", "3.0.0")) {
+    testthat::expect_identical(
+      is_micromamba_available_for_arch(
+        "Linux-riscv64",
+        micromamba_version = version
+      ),
+      "linux-riscv64"
+    )
+  }
+  cnd <- testthat::expect_error(
+    is_micromamba_available_for_arch(
+      "Linux-riscv64",
+      micromamba_version = "2.8.1"
+    ),
+    class = "condathis_micromamba_not_available_for_arch"
+  )
+  testthat::expect_s3_class(cnd, "condathis_umamba_not_available_for_arch")
+  testthat::expect_match(
+    conditionMessage(cnd),
+    "2.8.1.*is not available for the .*Linux-riscv64.* CPU architecture"
+  )
+  testthat::expect_match(conditionMessage(cnd), "2.9.0")
+
+  # Every other platform has builds of every supported version.
+  for (sys_arch in c("Linux-x86_64", "Linux-aarch64", "Windows-aarch64")) {
+    testthat::expect_type(
+      is_micromamba_available_for_arch(sys_arch, micromamba_version = "2.8.1"),
+      "character"
+    )
+  }
+})
+
+testthat::test_that("install_micromamba() checks the riscv64 version before it downloads", {
+  condathis::with_sandbox_dir({
+    tracked <- new.env(parent = emptyenv())
+    tracked$downloaded <- FALSE
+    testthat::local_mocked_bindings(
+      get_sys_arch = function() "Linux-riscv64",
+      download_compressed_and_extract = function(...) {
+        tracked$downloaded <- TRUE
+        return(FALSE)
+      },
+      download_uncompressed_binary = function(...) {
+        tracked$downloaded <- TRUE
+        return(FALSE)
+      }
+    )
+    testthat::expect_error(
+      install_micromamba(
+        micromamba_version = "2.8.1-1",
+        verbose = "silent",
+        force = TRUE
+      ),
+      class = "condathis_micromamba_not_available_for_arch"
+    )
+    testthat::expect_false(tracked$downloaded)
+
+    # 2.9.0 gets as far as the download (here a failed one).
+    testthat::expect_error(
+      install_micromamba(
+        micromamba_version = "2.9.0-0",
+        verbose = "silent",
+        force = TRUE
+      ),
+      class = "condathis_install_micromamba_download_failed"
+    )
+    testthat::expect_true(tracked$downloaded)
+  })
 })

@@ -1,4 +1,4 @@
-#' Create an environment from a file
+#' Describe an environment file
 #'
 #' Marks a file as the definition of a Conda environment, such as an
 #' environment YAML file or a lock file. Pass the result in the `...` of
@@ -258,7 +258,7 @@ check_definition_options <- function(
   call = rlang::caller_env()
 ) {
   option_names <- rlang::names2(options)
-  if (isTRUE(any(!nzchar(option_names)))) {
+  if (isTRUE(!all(nzchar(option_names)))) {
     condathis_abort(
       message = c(
         `x` = "The options in {.arg ...} must be named.",
@@ -366,7 +366,7 @@ validate_env_definition_object <- function(x, call = rlang::caller_env()) {
   option_names <- rlang::names2(options)
   if (
     isFALSE(is.list(options)) ||
-      isTRUE(any(!nzchar(option_names))) ||
+      isTRUE(!all(nzchar(option_names))) ||
       isTRUE(anyDuplicated(option_names) > 0L)
   ) {
     invalid("Its {.field options} is not a list of named options.")

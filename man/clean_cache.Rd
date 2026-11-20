@@ -56,7 +56,9 @@ registered backend, and nothing else:
 \itemize{
 \item For the built-in micromamba backend, the package cache, \code{pkgs}, and
 the repodata cache, \code{cache}, in its data directory (see
-\code{\link[=get_install_dir]{get_install_dir()}}).
+\code{\link[=get_install_dir]{get_install_dir()}}), and \code{home/.local} there, where an earlier
+\code{create_env()} could have installed the packages of a \verb{pip:} section
+(see \code{PIP_USER} in \link{condathis-options}).
 \item For every other backend, its own package and metadata caches, and
 \code{conda-pkgs} in its data directory. \code{conda-pkgs} is the package cache
 of the Conda tools that run in its environments (see \emph{Child processes}

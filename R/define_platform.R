@@ -220,53 +220,54 @@ define_platform <- function(
     ))
   }
 
-  if (identical(get_sys_arch(), "Darwin-arm64")) {
-    if (isFALSE(solves_for("osx-arm64"))) {
-      if (isTRUE(is_rosetta_running())) {
-        rosetta_res <- solves_for("osx-64")
-      } else {
-        if (isTRUE(show_messages)) {
-          # Not `{.arg packages}`: create_env() and install_packages() take
-          # the specs in `...`. Not "is not available" either: specs that
-          # conflict do not solve for any platform.
-          condathis_inform(c(
-            `x` = "The requested packages cannot be installed for {.val osx-arm64}.",
-            `i` = "{.field Rosetta 2} is not enabled, so {.val osx-64} packages cannot be used."
-          ))
-        }
-        rosetta_res <- FALSE
+  if (
+    identical(get_sys_arch(), "Darwin-arm64") &&
+      isFALSE(solves_for("osx-arm64"))
+  ) {
+    if (isTRUE(is_rosetta_running())) {
+      rosetta_res <- solves_for("osx-64")
+    } else {
+      if (isTRUE(show_messages)) {
+        # Not `{.arg packages}`: create_env() and install_packages() take
+        # the specs in `...`. Not "is not available" either: specs that
+        # conflict do not solve for any platform.
+        condathis_inform(c(
+          `x` = "The requested packages cannot be installed for {.val osx-arm64}.",
+          `i` = "{.field Rosetta 2} is not enabled, so {.val osx-64} packages cannot be used."
+        ))
       }
-      if (isTRUE(rosetta_res)) {
-        if (isTRUE(show_messages)) {
-          condathis_inform(c(
-            `i` = "Using {.field Rosetta 2} emulation."
-          ))
-        }
-        chosen_platform <- "osx-64"
+      rosetta_res <- FALSE
+    }
+    if (isTRUE(rosetta_res)) {
+      if (isTRUE(show_messages)) {
+        condathis_inform(c(
+          `i` = "Using {.field Rosetta 2} emulation."
+        ))
       }
+      chosen_platform <- "osx-64"
     }
   }
 
   # The backend solves for its own platform, which need not be the one of
   # R: see micromamba_native_platform().
+  # conda-forge builds far fewer packages for win-arm64 than for win-64.
+  # Windows 11 on ARM always has x64 emulation, and no older Windows on ARM
+  # runs a supported R: unlike Rosetta 2, there is nothing to check.
   if (
     isTRUE(sys_arch_is_windows()) &&
       identical(
         backend_native_platform_checked(backend, call = call),
         "win-arm64"
-      )
+      ) &&
+      isFALSE(solves_for("win-arm64")) &&
+      isTRUE(solves_for("win-64"))
   ) {
-    # conda-forge builds far fewer packages for win-arm64 than for win-64.
-    # Windows 11 on ARM always has x64 emulation, and no older Windows on
-    # ARM runs a supported R: unlike Rosetta 2, there is nothing to check.
-    if (isFALSE(solves_for("win-arm64")) && isTRUE(solves_for("win-64"))) {
-      if (isTRUE(show_messages)) {
-        condathis_inform(c(
-          `i` = "Using {.field x64} emulation for {.val win-64} packages."
-        ))
-      }
-      chosen_platform <- "win-64"
+    if (isTRUE(show_messages)) {
+      condathis_inform(c(
+        `i` = "Using {.field x64} emulation for {.val win-64} packages."
+      ))
     }
+    chosen_platform <- "win-64"
   }
   return(chosen_platform)
 }

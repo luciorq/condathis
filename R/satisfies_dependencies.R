@@ -117,15 +117,14 @@ spec_satisfied_by <- function(spec_str, installed_pkgs_df, requested_channels) {
       return(FALSE)
     }
   }
-  if (isFALSE(is.null(bracket_attrs[["build_number"]]))) {
-    if (
+  if (
+    isFALSE(is.null(bracket_attrs[["build_number"]])) &&
       isFALSE(build_number_spec_contains(
         build_number = installed[["build_number"]],
         spec_string = bracket_attrs[["build_number"]]
       ))
-    ) {
-      return(FALSE)
-    }
+  ) {
+    return(FALSE)
   }
   installed_channel <- normalize_channel_name(installed[["channel"]] %||% "")
   if (is_set(ms[["channel_location"]])) {
@@ -136,10 +135,11 @@ spec_satisfied_by <- function(spec_str, installed_pkgs_df, requested_channels) {
     ) {
       return(FALSE)
     }
-  } else if (isFALSE(rlang::is_null(requested_channels))) {
-    if (isFALSE(installed_channel %in% requested_channels)) {
-      return(FALSE)
-    }
+  } else if (
+    isFALSE(rlang::is_null(requested_channels)) &&
+      isFALSE(installed_channel %in% requested_channels)
+  ) {
+    return(FALSE)
   }
   return(TRUE)
 }

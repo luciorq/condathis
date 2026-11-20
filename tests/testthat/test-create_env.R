@@ -54,7 +54,7 @@ local_env_stub <- function(
 local_no_backend <- function(envir = parent.frame()) {
   testthat::local_mocked_bindings(
     resolve_backend = function(...) {
-      stop("resolve_backend() must not be called")
+      stop("resolve_backend() must not be called", call. = FALSE)
     },
     .env = envir
   )
@@ -65,8 +65,10 @@ testthat::test_that("create_env() validates method before any backend call", {
   for (method in list(NA, "na", "NonExisting", c("auto", "auto"))) {
     cnd <- catch_error(create_env(method = method))
     testthat::expect_s3_class(cnd, "condathis_invalid_method_arg")
-    testthat::expect_false(
-      grepl("must not be called", conditionMessage(cnd), fixed = TRUE),
+    testthat::expect_no_match(
+      conditionMessage(cnd),
+      "must not be called",
+      fixed = TRUE,
       info = deparse(method)
     )
   }
@@ -77,14 +79,15 @@ testthat::test_that("create_env() validates verbose before any backend call", {
   # invalid value could install micromamba and start a process first.
   local_no_backend()
   cnd <- catch_error(create_env(verbose = "bogus"))
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_invalid_verbose",
       "condathis_invalid_arg",
       "condathis_error",
       rlang_tail
-    )
+    ),
+    exact = TRUE
   )
   testthat::expect_identical(
     conditionCall(cnd),
@@ -151,6 +154,79 @@ testthat::test_that("create_env() points an environment file in ... to env_defin
     fixed = TRUE
   )
   testthat::expect_no_match(conditionMessage(cnd), "env_file", fixed = TRUE)
+})
+
+testthat::test_that("create_env() names the user's file after a positional NULL", {
+  # Regression test: `create_env(NULL, "env.yml", env_name = ...)`, the
+  # 0.1.4 positional `env_file`, got a hint about "environment.yml" that
+  # said "after the package specs" although none came before the NULL.
+  local_no_backend()
+  cnd <- catch_error(create_env(NULL, "env.yml", env_name = "x"))
+  testthat::expect_s3_class(cnd, "condathis_create_env_invalid_packages")
+  message <- cli::ansi_strip(conditionMessage(cnd))
+  testthat::expect_match(message, "env_definition(\"env.yml\")", fixed = TRUE)
+  testthat::expect_match(
+    message,
+    "Arguments other than package specs must be named",
+    fixed = TRUE
+  )
+  testthat::expect_no_match(message, "after the package specs", fixed = TRUE)
+  testthat::expect_no_match(message, "environment.yml", fixed = TRUE)
+  # A NULL after a spec keeps the old wording; without a file, the example
+  # stays generic.
+  message <- cli::ansi_strip(conditionMessage(
+    catch_error(create_env("zlib", NULL, "x"))
+  ))
+  testthat::expect_match(message, "after the package specs", fixed = TRUE)
+  testthat::expect_match(
+    message,
+    "env_definition(\"environment.yml\")",
+    fixed = TRUE
+  )
+  # A file name with braces is shown as it is.
+  message <- cli::ansi_strip(conditionMessage(
+    catch_error(create_env(NULL, "{x}.yml"))
+  ))
+  testthat::expect_match(message, "env_definition(\"{x}.yml\")", fixed = TRUE)
+})
+
+testthat::test_that("the hint for `packages =` with unnamed values never repeats a given argument", {
+  # Regression test: with `env_name` already in the call, the hint said
+  # `env_name = "y"`, and following it gave "formal argument matched by
+  # multiple actual arguments".
+  local_no_backend()
+  calls <- list(
+    create_env = quote(create_env(packages = "x", "y", env_name = "e")),
+    install_packages = quote(
+      install_packages(packages = "x", "y", env_name = "e")
+    ),
+    validate_env = quote(validate_env(packages = "x", "y", env_name = "e"))
+  )
+  for (fn in names(calls)) {
+    message <- cli::ansi_strip(conditionMessage(catch_error(eval(calls[[fn]]))))
+    testthat::expect_match(message, "not both", fixed = TRUE, info = fn)
+    testthat::expect_no_match(
+      message,
+      "env_name = \"y\"",
+      fixed = TRUE,
+      info = fn
+    )
+    testthat::expect_match(message, "Pass every spec unnamed", info = fn)
+  }
+  # Without `env_name`, the 0.1.4 positional meaning is still suggested.
+  message <- cli::ansi_strip(conditionMessage(
+    catch_error(install_packages(packages = "x", "y"))
+  ))
+  testthat::expect_match(message, "env_name = \"y\"", fixed = TRUE)
+  # An environment file, unless `env_file` is given too.
+  message <- cli::ansi_strip(conditionMessage(
+    catch_error(create_env(packages = "x", "env.yml"))
+  ))
+  testthat::expect_match(message, "env_definition(\"env.yml\")", fixed = TRUE)
+  message <- cli::ansi_strip(conditionMessage(
+    catch_error(create_env(packages = "x", "env.yml", env_file = "a.yml"))
+  ))
+  testthat::expect_no_match(message, "env_definition(", fixed = TRUE)
 })
 
 testthat::test_that("create_env() rejects a non-logical overwrite, with the old and new class", {
@@ -349,8 +425,8 @@ testthat::test_that("validate_platform_arg() accepts NULL and every known platfo
 testthat::test_that("create_env() rejects an invalid env_name, with the old and new class", {
   local_no_backend()
   cnd <- catch_error(create_env(env_name = "../outside"))
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_create_env_invalid_env_name",
       "condathis_create_invalid_env_name",
@@ -358,15 +434,16 @@ testthat::test_that("create_env() rejects an invalid env_name, with the old and 
       "condathis_invalid_arg",
       "condathis_error",
       rlang_tail
-    )
+    ),
+    exact = TRUE
   )
 })
 
 testthat::test_that("create_env() rejects a missing env_file, with the old and new class", {
   local_no_backend()
   cnd <- catch_error(create_env(env_file = "definitely-does-not-exist.yml"))
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_create_env_missing_env_file",
       "condathis_create_missing_env_file",
@@ -374,7 +451,8 @@ testthat::test_that("create_env() rejects a missing env_file, with the old and n
       "condathis_invalid_arg",
       "condathis_error",
       rlang_tail
-    )
+    ),
+    exact = TRUE
   )
   # Regression test: the message printed the literal text "env_file".
   testthat::expect_match(
@@ -414,14 +492,15 @@ testthat::test_that("create_env() aborts when both package specs and env_file ar
     lines = "dependencies: []"
   )
   cnd <- catch_error(create_env("zlib", env_file = env_file))
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_create_env_conflicting_args",
       "condathis_invalid_arg",
       "condathis_error",
       rlang_tail
-    )
+    ),
+    exact = TRUE
   )
 })
 
@@ -467,15 +546,16 @@ testthat::test_that("create_env() validates channel_priority regardless of envir
   cnd <- catch_error(
     create_env("zlib", env_name = "e", channel_priority = "bananas")
   )
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_create_env_invalid_channel_priority",
       "condathis_invalid_channel_priority",
       "condathis_invalid_arg",
       "condathis_error",
       rlang_tail
-    )
+    ),
+    exact = TRUE
   )
 })
 
@@ -556,14 +636,15 @@ testthat::test_that("create_env() re-raises a backend error with its own classes
   stub_boom <- function(...) rlang::abort("boom", class = "stub_boom")
   local_env_stub("stub-create-boom", backend_create_env = stub_boom)
   cnd <- catch_error(create_env(env_name = "boom-env", verbose = "silent"))
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_create_env_failed",
       "condathis_backend_error",
       "condathis_error",
       rlang_tail
-    )
+    ),
+    exact = TRUE
   )
   testthat::expect_s3_class(cnd$parent, "stub_boom")
   testthat::expect_true(rlang::cnd_inherits(cnd, "stub_boom"))
@@ -583,15 +664,16 @@ testthat::test_that("create_env() catches an old positional env_name", {
   # last one names an existing environment, the user meant env_name.
   stub <- local_env_stub("stub-create-positional", envs = "my-env")
   cnd <- catch_error(create_env("python", "my-env"))
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_create_env_positional_env_name",
       "condathis_invalid_packages",
       "condathis_invalid_arg",
       "condathis_error",
       rlang_tail
-    )
+    ),
+    exact = TRUE
   )
   testthat::expect_match(
     conditionMessage(cnd),
@@ -680,7 +762,7 @@ testthat::test_that("create_env() warns about packages = only for direct use", {
   id <- "deprecated_packages_arg_create_env"
   reset_warn_once(id)
   withr::defer(reset_warn_once(id))
-  stub <- local_env_stub("stub-create-soft")
+  local_env_stub("stub-create-soft")
   # A function of another package's namespace, such as a wrapper in a
   # package that depends on condathis.
   pkg_env <- new.env(parent = asNamespace("tools"))
@@ -769,9 +851,10 @@ testthat::test_that("create_env(overwrite = FALSE) aborts instead of replacing a
   cnd <- catch_error(
     create_env("zlib", "python", env_name = "exists-env", verbose = "silent")
   )
-  testthat::expect_identical(
-    class(cnd),
-    c("condathis_create_env_exists", "condathis_error", rlang_tail)
+  testthat::expect_s3_class(
+    cnd,
+    c("condathis_create_env_exists", "condathis_error", rlang_tail),
+    exact = TRUE
   )
   message <- cli::ansi_strip(conditionMessage(cnd))
   testthat::expect_match(message, "python", fixed = TRUE)
@@ -847,14 +930,15 @@ testthat::test_that("env_exists_for_change() aborts on a failed probe", {
   cnd <- catch_error(
     env_exists_for_change(stub$backend, "stub-probe-direct", "probe-env")
   )
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_backend_probe_failed",
       "condathis_backend_error",
       "condathis_error",
       rlang_tail
-    )
+    ),
+    exact = TRUE
   )
   testthat::expect_s3_class(cnd$parent, "stub_boom")
   message <- cli::ansi_strip(conditionMessage(cnd))
@@ -871,15 +955,16 @@ testthat::test_that("env_exists_for_change() aborts on a failed probe", {
   cnd <- catch_error(
     env_exists_for_change(stub_status$backend, "stub-probe-status", "probe-env")
   )
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_backend_probe_failed",
       "condathis_backend_error",
       "condathis_cmd_status_error",
       "condathis_error",
       rlang_tail
-    )
+    ),
+    exact = TRUE
   )
 
   # A probe that works gives TRUE or FALSE.
@@ -908,14 +993,15 @@ testthat::test_that("create_env() aborts on a failed probe that resolve_backend(
   cnd <- catch_error(
     create_env("zlib", env_name = "probe-env", verbose = "silent")
   )
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_backend_probe_failed",
       "condathis_backend_error",
       "condathis_error",
       rlang_tail
-    )
+    ),
+    exact = TRUE
   )
   testthat::expect_s3_class(cnd$parent, "stub_boom")
   testthat::expect_length(stub_calls(stub, "backend_create_env"), 0L)
@@ -934,14 +1020,15 @@ testthat::test_that("create_env() aborts on a failed probe that resolve_backend(
       verbose = "silent"
     )
   )
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_create_env_failed",
       "condathis_backend_error",
       "condathis_error",
       rlang_tail
-    )
+    ),
+    exact = TRUE
   )
   testthat::expect_s3_class(cnd$parent, "stub_boom")
   testthat::expect_match(
@@ -1012,9 +1099,10 @@ testthat::test_that("create_env(overwrite = FALSE) compares bracket constraints 
     env_name = "brackets-env",
     verbose = "silent"
   ))
-  testthat::expect_identical(
-    class(cnd),
-    c("condathis_create_env_exists", "condathis_error", rlang_tail)
+  testthat::expect_s3_class(
+    cnd,
+    c("condathis_create_env_exists", "condathis_error", rlang_tail),
+    exact = TRUE
   )
   message <- cli::ansi_strip(conditionMessage(cnd))
   testthat::expect_match(
@@ -1149,14 +1237,15 @@ testthat::test_that("create_env aborts instead of rebuilding an environment of a
     )
   )
   # The new class and the old one.
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_create_env_platform_mismatch",
       "condathis_create_platform_mismatch",
       "condathis_error",
       rlang_tail
-    )
+    ),
+    exact = TRUE
   )
   testthat::expect_match(
     conditionMessage(cnd),
@@ -1312,16 +1401,17 @@ testthat::test_that("create_env() chooses an emulated platform for every backend
       return(identical(platform, "osx-64"))
     }
   )
-  msgs <- character(0L)
+  tracked <- new.env(parent = emptyenv())
+  tracked$msgs <- character(0L)
   withCallingHandlers(
     create_env("r-base", env_name = "emulated-env", verbose = "output"),
     message = function(m) {
-      msgs <<- c(msgs, cli::ansi_strip(conditionMessage(m)))
+      tracked$msgs <- c(tracked$msgs, cli::ansi_strip(conditionMessage(m)))
       invokeRestart("muffleMessage")
     }
   )
   testthat::expect_match(
-    paste(msgs, collapse = "\n"),
+    paste(tracked$msgs, collapse = "\n"),
     "Using Rosetta 2 emulation.",
     fixed = TRUE
   )
@@ -1354,7 +1444,7 @@ testthat::test_that("create_env() warns when the backend did not run link script
     script = c("post-link", "post-link", "pre-link", "pre-unlink"),
     stringsAsFactors = FALSE
   )
-  stub <- local_env_stub(
+  local_env_stub(
     "stub-link-scripts",
     backend_create_env = function(backend, env_name = "condathis-env", ...) {
       fs::dir_create(fs::path(
@@ -1365,34 +1455,35 @@ testthat::test_that("create_env() warns when the backend did not run link script
       return(list(status = 0L, link_scripts_skipped = skipped))
     }
   )
-  msgs <- character(0L)
-  cnd <- NULL
+  tracked <- new.env(parent = emptyenv())
+  tracked$msgs <- character(0L)
+  tracked$cnd <- NULL
   res <- withCallingHandlers(
     create_env("pkg", env_name = "scripts-env", verbose = "output"),
     message = function(m) {
-      msgs <<- c(msgs, cli::ansi_strip(conditionMessage(m)))
+      tracked$msgs <- c(tracked$msgs, cli::ansi_strip(conditionMessage(m)))
       invokeRestart("muffleMessage")
     },
     warning = function(w) {
-      cnd <<- w
+      tracked$cnd <- w
       invokeRestart("muffleWarning")
     }
   )
   # The environment is created, and the result has the same fields as for
   # any backend.
   testthat::expect_identical(res$status, 0L)
-  testthat::expect_identical(
-    names(unclass(res)),
+  testthat::expect_named(
+    unclass(res),
     c("status", "stdout", "stderr", "timeout", "pid", "cmd", "env_name")
   )
   testthat::expect_null(attr(res, "link_scripts_skipped"))
   testthat::expect_match(
-    paste(msgs, collapse = "\n"),
+    paste(tracked$msgs, collapse = "\n"),
     "successfully created",
     fixed = TRUE
   )
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    tracked$cnd,
     c(
       "condathis_create_env_link_scripts_skipped",
       "condathis_link_scripts_skipped",
@@ -1400,13 +1491,14 @@ testthat::test_that("create_env() warns when the backend did not run link script
       "rlang_warning",
       "warning",
       "condition"
-    )
+    ),
+    exact = TRUE
   )
-  testthat::expect_identical(cnd$backend, "stub-link-scripts")
-  testthat::expect_identical(cnd$env_name, "scripts-env")
-  testthat::expect_identical(cnd$packages, c("alpha", "beta", "zeta"))
-  testthat::expect_identical(cnd$scripts, skipped)
-  message <- cli::ansi_strip(conditionMessage(cnd))
+  testthat::expect_identical(tracked$cnd$backend, "stub-link-scripts")
+  testthat::expect_identical(tracked$cnd$env_name, "scripts-env")
+  testthat::expect_identical(tracked$cnd$packages, c("alpha", "beta", "zeta"))
+  testthat::expect_identical(tracked$cnd$scripts, skipped)
+  message <- cli::ansi_strip(conditionMessage(tracked$cnd))
   testthat::expect_match(
     message,
     "Backend stub-link-scripts did not run the pre-link scripts of alpha.",
@@ -1442,7 +1534,7 @@ testthat::test_that("create_env() does not warn for a backend that ran every lin
     NULL,
     data.frame(package = character(0L), script = character(0L))
   )) {
-    stub <- local_env_stub(
+    local_env_stub(
       "stub-link-scripts-none",
       backend_create_env = function(backend, env_name = "condathis-env", ...) {
         fs::dir_create(fs::path(
@@ -1909,6 +2001,34 @@ testthat::test_that("conda env is created", {
     stringr::str_detect(envvar_output, "HELLO FROM OUTSIDE")
   )
 
+  # Issue #12: the same expression with inner double quotes, the issue's
+  # own example. condathis passes the argument unchanged on every OS (see
+  # test-argument_fidelity.R). On Windows, R.exe starts Rterm.exe through a
+  # command line it builds itself, so whether R gets the quotes is up to R,
+  # not condathis, and not checked here yet.
+  if (isFALSE(is_windows())) {
+    withr::with_envvar(
+      new = list(`MY_VAR_1` = "HELLO FROM OUTSIDE"),
+      code = {
+        dq_res <- run(
+          "R",
+          "-q",
+          "-s",
+          "-e",
+          "print(Sys.getenv(\"MY_VAR_1\"))",
+          env_name = "condathis-create-test-env",
+          verbose = "silent"
+        )
+      }
+    )
+    testthat::expect_identical(dq_res$status, 0L)
+    testthat::expect_match(
+      paste(dq_res$stdout, dq_res$stderr),
+      "HELLO FROM OUTSIDE",
+      fixed = TRUE
+    )
+  }
+
   install_res <- install_packages(
     "python>=3.11,<4.0",
     env_name = "condathis-create-test-env",
@@ -2015,7 +2135,7 @@ flat_message <- function(cnd) {
 default_channels_hint_text <- "Since condathis 0.2.0, the default `channels` is only"
 
 testthat::test_that("create_env() says that bioconda is no longer a default channel", {
-  stub <- local_env_stub(
+  local_env_stub(
     "stub-default-channels",
     backend_create_env = micromamba_not_found_error
   )
@@ -2027,8 +2147,8 @@ testthat::test_that("create_env() says that bioconda is no longer a default chan
     verbose = "silent"
   ))
   # The error keeps its classes, fields and parent.
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_create_env_failed",
       "condathis_backend_error",
@@ -2036,7 +2156,8 @@ testthat::test_that("create_env() says that bioconda is no longer a default chan
       "condathis_cmd_status_error",
       "condathis_error",
       rlang_tail
-    )
+    ),
+    exact = TRUE
   )
   testthat::expect_identical(cnd$status, 1L)
   testthat::expect_match(cnd$stderr, "does not exist", fixed = TRUE)
@@ -2060,7 +2181,7 @@ testthat::test_that("create_env() says that bioconda is no longer a default chan
 })
 
 testthat::test_that("create_env() adds the default-channels hint only when it applies", {
-  stub <- local_env_stub(
+  local_env_stub(
     "stub-default-channels-no",
     backend_create_env = micromamba_not_found_error
   )
@@ -2110,14 +2231,15 @@ testthat::test_that("create_env() adds the default-channels hint only when it ap
 })
 
 testthat::test_that("create_env() reads the not-found text of micromamba and rattler only", {
-  n_stubs <- 0L
+  tracked <- new.env(parent = emptyenv())
+  tracked$n_stubs <- 0L
   hint_for <- function(message, stderr = NULL) {
     stub_error <- function(...) {
       rlang::abort(message, class = "stub_solve_error", stderr = stderr)
     }
-    n_stubs <<- n_stubs + 1L
+    tracked$n_stubs <- tracked$n_stubs + 1L
     local_env_stub(
-      paste0("stub-not-found-text-", n_stubs),
+      paste0("stub-not-found-text-", tracked$n_stubs),
       backend_create_env = stub_error
     )
     cnd <- catch_error(
@@ -2247,9 +2369,10 @@ testthat::test_that("create_env() names the channel of an installed package outs
   cnd <- catch_error(
     create_env("samtools=1.17", env_name = "old-env", verbose = "silent")
   )
-  testthat::expect_identical(
-    class(cnd),
-    c("condathis_create_env_exists", "condathis_error", rlang_tail)
+  testthat::expect_s3_class(
+    cnd,
+    c("condathis_create_env_exists", "condathis_error", rlang_tail),
+    exact = TRUE
   )
   message <- flat_message(cnd)
   testthat::expect_match(
@@ -2336,6 +2459,66 @@ testthat::test_that("specs_from_other_channels() leaves out packages that pip in
   testthat::expect_identical(check$unsatisfied, c("requests", "samtools"))
   testthat::expect_identical(check$other_channels$spec, "samtools")
   testthat::expect_false(unsatisfied_only_by_channel(check))
+})
+
+testthat::test_that("specs_from_other_channels() shows a URL channel as a valid `channels` value", {
+  # Regression test: the hint showed the normalized form of a URL channel
+  # (`example.org/chan`), which micromamba reads as a channel name.
+  installed <- rbind(
+    pkgs_df(
+      "foo",
+      channel = "https://user:secret@example.org/chan/linux-64"
+    ),
+    pkgs_df(
+      "samtools",
+      version = "1.17",
+      channel = "https://conda.anaconda.org/bioconda/linux-64"
+    ),
+    pkgs_df("polyglot", channel = "file:///srv/channels/local")
+  )
+  check <- check_env_request(
+    installed,
+    c("foo", "samtools", "polyglot"),
+    channels = "conda-forge"
+  )
+  other <- check$other_channels
+  # The comparison keeps the normalized form.
+  testthat::expect_identical(
+    other$channel,
+    c("example.org/chan", "bioconda", "/srv/channels/local")
+  )
+  # The message shows the URL without credentials, and a name or a path
+  # as before.
+  testthat::expect_identical(
+    other$display,
+    c("https://example.org/chan", "bioconda", "/srv/channels/local")
+  )
+  testthat::expect_identical(
+    other$spec_hint,
+    c(NA, "bioconda::samtools", NA)
+  )
+  bullets <- unsatisfied_spec_bullets(check)
+  # The variables the bullets refer to, as the caller defines them.
+  bullet_env <- rlang::env(
+    unsatisfied = check$unsatisfied,
+    other_channels = other
+  )
+  message <- paste(
+    vapply(
+      bullets,
+      function(x) cli::format_inline(x, .envir = bullet_env),
+      character(1L)
+    ),
+    collapse = "\n"
+  )
+  testthat::expect_match(
+    message,
+    "installed from \"https://example.org/chan\"",
+    fixed = TRUE
+  )
+  testthat::expect_no_match(message, "secret", fixed = TRUE)
+  testthat::expect_no_match(message, "user", fixed = TRUE)
+  testthat::expect_no_match(message, "\"example.org/chan\"", fixed = TRUE)
 })
 
 testthat::test_that("create_env() keeps an environment created with a virtual package spec", {

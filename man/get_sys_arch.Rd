@@ -8,7 +8,7 @@ get_sys_arch()
 }
 \value{
 A character string such as \code{"Linux-x86_64"}, \code{"Linux-aarch64"},
-\code{"Darwin-x86_64"} or \code{"Darwin-arm64"}. On Windows it is
+\code{"Linux-riscv64"}, \code{"Darwin-x86_64"} or \code{"Darwin-arm64"}. On Windows it is
 \code{"Windows-aarch64"} for a native ARM64 build of R. It is
 \code{"Windows-x86-64"} for an x64 build, also when that build runs through
 x64 emulation on an ARM64 PC.

@@ -39,15 +39,21 @@ new_backend_micromamba <- function() {
 #'
 #' @keywords internal
 #' @noRd
-micromamba_backend <- local({
-  cached <- NULL
-  function() {
-    if (is.null(cached)) {
-      cached <<- new_backend_micromamba()
-    }
-    return(cached)
+micromamba_backend <- function() {
+  if (is.null(micromamba_backend_cache$backend)) {
+    micromamba_backend_cache$backend <- new_backend_micromamba()
   }
-})
+  return(micromamba_backend_cache$backend)
+}
+
+#' The cache of `micromamba_backend()`
+#'
+#' An environment, so the object is built once even though the namespace
+#' is locked after load.
+#'
+#' @keywords internal
+#' @noRd
+micromamba_backend_cache <- new.env(parent = emptyenv())
 
 #' @keywords internal
 #' @noRd
@@ -111,6 +117,206 @@ resolve_create_env_packages_arg <- function(packages, env_file) {
   return(c("-f", micromamba_expand_home(as.character(fs::path(env_file)))))
 }
 
+#' The environment file that micromamba gets, in a writable directory
+#'
+#' For the `pip:` section of an environment file, micromamba writes the
+#' requirements to a temporary file in the directory of the environment
+#' file (micromamba 2.10.0), and pip then reads them from there. In a
+#' directory that the user cannot write, such as the `extdata` of a package
+#' in a site library, the pip packages failed to install. Such a file is
+#' copied to `tmp_dir`, the `TMPDIR` of micromamba, under its own name.
+#' pip resolves the paths of the section (`-r requirements.txt`, `-e .`,
+#' `./pkg`) against the directory of the file, so a file with such a path
+#' cannot be copied: then this aborts with class
+#' `c("condathis_micromamba_env_file_dir_not_writable", "condathis_error")`,
+#' which `create_env()` and `install_packages()` raise with their class of
+#' a backend failure (see `with_backend_errors()`).
+#'
+#' Any other file, and a file in a writable directory, is passed as it is.
+#' A missing file too: `resolve_create_env_packages_arg()` reports it.
+#' Writability is asked only for a file that runs pip, so a file without a
+#' `pip:` section never gets the probe file of `dir_is_writable()` next to
+#' it on Windows.
+#'
+#' @param env_file `NULL`, or the path of the environment file.
+#' @param tmp_dir Character string, the `TMPDIR` of the micromamba command.
+#' @param is_writable Function of a directory, `TRUE` when the user can
+#'   create files in it. For the tests.
+#' @param call Environment of the function the error is reported for.
+#'
+#' @returns `env_file`, or the path of the copy.
+#'
+#' @keywords internal
+#' @noRd
+micromamba_pip_env_file <- function(
+  env_file,
+  tmp_dir,
+  is_writable = dir_is_writable,
+  call = rlang::caller_env()
+) {
+  if (is.null(env_file) || isFALSE(isTRUE(file.exists(env_file)))) {
+    return(env_file)
+  }
+  text <- tryCatch(
+    suppressWarnings(readLines(env_file, warn = FALSE)),
+    error = function(e) NULL
+  )
+  if (is.null(text) || isFALSE(env_file_runs_pip(text))) {
+    return(env_file)
+  }
+  # Asked only for a file that runs pip: on Windows the answer creates and
+  # deletes a file in the directory of the user's environment file.
+  env_dir <- dirname(path.expand(env_file))
+  if (isTRUE(is_writable(env_dir))) {
+    return(env_file)
+  }
+  entries <- env_file_pip_entries(text)
+  relative <- entries[vapply(entries, pip_entry_is_relative, logical(1L))]
+  if (isTRUE(length(relative) > 0L)) {
+    condathis_abort(
+      message = c(
+        `x` = "micromamba cannot install the {.code pip:} section of {.path {env_file}}.",
+        `i` = "micromamba writes a temporary file next to the environment file, and {.path {env_dir}} is not writable.",
+        `i` = "The section names paths relative to that directory, so condathis cannot use a copy: {.val {relative}}.",
+        `i` = "Copy the file, and the files it names, to a writable directory, or use absolute paths."
+      ),
+      class = "condathis_micromamba_env_file_dir_not_writable",
+      call = call
+    )
+  }
+  copy <- file.path(tmp_dir, basename(env_file))
+  if (isFALSE(file.copy(env_file, copy, overwrite = TRUE))) {
+    return(env_file)
+  }
+  return(copy)
+}
+
+#' Whether the user can create files in a directory
+#'
+#' `file.access()` off Windows. On Windows it reads only the read-only
+#' attribute, not the permissions of the directory (such as those of a
+#' library under `Program Files`), so a file is created there and deleted
+#' at once.
+#'
+#' @param dir Character string.
+#' @param on_windows Logical. Whether to apply the Windows rule.
+#'
+#' @returns Logical scalar.
+#'
+#' @keywords internal
+#' @noRd
+dir_is_writable <- function(dir, on_windows = is_windows()) {
+  if (isFALSE(isTRUE(on_windows))) {
+    return(isTRUE(unname(file.access(dir, mode = 2L)) == 0L))
+  }
+  probe <- tempfile(pattern = "condathis-write-probe-", tmpdir = dir)
+  created <- isTRUE(suppressWarnings(file.create(probe, showWarnings = FALSE)))
+  if (isTRUE(created)) {
+    unlink(probe)
+  }
+  return(created)
+}
+
+#' The entries of the `pip:` sections of an environment YAML file
+#'
+#' A text scan, without a YAML parser: every line that is a `pip:` key,
+#' and the list items indented below it (`- six`), or its flow list
+#' (`pip: [six, ./pkg]`). Comments and quotes around an item are removed.
+#'
+#' @param text Character vector, the lines of the file.
+#'
+#' @returns A character vector.
+#'
+#' @keywords internal
+#' @noRd
+env_file_pip_entries <- function(text) {
+  text <- sub("[[:space:]]+$", "", as.character(text))
+  key_pattern <- "^([[:space:]]*)(-[[:space:]]+)?[\"']?pip[\"']?[[:space:]]*:(.*)$"
+  indent_of <- function(line) {
+    return(nchar(sub("^([[:space:]]*).*$", "\\1", line)))
+  }
+  unquote <- function(x) {
+    x <- trimws(sub("(^|[[:space:]])#.*$", "", x))
+    return(trimws(gsub("^[\"']|[\"']$", "", x)))
+  }
+  entries <- character(0L)
+  for (i in grep(key_pattern, text, useBytes = TRUE)) {
+    rest <- trimws(sub(key_pattern, "\\3", text[[i]], useBytes = TRUE))
+    rest <- trimws(sub("(^|[[:space:]])#.*$", "", rest))
+    if (isTRUE(nzchar(rest))) {
+      items <- strsplit(gsub("^\\[|\\]$", "", rest), ",", fixed = TRUE)[[1L]]
+      entries <- c(entries, unquote(items))
+      next
+    }
+    indent <- indent_of(text[[i]])
+    for (line in text[-seq_len(i)]) {
+      if (isFALSE(nzchar(trimws(line))) || grepl("^[[:space:]]*#", line)) {
+        next
+      }
+      if (indent_of(line) <= indent) {
+        break
+      }
+      if (grepl("^[[:space:]]*-", line)) {
+        entries <- c(
+          entries,
+          unquote(sub("^[[:space:]]*-[[:space:]]*", "", line))
+        )
+      }
+    }
+  }
+  return(entries[nzchar(entries)])
+}
+
+#' Whether an entry of a `pip:` section names a relative path
+#'
+#' pip resolves these against the directory of the environment file:
+#' the file of `-r`, `-c` and `-e` (and their long forms), the path of
+#' `name @ path`, and an entry that is a path (it starts with `.`, has a
+#' `/` or `\\`, or is an archive name such as `pkg.whl`). A URL, an
+#' absolute path, a path that starts with `~` or a variable, and a
+#' requirement such as `six==1.17.0` are not relative.
+#'
+#' @param entry Character string.
+#'
+#' @returns Logical scalar.
+#'
+#' @keywords internal
+#' @noRd
+pip_entry_is_relative <- function(entry) {
+  entry <- trimws(as.character(entry))
+  is_relative_path <- function(x) {
+    x <- sub("^file:", "", trimws(x))
+    absolute <- grepl(
+      "^(/|~|\\$|%|[A-Za-z]:[\\\\/]|\\\\\\\\)|://",
+      x
+    )
+    return(isTRUE(nzchar(x)) && isFALSE(absolute))
+  }
+  option <- paste0(
+    "^(-r|--requirement|-c|--constraint|-e|--editable|-f|--find-links)",
+    "(=|[[:space:]]+)?(.*)$"
+  )
+  if (isTRUE(grepl("^-", entry))) {
+    if (isFALSE(grepl(option, entry, perl = TRUE))) {
+      return(FALSE)
+    }
+    return(is_relative_path(sub(option, "\\3", entry, perl = TRUE)))
+  }
+  if (isTRUE(grepl("[[:space:]]@[[:space:]]", entry))) {
+    return(is_relative_path(sub("^[^@]*@[[:space:]]+", "", entry)))
+  }
+  if (
+    isTRUE(grepl(
+      "^\\.|[/\\\\]|\\.(whl|zip|tar\\.gz|tgz|tar\\.bz2)$",
+      entry,
+      ignore.case = TRUE
+    ))
+  ) {
+    return(is_relative_path(entry))
+  }
+  return(FALSE)
+}
+
 #' The `--platform` argument of `micromamba create` and `micromamba install`
 #'
 #' condathis chooses the platform before it calls the backend (see
@@ -147,12 +353,15 @@ micromamba_backend_create_env <- function(
   definition = NULL
 ) {
   verbose_list <- parse_strategy_verbose(verbose = verbose)
+  # The `TMPDIR` of micromamba, deleted when this function exits.
+  tmp_dir <- withr::local_tempdir(pattern = "mamba-tmp")
   # The file of the definition, or a copy under a name that micromamba
-  # reads as its format, deleted when this function exits.
+  # reads as its format, deleted when this function exits. A file that
+  # micromamba cannot write next to is copied to `tmp_dir`.
   definition_file <- micromamba_definition_file(definition, env_file)
   packages_arg <- resolve_create_env_packages_arg(
     packages = packages,
-    env_file = definition_file$path
+    env_file = micromamba_pip_env_file(definition_file$path, tmp_dir)
   )
   channels_arg <- format_channels_args(channels, additional_channels)
   channel_priority_args <- parse_strategy_channel_priority(
@@ -191,7 +400,8 @@ micromamba_backend_create_env <- function(
         # file, link scripts). On Windows an interrupt kills only
         # micromamba, so pip went on after the lock of the environment was
         # released, and kept its files open.
-        cleanup_tree = TRUE
+        cleanup_tree = TRUE,
+        tmp_dir = tmp_dir
       )
     }
   )
@@ -221,11 +431,16 @@ micromamba_backend_install <- function(
     env_file,
     kinds = "request"
   )
+  # The `TMPDIR` of micromamba, deleted when this function exits.
+  tmp_dir <- withr::local_tempdir(pattern = "mamba-tmp")
   if (isFALSE(is.null(definition_file$path))) {
     packages <- c(
       definition_file$extra_args,
       "-f",
-      micromamba_expand_home(as.character(fs::path(definition_file$path)))
+      micromamba_pip_env_file(
+        micromamba_expand_home(as.character(fs::path(definition_file$path))),
+        tmp_dir
+      )
     )
   }
   channels_arg <- format_channels_args(channels, additional_channels)
@@ -261,7 +476,8 @@ micromamba_backend_install <- function(
         packages,
         verbose = verbose_list,
         # As for `create` (see `micromamba_backend_create_env()`).
-        cleanup_tree = TRUE
+        cleanup_tree = TRUE,
+        tmp_dir = tmp_dir
       )
     }
   )

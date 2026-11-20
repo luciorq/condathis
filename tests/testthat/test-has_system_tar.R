@@ -157,14 +157,15 @@ testthat::test_that("extract_tar_bz2() falls back to the tar that system_tar_pro
   local_fake_path_programs()
   archive <- withr::local_tempfile(fileext = ".tar.bz2")
   writeLines("not read: tar is mocked", archive)
-  commands <- character(0L)
+  tracked <- new.env(parent = emptyenv())
+  tracked$commands <- character(0L)
   testthat::local_mocked_bindings(
     untar = function(...) 1L,
     .package = "utils"
   )
   testthat::local_mocked_bindings(
     run = function(command, ...) {
-      commands <<- c(commands, command)
+      tracked$commands <- c(tracked$commands, command)
       return(list(status = 0L))
     },
     .package = "processx"
@@ -173,21 +174,21 @@ testthat::test_that("extract_tar_bz2() falls back to the tar that system_tar_pro
   missing_path <- fs::path(withr::local_tempdir(), "missing", "tar")
   for (tar_value in list(NA, "internal", "tar", missing_path)) {
     withr::local_envvar(TAR = tar_value)
-    commands <- character(0L)
+    tracked$commands <- character(0L)
     testthat::expect_true(
       extract_tar_bz2(archive, withr::local_tempdir()),
       label = paste("TAR =", tar_value)
     )
     # The program that has_system_tar() reports, never "internal" or the
     # broken path.
-    testthat::expect_identical(commands, fake_path_tar)
+    testthat::expect_identical(tracked$commands, fake_path_tar)
   }
 
   exe <- rscript_path()
   withr::local_envvar(TAR = exe)
-  commands <- character(0L)
+  tracked$commands <- character(0L)
   testthat::expect_true(extract_tar_bz2(archive, withr::local_tempdir()))
-  testthat::expect_identical(commands, as.character(fs::path_abs(exe)))
+  testthat::expect_identical(tracked$commands, as.character(fs::path_abs(exe)))
 })
 
 testthat::test_that("extract_tar_bz2() has no system tar fallback when no tar is found", {
@@ -195,10 +196,11 @@ testthat::test_that("extract_tar_bz2() has no system tar fallback when no tar is
   archive <- withr::local_tempfile(fileext = ".tar.bz2")
   writeLines("not an archive", archive)
   # extract_tar_bz2() turns errors into FALSE, so count the calls instead.
-  run_calls <- 0L
+  tracked <- new.env(parent = emptyenv())
+  tracked$run_calls <- 0L
   testthat::local_mocked_bindings(
     run = function(...) {
-      run_calls <<- run_calls + 1L
+      tracked$run_calls <- tracked$run_calls + 1L
       return(list(status = 0L))
     },
     .package = "processx"
@@ -206,6 +208,6 @@ testthat::test_that("extract_tar_bz2() has no system tar fallback when no tar is
   withr::local_envvar(TAR = "internal")
   exdir <- fs::path(withr::local_tempdir(), "extract")
   testthat::expect_false(extract_tar_bz2(archive, exdir))
-  testthat::expect_identical(run_calls, 0L)
+  testthat::expect_identical(tracked$run_calls, 0L)
   testthat::expect_false(fs::dir_exists(exdir))
 })

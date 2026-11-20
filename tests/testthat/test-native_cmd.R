@@ -97,13 +97,15 @@ test_that("a user's --log-level error argument does not hide the output of run()
   create_polyglot_env("native-cmd-echo-env")
 
   testthat::expect_output(
-    res <- run(
-      "polyglot",
-      "--log-level",
-      "error",
-      env_name = "native-cmd-echo-env",
-      verbose = "output"
-    ),
+    {
+      res <- run(
+        "polyglot",
+        "--log-level",
+        "error",
+        env_name = "native-cmd-echo-env",
+        verbose = "output"
+      )
+    },
     polyglot_expected_line(),
     fixed = TRUE
   )
@@ -116,11 +118,12 @@ test_that("native_cmd() reports the exact command line that ran", {
   # "micromamba create -n env pkg", without the flags that really ran.
   fake_bin <- fs::path(withr::local_tempdir(), "micromamba")
   fs::file_create(fake_bin)
-  spawned <- NULL
+  tracked <- new.env(parent = emptyenv())
+  tracked$spawned <- NULL
   testthat::local_mocked_bindings(
     get_best_micromamba_path = function(...) fake_bin,
     execute_command = function(command, args, ...) {
-      spawned <<- list(command = command, args = args)
+      tracked$spawned <- list(command = command, args = args)
       return(list(status = 0L, stdout = "", stderr = "", timeout = FALSE))
     }
   )
@@ -132,12 +135,12 @@ test_that("native_cmd() reports the exact command line that ran", {
     verbose = "silent"
   )
   expected <- paste(
-    shQuote(as.character(c(spawned$command, spawned$args))),
+    shQuote(as.character(c(tracked$spawned$command, tracked$spawned$args))),
     collapse = " "
   )
   testthat::expect_identical(px_res$cmd, expected)
   testthat::expect_identical(
-    as.character(spawned$command),
+    as.character(tracked$spawned$command),
     as.character(fs::path_real(fake_bin))
   )
   # Every argument is there, the package specs last and quoted.
@@ -165,14 +168,17 @@ test_that("native_cmd(install = FALSE) never installs micromamba", {
   # Regression test (decision D3): the listings of the micromamba backend
   # are queries, and native_cmd() installed micromamba for them when no
   # usable binary was found.
-  installed <- 0L
+  tracked <- new.env(parent = emptyenv())
+  tracked$installed <- 0L
   testthat::local_mocked_bindings(
     get_best_micromamba_path = function(...) NULL,
     install_micromamba = function(...) {
-      installed <<- installed + 1L
-      stop("install requested")
+      tracked$installed <- tracked$installed + 1L
+      stop("install requested", call. = FALSE)
     },
-    execute_command = function(...) stop("No process may start here.")
+    execute_command = function(...) {
+      stop("No process may start here.", call. = FALSE)
+    }
   )
   cnd <- rlang::catch_cnd(
     native_cmd(
@@ -187,13 +193,13 @@ test_that("native_cmd(install = FALSE) never installs micromamba", {
     class(cnd)[1:2],
     c("condathis_micromamba_not_installed", "condathis_error")
   )
-  testthat::expect_identical(installed, 0L)
+  testthat::expect_identical(tracked$installed, 0L)
   testthat::expect_null(native_cmd_if_installed(
     conda_cmd = "env",
     conda_args = c("list", "--json"),
     verbose = "silent"
   ))
-  testthat::expect_identical(installed, 0L)
+  testthat::expect_identical(tracked$installed, 0L)
 
   # The default still installs micromamba for the commands that need it.
   testthat::expect_error(
@@ -201,7 +207,7 @@ test_that("native_cmd(install = FALSE) never installs micromamba", {
     "install requested",
     fixed = TRUE
   )
-  testthat::expect_identical(installed, 1L)
+  testthat::expect_identical(tracked$installed, 1L)
 })
 
 test_that("native_cmd() gives micromamba its root and keeps its files in the root", {
@@ -671,9 +677,56 @@ test_that("micromamba_unregister_env() removes only the lines of the env", {
   }
   # A registry that cannot be read is left alone, without an error.
   testthat::local_mocked_bindings(
-    micromamba_unregister_env_impl = function(...) stop("boom")
+    micromamba_unregister_env_impl = function(...) stop("boom", call. = FALSE)
   )
   testthat::expect_false(micromamba_unregister_env(env_dir, home = home))
+})
+
+test_that("micromamba_unregister_env() keeps a line appended meanwhile", {
+  home <- withr::local_tempdir()
+  registry <- fs::path(home, ".conda", "environments.txt")
+  fs::dir_create(fs::path_dir(registry))
+  env_dir <- as.character(fs::path(home, "root", "envs", "my-env"))
+  writeBin(charToRaw(paste0("/opt/conda/envs/a\n", env_dir, "\n")), registry)
+  read_registry <- read_registry_bytes
+  tracked <- new.env(parent = emptyenv())
+  tracked$reads <- 0L
+  # Another process appends a line after the first read, as
+  # `micromamba create` does.
+  testthat::local_mocked_bindings(
+    read_registry_bytes = function(registry) {
+      tracked$reads <- tracked$reads + 1L
+      bytes <- read_registry(registry)
+      if (identical(tracked$reads, 1L)) {
+        cat("/opt/conda/envs/new\n", file = registry, append = TRUE)
+      }
+      return(bytes)
+    }
+  )
+  testthat::expect_true(micromamba_unregister_env(env_dir, home = home))
+  testthat::expect_identical(
+    readLines(registry),
+    c("/opt/conda/envs/a", "/opt/conda/envs/new")
+  )
+  # Read, changed, read again, then a clean round.
+  testthat::expect_identical(tracked$reads, 4L)
+  testthat::expect_identical(
+    as.character(fs::path_file(fs::dir_ls(fs::path_dir(registry)))),
+    "environments.txt"
+  )
+
+  # A registry that changes at every read: it gives up and keeps the file.
+  writeBin(charToRaw(paste0(env_dir, "\n")), registry)
+  testthat::local_mocked_bindings(
+    read_registry_bytes = function(registry) {
+      bytes <- read_registry(registry)
+      cat("/opt/conda/envs/x\n", file = registry, append = TRUE)
+      return(bytes)
+    }
+  )
+  testthat::expect_false(micromamba_unregister_env(env_dir, home = home))
+  testthat::expect_identical(readLines(registry)[[1L]], env_dir)
+  testthat::expect_length(fs::dir_ls(fs::path_dir(registry)), 1L)
 })
 
 test_that("micromamba_expand_home() expands ~ as micromamba does", {
@@ -749,14 +802,11 @@ test_that("on Windows, the activation dump gets R's own prefix at the end of its
     paste(c("C:\\Windows\\System32", "C:\\Windows", r_dirs), collapse = ";")
   )
   # A directory already on PATH, however spelled, is not added again.
-  testthat::expect_identical(
-    micromamba_run_path(
-      paste(c("C:\\CONDA\\envs\\r\\Library\\bin", r_dirs[-4L]), collapse = ";"),
-      on_windows = TRUE,
-      r_prefix = r_prefix
-    ),
-    NULL
-  )
+  testthat::expect_null(micromamba_run_path(
+    paste(c("C:\\CONDA\\envs\\r\\Library\\bin", r_dirs[-4L]), collapse = ";"),
+    on_windows = TRUE,
+    r_prefix = r_prefix
+  ))
 })
 
 test_that("micromamba starts when its default root prefix is not a Conda prefix", {

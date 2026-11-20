@@ -43,7 +43,7 @@ testthat::test_that("Output redirection to file", {
     object = stringr::str_detect(
       string = px_res$stdout,
       pattern = stringr::fixed("Hello World!")
-    ),
+    )
   )
   # })
 
@@ -59,7 +59,7 @@ testthat::test_that("Output redirection to file", {
     error = "continue"
   )
   testthat::expect_true(
-    object = px_res$status != 0L,
+    object = px_res$status != 0L
   )
   testthat::expect_true(
     fs::file_exists(temp_output_file)

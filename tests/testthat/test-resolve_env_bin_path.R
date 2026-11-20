@@ -155,3 +155,37 @@ test_that("resolve_env_bin_path() tries PATHEXT extensions for a path without on
     )
   }
 })
+
+test_that("resolve_env_bin_path() returns a command found in the environment with backslashes on Windows", {
+  # Regression test: only an absolute command was converted; a command
+  # found inside the environment came back with `/`, and was started as
+  # such (`argv[0]`).
+  env_dir <- withr::local_tempdir()
+  fs::dir_create(fs::path(env_dir, "Library", "bin"))
+  tool <- fs::path(env_dir, "Library", "bin", "tool.exe")
+  fs::file_create(tool)
+  resolved <- testthat::with_mocked_bindings(
+    is_windows = function() TRUE,
+    code = withr::with_envvar(
+      c(PATHEXT = ".COM;.EXE"),
+      resolve_env_bin_path(env_dir, "tool")
+    )
+  )
+  testthat::expect_identical(
+    resolved,
+    native_command_path(tool, on_windows = TRUE)
+  )
+  testthat::expect_no_match(resolved, "/", fixed = TRUE)
+
+  # Off Windows, the path stays the `fs_path` of `bin/`, as before.
+  fs::dir_create(fs::path(env_dir, "bin"))
+  unix_tool <- fs::path(env_dir, "bin", "tool")
+  fs::file_create(unix_tool)
+  testthat::expect_identical(
+    testthat::with_mocked_bindings(
+      is_windows = function() FALSE,
+      code = resolve_env_bin_path(env_dir, "tool")
+    ),
+    fs::path(unix_tool)
+  )
+})

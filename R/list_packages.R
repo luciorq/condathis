@@ -86,13 +86,14 @@ list_packages <- function(
   resolved <- resolve_backend(
     env_name = env_name,
     method = method,
-    mutating = FALSE
+    mutating = FALSE,
+    user_env = rlang::caller_env()
   )
 
   # Rule R5: only a definite "absent" (`FALSE`) aborts here. When the probe
   # fails (`NA`), the listing below runs and reports the backend's real
-  # error.
-  probe <- backend_probe_env(resolved$backend, env_name, verbose = "silent")
+  # error. The probe is the one `resolve_backend()` already ran.
+  probe <- resolved_env_exists(resolved, env_name)
   if (isFALSE(probe)) {
     abort_env_not_found(
       env_name,
@@ -127,6 +128,7 @@ list_packages <- function(
   }
 
   if (isTRUE(verbose_list$strategy %in% c("full", "output"))) {
+    # jarl-ignore unused_object: interpolated by cli in the message below
     n_packages <- base::nrow(pkgs_df)
     condathis_inform(
       message = c(

@@ -34,7 +34,7 @@ testthat::test_that("Install micromamba from scratch", {
     ))
   }
 
-  captured_output <- testthat::capture_output(code = {
+  testthat::capture_output(code = {
     testthat::expect_message(
       object = {
         install_micromamba(verbose = "output")
@@ -48,7 +48,7 @@ testthat::test_that("Install micromamba from scratch", {
   # The installed binary is the default version, so an explicit request
   # for that version keeps it.
   default_version <- formals(install_micromamba)$micromamba_version
-  captured_output <- suppressMessages(
+  suppressMessages(
     testthat::expect_message(
       object = {
         install_micromamba(
@@ -61,7 +61,7 @@ testthat::test_that("Install micromamba from scratch", {
     )
   ) |>
     testthat::capture_output()
-  captured_output <- testthat::expect_message(
+  testthat::expect_message(
     object = {
       install_micromamba(
         micromamba_version = default_version,
@@ -113,7 +113,7 @@ testthat::test_that("Fallback to uncompressed when archive extraction fails", {
     ))
   }
 
-  captured_output <- suppressMessages(
+  suppressMessages(
     suppressWarnings(
       install_micromamba(force = TRUE, verbose = "silent")
     )
@@ -243,7 +243,7 @@ testthat::test_that("No warnings when archive extraction fails", {
   }
 
   # This should NOT produce any warnings about tar or bzip2
-  captured_output <- testthat::capture_output({
+  testthat::capture_output({
     result <- testthat::expect_no_warning(
       suppressMessages(
         install_micromamba(force = TRUE, verbose = "silent")
@@ -251,6 +251,10 @@ testthat::test_that("No warnings when archive extraction fails", {
     )
   })
 
+  testthat::expect_identical(
+    as.character(result),
+    as.character(micromamba_bin_path())
+  )
   testthat::expect_true(fs::file_exists(micromamba_bin_path()))
 })
 
@@ -266,10 +270,14 @@ testthat::test_that("download_uncompressed_binary preserves an existing binary w
   bin_path <- fs::path(bin_dir, "micromamba")
   writeLines("existing working binary", bin_path)
 
-  seen_destfiles <- character(0L)
+  tracked <- new.env(parent = emptyenv())
+  tracked$seen_destfiles <- character(0L)
   testthat::local_mocked_bindings(
     download_micromamba_file = function(url, destfile, ...) {
-      seen_destfiles <<- c(seen_destfiles, as.character(destfile))
+      tracked$seen_destfiles <- c(
+        tracked$seen_destfiles,
+        as.character(destfile)
+      )
       # A partial download, which the mirror loop must delete.
       writeLines("partial", destfile)
       FALSE
@@ -289,7 +297,7 @@ testthat::test_that("download_uncompressed_binary preserves an existing binary w
 
   testthat::expect_false(result)
   # The live binary was never handed out as a download destination...
-  testthat::expect_false(as.character(bin_path) %in% seen_destfiles)
+  testthat::expect_false(as.character(bin_path) %in% tracked$seen_destfiles)
   # ...and survived the total failure, intact.
   testthat::expect_true(fs::file_exists(bin_path))
   testthat::expect_equal(readLines(bin_path), "existing working binary")
@@ -471,7 +479,8 @@ testthat::test_that("extract_tar_bz2() needs no system tar or bzip2", {
 
 testthat::test_that("extract_tar_bz2() falls back to the system tar", {
   archive <- local_fake_micromamba_archive()
-  calls <- list()
+  tracked <- new.env(parent = emptyenv())
+  tracked$calls <- list()
   testthat::local_mocked_bindings(
     system_tar_program = function(...) "/opt/fake/tar"
   )
@@ -481,7 +490,7 @@ testthat::test_that("extract_tar_bz2() falls back to the system tar", {
   )
   testthat::local_mocked_bindings(
     run = function(command, args, stdin, wd, ...) {
-      calls[[length(calls) + 1L]] <<- list(
+      tracked$calls[[length(tracked$calls) + 1L]] <- list(
         command = command,
         args = args,
         stdin = stdin,
@@ -494,11 +503,11 @@ testthat::test_that("extract_tar_bz2() falls back to the system tar", {
   exdir <- withr::local_tempdir()
 
   testthat::expect_true(extract_tar_bz2(archive, exdir))
-  testthat::expect_length(calls, 1L)
-  testthat::expect_identical(calls[[1L]]$command, "/opt/fake/tar")
+  testthat::expect_length(tracked$calls, 1L)
+  testthat::expect_identical(tracked$calls[[1L]]$command, "/opt/fake/tar")
   # The archive goes in on stdin: no path argument for tar to misread.
-  testthat::expect_identical(calls[[1L]]$args, c("-xjf", "-"))
-  testthat::expect_identical(calls[[1L]]$stdin, as.character(archive))
+  testthat::expect_identical(tracked$calls[[1L]]$args, c("-xjf", "-"))
+  testthat::expect_identical(tracked$calls[[1L]]$stdin, as.character(archive))
 })
 
 testthat::test_that("extract_tar_bz2() works with the real system tar", {
@@ -567,7 +576,7 @@ testthat::test_that("install_micromamba() installs from the archive without syst
 local_no_download <- function(.local_envir = parent.frame()) {
   testthat::local_mocked_bindings(
     download_micromamba_file = function(...) {
-      stop("no download may start")
+      stop("no download may start", call. = FALSE)
     },
     .env = .local_envir
   )
@@ -684,7 +693,7 @@ testthat::test_that("install_micromamba() installs a requested version that diff
         return(TRUE)
       },
       download_uncompressed_binary = function(...) {
-        stop("the first strategy succeeded")
+        stop("the first strategy succeeded", call. = FALSE)
       }
     )
 
@@ -712,7 +721,7 @@ testthat::test_that("install_micromamba() installs a requested version that diff
 
     # A version that cannot be read does not satisfy an explicit request.
     testthat::local_mocked_bindings(
-      get_micromamba_version = function(...) stop("no version")
+      get_micromamba_version = function(...) stop("no version", call. = FALSE)
     )
     install_micromamba(micromamba_version = "2.9.0-0", verbose = "silent")
     testthat::expect_identical(downloads$n, 2L)
@@ -722,8 +731,8 @@ testthat::test_that("install_micromamba() installs a requested version that diff
 testthat::test_that("install_micromamba() renames timeout_limit to timeout", {
   # Decision: the run family names it `timeout`. `timeout_limit` is a
   # deprecated alias.
-  testthat::expect_identical(
-    names(formals(install_micromamba)),
+  testthat::expect_named(
+    formals(install_micromamba),
     c(
       "micromamba_version",
       "timeout",

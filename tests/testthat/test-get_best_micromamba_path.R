@@ -121,3 +121,105 @@ testthat::test_that("a broken discovery candidate is skipped, not fatal", {
   )
   testthat::expect_no_error(get_best_micromamba_path())
 })
+
+testthat::test_that("a pixi trampoline is resolved to the binary it starts", {
+  home <- normalizePath(withr::local_tempdir(), winslash = "/")
+  real <- file.path(home, "envs", "micromamba", "bin", "micromamba")
+  dir.create(dirname(real), recursive = TRUE)
+  writeLines("real", real)
+  bin_dir <- file.path(home, "bin")
+  config_dir <- file.path(bin_dir, "trampoline_configuration")
+  dir.create(config_dir, recursive = TRUE)
+  write_config <- function(name, exe) {
+    jsonlite::write_json(
+      list(exe = exe, path_diff = dirname(real), env = list(CONDA_SHLVL = "1")),
+      file.path(config_dir, paste0(name, ".json")),
+      auto_unbox = TRUE
+    )
+  }
+  trampoline <- file.path(bin_dir, "micromamba")
+  writeLines("trampoline", trampoline)
+  # No configuration: the path is kept.
+  testthat::expect_identical(resolve_pixi_trampoline(trampoline), trampoline)
+  write_config("micromamba", real)
+  testthat::expect_identical(resolve_pixi_trampoline(trampoline), real)
+  # Windows: `micromamba.exe` reads `micromamba.json`, with any case.
+  trampoline_exe <- file.path(bin_dir, "micromamba.EXE")
+  writeLines("trampoline", trampoline_exe)
+  testthat::expect_identical(
+    resolve_pixi_trampoline(trampoline_exe, on_windows = TRUE),
+    real
+  )
+  # Through a symbolic link from another directory, as pixi resolves it.
+  if (isFALSE(is_windows())) {
+    link_dir <- file.path(home, "elsewhere")
+    dir.create(link_dir)
+    link <- file.path(link_dir, "micromamba")
+    file.symlink(trampoline, link)
+    testthat::expect_identical(resolve_pixi_trampoline(link), real)
+  }
+  # An `exe` that is missing, a directory, the trampoline itself, relative
+  # (here an existing file of the working directory), or no string, and a
+  # file that is no JSON object: the path is kept.
+  withr::local_dir(dirname(real))
+  for (exe in list(
+    file.path(home, "missing"),
+    home,
+    trampoline,
+    basename(real),
+    1L
+  )) {
+    write_config("micromamba", exe)
+    testthat::expect_identical(
+      resolve_pixi_trampoline(trampoline),
+      trampoline,
+      info = format(exe)
+    )
+  }
+  writeLines("not json", file.path(config_dir, "micromamba.json"))
+  testthat::expect_identical(resolve_pixi_trampoline(trampoline), trampoline)
+  writeLines("[1, 2]", file.path(config_dir, "micromamba.json"))
+  testthat::expect_identical(resolve_pixi_trampoline(trampoline), trampoline)
+  # Not a file: kept as given.
+  for (path in list(NULL, NA_character_, "", file.path(home, "none"), home)) {
+    testthat::expect_identical(resolve_pixi_trampoline(path), path)
+  }
+})
+
+testthat::test_that("discovery returns the binary of a trampoline, not the trampoline", {
+  home <- normalizePath(withr::local_tempdir(), winslash = "/")
+  real <- file.path(home, "envs", "micromamba", "bin", "micromamba")
+  dir.create(dirname(real), recursive = TRUE)
+  writeLines("real", real)
+  bin_dir <- file.path(home, "bin")
+  dir.create(file.path(bin_dir, "trampoline_configuration"), recursive = TRUE)
+  trampoline <- file.path(bin_dir, "micromamba")
+  writeLines("trampoline", trampoline)
+  jsonlite::write_json(
+    list(exe = real, env = list(CONDA_SHLVL = "1")),
+    file.path(bin_dir, "trampoline_configuration", "micromamba.json"),
+    auto_unbox = TRUE
+  )
+  checked <- new.env()
+  checked$paths <- character(0L)
+  testthat::local_mocked_bindings(
+    is_umamba_version_available = function(path) {
+      checked$paths <- c(checked$paths, as.character(path))
+      TRUE
+    }
+  )
+  for (source in c("option", "envvar")) {
+    checked$paths <- character(0L)
+    local({
+      if (identical(source, "option")) {
+        withr::local_options(condathis.micromamba_path = trampoline)
+      } else {
+        withr::local_options(condathis.micromamba_path = NULL)
+        withr::local_envvar(CONDATHIS_MICROMAMBA_PATH = trampoline)
+      }
+      result <- get_best_micromamba_path()
+      testthat::expect_identical(as.character(result), real, info = source)
+      testthat::expect_identical(checked$paths, real, info = source)
+    })
+  }
+})

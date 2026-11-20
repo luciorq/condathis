@@ -278,7 +278,7 @@ testthat::test_that("install_micromamba() accepts timeout = Inf", {
 testthat::test_that("install_micromamba() refuses an invalid timeout", {
   testthat::local_mocked_bindings(
     download_micromamba_file = function(...) {
-      stop("no download may start for an invalid timeout")
+      stop("no download may start for an invalid timeout", call. = FALSE)
     }
   )
   condathis::with_sandbox_dir({

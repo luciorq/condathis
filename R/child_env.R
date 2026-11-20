@@ -11,7 +11,8 @@
 #'    variables leave the block.
 #' 3. The clean-conda overlay from `get_clean_conda_envvars()`, where a
 #'    `NULL` entry is a true *removal* from the child's block (something
-#'    `processx`'s `env = c("current", ...)` idiom cannot express).
+#'    `processx`'s `env = c("current", ...)` idiom cannot express), then
+#'    the Python variables of `python_isolation_envvars()`.
 #' 4. `overlay`: activation variables, replacing any same-named inherited
 #'    value.
 #' 5. `path_prepend`: directories prepended to whatever `PATH` the child
@@ -66,6 +67,7 @@ build_child_env <- function(
     env,
     get_clean_conda_envvars(tmp_dir = tmp_dir, conda_dirs = conda_dirs)
   )
+  env <- apply_env_overrides(env, python_isolation_envvars())
   if (isTRUE(length(overlay) > 0L)) {
     env <- apply_env_overrides(env, as.list(overlay))
   }

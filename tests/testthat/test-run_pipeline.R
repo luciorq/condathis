@@ -1367,11 +1367,12 @@ test_that("Pipeline reaps spawned stages when an unexpected error escapes", {
     env_name = "run-pipeline-cli-tools-env",
     verbose = "silent"
   )
-  call_count <- 0L
+  tracked <- new.env(parent = emptyenv())
+  tracked$call_count <- 0L
   testthat::local_mocked_bindings(
     build_child_env = function(...) {
-      call_count <<- call_count + 1L
-      if (call_count >= 2L) {
+      tracked$call_count <- tracked$call_count + 1L
+      if (tracked$call_count >= 2L) {
         stop("unexpected internal failure", call. = FALSE)
       }
       Sys.getenv()
@@ -1554,7 +1555,7 @@ test_that("reap_windows_broken_pipes() watches a writer whose reader is gone", {
     }
     env$kill_tree <- function() {
       if (isFALSE(tree_ok)) {
-        stop("kill_tree is not supported on this platform")
+        stop("kill_tree is not supported on this platform", call. = FALSE)
       }
       env$tree_killed <- TRUE
       env$kill()
@@ -1575,8 +1576,9 @@ test_that("reap_windows_broken_pipes() watches a writer whose reader is gone", {
   # a | b | c, where c has exited and a and b are still running.
   procs <- list(fake_proc(TRUE), fake_proc(TRUE), fake_proc(FALSE))
   watch <- fake_watch()
-  drained <- integer(0L)
-  before_kill <- function(i) drained <<- c(drained, i)
+  tracked <- new.env(parent = emptyenv())
+  tracked$drained <- integer(0L)
+  before_kill <- function(i) tracked$drained <- c(tracked$drained, i)
   state <- new_broken_pipe_state(3L)
 
   state <- reap_windows_broken_pipes(procs, state, before_kill, watch, now = 0)
@@ -1596,7 +1598,7 @@ test_that("reap_windows_broken_pipes() watches a writer whose reader is gone", {
   testthat::expect_true(procs[[2L]]$killed)
   testthat::expect_true(procs[[2L]]$tree_killed)
   testthat::expect_identical(state$killed, c(FALSE, TRUE, FALSE))
-  testthat::expect_identical(drained, 2L)
+  testthat::expect_identical(tracked$drained, 2L)
 
   # Then a has no reader either, and is watched in turn.
   state <- reap_windows_broken_pipes(procs, state, before_kill, watch, now = 62)
@@ -1620,6 +1622,7 @@ test_that("reap_windows_broken_pipes() watches a writer whose reader is gone", {
     now = 0
   )
   testthat::expect_identical(watch$started, 1L)
+  testthat::expect_identical(state$phase, c("watching", "reader"))
 
   # When `kill_tree()` fails, `kill()` still ends the stage.
   procs <- list(fake_proc(TRUE, tree_ok = FALSE), fake_proc(FALSE))
@@ -1672,15 +1675,16 @@ test_that("the orphaned-pipe watcher reports only output written after the reade
   # `Rscript` takes to start: output written before the watcher runs is
   # only more output already in the pipe.
   testthat::skip_on_cran()
-  watchers <- list()
+  tracked <- new.env(parent = emptyenv())
+  tracked$watchers <- list()
   withr::defer(
-    for (watcher in watchers) {
+    for (watcher in tracked$watchers) {
       try(watcher$kill(), silent = TRUE)
     }
   )
   spawn <- function(...) {
     watcher <- spawn_orphan_pipe_watcher("|", ...)
-    watchers[[length(watchers) + 1L]] <<- watcher
+    tracked$watchers[[length(tracked$watchers) + 1L]] <- watcher
     watcher
   }
   watcher_status <- function(watcher) {
@@ -2070,27 +2074,26 @@ test_that("an explicit per-command stderr = NULL discards stderr", {
     env_name = "run-pipeline-cli-tools-env",
     verbose = "silent"
   )
-  testthat::expect_false(grepl(
-    "noisy",
-    res$processes[[1]]$stderr,
-    fixed = TRUE
-  ))
+  testthat::expect_no_match(res$processes[[1]]$stderr, "noisy", fixed = TRUE)
   testthat::expect_identical(parse_output(res), "a")
 })
 
 test_that("kill_processes() keeps going when a process handle fails", {
   # Regression test: on Windows `is_alive()` can fail with "The handle is
   # invalid", which aborted the cleanup of every later stage.
-  killed <- character()
+  tracked <- new.env(parent = emptyenv())
+  tracked$killed <- character()
   fake_proc <- function(name, alive) {
     list(
       is_alive = function() {
         if (identical(alive, "error")) {
-          stop("failed to get exit code (system error 6)")
+          stop("failed to get exit code (system error 6)", call. = FALSE)
         }
         alive
       },
-      kill = function() killed <<- c(killed, name)
+      kill = function() {
+        tracked$killed <- c(tracked$killed, name)
+      }
     )
   }
   testthat::expect_no_error(kill_processes(list(
@@ -2099,7 +2102,7 @@ test_that("kill_processes() keeps going when a process handle fails", {
     fake_proc("done", FALSE),
     fake_proc("running", TRUE)
   )))
-  testthat::expect_identical(killed, "running")
+  testthat::expect_identical(tracked$killed, "running")
 })
 
 testthat::test_that("run_pipeline() validates its own method", {
@@ -2228,10 +2231,7 @@ testthat::test_that("c() of steps and options gives the arguments for do.call()"
   steps <- c(run_step("a"), run_step("b"))
   args <- c(steps, list(error = "continue", verbose = "silent"))
   testthat::expect_false(is.object(args))
-  testthat::expect_identical(
-    names(args),
-    c("", "", "error", "verbose")
-  )
+  testthat::expect_named(args, c("", "", "error", "verbose"))
   testthat::expect_identical(unname(args[1:2]), as.list(steps))
   testthat::expect_identical(
     c(run_step("a"), verbose = "silent"),
@@ -2333,7 +2333,9 @@ testthat::test_that("a list of steps has format and print methods", {
       "[2] <run_step> b [env: b-env]"
     )
   )
-  out <- utils::capture.output(visible <- withVisible(print(steps)))
+  out <- utils::capture.output({
+    visible <- withVisible(print(steps))
+  })
   testthat::expect_identical(out, format(steps))
   testthat::expect_false(visible$visible)
   testthat::expect_identical(visible$value, steps)
@@ -2517,7 +2519,7 @@ testthat::test_that("run_pipeline() starts a stage's bare command as run() does"
 testthat::test_that("run_pipeline() checks the environment directory that a backend gives", {
   # Regression test: the stage's directory came from `backend_get_env_dir()`
   # unchecked, so a relative path reached processx and the activation.
-  stub <- local_run_family_stub(
+  local_run_family_stub(
     backend_get_env_dir = function(backend, env_name = "condathis-env") {
       return("relative/env-dir")
     }

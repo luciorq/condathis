@@ -174,14 +174,17 @@
 #'     console, a script or the tests of the calling package. Calls made
 #'     inside other packages do not warn.
 #'     `options(lifecycle_verbosity = "warning")` makes those calls warn
-#'     too, and `"quiet"` turns the warning off.
+#'     too, and `"quiet"` turns the warning off. testthat's third edition
+#'     sets `lifecycle_verbosity = "warning"` inside `test_that()`, so in
+#'     those tests calls made inside other packages, such as a dependency
+#'     that calls condathis, warn too;
+#'     `withr::local_options(lifecycle_verbosity = "quiet")` silences them.
 #'   * `condathis_deprecated_env_file_arg`\cr
 #'     for `env_file =` in [create_env()]: pass an [env_definition()] in
 #'     `...` instead. The same rule as for `packages =`.
 #'   * `condathis_deprecated_method_native`\cr
-#'     for `method = "native"` (once per session). [create_env()],
-#'     [install_packages()], [validate_env()], [remove_env()], [run()] and
-#'     [run_bin()] apply the same rule as for `packages =`.
+#'     for `method = "native"` (once per session), in every function that
+#'     takes `method`. The same rule as for `packages =`.
 #'   * `condathis_deprecated_arg`\cr
 #'     for `timeout_limit` in [install_micromamba()].
 #'
@@ -363,6 +366,12 @@
 #'   no usable binary was found, so it is downloaded.
 #' * `condathis_micromamba_status_error`\cr
 #'   a `micromamba` command failed.
+#' * `condathis_micromamba_env_file_dir_not_writable`\cr
+#'   the directory of an environment file with a `pip:` section is not
+#'   writable, so micromamba cannot write its temporary file there, and the
+#'   section names paths relative to that directory, so `condathis` cannot
+#'   pass a copy. [create_env()] and [install_packages()] raise it with
+#'   their class of a backend failure.
 #' * `condathis_micromamba_bin_path_not_executable`
 #' * `condathis_micromamba_version_not_detected`
 #' * `condathis_micromamba_not_available_for_arch`

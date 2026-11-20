@@ -185,6 +185,9 @@ cleanup_sandbox <- function(
 #' Tries up to ten times, 0.2 seconds apart: a process stopped a moment ago
 #' can hold its files open for a little while on Windows.
 #'
+#' After a failed attempt, the links left in the sandbox are deleted before
+#' the next one (see `delete_sandbox_links()`).
+#'
 #' @param sandbox_root Character string. The sandbox directory.
 #'
 #' @returns `TRUE` when the directory no longer exists, `FALSE` otherwise.
@@ -197,9 +200,43 @@ delete_sandbox_root <- function(sandbox_root) {
     if (isFALSE(base::dir.exists(sandbox_root))) {
       return(TRUE)
     }
+    delete_sandbox_links(sandbox_root)
     base::Sys.sleep(0.2)
   }
   return(isFALSE(base::dir.exists(sandbox_root)))
+}
+
+#' Delete the links in a sandbox directory
+#'
+#' On Windows, `base::unlink(recursive = TRUE)` cannot delete a junction
+#' whose target it already deleted, for example a junction to another
+#' directory of the sandbox: `file.exists()` and `dir.exists()` are then
+#' `FALSE` for it. `fs` finds such a link and deletes it. Only the links
+#' are deleted, not what they point to, and the listing does not go into
+#' them, so nothing outside the sandbox is touched.
+#'
+#' @param sandbox_root Character string. The sandbox directory.
+#'
+#' @returns `NULL`, invisibly. Errors are ignored: the caller checks
+#'   whether the directory is gone.
+#'
+#' @keywords internal
+#' @noRd
+delete_sandbox_links <- function(sandbox_root) {
+  links <- tryCatch(
+    fs::dir_ls(
+      sandbox_root,
+      all = TRUE,
+      recurse = TRUE,
+      type = "symlink",
+      fail = FALSE
+    ),
+    error = function(e) character(0L)
+  )
+  for (link in links) {
+    tryCatch(fs::link_delete(link), error = function(e) NULL)
+  }
+  return(invisible(NULL))
 }
 
 #' Stop the processes that use a sandbox

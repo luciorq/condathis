@@ -120,12 +120,14 @@ testthat::test_that("the default verbose echoes the last command's stdout", {
   )
   for (verbose in list("output", TRUE)) {
     out <- utils::capture.output(
-      res <- run_pipeline(
-        run_step("polyglot"),
-        run_step("polyglot"),
-        env_name = env_name,
-        verbose = verbose
-      )
+      {
+        res <- run_pipeline(
+          run_step("polyglot"),
+          run_step("polyglot"),
+          env_name = env_name,
+          verbose = verbose
+        )
+      }
     )
     # Exactly what was captured, once: only the last command reaches R.
     testthat::expect_identical(
@@ -148,7 +150,9 @@ testthat::test_that("verbose = 'output' echoes every command's stderr, in red", 
   steps <- pipeline_verbose_r_steps()
 
   out <- utils::capture.output(
-    res <- run_pipeline(!!!steps, env_name = env_name)
+    {
+      res <- run_pipeline(!!!steps, env_name = env_name)
+    }
   )
   testthat::expect_identical(res$statuses, c(0L, 0L))
   testthat::expect_true(has_line(out, "pipeline-verbose-stderr-1"))
@@ -175,8 +179,10 @@ testthat::test_that("verbose = 'output' echoes every command's stderr, in red", 
     )
   }
   # Standard output is not red.
-  testthat::expect_false(
-    grepl(paste0(red_open, "pipeline-verbose-stdout"), all_out, fixed = TRUE)
+  testthat::expect_no_match(
+    all_out,
+    paste0(red_open, "pipeline-verbose-stdout"),
+    fixed = TRUE
   )
 })
 
@@ -188,10 +194,12 @@ testthat::test_that("stderr that is not captured is not echoed", {
 
   # Discarded by the first step only.
   out <- utils::capture.output(
-    res <- run_pipeline(
-      !!!pipeline_verbose_r_steps(first_stderr = NULL),
-      env_name = env_name
-    )
+    {
+      res <- run_pipeline(
+        !!!pipeline_verbose_r_steps(first_stderr = NULL),
+        env_name = env_name
+      )
+    }
   )
   testthat::expect_identical(res$statuses, c(0L, 0L))
   testthat::expect_false(has_line(out, "pipeline-verbose-stderr-1"))
@@ -201,11 +209,13 @@ testthat::test_that("stderr that is not captured is not echoed", {
   # Sent to a file by the pipeline: only stdout is echoed.
   stderr_file <- withr::local_tempfile(fileext = ".log")
   out <- utils::capture.output(
-    res <- run_pipeline(
-      !!!pipeline_verbose_r_steps(),
-      env_name = env_name,
-      stderr = stderr_file
-    )
+    {
+      res <- run_pipeline(
+        !!!pipeline_verbose_r_steps(),
+        env_name = env_name,
+        stderr = stderr_file
+      )
+    }
   )
   testthat::expect_identical(res$statuses, c(0L, 0L))
   testthat::expect_false(has_line(out, "pipeline-verbose-stderr"))
@@ -222,12 +232,14 @@ testthat::test_that("verbose = 'cmd' prints the pipeline first, and no output", 
   create_polyglot_env(env_name)
 
   out <- utils::capture.output(
-    res <- run_pipeline(
-      run_step("polyglot"),
-      run_step("polyglot", "a b"),
-      env_name = env_name,
-      verbose = "cmd"
-    )
+    {
+      res <- run_pipeline(
+        run_step("polyglot"),
+        run_step("polyglot", "a b"),
+        env_name = env_name,
+        verbose = "cmd"
+      )
+    }
   )
   testthat::expect_length(out, 1L)
   testthat::expect_match(out, "^Running ")
@@ -259,12 +271,14 @@ testthat::test_that("verbose = 'full' prints the pipeline, then its output", {
   create_polyglot_env(env_name)
 
   out <- utils::capture.output(
-    res <- run_pipeline(
-      run_step("polyglot"),
-      run_step("polyglot"),
-      env_name = env_name,
-      verbose = "full"
-    )
+    {
+      res <- run_pipeline(
+        run_step("polyglot"),
+        run_step("polyglot"),
+        env_name = env_name,
+        verbose = "full"
+      )
+    }
   )
   testthat::expect_identical(out[[1L]], "Running polyglot | polyglot")
   testthat::expect_identical(
@@ -297,16 +311,18 @@ testthat::test_that("binary = TRUE never echoes", {
 
   for (verbose in c("output", "full")) {
     out <- utils::capture.output(
-      res <- run_pipeline(
-        !!!steps,
-        env_name = env_name,
-        binary = TRUE,
-        verbose = verbose
-      )
+      {
+        res <- run_pipeline(
+          !!!steps,
+          env_name = env_name,
+          binary = TRUE,
+          verbose = verbose
+        )
+      }
     )
     testthat::expect_identical(res$statuses, c(0L, 0L))
-    testthat::expect_true(is.raw(res$processes[[2L]]$stdout))
-    testthat::expect_true(is.raw(res$processes[[1L]]$stderr))
+    testthat::expect_type(res$processes[[2L]]$stdout, "raw")
+    testthat::expect_type(res$processes[[1L]]$stderr, "raw")
     testthat::expect_match(
       rawToChar(res$processes[[1L]]$stderr),
       "pipeline-verbose-stderr-1",
@@ -407,7 +423,9 @@ testthat::test_that("the spinner never splits an echoed line", {
   # turns carriage returns into line breaks.
   out <- paste(
     utils::capture.output(
-      res <- pump_pipeline_io(list(proc), echo = TRUE, spinner = TRUE)
+      {
+        res <- pump_pipeline_io(list(proc), echo = TRUE, spinner = TRUE)
+      }
     ),
     collapse = "\n"
   )

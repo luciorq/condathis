@@ -88,12 +88,21 @@ to choose the version, or to install micromamba ahead of time.
 \details{
 The binary is the build for the platform of the running R (see
 \code{\link[=get_sys_arch]{get_sys_arch()}}): \code{linux-64}, \code{linux-aarch64}, \code{linux-ppc64le},
-\code{osx-64}, \code{osx-arm64}, \code{win-64} or \code{win-arm64}. A native ARM64 R on
-Windows gets \code{win-arm64}. An x64 R on an ARM64 PC gets \code{win-64}, which
-runs through x64 emulation. Every R of a user shares the installed
-binary. So on an ARM64 PC, the binary installed first stays until you
-replace it, for example with \code{force = TRUE}. Either binary works with
-both builds of R: micromamba builds environments for its own platform.
+\code{linux-riscv64}, \code{osx-64}, \code{osx-arm64}, \code{win-64} or \code{win-arm64}. On
+another platform, \code{install_micromamba()} aborts with class
+\code{condathis_micromamba_not_available_for_arch}.
+
+\code{linux-riscv64} has builds from micromamba 2.9.0 on, so an older
+version aborts there with the same class. The GitHub releases have them
+from 2.10.0-0 on: 2.9.0 comes from the conda-forge mirrors, and its
+checksum cannot be checked (see below).
+
+A native ARM64 R on Windows gets \code{win-arm64}. An x64 R on an ARM64 PC
+gets \code{win-64}, which runs through x64 emulation. Every R of a user
+shares the installed binary. So on an ARM64 PC, the binary installed
+first stays until you replace it, for example with \code{force = TRUE}.
+Either binary works with both builds of R: micromamba builds
+environments for its own platform.
 
 \code{install_micromamba()} tries the compressed archive first, from the
 micromamba releases on GitHub, then from the conda-forge channel on

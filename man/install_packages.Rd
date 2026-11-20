@@ -44,9 +44,12 @@ does not exist aborts with class
 \verb{packages = <specs>} still works. It is deprecated. It warns once per
 session (class \code{condathis_deprecated_packages_arg}) when the call comes
 from the console, a script or the tests of the package that makes it.
-Calls made inside other packages do not warn. \code{packages = NULL} and
-\code{packages = character(0)} install nothing and return status 0, as in
-0.1.4.
+Calls made inside other packages do not warn, except in tests that use
+testthat's third edition (see \link{condathis-conditions}).
+\code{packages = NULL} and \code{packages = character(0)} install nothing and
+return status 0, as in 0.1.4. When the backend cannot tell whether the
+environment exists, they abort with class
+\code{condathis_backend_probe_failed}.
 
 Invalid specs abort with these classes:
 \itemize{

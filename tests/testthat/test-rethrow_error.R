@@ -13,6 +13,7 @@ testthat::test_that("Do not execute code in curly braces", {
     env_name = "condathis-rethrow-test-env",
     verbose = "silent"
   )
+  testthat::expect_identical(px_res$status, 0L)
 
   testthat::expect_error(
     object = {
@@ -64,40 +65,33 @@ testthat::test_that("Do not execute code in curly braces", {
   testthat::expect_true(px_res$status != 0L)
 })
 
-# Test checking if stdin is a file
-# TODO: @luciorq Improve tests
-testthat::test_that("stdin is a file", {
-  error <- "cancel"
-  error_var <- TRUE
-  stdin <- NULL
+testthat::test_that("rethrow_error_run() checks that stdin is a file", {
+  # The frame of an exported function, as `rethrow_error_run()` reads it.
+  frame_with_stdin <- function(stdin) {
+    return(rlang::env(
+      error = "cancel",
+      error_var = TRUE,
+      stdin = stdin,
+      cmd = "some-cmd"
+    ))
+  }
 
-  px_res <- rethrow_error_run(
-    expr = {
-      ls_res <- ls()
-    },
-    env = parent.frame()
+  # `NULL` and `"|"` pass, and the expression is evaluated in the frame.
+  testthat::expect_true(
+    "stdin" %in% rethrow_error_run(ls(), env = frame_with_stdin(NULL))
   )
-  testthat::expect_null(stdin)
-  # testthat::expect_equal(px_res$status, 0L)
+  testthat::expect_true(
+    "stdin" %in% rethrow_error_run(ls(), env = frame_with_stdin("|"))
+  )
 
-  rm(px_res)
-  stdin <- "missing_file_stdin.txt"
-
+  # A file that does not exist aborts, with the classes of rule R1 too.
+  missing_env <- frame_with_stdin("missing_file_stdin.txt")
   testthat::expect_error(
-    object = {
-      rethrow_error_run(
-        expr = {
-          ls_res <- ls()
-        }
-      )
-    },
+    rethrow_error_run(ls(), env = missing_env),
     class = "condathis_run_stdin_error"
   )
-  # The fallback check has the classes of rule R1 too.
   cnd <- testthat::expect_error(
-    rethrow_error_run(expr = {
-      ls_res <- ls()
-    }),
+    rethrow_error_run(ls(), env = missing_env),
     class = "condathis_run_invalid_stdin"
   )
   testthat::expect_identical(
@@ -110,26 +104,12 @@ testthat::test_that("stdin is a file", {
       "condathis_error"
     )
   )
-  # rm(px_res)
 
-  stdin <- "|"
-  px_res <- rethrow_error_run(
-    expr = {
-      ls_res <- ls()
-    }
+  # A file that exists passes.
+  stdin_file <- withr::local_tempfile(lines = "input")
+  testthat::expect_true(
+    "stdin" %in% rethrow_error_run(ls(), env = frame_with_stdin(stdin_file))
   )
-  testthat::expect_true("stdin" %in% ls_res)
-  # testthat::expect_equal(px_res$status, 0L)
-
-  # error <- "continue"
-  # error_var <- FALSE
-  # status_code <- 99
-  # px_res <- rethrow_error_run(
-  #  expr = {
-  #    message("Error message")
-  #  },
-  #  env = parent.frame()
-  # )
 })
 
 testthat::test_that("rethrow_error_run never picks up a px_res from the user's workspace", {
@@ -168,20 +148,21 @@ testthat::test_that("rethrow_error_run() reports 'command not found' only for sp
   # Regression test: any caught condition without a status (a time limit
   # firing while polling, an error inside the I/O pump) was reported as
   # status 127 "command not found".
-  cmd <- "anything"
-  error_var <- TRUE
+  frame <- rlang::env(cmd = "anything", error_var = TRUE, stdin = NULL)
   other <- rlang::catch_cnd(rethrow_error_run(
     rlang::abort(
       "interrupted while polling",
       class = c("c_error", "rlib_error_3_0")
-    )
+    ),
+    env = frame
   ))
   testthat::expect_s3_class(other, "c_error")
   testthat::expect_false(inherits(other, "condathis_run_status_error"))
   testthat::expect_match(conditionMessage(other), "interrupted while polling")
 
   spawn <- rlang::catch_cnd(rethrow_error_run(
-    processx::run("definitely-not-a-command-condathis-xyz")
+    processx::run("definitely-not-a-command-condathis-xyz"),
+    env = frame
   ))
   testthat::expect_s3_class(spawn, "condathis_run_status_error")
 })
@@ -292,11 +273,8 @@ testthat::test_that("rethrow_error_run() status errors carry classes and fields"
   testthat::expect_identical(cnd$stderr, NA_character_)
 
   # The error names the call of the frame it evaluates in: the exported
-  # function, not this helper.
-  outer_fn <- function() {
-    cmd <- "x"
-    error_var <- TRUE
-    timeout <- Inf
+  # function, not this helper. The frame holds what the helper reads.
+  outer_fn <- function(cmd = "x", error_var = TRUE, timeout = Inf) {
     rethrow_error_run(
       expr = rlang::abort(
         "failed",

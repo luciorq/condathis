@@ -84,7 +84,9 @@ local_call_verbose <- function(strategy, frame = rlang::caller_env()) {
   previous <- condathis_call_verbose_state$strategy
   condathis_call_verbose_state$strategy <- strategy
   withr::defer(
-    condathis_call_verbose_state$strategy <- previous,
+    {
+      condathis_call_verbose_state$strategy <- previous
+    },
     envir = frame
   )
   return(invisible(NULL))

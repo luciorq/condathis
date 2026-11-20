@@ -26,6 +26,14 @@ Updated 2026-11-16, after the run-family unification
 1 and 6 are marked done in place. Item 21 is new: the follow-ups of that
 work.
 
+Updated 2026-11-18, after the items survey of round 8 of the run-family
+work (each finding checked by a second reviewer). Fixed in 0.2.0: 9b,
+9c, 17b to 17f, 20a, 20b and 20e (17f and 20a are decision D19 of
+`../feat-run-unify/`). Found done and ticked: 2, 3 (the rattlerthis
+side), 4, 18a and 18b. Updated in place: 7, 13 and 17a. The rest stays
+deferred: it needs a maintainer decision, a Windows or win-builder run,
+or new API.
+
 Stale bookkeeping fixed in the same pass: three items in
 `feat-backend-abstraction/TODO.md`'s "rattlerthis as a conforming backend"
 milestone were still unchecked although the work had landed (the vtable is
@@ -39,26 +47,30 @@ there with a pointer to this file.
 |---|------|--------|-------|-------------------|
 | 0 | 0.1.4 GitHub release + two uncommitted CRAN tarball edits | CRAN tarball audit | done; `CRAN-SUBMISSION` handled by `just git-tag` (2026-11-13) | no |
 | 1 | `run()` convergence onto resolve-once + direct spawn | feat-pipeline, feat-strict-defaults | done in 0.2.0 (2026-11-16, `../feat-run-unify/`) | no |
-| 2 | `rattlerthis` end-to-end smoke test via `condathis` | feat-backend-abstraction, rattlerthis | verified by hand 2026-11-05, test not written | no |
-| 3 | `list_packages()` cross-backend column schema | rattlerthis "flag upward" | decided (minimal subset), unflagged | maybe: coercion |
-| 4 | README cross-links between the two packages | both | condathis side done 2026-11-13; rattlerthis side not checked | no |
+| 2 | `rattlerthis` end-to-end smoke test via `condathis` | feat-backend-abstraction, rattlerthis | done: rattlerthis's conformance suite (checked 2026-11-18) | no |
+| 3 | `list_packages()` cross-backend column schema | rattlerthis "flag upward" | decided (minimal subset); rattlerthis side closed; condathis assertion optional | maybe: coercion |
+| 4 | README cross-links between the two packages | both | done (condathis 2026-11-13, rattlerthis checked 2026-11-18) | no |
 | 5 | Package-wide supervisor escape hatch | feat-pipeline | not decided | yes: option vs env var |
 | 6 | Nested-activation artifacts in `get_micromamba_activation_envvars()` | feat-pipeline | done in 0.2.0 (2026-11-16, `../feat-run-unify/`) | no |
-| 7 | Windows MinGW runtime pins in tests | HANDOFF | waiting on conda-forge | no |
-| 8 | jarl lint baseline (30 findings) | HANDOFF | decided: fix, do not suppress | no |
-| 9 | In-code `TODO: @luciorq` comments (3) | code | 9a decided (abort), superseded by `env_definition()`; 9b, 9c open | no |
+| 7 | Windows MinGW runtime pins in tests | HANDOFF | pins kept; newer builds exist, untested on Windows | no |
+| 8 | jarl lint baseline (650 findings with every rule) | HANDOFF | done in 0.2.0 (2026-11-18): 0 findings, `jarl.toml`, `just lint` gate (`../feat-run-unify/` D20) | no |
+| 9 | In-code `TODO: @luciorq` comments (3) | code | 9a decided (abort), superseded by `env_definition()`; 9b, 9c done 2026-11-18 | no |
 | 10 | `backend_status()` diagnostics | feat-backend-abstraction "later ideas" | idea | no |
 | 11 | Container backend package | feat-backend-abstraction "later ideas" | idea | yes: whether at all |
 | 12 | `verbose` on `run_pipeline()` | feat-pipeline "intentional divergences" | explicitly not planned | no |
-| 13 | Issue #12 (inner double quotes on Windows) | GitHub issue | fixed in 0.2.0, issue still open | no |
+| 13 | Issue #12 (inner double quotes on Windows) | GitHub issue | fixed in 0.2.0; regression assertion off Windows; issue still open | no |
 | 14 | Tests that need a UTF-8 locale or direct DNS | local run 2026-11-05 | done 2026-11-13 | no |
 | 15 | r-universe: condathis and rattlerthis | r-universe research 2026-11-05 | article done 2026-11-13; pkgdown workflow open | no |
 | 16 | condathis on WebAssembly (webR) | r-universe research 2026-11-05 | idea | yes: whether to abort early |
-| 17 | Optional `packages =` compatibility leftovers (6) | `packages =` review 2026-11-13 | left out of 0.2.0 on purpose | one: positional `channels` |
-| 18 | rattlerthis follow-ups of `env_definition()` | feat-env-file 2026-11-13 | open, two tests expected to fail | no |
+| 17 | Optional `packages =` compatibility leftovers (6) | `packages =` review 2026-11-13 | b to f done in 0.2.0 (2026-11-18); a open | one: positional `channels` |
+| 18 | rattlerthis follow-ups of `env_definition()` | feat-env-file 2026-11-13 | a, b done; c, d open | no |
 | 19 | Empty `LICENSE` in the upstream `polyglot` repository | CRAN docs review 2026-11-13 | open, maintainer only | no |
-| 20 | Small leftovers of the 2026-11-13 reviews | CRAN preparation reviews | open | no |
+| 20 | Small leftovers of the 2026-11-13 reviews | CRAN preparation reviews | a, b, e done 2026-11-18; c, d open | no |
 | 21 | Follow-ups of the run-family unification | feat-run-unify 2026-11-16 | open (e and parts of f done in 0.2.0) | yes: `R_LIBS*` |
+| 22 | `run()` waits for a change of its environment by another session | feat-run-unify D17, 2026-11-18 | deferred to after 0.2.0 | yes: whether to wait |
+| 24 | Dependency minimums, `linux-riscv64` micromamba, CI platforms | deps survey of round 8, 2026-11-18 | done in 0.2.0 (2026-11-18); CI jobs not run yet | no |
+| 25 | User-facing docs against the code of round 8 | docs survey of round 8, 2026-11-18 | done in 0.2.0 (2026-11-18); co-author role left to the maintainer | one: `Authors@R` role |
+| 26 | `parse_match_spec()` writes `license_family` also as `license` | jarl stage of round 8, 2026-11-18 | open | yes: fix in 0.2.0 or after |
 
 ## 0. Before 0.2.0: the 0.1.4 release was never recorded on GitHub
 
@@ -254,6 +266,14 @@ plan below still stands: none of it is a test in either suite yet.
    `condathis_backend_mismatch`.
 4. After this passes, mark the milestone done in both packages' devdocs.
 
+**Update 2026-11-18: done.** rattlerthis's
+`tests/testthat/test-condathis-conformance.R` covers it: it runs
+`condathis::create_env()`, `condathis::run()` and
+`condathis::remove_env()` with `method = "rattler"`, reads the
+`backend.json` marker, asserts `condathis_backend_mismatch` for
+`install_packages(method = "micromamba")`, and has a conda-forge
+end-to-end section. "None of it is a test yet" above is out of date.
+
 ## 3. `list_packages()` cross-backend column schema
 
 **Origin.** rattlerthis TODO "Flag the `list_packages()` column-schema
@@ -281,6 +301,11 @@ already answered but nobody told it.
 3. Open question, low priority: whether to reorder columns so the four
    guaranteed ones always come first. Cosmetic, no decision needed now.
 
+**Update 2026-11-18.** Step 1 is done on the rattlerthis side: its
+`feat-rattlerthis-backend/TODO.md` records the six `list_packages()`
+columns and `test-condathis-conformance.R` as done (2026-10-22). Step 2,
+the assertion in condathis, is new behaviour and stays for after 0.2.0.
+
 ## 4. README cross-links between `condathis` and `rattlerthis`
 
 **Origin.** Both packages' TODOs.
@@ -305,6 +330,10 @@ uses the optional rattlerthis, which is not on CRAN but on R-universe,
 and links to the backends article. It names
 `options(condathis.backend_priority = ...)`. No separate section was
 added. Left: the cross-link check in rattlerthis's README.
+
+**Update 2026-11-18: done.** rattlerthis's `README.md` links to
+condathis and says to use it with `method = "rattler"`. Linking the
+backends article from there is optional.
 
 ## 5. Package-wide supervisor escape hatch
 
@@ -394,33 +423,81 @@ No upstream issue was filed.
    version rather than "newer". Bump the mocked version when the internal
    binary moves past 2.8.1 (item 9c).
 
+**Update 2026-11-18.** anaconda.org lists newer win-64 builds: `libgcc`
+16.1.0 `h110b43a_2` and `_3`, and 16.2.0 `h110b43a_4` to `_7` (the
+newest uploaded 2026-09-25), plus 15.3.0 and 14.4.0 rebuilds. The `_2`
+build that crashes is not marked broken there. Whether a newer build
+fixes the crash needs a Windows run, so the pins stay for now. Step 2
+above is unchanged: drop the pins on kappa or a throwaway CI branch,
+and keep them if R does not start. Not needed for CRAN: the tests that
+use them are `skip_on_cran()`.
+
 ## 8. jarl lint baseline
 
-**Origin.** HANDOFF item 3. Decision already made by the author: fix
-genuine findings, do not add `# jarl-ignore` comments without asking.
+**Origin.** HANDOFF item 3. The first decision was to fix genuine
+findings and to add no `# jarl-ignore` comment without asking. On
+2026-11-18 the maintainer asked to fix every finding of
+`jarl check . --select ALL`, the cyclomatic complexity included.
 
-**Current findings (30, all warnings, `jarl check . --select ALL`).**
+**Done in 0.2.0 (2026-11-18, `../feat-run-unify/` D20).** jarl 0.7.1
+with every rule reported 650 findings: 149 unused objects, 147
+`condition_call`, 108 undesirable operators (`<<-` and `:::`), 105
+`expect_s3_class`, 33 implicit assignments, 16 cyclomatic complexity,
+and 92 of 18 other rules. `jarl check .` now reports 0 with `jarl.toml`
+(every rule, `max-complexity = 20`), and `just lint` fails on a finding.
+The 30 findings listed here before (unused `dl_success` and
+`status_code`, the `if_not_else` of `parse_match_spec()`, the captures of
+the tests, the empty trailing arguments of `test-run_output_file.R`) are
+among them.
 
-Package code (7), all worth fixing for real:
+- Safe autofixes (`expect_named()`, `expect_null()`, `expect_type()`,
+  `expect_no_match()`, `grep()` for `which(grepl())`, ...) applied and
+  reviewed. `expect_identical(class(x), y)` became
+  `expect_s3_class(x, y, exact = TRUE)`, the same test.
+- Not safe and corrected: the `fixed_regex` autofix of
+  `gsub("/", "\\\\", x)` doubled the backslashes (four calls in
+  `R/get_micromamba_activation_envvars.R`, four in the tests); and
+  `stop(cnd, call. = FALSE)` on a condition object warns.
+- Unused objects: a missing assertion added where a capture was never
+  read; a dead placeholder or a binding of a setup helper
+  (`stub <- local_stub_backend(...)`) removed; a variable read through a
+  cli template keeps a `# jarl-ignore unused_object` comment with the
+  reason (40 ignore comments in all, every one with a reason).
+- `condition_call`: `call. = FALSE` on the `stop()` of mocks and of the
+  example backend (`man/examples/backend-stub.R`).
 
-- `R/download_micromamba_file.R:29` unused `dl_success`.
-- `R/rethrow_error_cmd.R:40` unused `status_code`.
-- `R/parse_match_spec.R:213,219,297` and `R/parse_output.R:78,79`
-  `if_not_else`: swap branches and drop the negation.
+The 16 functions above 20 and their new helpers (same inputs, values,
+side effects, condition classes and messages):
 
-Test code (23): unused objects in `test-install_micromamba.R` (6),
-`test-rethrow_error.R` (8), `test-with_sandbox_dir.R` (3),
-`test-create_nested_env.R` (2), `test-compute_sha256.R`, `test-run_bin.R`
-(1 each), and two empty trailing arguments in `test-run_output_file.R:41,60`.
-Most of the unused objects are results captured and never asserted on, so
-the right fix is usually to add the missing assertion, not to delete the
-assignment. `test-rethrow_error.R` also carries an in-code "Improve tests"
-TODO (item 9b), so do those together.
+| Function (file) | Score | New helpers |
+|---|---|---|
+| `micromamba_read_definition()` (`backend-micromamba-definition.R`) | 49 | `micromamba_refuse_definition()`, `micromamba_named_definition_format()`, `micromamba_detected_definition_format()`, `micromamba_definition_options()`, `micromamba_definition_stage_name()`; constants `micromamba_lock_formats`, `micromamba_pixi_lock_reason` |
+| `validate_backend_return()` (`backend-query.R`) | 42 | `validate_list_envs_return()`, `validate_bool_return()`, `validate_native_platform_return()`, `validate_can_solve_return()`, `validate_definition_formats_return()`, `validate_dir_return()` |
+| `validate_definition_description()` (`backend-query.R`) | 22 | `description_na_or_string()`, `normalize_definition_description()` |
+| `verify_micromamba_checksum()` (`install_micromamba.R`) | 21 | `verify_micromamba_archive_checksum()` |
+| `parse_match_spec()` (`parse_match_spec.R`) | 58 | `ms_apply_bracket_attributes()`, `ms_extra_attribute()` |
+| `ms_format_canonical()` (`parse_match_spec.R`) | 36 | `ms_format_channel_prefix()`, `ms_format_version_build()`, `ms_format_extra_brackets()` |
+| `ms_normalize_version()` (`parse_match_spec.R`) | 28 | `ms_normalize_single_version()` |
+| `parse_output()` (`parse_output.R`) | 28 | `output_binary_streams()`, `output_raw_text()`, `split_output_lines()` |
+| `pump_pipeline_io()` (`pump_pipeline_io.R`) | 24 | `pump_pipeline_poll()`, `pump_pipeline_write_input()`, `pump_pipeline_result()` |
+| `pump_process_io()` (`pump_process_io.R`) | 38 | `pump_poll_timeout()`, `pump_process_write_input()`; reads with `pump_read_chunk()` |
+| `rethrow_error_run()` (`rethrow_error_run.R`) | 25 | `abort_run_failure()`, `run_result_without_process()` |
+| `run_internal_backend()` (`run_internal_backend.R`) | 24 | `check_activated_invocation()` |
+| `broken_pipe_transition()` (`run_pipeline.R`) | 21 | `broken_pipe_step()`, `broken_pipe_reader_step()`, `broken_pipe_watching_step()` |
+| `collect_package_specs()` (`validate_args.R`) | 26 | `abort_unknown_package_arg()`, `collect_unnamed_package_specs()` |
+| `validate_env()` (`validate_env.R`) | 24 | `validate_env_installed_packages()`, `abort_validate_env_unsatisfied()` |
+| `vs_parse_predicate()` (`version_spec_contains.R`) | 49 | `vs_check_predicate()`, `vs_range_predicate()`, `vs_equality_predicate()`, `vs_bare_predicate()` |
+
+Coverage: the existing tests of each function, run after each split, a
+new characterization test of the bracket keys that `parse_match_spec()`
+writes (`test-parse_match_spec.R`; `license`, `fn`, `features`, `md5`,
+`sha256`, `build_number`, `track_features`, `optional` had no test), and
+a differential check of 1,248 inputs against the code before the splits.
 
 Not in scope: the 403 `lintr::lint_package()` findings (168 line length,
 168 explicit return, 27 commented code, 24 object-usage false positives).
-The project does not run lintr in CI or `just lint`. The gates are jarl, styler and air
-are the gates.
+The project does not run lintr in CI or `just lint`. The gates are jarl
+and air.
 
 ## 9. In-code `TODO: @luciorq` comments
 
@@ -445,6 +522,17 @@ are the gates.
 - c. `tests/testthat/test-check_micromamba_version.R:48`: bump the mocked
   version above the internal pin whenever `check_micromamba_version()`'s
   `target_version` (currently `"2.8.1"`) changes.
+
+**Update 2026-11-18.** b and c are done. b: the "stdin is a file" test
+of `test-rethrow_error.R` passes an explicit frame
+(`rlang::env(error, error_var, stdin, cmd)`) instead of reading the
+test's own variables, asserts what `rethrow_error_run()` returns for
+`NULL`, `"|"` and an existing file, and keeps both class assertions; the
+commented-out code and the TODO are gone, and the other tests of the
+file that relied on implicit frame variables pass them explicitly too.
+c: the mock returns `"2.10.0"`, above `micromamba_minimum_version`
+(`"2.8.1"`), and the internal default is `2.10.0-0`, the latest release;
+the stale TODO comment is replaced by one that says what to keep.
 
 ## 10. `backend_status()` diagnostics
 
@@ -501,6 +589,15 @@ test (the maintainer posts it). Optional: add the issue's exact example
 environment-variable test of `test-create_env.R`, which uses only single
 quotes. The probe proves condathis's side; that assertion would also cover
 R's launcher on Windows.
+
+**Update 2026-11-18.** The assertion is in `test-create_env.R`, off
+Windows only. On Windows, `R.exe` starts `Rterm.exe` through a command
+line it builds itself, so whether R receives the inner quotes is up to
+R, and it was not run there. On kappa: run it once without the
+`is_windows()` branch. If it passes, drop the branch; if R.exe loses the
+quotes, keep the branch and say so in the comment (condathis's side is
+proven by `test-argument_fidelity.R`). Closing the issue stays a
+maintainer action.
 
 ## 14. Tests that need a UTF-8 locale or direct DNS
 
@@ -618,7 +715,12 @@ a 0.1.4 call that works today.
   created. Test: with `"my-env"` present,
   `install_packages("x", "my-env", "conda-forge")` aborts and
   `"condathis-env"` is not created. Decision needed: worth the extra
-  rule, or leave it to NEWS.
+  rule, or leave it to NEWS. Checked again 2026-11-18 (from the code,
+  not run): with `env_name` missing the target is `"condathis-env"`, so
+  when it does not exist, `install_packages()` creates it (decision D3)
+  before the solver fails on the packages `"my-env"` and
+  `"conda-forge"`. The user gets a solver error and a new empty default
+  environment, which stays. Weigh that side effect in the decision.
 - b. The hint for `packages =` plus one unnamed string suggests
   `env_name = "<value>"` also when `env_name` is already in the call
   (following it gives "matched by multiple actual arguments"). Fix: give
@@ -658,6 +760,34 @@ a 0.1.4 call that works today.
   fails). Fix: return early only when the probe was `TRUE` or the
   default environment was just created; otherwise let the backend run.
 
+**Update 2026-11-18.** b to f are done in 0.2.0:
+
+- b: `collect_package_specs()` has `given_args`; `create_env()`,
+  `install_packages()` and `validate_env()` pass the arguments the user
+  gave (`env_name`, and `env_file` for `create_env()`), and a hint names
+  only an argument that is not in the call.
+- c: the `NULL` hint (`positional_null_hint()`) says "Arguments other
+  than package specs must be named" for a leading `NULL`, and names the
+  first later value that looks like an environment file in the
+  `env_definition()` example. Values are interpolated where they are
+  (`format_hint()`), with braces escaped.
+- d: the six functions pass `rlang::caller_env()`, captured in the
+  exported function (`run_pipeline()` passes it to
+  `parse_pipeline_steps()`). NEWS and `?condathis-conditions` now say
+  that every function with `method` follows the soft rule.
+- e: as the verifier corrected it: calls from a package's own `R/` code
+  already warn in its own tests (the `TESTTHAT_PKG` rule). What the
+  third edition adds is that calls made inside other packages warn in
+  `test_that()` too. Documented in `?condathis-conditions` and the `...`
+  docs of `create_env()`, `install_packages()` and `validate_env()`, and
+  in the NEWS bullet of the deprecation.
+- f: not as proposed above. `install_packages()` reads the probe of
+  `resolve_backend()` (decision D19 of `../feat-run-unify/`), and with
+  no specs a failed probe aborts with `condathis_backend_probe_failed`.
+  Letting the backend run an empty install would contradict 0.1.4's
+  "nothing to install" result, and nothing else would report the
+  failure.
+
 ## 18. rattlerthis follow-ups of `env_definition()`
 
 **Origin.** `feat-env-file/` (2026-11-13), items 16 to 19 of its
@@ -692,6 +822,14 @@ the rattlerthis repository.
   although the `rattler_lock` crate reads v1 to v7. The micromamba
   backend refuses it with a reason. See also `feat-pixi-backend/PLAN.md`.
 - e. Do item 2 (smoke test) and item 3 with the same build.
+
+**Update 2026-11-18.** a and b are done. a: rattlerthis's suite ran
+against condathis 0.2.0 in round 6 of `../feat-run-unify/`, and its
+fixes are committed there. Run it once more if condathis changes again
+before the submission (round 8 changed condathis). b:
+`test-parity-envfile.R` sets `lifecycle_verbosity = "quiet"` around
+`create_env(env_file = )`, and `test-parity-linkscripts.R` uses
+`env_definition()`. c and d are feature work in rattlerthis.
 
 ## 19. Empty `LICENSE` in the upstream `polyglot` repository
 
@@ -733,6 +871,16 @@ release.
   of its own; it was checked by hand with synthetic status files. A test
   in `test-env_lock.R` can use its `status_file` argument.
 
+**Update 2026-11-18.** a, b and e are done. a: decision D19 of
+`../feat-run-unify/`; one kappa run left. b: as the verifier corrected
+it, only an http(s) channel whose normalized form is not a name is
+shown as its URL (`channel_display_name()`: platform directory and
+credentials removed, then `hide_secrets()`); names such as `bioconda`
+and `pkgs/main`, and local paths, are shown as before, and the
+comparison still uses the normalized form. e: a test in
+`test-env_lock.R` with six status files. c stays optional; d waits for
+win-builder.
+
 ## 21. Follow-ups of the run-family unification
 
 **Origin.** `../feat-run-unify/PLAN.md`, "Follow-ups" (items 14 to 17
@@ -756,7 +904,152 @@ there). Added 2026-11-16.
 - f. Smaller: a pixi trampoline given as the micromamba path. Done in
   0.2.0: `MAMBA_SHLVL` and the prompt modifiers (feat-run-unify D11:
   `"1"` and `""` for every command) and Windows with R itself in a Conda
-  prefix (D12: R's prefix leaves the command's `PATH`).
+  prefix (D12: R's prefix leaves the command's `PATH`). The rest done in
+  0.2.0 (feat-run-unify D22): discovery replaces a trampoline by the
+  `exe` of its `trampoline_configuration/<name>.json`, so its
+  `CONDA_SHLVL` and `CONDA_PREFIX` never reach micromamba.
+
+## 22. `run()` waits for a change of its environment by another session
+
+**Origin.** `../feat-run-unify/PLAN.md`, D17 (finding C2 of the review of
+2026-11-18). Older than 0.2.0: 0.1.4 behaves the same.
+
+`run()` checks that the environment exists and activates it without the
+lock of the environment. While another R session runs
+`create_env(overwrite = TRUE)` for it, the environment is in `#trash`, so
+`run()` says that it does not exist. During `install_packages()` a
+command can run in a half-linked environment. Several `run()` calls
+among themselves are fine. 0.2.0 documents it in `?run`.
+
+A possible fix: before the probe, when another live session holds the
+environment's lock (`lock_held_by_others()`), take it shared and release
+it at once. That waits for the change in flight. Release it before
+`create_base_env()` (which takes the same lock exclusively; on Windows a
+second handle of the same process would deadlock) and before the command
+starts (a long command must not block `install_packages()`). It only
+narrows the window: a change can start after the check, or while the
+command runs. Test: a callr session holds the lock, `run()` in the test
+process says that it waits and succeeds after the release, without
+sleeps. Needs a decision: whether the narrower window is worth a lock
+check in every `run()`.
+
+## 23. Compiler variables of an activated host prefix
+
+**Origin.** `../feat-run-unify/PLAN.md`, D18 item 8 (the docs survey of
+round 8, its finding ISO-1). 0.2.0 removes the variables that a pixi
+global binary set when it started R, with the exact values that pixi
+recorded. Not covered: R started from a shell where `conda activate` or
+`micromamba activate` activated a prefix with the compiler packages. The
+conda-forge compiler scripts (`_tc_activation` in
+`activate-gcc_<platform>.sh`, `activate_clang_<platform>.sh`) save
+`CONDA_BACKUP_<X>` only when `<X>` was set before, and their deactivation
+unsets `<X>` when there is no backup. `restore_host_backups()` handles
+the first case; the second needs the names that the scripts set.
+
+Options: parse the `_tc_activation` arguments of the prefix's
+`activate.d` scripts (fragile: a disabled template block names
+`QEMU_LD_PREFIX`), or measure once per session what the prefix's
+activation sets from a clean environment, as `r_startup_env_vars()` does
+for R's startup (runs the host's scripts, about 0.3 s, needs micromamba).
+Test first whether an environment with `gcc_linux-64` overrides the
+inherited values (the verifier of round 8 could not check it):
+`CFLAGS` is appended to (`${CFLAGS:+ }${CFLAGS}`), so an inherited value
+leaks into the compiler flags of a command.
+
+## 24. Dependency minimums, platforms and CI
+
+**Origin.** The dependency survey of round 8 (2026-11-18) and its
+verifier. Rule (maintainer): a minimum version is what the code
+verifiably needs, chosen so that it still has CRAN binaries for every
+supported R (R >= 4.3) where possible. The binaries were read from the
+per-R-version `PACKAGES.gz` of CRAN for Windows (4.3 to 4.6), macOS arm64
+(`big-sur-arm64` 4.3 to 4.5, `sonoma-arm64` 4.6) and macOS x86_64
+(`big-sur-x86_64` 4.3 to 4.6) on 2026-11-18.
+
+Decisions (DESCRIPTION):
+
+- `rlang (>= 1.1.0)`, was 1.0.0. From 1.1.0, `try_fetch()` finds a
+  condition class across chained errors (the backend errors are parents
+  of condathis errors); with 1.0.6 a handler for the parent's class was
+  not called (checked by the survey in an isolated session). Binaries
+  everywhere (the oldest is 1.1.5, Windows R 4.3). Not 1.3.0: Windows
+  R 4.4 has 1.2.0 and macOS arm64 R 4.4 has 1.1.7.
+- `fs (>= 1.6.7)`, was unversioned. Before 1.6.7, `fs::dir_exists()`
+  returns `FALSE` for a directory reached through a relative symbolic link
+  in another directory. Checked with fs 1.6.5 in an isolated session:
+  `run("hello", env_name = env_path("<dir>/envs/linked"))`, with
+  `envs/linked -> real`, aborted with `condathis_env_path_not_found`;
+  with fs 2.1.0 it ran the command. condathis calls `dir_exists()` on
+  other paths that users give too (roots, data directories). Cost: Windows R 4.3 (1.6.5) and macOS R 4.3
+  (1.6.6) install fs from source, where processx and ps already need a
+  compiler (below). Not 1.3.2, the version that has `file_info(follow =)`:
+  it keeps this bug.
+- `stringr (>= 1.5.0)`, `withr (>= 3.0.2)`: was unversioned. The code
+  needs `withr::local_tempdir()` (2.3.0) and the tests
+  `local_tempfile(lines =)` (2.5.0); 3.0.2 is what testthat 3.3.2 needs,
+  the `withr::defer()` of the package code was only tested with withr 3,
+  and it has binaries everywhere. Not 3.0.3 (no binary on Windows or
+  macOS arm64 for R 4.4). stringr 1.5.0 made recycling and empty patterns
+  errors; no call depends on it, but nothing was tested with 1.4.
+- `cli (>= 3.4.0)` kept: `{.obj_type_friendly}` is new in 3.4.0, and
+  `{.or}` and `{.obj_type_friendly}` work with cli 3.4.0 (checked).
+- `jsonlite` stays unversioned (only `fromJSON()`, `read_json()`,
+  `write_json()`).
+- `processx (>= 3.9.0)` and `ps (>= 1.9.3)` kept. processx 3.9.0 adds the
+  `pipeline` class and the `linux_pdeathsig` argument that condathis uses,
+  and it imports ps (>= 1.9.3), so a lower ps is never installed with it.
+  The binaries for Windows R 4.3, macOS R 4.3 and macOS arm64 R 4.4 are
+  older (processx 3.8.6, ps 1.9.0 or 1.9.1), so those users need Rtools or
+  the Xcode Command Line Tools. The README install section and
+  cran-comments.md say so.
+- Suggests: `curl (>= 5.0.0)` (the code uses curl only from 5.0.0 on and
+  falls back to `download.file()` otherwise), `testthat (>= 3.3.2)` (from
+  3.3.0, `expect_no_*()` runs the whole block; the suite has about 130 of
+  them and was written and run with 3.3.2; the suite was not run with
+  3.2.x).
+- `Config/roxygen2/version: 8.1.1`: re-documenting with roxygen2 8.1.1
+  changed no other file.
+
+Decisions (micromamba):
+
+- `linux-riscv64` is a micromamba platform: R reports `Linux-riscv64`.
+  conda-forge has builds from 2.9.0 on, the GitHub releases from 2.10.0-0
+  on (checked 2026-11-18). `install_micromamba()` aborts with
+  `condathis_micromamba_not_available_for_arch` for an older version on
+  that platform, before any download (`micromamba_platform_first_version`
+  in `R/is_micromamba_available.R`). 2.9.0 comes from the anaconda.org
+  and prefix.dev mirrors, and installs with the warning for a checksum
+  that cannot be checked (GitHub has no `.sha256` file for it). Not tested
+  on RISC-V hardware.
+- The default stays 2.10.0-0, the latest release on GitHub and
+  conda-forge on 2026-11-18. The documented "2.8.1 to 2.10.0 checked"
+  ranges stay true.
+
+Decisions (CI, `.github/workflows/r-cmd-check.yaml`):
+
+- New jobs: `macos-26-intel` (x86_64 macOS, the newest x64 image),
+  `ubuntu-24.04-arm` (Linux arm64, with `cran.r-universe.dev` as an extra
+  repository in case the public RSPM lacks an arm64 binary) and
+  `ubuntu-latest` with `oldrel-2` (R 4.4). The other jobs are unchanged.
+- The actions are already at their latest releases: `actions/checkout@v7`
+  (v7.0.1), `r-lib/actions/*@v2` (v2.14.0, no v3),
+  `quarto-dev/quarto-actions/setup@v2` (v2.2.0),
+  `JamesIves/github-pages-deploy-action@v4.9.0`. actionlint 1.7.12
+  reports nothing.
+- Not covered by CI: the source builds on Windows and macOS for R 4.3
+  (every R 4.3 and 4.4 job runs on Linux).
+
+## 26. `parse_match_spec()` writes `license_family` also as `license`
+
+**Origin.** The jarl stage of round 8 (2026-11-18). `ms_format_canonical()`
+read `extra$license` with `$`, which matches names partially: a spec with
+`license_family` and no `license` is written with both,
+`pkg[license=MIT,license_family=MIT]`. libmamba writes
+`pkg[license_family=MIT]`. Only `formatted_spec` is affected; nothing in
+condathis compares the license. The split of D20 kept the behaviour
+(`extra[[field, exact = FALSE]]`). The fix is `exact = TRUE` and a test
+of `pkg[license_family=MIT]`. Done 2026-11-18 (feat-run-unify D22): every
+lookup in `extra` is `[[` with an exact name.
 
 ## Suggested ordering after the 0.2.0 release
 
@@ -773,3 +1066,47 @@ there). Added 2026-11-16.
    docs and argument plumbing), and item 20 alongside.
 7. Items 13 and 19 are maintainer actions. Item 15 needs only the
    pkgdown workflow change, item 16 a decision.
+
+## 25. User-facing docs, round 8
+
+**Origin.** The docs survey of round 8 (2026-11-18) and its verifier,
+then a review of README, vignettes, help pages, NEWS, CONTRIBUTING and
+cran-comments against the code after the isolation, items and
+dependency stages of the same round.
+
+Decisions, as built:
+
+- DOC-1: the NEWS bug fix "with_sandbox_dir() deletes a sandbox that
+  holds a junction" is gone. 0.1.4 never warned there: the warning and
+  the deletion before return are new in 0.2.0, so it fixed unreleased
+  code. The existing with_sandbox_dir() bullet now ends "(on Windows,
+  also when it holds a junction)". The bullet on a linked `envs`
+  directory stays: the verifier checked it against the 0.1.4 code
+  (`fs::path_real()` filter in `list_envs()`, `fs::dir_delete()` in
+  `create_env()`).
+- DOC-2: shell builtins. `echo` is also a program on Linux and macOS
+  (`/usr/bin/echo`), so README and `?run` now name `cd` and `export` as
+  builtins everywhere, and `dir` and `echo` as builtins on Windows, with
+  `run("cmd", "/c", "dir")` for them.
+- DOC-3: the help title of `env_definition()` is "Describe an environment
+  file" (it was "Create an environment from a file"; it creates nothing),
+  and the vignette's Next Steps says that `create_env()` creates the
+  environment from the file.
+- DOC-4: README "Learn More" and the vignette's Next Steps link the
+  mizu article, as `_pkgdown.yml` already lists it.
+- DOC-5: not changed. Claudio Zanettini keeps `c("aut", "ctb")`, as in
+  the 0.1.4 release; `"aut"` alone is cosmetic and the maintainer's call.
+  The maintainer listed twice in `?condathis-package` is how roxygen
+  renders it.
+- `?install_packages`: `packages = NULL` with a failed environment probe
+  aborts with `condathis_backend_probe_failed` (D19 of
+  `../feat-run-unify/`); the help said it always returned status 0.
+- `inst/WORDLIST` gained CUDA, Xcode, fs, stringr, withr and testthat's,
+  which the earlier stages of round 8 added to the docs.
+
+Checked and correct: `tools::checkRd()` on every help page,
+`spelling::spell_check_package()`, `pkgdown::check_pkgdown()` (every
+exported topic is in the reference index), README.md rendered from
+README.qmd with `just build-readme`'s post-processing (only the intended
+lines change), and the README and cran-comments claims about CRAN
+binaries against the CRAN indexes of 2026-11-18.

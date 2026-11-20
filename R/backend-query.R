@@ -137,86 +137,170 @@ validate_backend_return <- function(
       .envir = .envir
     )
   }
-  if (identical(generic, "backend_list_envs")) {
-    if (
-      isFALSE(is.character(value)) ||
-        isTRUE(anyNA(value)) ||
-        isTRUE(anyDuplicated(value) > 0L)
-    ) {
-      invalid(
-        "It must return a character vector of environment names, without {.val {NA}} or duplicates."
-      )
-    }
-    return(unname(as.character(value)))
+  return(switch(
+    generic,
+    backend_list_envs = validate_list_envs_return(value, invalid = invalid),
+    backend_env_exists = ,
+    backend_quiesce = ,
+    backend_available = validate_bool_return(value, invalid = invalid),
+    backend_list_packages = validate_list_packages_return(
+      value,
+      invalid = invalid
+    ),
+    backend_native_platform = validate_native_platform_return(
+      value,
+      invalid = invalid
+    ),
+    backend_can_solve = validate_can_solve_return(value, invalid = invalid),
+    backend_describe_definition = validate_definition_description(
+      value,
+      invalid = invalid
+    ),
+    backend_definition_formats = validate_definition_formats_return(
+      value,
+      invalid = invalid
+    ),
+    backend_get_env_dir = ,
+    backend_get_install_dir = validate_dir_return(
+      value,
+      generic = generic,
+      invalid = invalid
+    ),
+    condathis_abort(
+      message = "No return rule for {.fn {generic}}.",
+      .internal = TRUE
+    )
+  ))
+}
+
+#' Check the value of `backend_list_envs()`
+#'
+#' @param value The returned value.
+#' @param invalid Function that aborts, from `validate_backend_return()`.
+#'
+#' @returns An unnamed character vector of environment names.
+#'
+#' @keywords internal
+#' @noRd
+validate_list_envs_return <- function(value, invalid) {
+  if (
+    isFALSE(is.character(value)) ||
+      isTRUE(anyNA(value)) ||
+      isTRUE(anyDuplicated(value) > 0L)
+  ) {
+    invalid(
+      "It must return a character vector of environment names, without {.val {NA}} or duplicates."
+    )
   }
-  if (identical(generic, "backend_env_exists")) {
-    if (isFALSE(rlang::is_bool(value))) {
-      invalid("It must return {.code TRUE} or {.code FALSE}.")
-    }
-    return(isTRUE(value))
+  return(unname(as.character(value)))
+}
+
+#' Check a value that must be `TRUE` or `FALSE`
+#'
+#' The rule of `backend_env_exists()`, `backend_quiesce()` and
+#' `backend_available()`.
+#'
+#' @param value The returned value.
+#' @param invalid Function that aborts, from `validate_backend_return()`.
+#'
+#' @returns `TRUE` or `FALSE`, without attributes.
+#'
+#' @keywords internal
+#' @noRd
+validate_bool_return <- function(value, invalid) {
+  if (isFALSE(rlang::is_bool(value))) {
+    invalid("It must return {.code TRUE} or {.code FALSE}.")
   }
-  if (identical(generic, "backend_list_packages")) {
-    return(validate_list_packages_return(value, invalid = invalid))
+  return(isTRUE(value))
+}
+
+#' Check the value of `backend_native_platform()`
+#'
+#' @param value The returned value.
+#' @param invalid Function that aborts, from `validate_backend_return()`.
+#'
+#' @returns A character string, `NA_character_` for `NA`.
+#'
+#' @keywords internal
+#' @noRd
+validate_native_platform_return <- function(value, invalid) {
+  if (
+    isTRUE(rlang::is_scalar_atomic(value)) &&
+      isTRUE(is.na(value)) &&
+      (isTRUE(is.logical(value)) || isTRUE(is.character(value)))
+  ) {
+    return(NA_character_)
   }
-  if (identical(generic, "backend_native_platform")) {
-    if (
-      isTRUE(rlang::is_scalar_atomic(value)) &&
-        isTRUE(is.na(value)) &&
-        (isTRUE(is.logical(value)) || isTRUE(is.character(value)))
-    ) {
-      return(NA_character_)
-    }
-    if (isFALSE(rlang::is_string(value)) || isFALSE(nzchar(value))) {
-      invalid(
-        "It must return one platform name, such as {.val linux-64}, or {.val {NA}}."
-      )
-    }
-    return(as.character(value))
+  if (isFALSE(rlang::is_string(value)) || isFALSE(nzchar(value))) {
+    invalid(
+      "It must return one platform name, such as {.val linux-64}, or {.val {NA}}."
+    )
   }
-  if (identical(generic, "backend_can_solve")) {
-    if (isFALSE(rlang::is_scalar_logical(value))) {
-      invalid("It must return {.code TRUE}, {.code FALSE} or {.code NA}.")
-    }
-    return(as.logical(unname(c(value))))
+  return(as.character(value))
+}
+
+#' Check the value of `backend_can_solve()`
+#'
+#' @param value The returned value.
+#' @param invalid Function that aborts, from `validate_backend_return()`.
+#'
+#' @returns `TRUE`, `FALSE` or `NA`, without attributes.
+#'
+#' @keywords internal
+#' @noRd
+validate_can_solve_return <- function(value, invalid) {
+  if (isFALSE(rlang::is_scalar_logical(value))) {
+    invalid("It must return {.code TRUE}, {.code FALSE} or {.code NA}.")
   }
-  if (identical(generic, "backend_describe_definition")) {
-    return(validate_definition_description(value, invalid = invalid))
+  return(as.logical(unname(c(value))))
+}
+
+#' Check the value of `backend_definition_formats()`
+#'
+#' @param value The returned value.
+#' @param invalid Function that aborts, from `validate_backend_return()`.
+#'
+#' @returns A unique, unnamed character vector, `character(0)` for
+#'   `NULL`.
+#'
+#' @keywords internal
+#' @noRd
+validate_definition_formats_return <- function(value, invalid) {
+  if (is.null(value)) {
+    return(character(0L))
   }
-  if (identical(generic, "backend_definition_formats")) {
-    if (is.null(value)) {
-      return(character(0L))
-    }
-    if (isFALSE(is.character(value)) || isTRUE(anyNA(value))) {
-      invalid(
-        "It must return a character vector of format names, without {.val {NA}}."
-      )
-    }
-    return(unique(unname(as.character(value))))
+  if (isFALSE(is.character(value)) || isTRUE(anyNA(value))) {
+    invalid(
+      "It must return a character vector of format names, without {.val {NA}}."
+    )
   }
-  if (generic %in% c("backend_quiesce", "backend_available")) {
-    if (isFALSE(rlang::is_bool(value))) {
-      invalid("It must return {.code TRUE} or {.code FALSE}.")
-    }
-    return(isTRUE(value))
-  }
-  if (generic %in% c("backend_get_env_dir", "backend_get_install_dir")) {
-    is_path <- isTRUE(rlang::is_string(value)) &&
-      isTRUE(fs::is_absolute_path(value))
-    if (identical(generic, "backend_get_env_dir")) {
-      if (isFALSE(is_path)) {
-        invalid("It must return a single, absolute path.")
-      }
-      return(fs::path(value))
-    }
-    if (isFALSE(is_path) || isFALSE(isTRUE(dir_exists_quick(value)))) {
-      invalid("It must return the absolute path of an existing directory.")
+  return(unique(unname(as.character(value))))
+}
+
+#' Check the value of `backend_get_env_dir()` or `backend_get_install_dir()`
+#'
+#' @param value The returned value.
+#' @param generic Character string, `"backend_get_env_dir"` or
+#'   `"backend_get_install_dir"`. The install directory must exist.
+#' @param invalid Function that aborts, from `validate_backend_return()`.
+#'
+#' @returns An `fs_path`.
+#'
+#' @keywords internal
+#' @noRd
+validate_dir_return <- function(value, generic, invalid) {
+  is_path <- isTRUE(rlang::is_string(value)) &&
+    isTRUE(fs::is_absolute_path(value))
+  if (identical(generic, "backend_get_env_dir")) {
+    if (isFALSE(is_path)) {
+      invalid("It must return a single, absolute path.")
     }
     return(fs::path(value))
   }
-  condathis_abort(
-    message = "No return rule for {.fn {generic}}.",
-    .internal = TRUE
-  )
+  if (isFALSE(is_path) || isFALSE(isTRUE(dir_exists_quick(value)))) {
+    invalid("It must return the absolute path of an existing directory.")
+  }
+  return(fs::path(value))
 }
 
 #' Check the data frame of `backend_list_packages()`
@@ -261,6 +345,7 @@ validate_list_packages_return <- function(value, invalid) {
   )
   if (isTRUE(any(wrong_type))) {
     bad_columns <- names(backend_list_packages_columns)[wrong_type]
+    # jarl-ignore unused_object: interpolated by cli in the message below
     expected <- paste0(
       bad_columns,
       " (",
@@ -443,12 +528,6 @@ validate_definition_description <- function(value, invalid) {
         (isTRUE(rlang::is_string(x)) && isTRUE(nzchar(x)))
     )
   }
-  as_na_or_string <- function(x) {
-    if (is.null(x) || isTRUE(is.na(x))) {
-      return(NA_character_)
-    }
-    return(as.character(x))
-  }
   supported <- value[["supported"]]
   if (isFALSE(rlang::is_scalar_logical(supported))) {
     invalid(
@@ -461,7 +540,7 @@ validate_definition_description <- function(value, invalid) {
   if (isFALSE(is_na_or_string(value[["reason"]]))) {
     invalid("Its {.field reason} must be {.code NA} or a non-empty string.")
   }
-  kind <- as_na_or_string(value[["kind"]])
+  kind <- description_na_or_string(value[["kind"]])
   if (
     isFALSE(is_na_or_string(value[["kind"]])) ||
       isFALSE(is.na(kind) || kind %in% c("request", "lock"))
@@ -492,13 +571,47 @@ validate_definition_description <- function(value, invalid) {
       "Its {.field records} must be {.code NULL} or a data frame with the columns {.field {record_columns}}."
     )
   }
-  supported <- as.logical(unname(c(supported)))
+  return(normalize_definition_description(value, record_columns))
+}
+
+#' `NA` or a string, from an element of a definition description
+#'
+#' @param x `NULL`, a scalar `NA` or a string.
+#'
+#' @returns A character string, `NA_character_` for `NULL` or `NA`.
+#'
+#' @keywords internal
+#' @noRd
+description_na_or_string <- function(x) {
+  if (is.null(x) || isTRUE(is.na(x))) {
+    return(NA_character_)
+  }
+  return(as.character(x))
+}
+
+#' Normalize a definition description that passed its checks
+#'
+#' The second half of `validate_definition_description()`.
+#'
+#' @param value The returned value, already checked.
+#' @param record_columns Character vector, the columns of `records` made
+#'   character.
+#'
+#' @returns A list, as `validate_definition_description()`.
+#'
+#' @keywords internal
+#' @noRd
+normalize_definition_description <- function(value, record_columns) {
+  supported <- as.logical(unname(c(value[["supported"]])))
+  kind <- description_na_or_string(value[["kind"]])
   if (isFALSE(isTRUE(supported))) {
     kind <- NA_character_
   }
+  platforms <- value[["platforms"]]
   if (isFALSE(is.null(platforms))) {
     platforms <- unique(unname(as.character(platforms)))
   }
+  records <- value[["records"]]
   if (isFALSE(is.null(records))) {
     records <- as.data.frame(records, stringsAsFactors = FALSE)
     for (column in record_columns) {
@@ -507,10 +620,10 @@ validate_definition_description <- function(value, invalid) {
   }
   return(definition_description(
     supported = supported,
-    format = as_na_or_string(value[["format"]]),
+    format = description_na_or_string(value[["format"]]),
     kind = kind,
     platforms = platforms,
-    reason = as_na_or_string(value[["reason"]]),
+    reason = description_na_or_string(value[["reason"]]),
     records = records
   ))
 }
@@ -601,20 +714,19 @@ registered_definition_formats <- function() {
 #' @keywords internal
 #' @noRd
 probe_or_na <- function(expr, na) {
-  install_failure <- NULL
-  value <- tryCatch(
-    expr,
+  # The value is wrapped, so a probe that returns a condition object is
+  # not read as a failure.
+  res <- tryCatch(
+    list(value = expr, cnd = NULL),
     error = function(e) {
-      if (isTRUE(inherits(e, "condathis_install_micromamba_download_failed"))) {
-        install_failure <<- e
-      }
-      return(na)
+      return(list(value = na, cnd = e))
     }
   )
-  if (isFALSE(is.null(install_failure))) {
-    rlang::cnd_signal(install_failure)
+  download_failed <- "condathis_install_micromamba_download_failed"
+  if (isTRUE(inherits(res$cnd, download_failed))) {
+    rlang::cnd_signal(res$cnd)
   }
-  return(value)
+  return(res$value)
 }
 
 #' Wait until no registered backend works in the R process
@@ -913,19 +1025,17 @@ query_registered_backends <- function(
       ))
       next
     }
-    failure <- NULL
-    value <- tryCatch(
-      query(backend),
+    res <- tryCatch(
+      list(value = query(backend), cnd = NULL),
       error = function(e) {
-        failure <<- e
-        return(NULL)
+        return(list(value = NULL, cnd = e))
       }
     )
-    if (isFALSE(is.null(failure))) {
-      failures[[nm]] <- failure
+    if (isFALSE(is.null(res$cnd))) {
+      failures[[nm]] <- res$cnd
       next
     }
-    results[nm] <- list(value)
+    results[nm] <- list(res$value)
   }
 
   if (

@@ -719,7 +719,7 @@ vs_tokenize_spec <- function(str) {
         }
       }
       atom <- trimws(substring(str, atom_start, pos - 1L))
-      if (isTRUE(nchar(atom) > 0L)) {
+      if (isTRUE(nzchar(atom, keepNA = TRUE))) {
         tokens <- c(tokens, atom)
       }
     }
@@ -866,6 +866,38 @@ vs_parse_predicate <- function(atom_str) {
   # not 1.3 itself), `~=` with a one-part version (`~=1`), which matches no
   # version in micromamba, and a version that micromamba rejects, such as
   # `=1.3` after `>=` (`>==1.3`), `1.3.0+` or `!`.
+  checked <- vs_check_predicate(atom_str)
+  if (isTRUE(checked$uncompared)) {
+    return(list(type = "predicate", op = "uncompared", ver = NULL))
+  }
+  atom_str <- checked$atom_str
+
+  # Detect operator prefix (order matters: longer prefixes first)
+  node <- vs_range_predicate(atom_str)
+  if (is.null(node)) {
+    node <- vs_equality_predicate(atom_str)
+  }
+  if (is.null(node)) {
+    node <- vs_bare_predicate(atom_str)
+  }
+  return(node)
+}
+
+#' Is a predicate atom one that condathis does not compare?
+#'
+#' The checks of `vs_parse_predicate()` described there: a glob after a
+#' range operator, a `*` that is not a trailing glob, an operator without
+#' a version, `~=` with a one-part version, and a version that micromamba
+#' rejects.
+#'
+#' @param atom_str A trimmed predicate string, not free.
+#'
+#' @returns A list with `uncompared` (logical) and `atom_str`, with the
+#'   trailing `.*` of a `>=` predicate removed.
+#'
+#' @keywords internal
+#' @noRd
+vs_check_predicate <- function(atom_str) {
   operator <- regmatches(
     atom_str,
     regexpr("^(>=|>|<=|<|~=|!=|==|=)", atom_str)
@@ -894,50 +926,51 @@ vs_parse_predicate <- function(atom_str) {
       (identical(operator, "~=") &&
         isFALSE(grepl("[._-]", sub("\\+.*$", "", sub("^[0-9]+!", "", rest)))))
   ) {
-    return(list(type = "predicate", op = "uncompared", ver = NULL))
+    return(list(atom_str = atom_str, uncompared = TRUE))
   }
+  return(list(atom_str = atom_str, uncompared = FALSE))
+}
 
-  # Detect operator prefix (order matters: longer prefixes first)
-  if (isTRUE(startsWith(atom_str, ">="))) {
-    ver_str <- substring(atom_str, 3L)
-    return(list(
-      type = "predicate",
-      op = "greater_equal",
-      ver = vs_parse_ver(ver_str)
-    ))
+#' Parse a predicate atom with a range operator
+#'
+#' @param atom_str A predicate string, checked by `vs_check_predicate()`.
+#'
+#' @returns A predicate node for `>=`, `>`, `<=`, `<` and `~=`, else
+#'   `NULL`.
+#'
+#' @keywords internal
+#' @noRd
+vs_range_predicate <- function(atom_str) {
+  # Longer prefixes first.
+  range_ops <- c(
+    `>=` = "greater_equal",
+    `>` = "greater",
+    `<=` = "less_equal",
+    `<` = "less",
+    `~=` = "compatible_with"
+  )
+  for (prefix in names(range_ops)) {
+    if (isTRUE(startsWith(atom_str, prefix))) {
+      ver_str <- substring(atom_str, nchar(prefix) + 1L)
+      return(list(
+        type = "predicate",
+        op = range_ops[[prefix]],
+        ver = vs_parse_ver(ver_str)
+      ))
+    }
   }
-  if (isTRUE(startsWith(atom_str, ">"))) {
-    ver_str <- substring(atom_str, 2L)
-    return(list(
-      type = "predicate",
-      op = "greater",
-      ver = vs_parse_ver(ver_str)
-    ))
-  }
-  if (isTRUE(startsWith(atom_str, "<="))) {
-    ver_str <- substring(atom_str, 3L)
-    return(list(
-      type = "predicate",
-      op = "less_equal",
-      ver = vs_parse_ver(ver_str)
-    ))
-  }
-  if (isTRUE(startsWith(atom_str, "<"))) {
-    ver_str <- substring(atom_str, 2L)
-    return(list(
-      type = "predicate",
-      op = "less",
-      ver = vs_parse_ver(ver_str)
-    ))
-  }
-  if (isTRUE(startsWith(atom_str, "~="))) {
-    ver_str <- substring(atom_str, 3L)
-    return(list(
-      type = "predicate",
-      op = "compatible_with",
-      ver = vs_parse_ver(ver_str)
-    ))
-  }
+  return(NULL)
+}
+
+#' Parse a predicate atom with an equality operator
+#'
+#' @param atom_str A predicate string, checked by `vs_check_predicate()`.
+#'
+#' @returns A predicate node for `!=`, `==` and `=`, else `NULL`.
+#'
+#' @keywords internal
+#' @noRd
+vs_equality_predicate <- function(atom_str) {
   if (isTRUE(startsWith(atom_str, "!="))) {
     ver_str <- substring(atom_str, 3L)
     # Check for glob suffix .* (a trailing * without the dot is uncompared)
@@ -1000,7 +1033,19 @@ vs_parse_predicate <- function(atom_str) {
       ver = vs_parse_ver(ver_str)
     ))
   }
+  return(NULL)
+}
 
+#' Parse a predicate atom without an operator
+#'
+#' @param atom_str A predicate string, checked by `vs_check_predicate()`.
+#'
+#' @returns A predicate node: `starts_with` for a trailing glob, else
+#'   `equal`.
+#'
+#' @keywords internal
+#' @noRd
+vs_bare_predicate <- function(atom_str) {
   # Bare version string (no operator prefix)
   # Check for trailing glob: .* or * -> starts_with
   if (isTRUE(grepl("\\.\\*$", atom_str))) {

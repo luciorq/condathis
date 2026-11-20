@@ -21,7 +21,9 @@ local_apple_silicon <- function(
   log$rosetta_checks <- 0L
   testthat::local_mocked_bindings(
     get_sys_arch = function() "Darwin-arm64",
-    micromamba_native_platform = function() stop("must not ask on macOS"),
+    micromamba_native_platform = function() {
+      stop("must not ask on macOS", call. = FALSE)
+    },
     is_rosetta_running = function() {
       log$rosetta_checks <- log$rosetta_checks + 1L
       return(rosetta_running)
@@ -46,7 +48,7 @@ local_apple_silicon <- function(
         platform,
         `osx-arm64` = native,
         `osx-64` = rosetta,
-        stop("unexpected platform ", platform)
+        stop("unexpected platform ", platform, call. = FALSE)
       )
       # A function is called, so it can fail the test.
       if (is.function(answer)) {
@@ -64,7 +66,7 @@ solve_platforms <- function(log) {
 }
 
 must_not_solve <- function() {
-  stop("must not solve for the emulated platform")
+  stop("must not solve for the emulated platform", call. = FALSE)
 }
 
 testthat::test_that("define_platform() uses Rosetta 2 when the request solves only for osx-64", {
@@ -201,17 +203,20 @@ testthat::test_that("define_platform() says why it cannot use Rosetta 2", {
     rosetta_running = FALSE,
     rosetta = must_not_solve
   )
-  msgs <- character(0L)
+  tracked <- new.env(parent = emptyenv())
+  tracked$msgs <- character(0L)
   withCallingHandlers(
-    res <- define_platform(micromamba_backend(), "pkg", verbose = "output"),
+    {
+      res <- define_platform(micromamba_backend(), "pkg", verbose = "output")
+    },
     message = function(m) {
-      msgs <<- c(msgs, cli::ansi_strip(conditionMessage(m)))
+      tracked$msgs <- c(tracked$msgs, cli::ansi_strip(conditionMessage(m)))
       invokeRestart("muffleMessage")
     }
   )
   testthat::expect_null(res)
   testthat::expect_identical(solve_platforms(log), "osx-arm64")
-  text <- paste(msgs, collapse = "\n")
+  text <- paste(tracked$msgs, collapse = "\n")
   # Specs that conflict do not solve for any platform either, so the
   # message does not say that a package is missing.
   testthat::expect_match(
@@ -235,11 +240,14 @@ testthat::test_that("define_platform() always solves silently and uses verbose o
       rosetta_running = TRUE,
       rosetta = TRUE
     )
-    msgs <- character(0L)
+    tracked <- new.env(parent = emptyenv())
+    tracked$msgs <- character(0L)
     withCallingHandlers(
-      res <- define_platform(micromamba_backend(), "pkg", verbose = level),
+      {
+        res <- define_platform(micromamba_backend(), "pkg", verbose = level)
+      },
       message = function(m) {
-        msgs <<- c(msgs, cli::ansi_strip(conditionMessage(m)))
+        tracked$msgs <- c(tracked$msgs, cli::ansi_strip(conditionMessage(m)))
         invokeRestart("muffleMessage")
       }
     )
@@ -250,10 +258,10 @@ testthat::test_that("define_platform() always solves silently and uses verbose o
       info = level
     )
     if (identical(level, "silent")) {
-      testthat::expect_length(msgs, 0L)
+      testthat::expect_length(tracked$msgs, 0L)
     } else {
       testthat::expect_match(
-        paste(msgs, collapse = "\n"),
+        paste(tracked$msgs, collapse = "\n"),
         "Using Rosetta 2 emulation.",
         fixed = TRUE,
         info = level
@@ -264,7 +272,7 @@ testthat::test_that("define_platform() always solves silently and uses verbose o
 
 testthat::test_that("define_platform() keeps a given platform and skips the solve", {
   log <- local_apple_silicon(
-    native = function() stop("must not solve"),
+    native = function() stop("must not solve", call. = FALSE),
     rosetta_running = TRUE,
     rosetta = must_not_solve
   )
@@ -289,7 +297,7 @@ testthat::test_that("define_platform() keeps a given platform and skips the solv
 
 testthat::test_that("define_platform() solves nothing for an empty request", {
   log <- local_apple_silicon(
-    native = function() stop("must not solve"),
+    native = function() stop("must not solve", call. = FALSE),
     rosetta_running = TRUE,
     rosetta = must_not_solve
   )
@@ -308,9 +316,11 @@ testthat::test_that("define_platform() solves nothing for an empty request", {
 
 testthat::test_that("define_platform() asks for the micromamba platform only on Windows", {
   testthat::local_mocked_bindings(
-    micromamba_native_platform = function() stop("must not ask"),
-    packages_solve_native = function(...) stop("must not solve"),
-    is_rosetta_running = function() stop("must not probe Rosetta 2")
+    micromamba_native_platform = function() stop("must not ask", call. = FALSE),
+    packages_solve_native = function(...) stop("must not solve", call. = FALSE),
+    is_rosetta_running = function() {
+      stop("must not probe Rosetta 2", call. = FALSE)
+    }
   )
   for (sys_arch in c("Linux-x86_64", "Linux-aarch64", "Darwin-x86_64")) {
     testthat::local_mocked_bindings(get_sys_arch = function() sys_arch)
@@ -342,7 +352,9 @@ local_windows_arm64 <- function(
   log$platform_queries <- 0L
   testthat::local_mocked_bindings(
     get_sys_arch = function() sys_arch,
-    is_rosetta_running = function() stop("must not probe Rosetta 2"),
+    is_rosetta_running = function() {
+      stop("must not probe Rosetta 2", call. = FALSE)
+    },
     micromamba_native_platform = function() {
       log$platform_queries <- log$platform_queries + 1L
       return(binary)
@@ -367,7 +379,7 @@ local_windows_arm64 <- function(
         platform,
         `win-arm64` = native,
         `win-64` = emulated,
-        stop("unexpected platform ", platform)
+        stop("unexpected platform ", platform, call. = FALSE)
       )
       # A function is called, so it can fail the test.
       if (is.function(answer)) {
@@ -382,18 +394,21 @@ local_windows_arm64 <- function(
 
 testthat::test_that("define_platform() uses win-64 when the request solves only for win-64", {
   log <- local_windows_arm64(native = FALSE, emulated = TRUE)
-  msgs <- character(0L)
+  tracked <- new.env(parent = emptyenv())
+  tracked$msgs <- character(0L)
   withCallingHandlers(
-    res <- define_platform(
-      micromamba_backend(),
-      c("r-base", "zlib"),
-      channels = "conda-forge",
-      channel_priority = "flexible",
-      additional_channels = "bioconda",
-      verbose = "output"
-    ),
+    {
+      res <- define_platform(
+        micromamba_backend(),
+        c("r-base", "zlib"),
+        channels = "conda-forge",
+        channel_priority = "flexible",
+        additional_channels = "bioconda",
+        verbose = "output"
+      )
+    },
     message = function(m) {
-      msgs <<- c(msgs, cli::ansi_strip(conditionMessage(m)))
+      tracked$msgs <- c(tracked$msgs, cli::ansi_strip(conditionMessage(m)))
       invokeRestart("muffleMessage")
     }
   )
@@ -406,9 +421,9 @@ testthat::test_that("define_platform() uses win-64 when the request solves only 
     testthat::expect_identical(solve$channel_priority, "flexible")
     testthat::expect_identical(solve$additional_channels, "bioconda")
   }
-  testthat::expect_length(msgs, 1L)
+  testthat::expect_length(tracked$msgs, 1L)
   testthat::expect_match(
-    msgs,
+    tracked$msgs,
     "Using x64 emulation for \"win-64\" packages.",
     fixed = TRUE
   )
@@ -461,11 +476,14 @@ testthat::test_that("define_platform() does not fall back after a failure that i
 testthat::test_that("define_platform() on Windows solves silently and uses verbose only for its message", {
   for (level in c("output", "full", "cmd", "spinner", "silent")) {
     log <- local_windows_arm64(native = FALSE, emulated = TRUE)
-    msgs <- character(0L)
+    tracked <- new.env(parent = emptyenv())
+    tracked$msgs <- character(0L)
     withCallingHandlers(
-      res <- define_platform(micromamba_backend(), "pkg", verbose = level),
+      {
+        res <- define_platform(micromamba_backend(), "pkg", verbose = level)
+      },
       message = function(m) {
-        msgs <<- c(msgs, cli::ansi_strip(conditionMessage(m)))
+        tracked$msgs <- c(tracked$msgs, cli::ansi_strip(conditionMessage(m)))
         invokeRestart("muffleMessage")
       }
     )
@@ -476,10 +494,10 @@ testthat::test_that("define_platform() on Windows solves silently and uses verbo
       info = level
     )
     if (identical(level, "silent")) {
-      testthat::expect_length(msgs, 0L)
+      testthat::expect_length(tracked$msgs, 0L)
     } else {
       testthat::expect_match(
-        paste(msgs, collapse = "\n"),
+        paste(tracked$msgs, collapse = "\n"),
         "Using x64 emulation",
         fixed = TRUE,
         info = level
@@ -490,7 +508,7 @@ testthat::test_that("define_platform() on Windows solves silently and uses verbo
 
 testthat::test_that("define_platform() keeps a given platform on Windows and asks nothing", {
   log <- local_windows_arm64(
-    native = function() stop("must not solve"),
+    native = function() stop("must not solve", call. = FALSE),
     emulated = must_not_solve
   )
   for (platform in c("win-arm64", "win-64", "noarch")) {
@@ -522,7 +540,7 @@ testthat::test_that("define_platform() follows the platform of the micromamba bi
   # already solves for win-64. And a platform that cannot be read.
   for (binary in c("win-64", NA_character_)) {
     log <- local_windows_arm64(
-      native = function() stop("must not solve"),
+      native = function() stop("must not solve", call. = FALSE),
       emulated = must_not_solve,
       binary = binary
     )
@@ -547,7 +565,9 @@ testthat::test_that("define_platform() falls back to win-64 on a new Windows ARM
   log$solves <- character(0L)
   testthat::local_mocked_bindings(
     get_sys_arch = function() "Windows-aarch64",
-    is_rosetta_running = function() stop("must not probe Rosetta 2"),
+    is_rosetta_running = function() {
+      stop("must not probe Rosetta 2", call. = FALSE)
+    },
     micromamba_bin_path = function() missing_binary,
     native_cmd = function(
       conda_cmd,
@@ -649,7 +669,7 @@ testthat::test_that("create_env()'s platform uses the win-64 fallback for specs 
 
 testthat::test_that("define_platform() on Windows solves nothing for an empty request", {
   log <- local_windows_arm64(
-    native = function() stop("must not solve"),
+    native = function() stop("must not solve", call. = FALSE),
     emulated = must_not_solve
   )
   testthat::expect_null(define_platform(
@@ -757,10 +777,16 @@ testthat::test_that("install_packages()'s platform reads no package records wher
   # platform were read for every install, on every OS, although only Apple
   # Silicon and Windows have an emulation fallback.
   testthat::local_mocked_bindings(
-    read_conda_package_records = function(...) stop("must not read"),
-    env_has_platform_packages = function(...) stop("must not read"),
-    define_platform = function(...) stop("must not fall back"),
-    micromamba_native_platform = function(...) stop("must not ask")
+    read_conda_package_records = function(...) {
+      stop("must not read", call. = FALSE)
+    },
+    env_has_platform_packages = function(...) {
+      stop("must not read", call. = FALSE)
+    },
+    define_platform = function(...) stop("must not fall back", call. = FALSE),
+    micromamba_native_platform = function(...) {
+      stop("must not ask", call. = FALSE)
+    }
   )
   platform_for <- function(env_dir) {
     return(resolve_install_platform(
@@ -817,7 +843,7 @@ local_platform_stub <- function(
     backend_can_solve = function(backend, ..., platform) {
       answer <- solves[platform]
       if (is.na(names(answer))) {
-        stop("unexpected platform ", platform)
+        stop("unexpected platform ", platform, call. = FALSE)
       }
       return(unname(answer))
     },
@@ -891,18 +917,23 @@ testthat::test_that("define_platform() asks backend_can_solve() of any backend o
 testthat::test_that("define_platform() asks the native platform of any backend on Windows", {
   testthat::local_mocked_bindings(
     get_sys_arch = function() "Windows-x86-64",
-    is_rosetta_running = function() stop("must not probe Rosetta 2")
+    is_rosetta_running = function() {
+      stop("must not probe Rosetta 2", call. = FALSE)
+    }
   )
   stub <- local_platform_stub(
     "stub-platform-win",
     solves = c(`win-arm64` = FALSE, `win-64` = TRUE),
     native = "win-arm64"
   )
-  msgs <- character(0L)
+  tracked <- new.env(parent = emptyenv())
+  tracked$msgs <- character(0L)
   withCallingHandlers(
-    res <- define_platform(stub$backend, "r-base", verbose = "output"),
+    {
+      res <- define_platform(stub$backend, "r-base", verbose = "output")
+    },
     message = function(m) {
-      msgs <<- c(msgs, cli::ansi_strip(conditionMessage(m)))
+      tracked$msgs <- c(tracked$msgs, cli::ansi_strip(conditionMessage(m)))
       invokeRestart("muffleMessage")
     }
   )
@@ -911,9 +942,9 @@ testthat::test_that("define_platform() asks the native platform of any backend o
     stub_solve_platforms(stub),
     c("win-arm64", "win-64")
   )
-  testthat::expect_length(msgs, 1L)
+  testthat::expect_length(tracked$msgs, 1L)
   testthat::expect_match(
-    msgs,
+    tracked$msgs,
     "Using x64 emulation for \"win-64\" packages.",
     fixed = TRUE
   )
@@ -964,8 +995,8 @@ testthat::test_that("define_platform() reads a failing probe of a backend as no 
   )
   stub <- local_stub_backend(
     "stub-platform-broken",
-    backend_can_solve = function(...) stop("no network"),
-    backend_native_platform = function(...) stop("no binary")
+    backend_can_solve = function(...) stop("no network", call. = FALSE),
+    backend_native_platform = function(...) stop("no binary", call. = FALSE)
   )
   testthat::expect_null(define_platform(stub$backend, "r-base"))
   testthat::local_mocked_bindings(get_sys_arch = function() "Windows-aarch64")
@@ -1024,13 +1055,14 @@ testthat::test_that("a failed download of micromamba in a platform probe is rais
   # the classes of a failed create, as when micromamba's own create chose
   # the platform.
   condathis::with_sandbox_dir({
-    installs <- 0L
+    tracked <- new.env(parent = emptyenv())
+    tracked$installs <- 0L
     testthat::local_mocked_bindings(
       get_sys_arch = function() "Darwin-arm64",
       is_rosetta_running = function() TRUE,
       get_best_micromamba_path = function() NULL,
       install_micromamba = function(...) {
-        installs <<- installs + 1L
+        tracked$installs <- tracked$installs + 1L
         install_failure()
       }
     )
@@ -1043,7 +1075,7 @@ testthat::test_that("a failed download of micromamba in a platform probe is rais
       ),
       classes = "error"
     )
-    testthat::expect_identical(installs, 1L)
+    testthat::expect_identical(tracked$installs, 1L)
     testthat::expect_identical(
       class(cnd)[1:3],
       c(
@@ -1186,7 +1218,7 @@ testthat::test_that("resolve_install_platform() solves nothing for an environmen
   # the missing environment, as before.
   testthat::local_mocked_bindings(
     get_sys_arch = function() "Darwin-arm64",
-    define_platform = function(...) stop("must not fall back")
+    define_platform = function(...) stop("must not fall back", call. = FALSE)
   )
   testthat::expect_null(resolve_install_platform(
     micromamba_backend(),

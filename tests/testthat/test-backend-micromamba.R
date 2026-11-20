@@ -8,10 +8,10 @@
 local_no_micromamba_process <- function(envir = parent.frame()) {
   testthat::local_mocked_bindings(
     native_cmd = function(...) {
-      stop("native_cmd() must not run here.")
+      stop("native_cmd() must not run here.", call. = FALSE)
     },
     install_micromamba = function(...) {
-      stop("install_micromamba() must not run here.")
+      stop("install_micromamba() must not run here.", call. = FALSE)
     },
     .env = envir
   )
@@ -104,6 +104,20 @@ testthat::test_that("queries work on a fresh root without creating an environmen
   })
 })
 
+# A link to a directory: a symbolic link on Linux and macOS, a junction on
+# Windows, where symbolic links need extra privileges.
+link_dir <- function(target, link) {
+  if (isTRUE(is_windows())) {
+    testthat::expect_true(Sys.junction(
+      as.character(target),
+      as.character(link)
+    ))
+  } else {
+    fs::link_create(target, link)
+  }
+  return(invisible(link))
+}
+
 # The layout of the existence tests below: what micromamba counts as an
 # environment of `<root>/envs`, and what it does not.
 make_existence_layout <- function(root) {
@@ -123,14 +137,12 @@ make_existence_layout <- function(root) {
   outside <- fs::path(root, "elsewhere", "outside-env")
   make_prefix(outside)
   make_prefix(fs::path(envs_dir, "real-env", "envs", "nested-env"))
-  links <- character(0L)
-  if (isFALSE(is_windows())) {
-    # Symbolic links: micromamba lists them under the name of their real
-    # path, so not under the name of the link.
-    fs::link_create(fs::path(envs_dir, "real-env"), fs::path(envs_dir, "alias"))
-    fs::link_create(outside, fs::path(envs_dir, "outside-link"))
-    links <- c("alias", "outside-link")
-  }
+  # Links: micromamba lists them under the name of their real path, so not
+  # under the name of the link. On Windows, a junction, which needs no
+  # privilege.
+  link_dir(fs::path(envs_dir, "real-env"), fs::path(envs_dir, "alias"))
+  link_dir(outside, fs::path(envs_dir, "outside-link"))
+  links <- c("alias", "outside-link")
   return(list(
     present = c("other-env", "real-env"),
     absent = c(
@@ -200,17 +212,18 @@ testthat::test_that("the existence probe agrees with `micromamba env list`", {
     backend <- micromamba_backend()
     root <- install_dir_for_backend(backend)
     layout <- make_existence_layout(root)
-    calls <- 0L
+    tracked <- new.env(parent = emptyenv())
+    tracked$calls <- 0L
     real_native_cmd <- native_cmd
     testthat::local_mocked_bindings(
       native_cmd = function(...) {
-        calls <<- calls + 1L
+        tracked$calls <- tracked$calls + 1L
         return(real_native_cmd(...))
       }
     )
     listed <- micromamba_backend_list_envs(backend)
     # The listing ran micromamba.
-    testthat::expect_identical(calls, 1L)
+    testthat::expect_identical(tracked$calls, 1L)
     testthat::expect_identical(sort(listed), layout$present)
     for (env_name in c(layout$present, layout$absent)) {
       testthat::expect_identical(
@@ -220,14 +233,250 @@ testthat::test_that("the existence probe agrees with `micromamba env list`", {
       )
     }
     # The probes started no micromamba.
-    testthat::expect_identical(calls, 1L)
+    testthat::expect_identical(tracked$calls, 1L)
   })
 })
 
-testthat::test_that("an unreadable envs directory makes the probe fail, not answer no", {
+testthat::test_that("read_dir_names() lists every name, and a missing directory as empty", {
+  dir <- withr::local_tempdir()
+  testthat::expect_identical(
+    read_dir_names(fs::path(dir, "missing")),
+    character(0L)
+  )
+  fs::file_create(fs::path(dir, "a-file"))
+  testthat::expect_identical(
+    read_dir_names(fs::path(dir, "a-file")),
+    character(0L)
+  )
+  fs::dir_create(fs::path(dir, "d", c(".hidden", "a")))
+  testthat::expect_identical(
+    sort(read_dir_names(fs::path(dir, "d"))),
+    c(".hidden", "a")
+  )
+})
+
+testthat::test_that("an environment with a non-ASCII name exists in a locale that is not UTF-8", {
   testthat::skip_on_cran()
-  # Rule R5: when the probe cannot tell, it is `NA`, never `FALSE`.
+  # R on Windows uses UTF-8 since R 4.2, whatever the system locale.
   testthat::skip_on_os("windows")
+  # In the C locale, `fs` returns the name "env-" plus a Greek lambda as
+  # escaped text, "env-<ce><bb>", so the probe said FALSE for an
+  # environment that exists. The name is written as its UTF-8 bytes, which
+  # is how the file system stores it. The lambda has no decomposed form,
+  # so macOS stores the same bytes.
+  local_no_micromamba_process()
+  withr::local_locale(c(LC_CTYPE = "C"))
+  testthat::expect_false(isTRUE(l10n_info()[["UTF-8"]]))
+  env_name <- rawToChar(as.raw(c(0x65, 0x6e, 0x76, 0x2d, 0xce, 0xbb)))
+  testthat::expect_true(is_valid_env_name(env_name))
+  with_sandbox_dir({
+    backend <- micromamba_backend()
+    root <- install_dir_for_backend(backend)
+    env_dir <- file.path(root, "envs", env_name)
+    dir.create(file.path(env_dir, "conda-meta"), recursive = TRUE)
+    file.create(file.path(env_dir, "conda-meta", "history"))
+    testthat::expect_true(conda_prefix_env_exists(root, env_name))
+    testthat::expect_true(backend_probe_env(backend, env_name = env_name))
+    testthat::expect_true(env_exists(env_name, method = "micromamba"))
+    # It is an environment, so it is never deleted as a stale directory.
+    testthat::expect_error(
+      delete_stale_env_dir(backend, env_name = env_name),
+      class = "condathis_unsafe_env_dir_delete"
+    )
+    testthat::expect_true(file.exists(file.path(
+      env_dir,
+      "conda-meta",
+      "history"
+    )))
+    # A file of that name is not an environment.
+    unlink(env_dir, recursive = TRUE)
+    file.create(env_dir)
+    testthat::expect_false(conda_prefix_env_exists(root, env_name))
+  })
+})
+
+# A conda prefix `<root>/envs/<env_name>` of the micromamba backend, with a
+# program `condathis-r5-tool` that `run(activate = FALSE)` finds.
+make_tool_prefix <- function(root, env_name) {
+  env_dir <- fs::path(root, "envs", env_name)
+  fs::dir_create(fs::path(env_dir, "conda-meta"))
+  fs::file_create(fs::path(env_dir, "conda-meta", "history"))
+  bin_dir <- fs::path(env_dir, if (isTRUE(is_windows())) "Scripts" else "bin")
+  fs::dir_create(bin_dir)
+  run_family_write_tool(bin_dir, "condathis-r5-tool", "r5-ok")
+  return(env_dir)
+}
+
+# The error of a directory that cannot be read, as `fs` raises it: EACCES
+# on Linux and macOS, EPERM (access denied) on Windows.
+fs_access_error <- function(class) {
+  return(structure(
+    class = c(class, "fs_error", "error", "condition"),
+    list(
+      message = paste0("[", class, "] Failed to search directory"),
+      call = NULL
+    )
+  ))
+}
+
+testthat::test_that("a listing that fails makes the probe NA, and every caller follows rule R5", {
+  testthat::skip_on_cran()
+  # Rule R5: when the probe cannot tell, it is `NA`, never `FALSE`. A
+  # change aborts, a query warns, and run() goes on. The listing is
+  # replaced, so this runs alike on every OS and for every account.
+  local_no_micromamba_process()
+  with_sandbox_dir({
+    backend <- micromamba_backend()
+    root <- install_dir_for_backend(backend)
+    env_dir <- make_tool_prefix(root, "locked-env")
+    base_dir <- make_tool_prefix(root, "condathis-env")
+    history <- fs::path(c(env_dir, base_dir), "conda-meta", "history")
+    stub <- local_stub_backend("stub-r5")
+    for (cls in c("EACCES", "EPERM")) {
+      local({
+        testthat::local_mocked_bindings(
+          read_dir_names = function(path) {
+            # jarl-ignore condition_call: re-signals a condition object, which `call.` does not apply to
+            stop(fs_access_error(cls))
+          },
+          create_base_env = function(...) {
+            stop("create_base_env() must not run.", call. = FALSE)
+          }
+        )
+        probe <- backend_probe_env(backend, env_name = "locked-env")
+        testthat::expect_true(is.na(probe), info = cls)
+        testthat::expect_s3_class(attr(probe, "condition"), cls)
+        testthat::expect_error(
+          backend_env_exists(backend, env_name = "locked-env"),
+          class = cls
+        )
+
+        # A query names the backend: it aborts. With another backend, it
+        # warns and skips this one.
+        testthat::expect_error(
+          env_exists("locked-env", method = "micromamba"),
+          class = "condathis_env_exists_failed"
+        )
+        testthat::local_mocked_bindings(
+          backend_names_by_priority = function() c("micromamba", "stub-r5")
+        )
+        testthat::expect_warning(
+          exists <- env_exists("locked-env"),
+          class = "condathis_backend_query_failed"
+        )
+        testthat::expect_false(exists)
+
+        # A change aborts, and nothing is deleted.
+        testthat::expect_error(
+          create_env(
+            env_name = "locked-env",
+            overwrite = TRUE,
+            verbose = "silent"
+          ),
+          class = "condathis_backend_probe_failed"
+        )
+        testthat::expect_error(
+          install_packages(
+            "polyglot",
+            env_name = "locked-env",
+            verbose = "silent"
+          ),
+          class = "condathis_backend_probe_failed"
+        )
+        testthat::expect_error(
+          remove_env("locked-env", verbose = "silent"),
+          class = "condathis_backend_probe_failed"
+        )
+        testthat::expect_true(all(fs::file_exists(history)), info = cls)
+
+        # run() warns and runs the command; the default environment is not
+        # created again.
+        for (env_name in c("locked-env", "condathis-env")) {
+          testthat::expect_warning(
+            res <- run(
+              "condathis-r5-tool",
+              env_name = env_name,
+              activate = FALSE,
+              verbose = "silent"
+            ),
+            class = "condathis_backend_query_failed"
+          )
+          testthat::expect_identical(res$status, 0L)
+          testthat::expect_identical(parse_output(res), "r5-ok")
+        }
+      })
+    }
+    testthat::expect_identical(stub_calls(stub, "backend_create_env"), list())
+    testthat::expect_true(all(fs::file_exists(history)))
+  })
+})
+
+testthat::test_that("an environment removed while the probe reads is absent, not NA", {
+  testthat::skip_on_cran()
+  # Another session removes the environment between the steps of the
+  # probe, which is the only one in `<root>/envs`: the probe says FALSE.
+  # Before, an empty listing read as "cannot read", so the probe was NA,
+  # and env_exists() aborted.
+  local_no_micromamba_process()
+  with_sandbox_dir({
+    backend <- micromamba_backend()
+    root <- install_dir_for_backend(backend)
+    envs_dir <- fs::path(root, "envs")
+    env_dir <- fs::path(envs_dir, "gone-env")
+    make_prefix <- function() {
+      fs::dir_create(fs::path(env_dir, "conda-meta"))
+      fs::file_create(fs::path(env_dir, "conda-meta", "history"))
+    }
+    real_read_dir_names <- read_dir_names
+    # Removed before the listing: nothing is listed.
+    make_prefix()
+    local({
+      testthat::local_mocked_bindings(
+        read_dir_names = function(path) {
+          unlink(env_dir, recursive = TRUE)
+          return(real_read_dir_names(path))
+        }
+      )
+      testthat::expect_identical(real_read_dir_names(envs_dir), "gone-env")
+      testthat::expect_false(backend_probe_env(backend, env_name = "gone-env"))
+      make_prefix()
+      testthat::expect_false(env_exists("gone-env", method = "micromamba"))
+    })
+    # Removed just after the listing: listed, but gone.
+    make_prefix()
+    local({
+      testthat::local_mocked_bindings(
+        read_dir_names = function(path) {
+          names <- real_read_dir_names(path)
+          fs::dir_delete(env_dir)
+          return(names)
+        }
+      )
+      testthat::expect_false(backend_probe_env(backend, env_name = "gone-env"))
+    })
+    # Its `conda-meta/history` deleted first, as remove_env() does.
+    make_prefix()
+    local({
+      testthat::local_mocked_bindings(
+        read_dir_names = function(path) {
+          names <- real_read_dir_names(path)
+          fs::file_delete(fs::path(env_dir, "conda-meta", "history"))
+          return(names)
+        }
+      )
+      testthat::expect_false(backend_probe_env(backend, env_name = "gone-env"))
+    })
+  })
+})
+
+testthat::test_that("a directory that cannot be read makes the probe NA (POSIX permissions)", {
+  testthat::skip_on_cran()
+  # Windows is covered by the tests that replace the listing above: an
+  # elevated account can read there whatever the access control entries
+  # say.
+  testthat::skip_on_os("windows")
+  # Rule R5, with real permissions. Each case takes a permission away and
+  # gives it back before the sandbox is deleted, also when it fails.
   local_no_micromamba_process()
   with_sandbox_dir({
     backend <- micromamba_backend()
@@ -236,19 +485,119 @@ testthat::test_that("an unreadable envs directory makes the probe fail, not answ
     env_dir <- fs::path(envs_dir, "locked-env")
     fs::dir_create(fs::path(env_dir, "conda-meta"))
     fs::file_create(fs::path(env_dir, "conda-meta", "history"))
-    # Searchable, but its entries cannot be read.
-    fs::file_chmod(envs_dir, "u=x")
-    readable <- isTRUE(length(list.files(envs_dir)) > 0L)
-    probe <- backend_probe_env(backend, env_name = "locked-env")
-    # Readable again, so that the sandbox can be deleted.
-    fs::file_chmod(envs_dir, "u=rwx")
-    if (isTRUE(readable)) {
-      # The user can read it anyway (root): the environment is found.
-      testthat::expect_true(probe)
-    } else {
-      testthat::expect_true(is.na(probe))
-      testthat::expect_s3_class(attr(probe, "condition"), "error")
+    testthat::expect_true(backend_probe_env(backend, env_name = "locked-env"))
+    cases <- list(
+      # Searchable, but its names cannot be read.
+      list(dir = envs_dir, mode = "u=x"),
+      # Its names can be read, but not the entries.
+      list(dir = envs_dir, mode = "u=r"),
+      list(dir = envs_dir, mode = "u="),
+      list(dir = root, mode = "u=")
+    )
+    for (case in cases) {
+      info <- paste(fs::path_file(case$dir), case$mode)
+      probe <- local({
+        fs::file_chmod(case$dir, case$mode)
+        withr::defer(fs::file_chmod(case$dir, "u=rwx"))
+        readable <- tryCatch(
+          {
+            fs::dir_ls(envs_dir)
+            fs::file_info(env_dir, fail = TRUE, follow = FALSE)
+            TRUE
+          },
+          error = function(e) FALSE
+        )
+        if (isTRUE(readable)) {
+          testthat::skip(
+            "This account can read directories without permission (root)."
+          )
+        }
+        backend_probe_env(backend, env_name = "locked-env")
+      })
+      testthat::expect_true(is.na(probe), info = info)
+      testthat::expect_s3_class(attr(probe, "condition"), "EACCES")
     }
+    # Readable again.
+    testthat::expect_true(backend_probe_env(backend, env_name = "locked-env"))
+  })
+})
+
+testthat::test_that("environments in a linked envs directory exist, and are never deleted as stale", {
+  testthat::skip_on_cran()
+  # `<root>/envs` a symbolic link (a junction on Windows) to another
+  # directory, as when it was moved to a larger disk. The probe compared
+  # with the real root plus "/envs", so it said no for every environment,
+  # and the stale-directory cleanup of create_env() deleted them.
+  local_sandbox_micromamba()
+  with_sandbox_dir({
+    backend <- micromamba_backend()
+    root <- install_dir_for_backend(backend)
+    disk_envs <- fs::path(fs::path_dir(root), "other-disk", "envs")
+    fs::dir_create(disk_envs)
+    link_dir(disk_envs, fs::path(root, "envs"))
+    env_dir <- fs::path(root, "envs", "linked-env")
+    fs::dir_create(fs::path(env_dir, "conda-meta"))
+    history <- fs::path(env_dir, "conda-meta", "history")
+    fs::file_create(history)
+
+    testthat::expect_true(backend_env_exists(backend, env_name = "linked-env"))
+    testthat::expect_true(conda_prefix_env_exists(root, "linked-env"))
+    testthat::expect_identical(list_conda_prefix_envs(root), "linked-env")
+    # micromamba lists it too.
+    testthat::expect_identical(
+      micromamba_backend_list_envs(backend),
+      "linked-env"
+    )
+    testthat::expect_identical(
+      list_envs(method = "micromamba")$env_name,
+      "linked-env"
+    )
+
+    # A failed replacement keeps it.
+    testthat::expect_error(
+      with_env_dir_replacement(
+        backend,
+        "linked-env",
+        stop("solve failed", call. = FALSE)
+      ),
+      "solve failed"
+    )
+    testthat::expect_true(fs::file_exists(history))
+
+    # A backend that says no does not get it deleted as a stale directory.
+    local({
+      testthat::local_mocked_bindings(
+        backend_env_exists_checked = function(...) FALSE
+      )
+      testthat::expect_error(
+        with_env_dir_replacement(backend, "linked-env", "created"),
+        class = "condathis_unsafe_env_dir_delete"
+      )
+    })
+    testthat::expect_true(fs::file_exists(history))
+
+    # The default environment, and another environment, are created next
+    # to it.
+    testthat::expect_identical(
+      run(
+        run_family_rscript(),
+        "-e",
+        "cat('ok')",
+        env_name = "condathis-env",
+        activate = FALSE,
+        verbose = "silent"
+      )$stdout,
+      "ok"
+    )
+    create_polyglot_env("polyglot-env")
+    testthat::expect_true(fs::file_exists(history))
+    testthat::expect_identical(
+      sort(list_envs(method = "micromamba")$env_name),
+      c("condathis-env", "linked-env", "polyglot-env")
+    )
+    testthat::expect_true(
+      fs::dir_exists(fs::path(disk_envs, "polyglot-env", "conda-meta"))
+    )
   })
 })
 
@@ -257,10 +606,10 @@ local_micromamba_not_installed <- function(envir = parent.frame()) {
   testthat::local_mocked_bindings(
     get_best_micromamba_path = function() NULL,
     install_micromamba = function(...) {
-      stop("install_micromamba() was called by a query.")
+      stop("install_micromamba() was called by a query.", call. = FALSE)
     },
     execute_command = function(...) {
-      stop("No process may start here.")
+      stop("No process may start here.", call. = FALSE)
     },
     .env = envir
   )
@@ -911,7 +1260,8 @@ testthat::test_that("create_env() shows the Rosetta 2 messages at the caller's v
   # The OS is given through mocks, so the test runs on every platform. The
   # front end asks micromamba through backend_can_solve(), which wraps
   # packages_solve_native().
-  create_args <- NULL
+  tracked <- new.env(parent = emptyenv())
+  tracked$create_args <- NULL
   env_names <- c("rosetta-env", "rosetta-env-2")
   withr::defer({
     env_dirs <- fs::path(get_condathis_path(), "envs", env_names)
@@ -933,7 +1283,7 @@ testthat::test_that("create_env() shows the Rosetta 2 messages at the caller's v
       error = "cancel"
     ) {
       if (identical(conda_cmd, "create")) {
-        create_args <<- conda_args
+        tracked$create_args <- conda_args
         i <- which(conda_args == "-n")
         if (identical(length(i), 1L)) {
           fs::dir_create(fs::path(
@@ -952,7 +1302,7 @@ testthat::test_that("create_env() shows the Rosetta 2 messages at the caller's v
       ))
     }
   )
-  msgs <- character(0L)
+  tracked$msgs <- character(0L)
   withCallingHandlers(
     create_env(
       "pkg",
@@ -961,16 +1311,16 @@ testthat::test_that("create_env() shows the Rosetta 2 messages at the caller's v
       verbose = "output"
     ),
     message = function(m) {
-      msgs <<- c(msgs, cli::ansi_strip(conditionMessage(m)))
+      tracked$msgs <- c(tracked$msgs, cli::ansi_strip(conditionMessage(m)))
       invokeRestart("muffleMessage")
     }
   )
   testthat::expect_match(
-    paste(msgs, collapse = "\n"),
+    paste(tracked$msgs, collapse = "\n"),
     "Using Rosetta 2 emulation.",
     fixed = TRUE
   )
-  testthat::expect_true(all(c("--platform", "osx-64") %in% create_args))
+  testthat::expect_true(all(c("--platform", "osx-64") %in% tracked$create_args))
   testthat::expect_no_message(
     create_env(
       "pkg",
@@ -988,9 +1338,15 @@ testthat::test_that("micromamba's create and install pass the platform condathis
   # own platform without one.
   with_sandbox_dir({
     testthat::local_mocked_bindings(
-      define_platform = function(...) stop("must not choose a platform"),
-      packages_solve_native = function(...) stop("must not solve"),
-      micromamba_native_platform = function(...) stop("must not ask")
+      define_platform = function(...) {
+        stop("must not choose a platform", call. = FALSE)
+      },
+      packages_solve_native = function(...) {
+        stop("must not solve", call. = FALSE)
+      },
+      micromamba_native_platform = function(...) {
+        stop("must not ask", call. = FALSE)
+      }
     )
     record <- local_fake_native_cmd(stdout = "")
     backend <- micromamba_backend()
@@ -1047,8 +1403,10 @@ testthat::test_that("micromamba's create hook leaves the environment directory t
   # anything, also when a directory is there.
   with_sandbox_dir({
     testthat::local_mocked_bindings(
-      backend_env_exists = function(...) stop("must not ask"),
-      micromamba_binary_in_env_dir = function(...) stop("must not look")
+      backend_env_exists = function(...) stop("must not ask", call. = FALSE),
+      micromamba_binary_in_env_dir = function(...) {
+        stop("must not look", call. = FALSE)
+      }
     )
     record <- local_fake_native_cmd(stdout = "")
     backend <- micromamba_backend()
@@ -1358,20 +1716,21 @@ testthat::test_that("micromamba copies a lock or a list of specs under a name it
   testthat::expect_identical(read$stage_name, "requirements.txt")
 
   # The copy is deleted when the caller exits.
-  staged_path <- NULL
+  tracked <- new.env(parent = emptyenv())
+  tracked$staged_path <- NULL
   local({
     staged <- micromamba_definition_file(
       env_definition(fs::path(dir, "ci.lock")),
       env_file = NULL
     )
-    staged_path <<- staged$path
+    tracked$staged_path <- staged$path
     testthat::expect_identical(basename(staged$path), "conda-lock.yml")
     testthat::expect_identical(
       readLines(staged$path),
       readLines(fs::path(dir, "ci.lock"))
     )
   })
-  testthat::expect_false(fs::file_exists(staged_path))
+  testthat::expect_false(fs::file_exists(tracked$staged_path))
   # Without a definition, the path passes unchanged.
   testthat::expect_identical(
     micromamba_definition_file(NULL, env_file = "x.yml"),
@@ -1558,9 +1917,8 @@ testthat::test_that("micromamba reads the items of a conda-lock file line by lin
       stringsAsFactors = FALSE
     )
   )
-  testthat::expect_identical(
-    micromamba_conda_lock_info(c("version: 1", "package: []"))$platforms,
-    NULL
+  testthat::expect_null(
+    micromamba_conda_lock_info(c("version: 1", "package: []"))$platforms
   )
   explicit <- micromamba_explicit_info(c(
     "@EXPLICIT",
@@ -1642,7 +2000,9 @@ testthat::test_that("micromamba's install refuses a lock or a file it cannot rea
   pixi <- fs::path(dir, "pixi.lock")
   writeLines(c("version: 6", "environments: {}", "packages: []"), pixi)
   testthat::local_mocked_bindings(
-    native_cmd = function(...) stop("native_cmd() must not be called")
+    native_cmd = function(...) {
+      stop("native_cmd() must not be called", call. = FALSE)
+    }
   )
   for (definition in list(env_definition(lock), env_definition(pixi))) {
     testthat::expect_error(
@@ -1730,6 +2090,7 @@ testthat::test_that("micromamba creates environments from each kind of file, off
       verbose = "silent"
     )
     created <- c(created, env_name)
+    testthat::expect_identical(res$status, 0L, info = env_name)
     testthat::expect_identical(
       list_packages(env_name)$name,
       "polyglot",
@@ -1768,6 +2129,7 @@ testthat::test_that("condathis catches the empty environment of a lock that micr
     verbose = "silent"
   )
   withr::defer(remove_env("def-staged", verbose = "silent"))
+  testthat::expect_identical(res$status, 0L)
   testthat::expect_identical(list_packages("def-staged")$name, "polyglot")
 
   # Without the copy, the check after the create catches the empty

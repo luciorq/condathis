@@ -266,6 +266,9 @@ run_pipeline <- function(
 ) {
   steps <- rlang::list2(...)
   call <- rlang::current_env()
+  # Captured here, not in a helper: decides whether the deprecated
+  # `method = "native"` warns (see `is_direct_use()`).
+  user_env <- rlang::caller_env()
   # First: a step spliced in by mistake as its fields binds `env_name`,
   # `method` and `stderr` of this function, which would then fail their own
   # checks with a message that hides the mistake.
@@ -309,6 +312,7 @@ run_pipeline <- function(
     steps,
     default_env_name = env_name,
     default_method = method,
+    user_env = user_env,
     call = call
   )
   n_cmds <- length(parsed)
@@ -1316,6 +1320,7 @@ abort_pipeline_timeout <- function(
   timeout,
   call = rlang::caller_env()
 ) {
+  # jarl-ignore unused_object: interpolated by cli in the message below
   n_killed <- sum(
     vapply(result$processes, function(p) isTRUE(p$timeout), logical(1L))
   )
@@ -1415,6 +1420,7 @@ abort_pipeline_status_error <- function(
 ) {
   kill_processes(procs)
   failed_lines <- build_pipeline_failed_lines(result$processes)
+  # jarl-ignore unused_object: interpolated by cli in the message below
   n_failed <- sum(is_failed_stage(result$statuses))
   fields <- pipeline_error_fields(result)
   condathis_abort(
@@ -1448,6 +1454,8 @@ abort_pipeline_status_error <- function(
 #'   already checked with `check_pipeline_steps()`.
 #' @param default_env_name The `env_name` of `run_pipeline()`.
 #' @param default_method The `method` of `run_pipeline()`.
+#' @param user_env The environment `run_pipeline()` was called from, for
+#'   the soft deprecation of `method = "native"` (see `is_direct_use()`).
 #' @param call Calling environment, for errors.
 #'
 #' @returns One list per step, with `cmd` (character vector, command then
@@ -1464,6 +1472,7 @@ parse_pipeline_steps <- function(
   steps,
   default_env_name,
   default_method = "auto",
+  user_env = NULL,
   call = rlang::caller_env()
 ) {
   env_name_class <- pipeline_env_name_class()
@@ -1519,7 +1528,10 @@ parse_pipeline_steps <- function(
       env_label = env_label,
       # "native" and "micromamba" name the same backend: map the alias
       # before `resolve_pipeline_env_method()` compares steps.
-      method = resolve_method_alias(step$method %||% default_method),
+      method = resolve_method_alias(
+        step$method %||% default_method,
+        user_env = user_env
+      ),
       stderr = step$stderr,
       stderr_set = isTRUE(step$stderr_set)
     )
@@ -1689,6 +1701,7 @@ resolve_pipeline_env_method <- function(
   call = rlang::caller_env()
 ) {
   matching <- Filter(function(p) identical(p$env_key, env_key), parsed)
+  # jarl-ignore unused_object: interpolated by cli in the message below
   env_label <- matching[[1L]]$env_label
   methods_i <- vapply(
     matching,
@@ -2083,40 +2096,74 @@ broken_pipe_transition <- function(
   waited = 0,
   grace = windows_broken_pipe_grace
 ) {
-  to <- function(next_phase, action = "none") {
-    return(list(phase = next_phase, action = action))
-  }
   if (isTRUE(phase %in% c("exited", "closed", "broken"))) {
-    return(to(phase))
+    return(broken_pipe_step(phase))
   }
   if (isFALSE(isTRUE(writer_alive))) {
-    return(to("exited"))
+    return(broken_pipe_step("exited"))
   }
   if (identical(phase, "reader")) {
-    if (isTRUE(reader_alive)) {
-      return(to("reader"))
-    }
-    if (isTRUE(can_watch)) {
-      return(to("watching", "watch"))
-    }
-    return(to("grace"))
+    return(broken_pipe_reader_step(reader_alive, can_watch = can_watch))
   }
   if (identical(phase, "watching")) {
-    if (isTRUE(is.na(watcher_status))) {
-      return(to("watching"))
-    }
-    if (identical(as.integer(watcher_status), orphan_pipe_new_output_status)) {
-      return(to("broken", "kill"))
-    }
-    if (identical(as.integer(watcher_status), 0L)) {
-      return(to("closed"))
-    }
-    return(to("grace"))
+    return(broken_pipe_watching_step(watcher_status))
   }
   if (isTRUE(waited >= grace)) {
-    return(to("broken", "kill"))
+    return(broken_pipe_step("broken", "kill"))
   }
-  return(to("grace"))
+  return(broken_pipe_step("grace"))
+}
+
+#' A step of `broken_pipe_transition()`
+#'
+#' @param next_phase Character string, the next phase.
+#' @param action Character string, `"none"`, `"watch"` or `"kill"`.
+#'
+#' @returns A list with `phase` and `action`.
+#'
+#' @keywords internal
+#' @noRd
+broken_pipe_step <- function(next_phase, action = "none") {
+  return(list(phase = next_phase, action = action))
+}
+
+#' The next step from phase `"reader"` of a running writer
+#'
+#' @param reader_alive,can_watch As in `broken_pipe_transition()`.
+#'
+#' @returns A list, as `broken_pipe_step()`.
+#'
+#' @keywords internal
+#' @noRd
+broken_pipe_reader_step <- function(reader_alive, can_watch) {
+  if (isTRUE(reader_alive)) {
+    return(broken_pipe_step("reader"))
+  }
+  if (isTRUE(can_watch)) {
+    return(broken_pipe_step("watching", "watch"))
+  }
+  return(broken_pipe_step("grace"))
+}
+
+#' The next step from phase `"watching"` of a running writer
+#'
+#' @param watcher_status As in `broken_pipe_transition()`.
+#'
+#' @returns A list, as `broken_pipe_step()`.
+#'
+#' @keywords internal
+#' @noRd
+broken_pipe_watching_step <- function(watcher_status) {
+  if (isTRUE(is.na(watcher_status))) {
+    return(broken_pipe_step("watching"))
+  }
+  if (identical(as.integer(watcher_status), orphan_pipe_new_output_status)) {
+    return(broken_pipe_step("broken", "kill"))
+  }
+  if (identical(as.integer(watcher_status), 0L)) {
+    return(broken_pipe_step("closed"))
+  }
+  return(broken_pipe_step("grace"))
 }
 
 #' Reproduce `SIGPIPE` for Windows pipeline stages

@@ -91,70 +91,28 @@ pump_process_io <- function(
     # so the loop checks the deadline. After the deadline, poll with
     # timeout 0: `kill()` invalidates the connection and discards unread
     # output, so this instant drain is the last chance to recover it.
-    proc$poll_io(
-      if (isTRUE(deadline_hit)) {
-        0
-      } else if (isTRUE(input_done) && isFALSE(is.finite(deadline))) {
-        -1
-      } else {
-        200
-      }
-    )
+    proc$poll_io(pump_poll_timeout(deadline_hit, input_done, deadline))
 
     if (isFALSE(input_done)) {
-      # A child that exits before consuming stdin is not an R-level error.
-      # The write raises a low-level broken-pipe condition (`c_error`, no
-      # `status` field). Uncaught, `rethrow_error_run()` would misreport it
-      # as status 127 ("command not found") and mask the real exit status.
-      # Treat it as "input undeliverable": stop writing, keep draining, and
-      # let the exit status report the failure (mirrors
-      # `pump_pipeline_io()`).
-      write_res <- tryCatch(
-        proc$write_input(pending_input),
-        error = function(e) e
-      )
-      if (inherits(write_res, "error")) {
-        input_done <- TRUE
-        if (isTRUE(proc$has_input_connection())) {
-          try(close(proc$get_input_connection()), silent = TRUE)
-        }
-      } else {
-        if (identical(length(write_res), 0L)) {
-          input_done <- TRUE
-          if (isTRUE(proc$has_input_connection())) {
-            close(proc$get_input_connection())
-          }
-        }
-        pending_input <- write_res
-      }
+      written <- pump_process_write_input(proc, pending_input)
+      pending_input <- written$pending_input
+      input_done <- written$input_done
     }
 
-    if (has_out && isTRUE(proc$is_incomplete_output())) {
-      chunk <- if (isTRUE(binary)) {
-        proc$read_output_bytes(-1)
-      } else {
-        proc$read_output(-1)
-      }
-      if (
-        !is.null(chunk) &&
-          (if (isTRUE(binary)) length(chunk) > 0L else nzchar(chunk))
-      ) {
-        out_chunks[[length(out_chunks) + 1L]] <- chunk
-      }
-    }
-    if (has_err && isTRUE(proc$is_incomplete_error())) {
-      chunk <- if (isTRUE(binary)) {
-        proc$read_error_bytes(-1)
-      } else {
-        proc$read_error(-1)
-      }
-      if (
-        !is.null(chunk) &&
-          (if (isTRUE(binary)) length(chunk) > 0L else nzchar(chunk))
-      ) {
-        err_chunks[[length(err_chunks) + 1L]] <- chunk
-      }
-    }
+    out_chunks <- pump_read_chunk(
+      proc,
+      chunks = out_chunks,
+      stream = "output",
+      active = has_out,
+      binary = binary
+    )
+    err_chunks <- pump_read_chunk(
+      proc,
+      chunks = err_chunks,
+      stream = "error",
+      active = has_err,
+      binary = binary
+    )
 
     if (isTRUE(deadline_hit)) {
       timed_out <- TRUE
@@ -174,6 +132,65 @@ pump_process_io <- function(
     stderr = if (has_err) combine(err_chunks) else NULL,
     timeout = timed_out
   ))
+}
+
+#' The poll timeout of one iteration of `pump_process_io()`
+#'
+#' @param deadline_hit Logical. Whether the deadline has passed.
+#' @param input_done Logical. Whether all the input is written.
+#' @param deadline Numeric, as in `pump_process_io()`.
+#'
+#' @returns The timeout in milliseconds for `proc$poll_io()`: `0` after the
+#'   deadline, `-1` (block) once the input is sent and no deadline is
+#'   active, else `200`.
+#'
+#' @keywords internal
+#' @noRd
+pump_poll_timeout <- function(deadline_hit, input_done, deadline) {
+  if (isTRUE(deadline_hit)) {
+    return(0)
+  }
+  if (isTRUE(input_done) && isFALSE(is.finite(deadline))) {
+    return(-1)
+  }
+  return(200)
+}
+
+#' Write the pending input of `pump_process_io()`
+#'
+#' A child that exits before consuming stdin is not an R-level error. The
+#' write raises a low-level broken-pipe condition (`c_error`, no `status`
+#' field). Uncaught, `rethrow_error_run()` would misreport it as status
+#' 127 ("command not found") and mask the real exit status. Treat it as
+#' "input undeliverable": stop writing, keep draining, and let the exit
+#' status report the failure (mirrors `pump_pipeline_write_input()`).
+#'
+#' @param proc A `processx::process` object.
+#' @param pending_input The input still to write.
+#'
+#' @returns A list with `pending_input`, the input still to write, and
+#'   `input_done`, `TRUE` when nothing more is written.
+#'
+#' @keywords internal
+#' @noRd
+pump_process_write_input <- function(proc, pending_input) {
+  write_res <- tryCatch(
+    proc$write_input(pending_input),
+    error = function(e) e
+  )
+  if (inherits(write_res, "error")) {
+    if (isTRUE(proc$has_input_connection())) {
+      try(close(proc$get_input_connection()), silent = TRUE)
+    }
+    return(list(pending_input = pending_input, input_done = TRUE))
+  }
+  if (identical(length(write_res), 0L)) {
+    if (isTRUE(proc$has_input_connection())) {
+      close(proc$get_input_connection())
+    }
+    return(list(pending_input = write_res, input_done = TRUE))
+  }
+  return(list(pending_input = write_res, input_done = FALSE))
 }
 
 #' Wait on a process, tolerating an already-finalized handle

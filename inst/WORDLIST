@@ -2,6 +2,7 @@ Aperio
 BAM
 CEP
 CLI
+CUDA
 Changelog
 Conda
 Ctrl
@@ -30,6 +31,7 @@ Unregistering
 VersionSpec
 WSI
 WSL
+Xcode
 activations
 allowlist
 backend's
@@ -46,6 +48,7 @@ dev
 env
 fallbacks
 filelock
+fs
 geo
 knitr
 mambajs
@@ -68,8 +71,10 @@ rlang
 scriptable
 stderr
 stdin
+stringr
 subdir
 subprocesses
+testthat's
 tibble
 toolchain
 traceback
@@ -78,3 +83,4 @@ unlink
 unregister
 unsets
 uv
+withr

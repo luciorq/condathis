@@ -144,7 +144,6 @@ testthat::test_that("verify_micromamba_checksum warns, but never aborts, on a re
   # mismatch against the real, network-fetched .sha256 for this version.
   not_the_binary <- abc_test_file()
 
-  result <- NULL
   testthat::expect_warning(
     object = {
       result <- verify_micromamba_checksum(
@@ -308,10 +307,11 @@ testthat::test_that("compute_sha256 falls back to certutil on Windows only", {
     requireNamespace = function(...) FALSE,
     .package = "base"
   )
-  tried <- character(0L)
+  tracked <- new.env(parent = emptyenv())
+  tracked$tried <- character(0L)
   testthat::local_mocked_bindings(
     sha256_command_is_trustworthy = function(sha_cmd) {
-      tried <<- c(tried, sha_cmd)
+      tracked$tried <- c(tracked$tried, sha_cmd)
       identical(sha_cmd, "certutil")
     },
     run_sha256_command = function(sha_cmd, file_path) {
@@ -320,12 +320,15 @@ testthat::test_that("compute_sha256 falls back to certutil on Windows only", {
   )
   testthat::local_mocked_bindings(is_windows = function() TRUE)
   testthat::expect_identical(compute_sha256(abc_test_file()), abc_sha256)
-  testthat::expect_identical(tried, c("sha256sum", "shasum", "certutil"))
+  testthat::expect_identical(
+    tracked$tried,
+    c("sha256sum", "shasum", "certutil")
+  )
 
-  tried <- character(0L)
+  tracked$tried <- character(0L)
   testthat::local_mocked_bindings(is_windows = function() FALSE)
   testthat::expect_identical(compute_sha256(abc_test_file()), NA_character_)
-  testthat::expect_identical(tried, c("sha256sum", "shasum"))
+  testthat::expect_identical(tracked$tried, c("sha256sum", "shasum"))
 })
 
 testthat::test_that("certutil is trusted exactly where it is the Windows tool", {

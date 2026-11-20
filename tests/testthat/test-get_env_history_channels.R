@@ -82,7 +82,9 @@ testthat::test_that("install_packages reads the history of the resolved backend'
     backend_names_by_priority = function() "micromamba",
     backend_probe_env = function(...) TRUE,
     find_owning_backends = function(...) "micromamba",
-    get_env_dir = function(...) stop("get_env_dir() must not be called"),
+    get_env_dir = function(...) {
+      stop("get_env_dir() must not be called", call. = FALSE)
+    },
     backend_install = function(...) list(status = 0L)
   )
   res <- install_packages("zlib", env_name = "hist-check-env", verbose = FALSE)

@@ -107,11 +107,14 @@ test_that("get_env_dir() on a fresh data directory starts no process", {
     testthat::local_mocked_bindings(
       native_cmd = function(...) {
         started$native_cmd <- started$native_cmd + 1L
-        stop("get_env_dir() must not start micromamba on a fresh root")
+        stop(
+          "get_env_dir() must not start micromamba on a fresh root",
+          call. = FALSE
+        )
       },
       install_micromamba = function(...) {
         started$install <- started$install + 1L
-        stop("get_env_dir() must not install micromamba")
+        stop("get_env_dir() must not install micromamba", call. = FALSE)
       }
     )
     root <- fs::path_real(get_install_dir(method = "micromamba")$path)

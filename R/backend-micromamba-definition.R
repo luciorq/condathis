@@ -105,22 +105,10 @@ micromamba_backend_describe_definition <- function(
 #' @noRd
 micromamba_read_definition <- function(definition) {
   path <- definition[["path"]]
-  format_arg <- definition[["format"]]
-  options <- definition[["options"]]
-  refuse <- function(reason, format = NA_character_) {
-    return(list(
-      description = definition_description(
-        supported = FALSE,
-        format = format,
-        reason = reason
-      ),
-      stage_name = NULL,
-      extra_args = character(0L)
-    ))
-  }
-  pixi_reason <- "micromamba does not read pixi.lock files. Use a backend that reads them, or export the environment to an @EXPLICIT or conda-lock file."
   if (isTRUE(fs::dir_exists(path))) {
-    return(refuse("micromamba reads an environment file, not a directory."))
+    return(micromamba_refuse_definition(
+      "micromamba reads an environment file, not a directory."
+    ))
   }
   lines <- tryCatch(
     suppressWarnings(readLines(path, warn = FALSE, encoding = "UTF-8")),
@@ -134,133 +122,31 @@ micromamba_read_definition <- function(definition) {
     ))
   }
   detected <- micromamba_sniff_definition(lines, path)
-  lock_formats <- c("explicit", "conda-lock-v1", "mambajs-lock-v1")
-  if (isFALSE(is.null(format_arg))) {
-    format <- unname(micromamba_format_aliases[tolower(format_arg)])
-    if (isTRUE(is.na(format))) {
-      return(refuse(
-        paste0(
-          "micromamba does not read format '",
-          format_arg,
-          "'. It reads: ",
-          paste(micromamba_definition_formats, collapse = ", "),
-          "."
-        ),
-        format = format_arg
-      ))
-    }
-    if (identical(format, "rattler-lock")) {
-      return(refuse(pixi_reason, format = format_arg))
-    }
-    content_is_lock <- isTRUE(
-      detected %in% c(lock_formats, "conda-lock-other", "rattler-lock")
-    )
-    if (
-      (isTRUE(format %in% lock_formats) &&
-        isFALSE(identical(detected, format))) ||
-        (isFALSE(format %in% lock_formats) && isTRUE(content_is_lock)) ||
-        identical(detected, "json-other")
-    ) {
-      return(refuse(
-        paste0(
-          "The file does not have the contents of format '",
-          format_arg,
-          "': it reads as '",
-          detected,
-          "'."
-        ),
-        format = format_arg
-      ))
-    }
+  chosen <- if (isFALSE(is.null(definition[["format"]]))) {
+    micromamba_named_definition_format(definition[["format"]], detected)
   } else {
-    format <- detected
-    if (identical(format, "rattler-lock")) {
-      return(refuse(pixi_reason, format = "rattler-lock"))
-    }
-    if (identical(format, "conda-lock-other")) {
-      return(refuse(
-        "micromamba reads only version 1 of conda-lock files.",
-        format = "conda-lock"
-      ))
-    }
-    if (identical(format, "json-other")) {
-      return(refuse(
-        "micromamba reads a JSON file only as a mambajs lock file, which has a 'lockVersion' field."
-      ))
-    }
+    micromamba_detected_definition_format(detected)
+  }
+  if (isFALSE(is.null(chosen$refusal))) {
+    return(chosen$refusal)
+  }
+  format <- chosen$format
+  options <- micromamba_definition_options(definition[["options"]], format)
+  if (isFALSE(is.null(options$refusal))) {
+    return(options$refusal)
+  }
+  stage <- micromamba_definition_stage_name(path, format)
+  if (isFALSE(is.null(stage$refusal))) {
+    return(stage$refusal)
   }
 
-  extra_args <- character(0L)
-  option_names <- rlang::names2(options)
-  unknown <- setdiff(option_names, "categories")
-  if (isTRUE(length(unknown) > 0L)) {
-    return(refuse(
-      paste0(
-        "micromamba does not understand the option",
-        if (isTRUE(length(unknown) > 1L)) "s" else "",
-        " ",
-        paste0("'", unknown, "'", collapse = ", "),
-        ". It takes only 'categories', for a conda-lock file."
-      ),
-      format = format
-    ))
-  }
-  categories <- "main"
-  if (isTRUE("categories" %in% option_names)) {
-    if (isFALSE(identical(format, "conda-lock-v1"))) {
-      return(refuse(
-        "The option 'categories' applies only to conda-lock files.",
-        format = format
-      ))
-    }
-    categories <- options[["categories"]]
-    if (
-      isFALSE(is.character(categories)) ||
-        identical(length(categories), 0L) ||
-        isTRUE(anyNA(categories)) ||
-        isFALSE(all(nzchar(categories)))
-    ) {
-      return(refuse(
-        "The option 'categories' must be a character vector of category names, such as c(\"main\", \"dev\").",
-        format = format
-      ))
-    }
-    categories <- unique(categories)
-    extra_args <- c("--category", categories)
-  }
-
-  needed_kind <- switch(
-    format,
-    `environment-yaml` = "yaml",
-    `requirements` = "text",
-    `explicit` = "text",
-    `conda-lock-v1` = "conda-lock",
-    `mambajs-lock-v1` = "mambajs"
-  )
-  stage_name <- NULL
-  if (isFALSE(identical(micromamba_name_kind(path), needed_kind))) {
-    if (identical(format, "environment-yaml")) {
-      return(refuse(
-        "micromamba reads an environment YAML file only when its name ends in '.yml' or '.yaml', and not in '-lock.yml' or '-lock.yaml'. Rename the file, for example to 'environment.yml'. condathis does not pass a copy: the 'pip:' section can name files relative to the file.",
-        format = format
-      ))
-    }
-    stage_name <- switch(
-      format,
-      `requirements` = "requirements.txt",
-      `explicit` = "explicit.txt",
-      `conda-lock-v1` = "conda-lock.yml",
-      `mambajs-lock-v1` = "mambajs-lock.json"
-    )
-  }
-
-  kind <- if (isTRUE(format %in% lock_formats)) "lock" else "request"
+  kind <- if (isTRUE(format %in% micromamba_lock_formats)) "lock" else "request"
   lock_info <- switch(
     format,
     `explicit` = micromamba_explicit_info(lines),
     `conda-lock-v1` = micromamba_conda_lock_info(
       lines,
-      categories = categories
+      categories = options$categories
     ),
     `mambajs-lock-v1` = micromamba_mambajs_info(path),
     list(platforms = NULL, records = NULL)
@@ -273,9 +159,253 @@ micromamba_read_definition <- function(definition) {
       platforms = lock_info$platforms,
       records = lock_info$records
     ),
-    stage_name = stage_name,
-    extra_args = extra_args
+    stage_name = stage$stage_name,
+    extra_args = options$extra_args
   ))
+}
+
+#' The lock formats that micromamba reads
+#'
+#' @keywords internal
+#' @noRd
+micromamba_lock_formats <- c("explicit", "conda-lock-v1", "mambajs-lock-v1")
+
+#' The value of `micromamba_read_definition()` for a file it refuses
+#'
+#' @param reason Character string, why micromamba cannot read the file.
+#' @param format Character string, the format of the file, or `NA`.
+#'
+#' @returns A list, as `micromamba_read_definition()`, with `supported`
+#'   `FALSE`.
+#'
+#' @keywords internal
+#' @noRd
+micromamba_refuse_definition <- function(reason, format = NA_character_) {
+  return(list(
+    description = definition_description(
+      supported = FALSE,
+      format = format,
+      reason = reason
+    ),
+    stage_name = NULL,
+    extra_args = character(0L)
+  ))
+}
+
+#' The reason micromamba gives for a pixi.lock file
+#'
+#' @keywords internal
+#' @noRd
+micromamba_pixi_lock_reason <- "micromamba does not read pixi.lock files. Use a backend that reads them, or export the environment to an @EXPLICIT or conda-lock file."
+
+#' The format of an environment file, given by name
+#'
+#' A lock format given by name must match the contents of the file.
+#'
+#' @param format_arg Character string, the `format` of the
+#'   `env_definition()`.
+#' @param detected Character string, the format from the contents (see
+#'   `micromamba_sniff_definition()`).
+#'
+#' @returns A list with `format`, the format micromamba reads the file as,
+#'   and `refusal`: `NULL`, or the value of `micromamba_read_definition()`
+#'   for a file it refuses.
+#'
+#' @keywords internal
+#' @noRd
+micromamba_named_definition_format <- function(format_arg, detected) {
+  format <- unname(micromamba_format_aliases[tolower(format_arg)])
+  if (isTRUE(is.na(format))) {
+    return(list(
+      format = format,
+      refusal = micromamba_refuse_definition(
+        paste0(
+          "micromamba does not read format '",
+          format_arg,
+          "'. It reads: ",
+          paste(micromamba_definition_formats, collapse = ", "),
+          "."
+        ),
+        format = format_arg
+      )
+    ))
+  }
+  if (identical(format, "rattler-lock")) {
+    return(list(
+      format = format,
+      refusal = micromamba_refuse_definition(
+        micromamba_pixi_lock_reason,
+        format = format_arg
+      )
+    ))
+  }
+  content_is_lock <- isTRUE(
+    detected %in% c(micromamba_lock_formats, "conda-lock-other", "rattler-lock")
+  )
+  if (
+    (isTRUE(format %in% micromamba_lock_formats) &&
+      isFALSE(identical(detected, format))) ||
+      (isFALSE(format %in% micromamba_lock_formats) &&
+        isTRUE(content_is_lock)) ||
+      identical(detected, "json-other")
+  ) {
+    return(list(
+      format = format,
+      refusal = micromamba_refuse_definition(
+        paste0(
+          "The file does not have the contents of format '",
+          format_arg,
+          "': it reads as '",
+          detected,
+          "'."
+        ),
+        format = format_arg
+      )
+    ))
+  }
+  return(list(format = format, refusal = NULL))
+}
+
+#' The format of an environment file, from its contents only
+#'
+#' @param detected Character string, the format from the contents (see
+#'   `micromamba_sniff_definition()`).
+#'
+#' @returns A list, as `micromamba_named_definition_format()`.
+#'
+#' @keywords internal
+#' @noRd
+micromamba_detected_definition_format <- function(detected) {
+  refusal <- switch(
+    detected,
+    `rattler-lock` = micromamba_refuse_definition(
+      micromamba_pixi_lock_reason,
+      format = "rattler-lock"
+    ),
+    `conda-lock-other` = micromamba_refuse_definition(
+      "micromamba reads only version 1 of conda-lock files.",
+      format = "conda-lock"
+    ),
+    `json-other` = micromamba_refuse_definition(
+      "micromamba reads a JSON file only as a mambajs lock file, which has a 'lockVersion' field."
+    ),
+    NULL
+  )
+  return(list(format = detected, refusal = refusal))
+}
+
+#' The options of an environment definition for micromamba
+#'
+#' The only option is `categories`, for a conda-lock file.
+#'
+#' @param options The `options` of the `env_definition()`.
+#' @param format Character string, the format micromamba reads the file
+#'   as.
+#'
+#' @returns A list with `categories` (the categories of a conda-lock file,
+#'   `"main"` by default), `extra_args` (character vector of arguments for
+#'   `micromamba create`) and `refusal` (as in
+#'   `micromamba_named_definition_format()`).
+#'
+#' @keywords internal
+#' @noRd
+micromamba_definition_options <- function(options, format) {
+  refused <- function(reason) {
+    return(list(
+      categories = NULL,
+      extra_args = character(0L),
+      refusal = micromamba_refuse_definition(reason, format = format)
+    ))
+  }
+  option_names <- rlang::names2(options)
+  unknown <- setdiff(option_names, "categories")
+  if (isTRUE(length(unknown) > 0L)) {
+    return(refused(paste0(
+      "micromamba does not understand the option",
+      if (isTRUE(length(unknown) > 1L)) "s" else "",
+      " ",
+      paste0("'", unknown, "'", collapse = ", "),
+      ". It takes only 'categories', for a conda-lock file."
+    )))
+  }
+  if (isFALSE("categories" %in% option_names)) {
+    return(list(
+      categories = "main",
+      extra_args = character(0L),
+      refusal = NULL
+    ))
+  }
+  if (isFALSE(identical(format, "conda-lock-v1"))) {
+    return(refused(
+      "The option 'categories' applies only to conda-lock files."
+    ))
+  }
+  categories <- options[["categories"]]
+  if (
+    isFALSE(is.character(categories)) ||
+      identical(length(categories), 0L) ||
+      isTRUE(anyNA(categories)) ||
+      isFALSE(all(nzchar(categories)))
+  ) {
+    return(refused(
+      "The option 'categories' must be a character vector of category names, such as c(\"main\", \"dev\")."
+    ))
+  }
+  categories <- unique(categories)
+  return(list(
+    categories = categories,
+    extra_args = c("--category", categories),
+    refusal = NULL
+  ))
+}
+
+#' The name of the copy of an environment file that micromamba reads
+#'
+#' The name of the file must be one that micromamba reads as `format` (see
+#' `micromamba_name_kind()`). When it is not, a list of specs, an
+#' `@EXPLICIT` file, a conda-lock file and a mambajs file are copied under
+#' another name. An environment YAML file is refused instead: a `pip:`
+#' section can name files relative to the file, as in
+#' `-r requirements.txt`, and a copy elsewhere would break them.
+#'
+#' @param path Character string, the path of the file.
+#' @param format Character string, the format micromamba reads the file
+#'   as.
+#'
+#' @returns A list with `stage_name` (`NULL`, or the file name of the copy
+#'   to pass) and `refusal` (as in `micromamba_named_definition_format()`).
+#'
+#' @keywords internal
+#' @noRd
+micromamba_definition_stage_name <- function(path, format) {
+  needed_kind <- switch(
+    format,
+    `environment-yaml` = "yaml",
+    `requirements` = "text",
+    `explicit` = "text",
+    `conda-lock-v1` = "conda-lock",
+    `mambajs-lock-v1` = "mambajs"
+  )
+  if (identical(micromamba_name_kind(path), needed_kind)) {
+    return(list(stage_name = NULL, refusal = NULL))
+  }
+  if (identical(format, "environment-yaml")) {
+    return(list(
+      stage_name = NULL,
+      refusal = micromamba_refuse_definition(
+        "micromamba reads an environment YAML file only when its name ends in '.yml' or '.yaml', and not in '-lock.yml' or '-lock.yaml'. Rename the file, for example to 'environment.yml'. condathis does not pass a copy: the 'pip:' section can name files relative to the file.",
+        format = format
+      )
+    ))
+  }
+  stage_name <- switch(
+    format,
+    `requirements` = "requirements.txt",
+    `explicit` = "explicit.txt",
+    `conda-lock-v1` = "conda-lock.yml",
+    `mambajs-lock-v1` = "mambajs-lock.json"
+  )
+  return(list(stage_name = stage_name, refusal = NULL))
 }
 
 #' The format of an environment file, from its contents
@@ -447,11 +577,11 @@ micromamba_explicit_info <- function(lines) {
       header
     )))
   }
-  marker <- which(grepl(
+  marker <- grep(
     "^[[:space:]]*@EXPLICIT[[:space:]]*$",
     lines,
     useBytes = TRUE
-  ))
+  )
   urls <- character(0L)
   if (isTRUE(length(marker) > 0L) && isTRUE(marker[[1L]] < length(lines))) {
     urls <- trimws(lines[seq(marker[[1L]] + 1L, length(lines))])
@@ -558,13 +688,13 @@ micromamba_conda_lock_info <- function(lines, categories = "main") {
 #' @keywords internal
 #' @noRd
 read_conda_lock_items <- function(lines) {
-  start <- which(grepl("^package:[[:space:]]*$", lines, useBytes = TRUE))
+  start <- grep("^package:[[:space:]]*$", lines, useBytes = TRUE)
   if (identical(length(start), 0L) || isTRUE(start[[1L]] >= length(lines))) {
     return(list())
   }
   body <- lines[seq(start[[1L]] + 1L, length(lines))]
   # The block ends at the next top-level key.
-  block_end <- which(grepl("^[^[:space:]#-]", body, useBytes = TRUE))
+  block_end <- grep("^[^[:space:]#-]", body, useBytes = TRUE)
   if (isTRUE(length(block_end) > 0L)) {
     body <- body[seq_len(block_end[[1L]] - 1L)]
   }

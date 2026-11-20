@@ -43,7 +43,8 @@
 #'   deprecated. It warns once per session (class
 #'   `condathis_deprecated_packages_arg`) when the call comes from the
 #'   console, a script or the tests of the package that makes it. Calls
-#'   made inside other packages do not warn.
+#'   made inside other packages do not warn, except in tests that use
+#'   testthat's third edition (see [condathis-conditions]).
 #'
 #'   Or one lock file, given by [env_definition()], such as
 #'   `env_definition("conda-lock.yml")`, without package specs. Then the
@@ -198,7 +199,8 @@ validate_env <- function(
   packages <- collect_package_specs(
     dots,
     fn = "validate_env",
-    user_env = user_env
+    user_env = user_env,
+    given_args = if (missing(env_name)) character(0L) else "env_name"
   )
   validate_env_name(env_name, class = "condathis_validate_env_invalid_env_name")
   method <- validate_method_arg(method)
@@ -265,22 +267,15 @@ validate_env <- function(
     return(validate_env_failure("env_not_found", unsatisfied = unsatisfied))
   }
 
-  # A failed probe (`NA`, rule R5) is not read as "absent": the listing
-  # either works, and the environment exists, or reports the real error.
-  installed_pkgs_df <- NULL
-  if (
-    isTRUE(is.na(env_probe)) ||
-      isFALSE(is.null(platform)) ||
-      isTRUE(length(packages) > 0L) ||
-      isFALSE(is.null(lock_records))
-  ) {
-    installed_pkgs_df <- list_env_packages_checked(
-      backend = resolved$backend,
-      backend_name = resolved$name,
-      env_name = env_name,
-      fn = "validate_env"
-    )
-  }
+  installed_pkgs_df <- validate_env_installed_packages(
+    resolved,
+    env_name = env_name,
+    env_probe = env_probe,
+    platform = platform,
+    packages = packages,
+    lock_records = lock_records,
+    call = rlang::current_env()
+  )
   check <- check_env_request(
     installed_pkgs_df = installed_pkgs_df,
     packages = packages,
@@ -313,12 +308,76 @@ validate_env <- function(
   if (identical(error, "continue")) {
     return(validate_env_failure(check$reason, unsatisfied = check$unsatisfied))
   }
+  abort_validate_env_unsatisfied(
+    check,
+    env_name = env_name,
+    platform = platform,
+    call = rlang::current_env()
+  )
+}
+
+#' The packages of the environment that `validate_env()` compares
+#'
+#' A failed probe (`NA`, rule R5) is not read as "absent": the listing
+#' either works, and the environment exists, or reports the real error.
+#'
+#' @param resolved The resolved backend, from `resolve_backend()`.
+#' @param env_name,platform As in `validate_env()`.
+#' @param env_probe `TRUE` or `NA`, from `backend_probe_env()`.
+#' @param packages Character vector of the requested specs.
+#' @param lock_records `NULL`, or the records of a lock definition.
+#' @param call Environment of `validate_env()`, for the errors.
+#'
+#' @returns The data frame of `list_env_packages_checked()`, or `NULL` when
+#'   nothing needs it.
+#'
+#' @keywords internal
+#' @noRd
+validate_env_installed_packages <- function(
+  resolved,
+  env_name,
+  env_probe,
+  platform,
+  packages,
+  lock_records,
+  call
+) {
+  if (
+    isTRUE(is.na(env_probe)) ||
+      isFALSE(is.null(platform)) ||
+      isTRUE(length(packages) > 0L) ||
+      isFALSE(is.null(lock_records))
+  ) {
+    return(list_env_packages_checked(
+      backend = resolved$backend,
+      backend_name = resolved$name,
+      env_name = env_name,
+      fn = "validate_env",
+      call = call
+    ))
+  }
+  return(NULL)
+}
+
+#' Abort for an environment without the packages `validate_env()` asks for
+#'
+#' @param check The value of `check_env_request()`.
+#' @param env_name,platform As in `validate_env()`.
+#' @param call Environment of `validate_env()`, for the error.
+#'
+#' @returns Does not return.
+#'
+#' @keywords internal
+#' @noRd
+abort_validate_env_unsatisfied <- function(check, env_name, platform, call) {
+  # jarl-ignore-start unused_object: read by the cli templates of unsatisfied_spec_bullets() and the messages below
   unsatisfied <- check$unsatisfied
   uncompared <- check$uncompared
   uncompared_versions <- check$uncompared_versions
   uncompared_builds <- check$uncompared_builds
   other_channels <- check$other_channels
   env_platforms <- check$env_platforms
+  # jarl-ignore-end unused_object
   problems <- character(0L)
   if (identical(check$reason, "platform_mismatch")) {
     problems <- c(
@@ -344,7 +403,8 @@ validate_env <- function(
       problems,
       hint
     ),
-    class = "condathis_validate_env_unsatisfied"
+    class = "condathis_validate_env_unsatisfied",
+    call = call
   )
 }
 
@@ -415,6 +475,7 @@ validate_env_lock_records <- function(
     )
   }
   target <- platform %||% NA_character_
+  # jarl-ignore unused_object: interpolated by cli in the message below
   path <- definition$path
   listed <- setdiff(as.character(description$platforms), "noarch")
   if (
@@ -494,6 +555,7 @@ validate_env_lock <- function(
     records = records,
     target = platform %||% NA_character_
   )
+  # jarl-ignore unused_object: interpolated by cli in the message below
   path <- definition$path
   if (isTRUE(comparison$satisfied)) {
     if (isTRUE(verbose_list$strategy %in% c("full", "output"))) {

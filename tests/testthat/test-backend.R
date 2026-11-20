@@ -556,7 +556,7 @@ testthat::test_that("register_backend checks the new arguments of contract versi
 })
 
 testthat::test_that("a backend needs only the three required functions", {
-  not_implemented <- function(...) stop("not implemented")
+  not_implemented <- function(...) stop("not implemented", call. = FALSE)
   minimal <- structure(
     list(
       backend_create_env = not_implemented,
@@ -821,7 +821,7 @@ testthat::test_that("the documented example backend registers", {
   # The example unregisters its backend again.
   testthat::expect_false("mybackend" %in% list_registered_backend_names())
   mybackend <- example_env$mybackend
-  testthat::expect_true(is.list(mybackend))
+  testthat::expect_type(mybackend, "list")
   register_backend("mybackend", mybackend)
   withr::defer(unregister_backend("mybackend"))
   # The example leaves the root to condathis: backend_root_dir().
@@ -931,7 +931,7 @@ testthat::test_that("the generics declare the contract defaults", {
       info = generic
     )
   }
-  testthat::expect_identical(formals(backend_install)$platform, NULL)
+  testthat::expect_null(formals(backend_install)$platform)
   testthat::expect_true("platform" %in% names(formals(backend_install)))
   testthat::expect_identical(
     utils::tail(names(formals(backend_install)), 2L),
@@ -964,8 +964,8 @@ testthat::test_that("the generics declare the contract defaults", {
       info = generic
     )
   }
-  testthat::expect_identical(
-    names(formals(backend_create_env)),
+  testthat::expect_named(
+    formals(backend_create_env),
     c(
       "backend",
       "packages",
@@ -979,8 +979,8 @@ testthat::test_that("the generics declare the contract defaults", {
       "verbose"
     )
   )
-  testthat::expect_identical(
-    names(formals(backend_install)),
+  testthat::expect_named(
+    formals(backend_install),
     c(
       "backend",
       "packages",
@@ -992,8 +992,8 @@ testthat::test_that("the generics declare the contract defaults", {
       "verbose"
     )
   )
-  testthat::expect_identical(
-    names(formals(backend_can_solve)),
+  testthat::expect_named(
+    formals(backend_can_solve),
     c(
       "backend",
       "packages",
@@ -1141,7 +1141,9 @@ testthat::test_that("the verbose hint is only given where verbose can follow met
   # so the hint "Pass `verbose = ...` by name" led to "unused argument".
   # `method` is checked before any backend call.
   testthat::local_mocked_bindings(
-    native_cmd = function(...) stop("native_cmd() must not run here.")
+    native_cmd = function(...) {
+      stop("native_cmd() must not run here.", call. = FALSE)
+    }
   )
   with_sandbox_dir({
     for (cnd in list(
@@ -1197,9 +1199,10 @@ testthat::test_that("method = 'native' warns exactly once per session", {
   reset_warn_once(id)
   withr::defer(reset_warn_once(id))
 
-  warn_count <- 0
+  tracked <- new.env(parent = emptyenv())
+  tracked$warn_count <- 0
   handler <- function(w) {
-    warn_count <<- warn_count + 1
+    tracked$warn_count <- tracked$warn_count + 1
     invokeRestart("muffleWarning")
   }
   withCallingHandlers(
@@ -1210,7 +1213,7 @@ testthat::test_that("method = 'native' warns exactly once per session", {
     resolve_method_alias("native"),
     condathis_deprecated_method_native = handler
   )
-  testthat::expect_equal(warn_count, 1L)
+  testthat::expect_equal(tracked$warn_count, 1L)
   # Counted before it is signaled: a handler that stops at the warning, as
   # `options(warn = 2)` does, uses it up too, so only the first call fails.
   reset_warn_once(id)
@@ -1273,6 +1276,65 @@ testthat::test_that("method = 'native' is a soft deprecation", {
     reset_warn_once(id)
     pkg_env <- new.env(parent = asNamespace("tools"))
     assign(fn, get(fn), envir = pkg_env)
+    pkg_fn <- rlang::new_function(list(), calls[[fn]], env = pkg_env)
+    testthat::expect_no_warning(
+      cnd <- rlang::catch_cnd(pkg_fn(), classes = "stub_resolved")
+    )
+    testthat::expect_identical(conditionMessage(cnd), "micromamba", info = fn)
+    testthat::expect_false(isTRUE(condathis_warn_once_state[[id]]), info = fn)
+    # From the tests of this package: the warning.
+    testthat::expect_warning(
+      rlang::catch_cnd(eval(calls[[fn]]), classes = "stub_resolved"),
+      class = "condathis_deprecated_method_native",
+      info = fn
+    )
+  }
+})
+
+testthat::test_that("method = 'native' is a soft deprecation in the query functions and run_pipeline()", {
+  # Regression test: env_exists(), list_envs(), get_install_dir(),
+  # get_env_dir(), list_packages() and run_pipeline() warned also for calls
+  # made inside other packages.
+  withr::local_options(lifecycle_verbosity = NULL)
+  id <- "deprecated_method_native"
+  reset_warn_once(id)
+  withr::defer(reset_warn_once(id))
+  # get_env_dir() and list_packages() leave the alias to resolve_backend(),
+  # which resolves it with the `user_env` they pass.
+  testthat::local_mocked_bindings(
+    resolve_backend = function(
+      env_name = NULL,
+      method = "auto",
+      user_env = NULL,
+      ...
+    ) {
+      rlang::abort(
+        resolve_method_alias(method, user_env = user_env),
+        class = "stub_resolved"
+      )
+    },
+    query_registered_backends = function(backend_names, ...) {
+      rlang::abort(backend_names, class = "stub_resolved")
+    }
+  )
+  calls <- list(
+    env_exists = quote(env_exists("e", method = "native")),
+    list_envs = quote(list_envs(method = "native")),
+    get_install_dir = quote(get_install_dir(method = "native")),
+    get_env_dir = quote(get_env_dir("e", method = "native")),
+    list_packages = quote(list_packages("e", method = "native")),
+    run_pipeline = quote(run_pipeline(
+      run_step("echo", "a"),
+      run_step("cat"),
+      env_name = "e",
+      method = "native"
+    ))
+  )
+  for (fn in names(calls)) {
+    reset_warn_once(id)
+    pkg_env <- new.env(parent = asNamespace("tools"))
+    assign(fn, get(fn), envir = pkg_env)
+    assign("run_step", run_step, envir = pkg_env)
     pkg_fn <- rlang::new_function(list(), calls[[fn]], env = pkg_env)
     testthat::expect_no_warning(
       cnd <- rlang::catch_cnd(pkg_fn(), classes = "stub_resolved")
@@ -1394,7 +1456,8 @@ testthat::test_that("resolve_backend warns and uses the actual owner on a read-o
   fake <- register_fake_backend("fake-mismatch-readonly")
   backend_create_env(fake, env_name = "mismatch-env-readonly")
 
-  warned <- FALSE
+  tracked <- new.env(parent = emptyenv())
+  tracked$warned <- FALSE
   resolved <- withCallingHandlers(
     resolve_backend(
       env_name = "mismatch-env-readonly",
@@ -1402,11 +1465,11 @@ testthat::test_that("resolve_backend warns and uses the actual owner on a read-o
       mutating = FALSE
     ),
     condathis_backend_mismatch_warning = function(w) {
-      warned <<- TRUE
+      tracked$warned <- TRUE
       invokeRestart("muffleWarning")
     }
   )
-  testthat::expect_true(warned)
+  testthat::expect_true(tracked$warned)
   testthat::expect_equal(resolved$name, "fake-mismatch-readonly")
 })
 
@@ -1672,7 +1735,7 @@ testthat::test_that("an invalid condathis.backend_priority warns once and is ign
     reset_warn_once(id)
     withr::local_options(condathis.backend_priority = value)
     cnd <- rlang::catch_cnd(
-      priority <- backend_names_by_priority(),
+      backend_names_by_priority(),
       classes = "warning"
     )
     testthat::expect_identical(
@@ -1754,7 +1817,7 @@ testthat::test_that("resolve_backend() conditions have the root classes", {
 })
 
 testthat::test_that("an unavailable backend is still found, but gets no new environment (R6)", {
-  stub <- local_stub_backend(
+  local_stub_backend(
     "stub-unavailable-owner",
     available = FALSE,
     envs = "unavailable-env"
@@ -1775,7 +1838,7 @@ testthat::test_that("an invalid value of backend_available() aborts", {
   # Regression test: a value other than TRUE or FALSE, such as "yes", was
   # read as "unavailable", so `method = "auto"` silently picked the next
   # backend.
-  stub <- local_stub_backend("stub-available-invalid", available = "yes")
+  local_stub_backend("stub-available-invalid", available = "yes")
   withr::local_options(condathis.backend_priority = "stub-available-invalid")
   cnd <- rlang::catch_cnd(
     resolve_backend(

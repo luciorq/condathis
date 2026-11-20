@@ -5,7 +5,9 @@
 #' registered backend, and nothing else:
 #' * For the built-in micromamba backend, the package cache, `pkgs`, and
 #'   the repodata cache, `cache`, in its data directory (see
-#'   [get_install_dir()]).
+#'   [get_install_dir()]), and `home/.local` there, where an earlier
+#'   `create_env()` could have installed the packages of a `pip:` section
+#'   (see `PIP_USER` in [condathis-options]).
 #' * For every other backend, its own package and metadata caches, and
 #'   `conda-pkgs` in its data directory. `conda-pkgs` is the package cache
 #'   of the Conda tools that run in its environments (see *Child processes*
@@ -469,8 +471,10 @@ warn_uncleaned_known_backends <- function(skip = character(0L)) {
     if (isFALSE(backend_has_cache_entries(name))) {
       next
     }
+    # jarl-ignore-start unused_object: read by the cli templates of known_backend_cause() and known_backend_remedy(), and the messages below
     pkg <- known_backend_packages[[name]]
     root <- backend_root_path(name)
+    # jarl-ignore-end unused_object
     status <- known_backend_unloaded_status(name)
     cause <- known_backend_cause(status$reason, form = "its")
     condathis_warn(
@@ -542,6 +546,18 @@ micromamba_backend_clean_cache <- function(
   repodata_cache <- micromamba_cache_dir(root_dir)
   if (isTRUE(fs::dir_exists(repodata_cache))) {
     fs::dir_delete(repodata_cache)
+  }
+
+  # The user site directory under the home that `native_cmd()` gives
+  # `micromamba create`: with `PIP_USER=1`, development versions of 0.2.0
+  # let pip install the packages of a `pip:` section there, and every later
+  # create skipped them as already installed. Only `.local`: micromamba
+  # keeps its list of environments in `<root>/home/.conda`.
+  home_local <- fs::path(root_dir, "home", ".local")
+  if (isTRUE(fs::is_link(home_local))) {
+    fs::link_delete(home_local)
+  } else if (isTRUE(fs::dir_exists(home_local))) {
+    fs::dir_delete(home_local)
   }
   return(px_res)
 }

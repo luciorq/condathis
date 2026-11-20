@@ -80,8 +80,10 @@ pump_pipeline_io <- function(
     function(i) live[[i]] && isTRUE(procs[[i]]$has_error_connection()),
     logical(1L)
   )
-  out_chunks <- rep(list(list()), n)
-  err_chunks <- rep(list(list()), n)
+  # The state that the closures below update.
+  pump <- new.env(parent = emptyenv())
+  pump$out_chunks <- rep(list(list()), n)
+  pump$err_chunks <- rep(list(list()), n)
 
   pending_input <- normalize_stdin_input(input, binary = binary)
   input_done <- is.null(input)
@@ -98,9 +100,9 @@ pump_pipeline_io <- function(
 
   # A stage killed for a broken pipe has invalid connections: never touch
   # them again.
-  reaped <- rep(FALSE, n)
+  pump$reaped <- rep(FALSE, n)
   stream_open <- function(i) {
-    isFALSE(reaped[[i]]) &&
+    isFALSE(pump$reaped[[i]]) &&
       ((has_out[[i]] && isTRUE(procs[[i]]$is_incomplete_output())) ||
         (has_err[[i]] && isTRUE(procs[[i]]$is_incomplete_error())))
   }
@@ -108,49 +110,49 @@ pump_pipeline_io <- function(
   echo <- isTRUE(echo) && isFALSE(binary)
   # Whether the echoed output ends at the start of a line, where the
   # spinner can be drawn without hiding part of it.
-  at_line_start <- TRUE
-  spin_frame <- 0L
+  pump$at_line_start <- TRUE
+  pump$spin_frame <- 0L
   spin <- function() {
-    if (isFALSE(spinner) || isFALSE(at_line_start)) {
+    if (isFALSE(spinner) || isFALSE(pump$at_line_start)) {
       return(invisible(NULL))
     }
     frames <- c("-", "\\", "|", "/")
-    spin_frame <<- spin_frame %% length(frames) + 1L
-    cat("\r", frames[[spin_frame]], "\r", sep = "")
+    pump$spin_frame <- pump$spin_frame %% length(frames) + 1L
+    cat("\r", frames[[pump$spin_frame]], "\r", sep = "")
     utils::flush.console()
   }
   if (isTRUE(spinner)) {
-    on.exit(if (isTRUE(at_line_start)) cat("\r \r"), add = TRUE)
+    on.exit(if (isTRUE(pump$at_line_start)) cat("\r \r"), add = TRUE)
   }
   echo_chunk <- function(chunk, error_stream) {
     cat(if (isTRUE(error_stream)) cli::col_red(chunk) else chunk, sep = "")
-    at_line_start <<- endsWith(chunk, "\n")
+    pump$at_line_start <- endsWith(chunk, "\n")
   }
 
   broken_pipe <- new_broken_pipe_state(n)
   drain_stage <- function(i) {
-    n_out <- length(out_chunks[[i]])
-    n_err <- length(err_chunks[[i]])
-    out_chunks[[i]] <<- pump_read_chunk(
+    n_out <- length(pump$out_chunks[[i]])
+    n_err <- length(pump$err_chunks[[i]])
+    pump$out_chunks[[i]] <- pump_read_chunk(
       procs[[i]],
-      chunks = out_chunks[[i]],
+      chunks = pump$out_chunks[[i]],
       stream = "output",
       active = has_out[[i]],
       binary = binary
     )
-    err_chunks[[i]] <<- pump_read_chunk(
+    pump$err_chunks[[i]] <- pump_read_chunk(
       procs[[i]],
-      chunks = err_chunks[[i]],
+      chunks = pump$err_chunks[[i]],
       stream = "error",
       active = has_err[[i]],
       binary = binary
     )
     if (isTRUE(echo)) {
-      if (length(out_chunks[[i]]) > n_out) {
-        echo_chunk(out_chunks[[i]][[length(out_chunks[[i]])]], FALSE)
+      if (length(pump$out_chunks[[i]]) > n_out) {
+        echo_chunk(pump$out_chunks[[i]][[length(pump$out_chunks[[i]])]], FALSE)
       }
-      if (length(err_chunks[[i]]) > n_err) {
-        echo_chunk(err_chunks[[i]][[length(err_chunks[[i]])]], TRUE)
+      if (length(pump$err_chunks[[i]]) > n_err) {
+        echo_chunk(pump$err_chunks[[i]][[length(pump$err_chunks[[i]])]], TRUE)
       }
     }
   }
@@ -163,7 +165,7 @@ pump_pipeline_io <- function(
       broken_pipe,
       before_kill = function(i) {
         drain_stage(i)
-        reaped[[i]] <<- TRUE
+        pump$reaped[[i]] <- TRUE
       },
       watch = watch
     )
@@ -175,51 +177,12 @@ pump_pipeline_io <- function(
     deadline_hit <- isTRUE(is.finite(deadline)) &&
       proc.time()[["elapsed"]] >= deadline
 
-    # Poll for at most 200 ms so the loop can retry a pending input write
-    # and check a finite deadline. After the deadline, poll with timeout 0
-    # for the final drain pass (see the `deadline` paragraph in the docs).
-    if (identical(length(open_idx), 0L)) {
-      # Only input left to write, nothing pollable: pace the retry.
-      if (isFALSE(deadline_hit)) {
-        Sys.sleep(0.05)
-      }
-    } else {
-      # Poll the still-open connections, not the processes: polling a
-      # process reports a stream that is already at EOF as ready on every
-      # call, so a stage that closed one stream while keeping the other
-      # open turned this loop into a busy spin.
-      open_conns <- unlist(
-        lapply(open_idx, function(i) {
-          c(
-            if (has_out[[i]] && isTRUE(procs[[i]]$is_incomplete_output())) {
-              list(procs[[i]]$get_output_connection())
-            },
-            if (has_err[[i]] && isTRUE(procs[[i]]$is_incomplete_error())) {
-              list(procs[[i]]$get_error_connection())
-            }
-          )
-        }),
-        recursive = FALSE
-      )
-      processx::poll(open_conns, if (isTRUE(deadline_hit)) 0L else 200L)
-    }
+    pump_pipeline_poll(procs, open_idx, has_out, has_err, deadline_hit)
 
     if (isFALSE(input_done)) {
-      write_res <- tryCatch(
-        procs[[1L]]$write_input(pending_input),
-        error = function(e) e
-      )
-      if (inherits(write_res, "error")) {
-        # Broken pipe: the first stage exited before consuming its input.
-        input_done <- TRUE
-        try(close(procs[[1L]]$get_input_connection()), silent = TRUE)
-      } else {
-        pending_input <- write_res
-        if (identical(length(pending_input), 0L)) {
-          input_done <- TRUE
-          close(procs[[1L]]$get_input_connection())
-        }
-      }
+      written <- pump_pipeline_write_input(procs[[1L]], pending_input)
+      pending_input <- written$pending_input
+      input_done <- written$input_done
     }
 
     for (i in open_idx) {
@@ -232,12 +195,130 @@ pump_pipeline_io <- function(
     }
   }
 
+  return(pump_pipeline_result(
+    out_chunks = pump$out_chunks,
+    err_chunks = pump$err_chunks,
+    has_out = has_out,
+    has_err = has_err,
+    binary = binary,
+    timed_out = timed_out,
+    broken_pipe = broken_pipe
+  ))
+}
+
+#' Wait until a stream of the pipeline can be read
+#'
+#' One poll of `pump_pipeline_io()`'s loop. It polls for at most 200 ms so
+#' the loop can retry a pending input write and check a finite deadline.
+#' After the deadline, it polls with timeout 0 for the final drain pass
+#' (see the `deadline` paragraph of `pump_pipeline_io()`).
+#'
+#' @param procs List of `processx::process` objects (or `NULL`).
+#' @param open_idx Integer vector, the stages with a stream still open.
+#' @param has_out,has_err Logical vectors, one element per stage: whether
+#'   its standard output or error is piped to R.
+#' @param deadline_hit Logical. Whether the deadline has passed.
+#'
+#' @returns `NULL`, invisibly.
+#'
+#' @keywords internal
+#' @noRd
+pump_pipeline_poll <- function(
+  procs,
+  open_idx,
+  has_out,
+  has_err,
+  deadline_hit
+) {
+  if (identical(length(open_idx), 0L)) {
+    # Only input left to write, nothing pollable: pace the retry.
+    if (isFALSE(deadline_hit)) {
+      Sys.sleep(0.05)
+    }
+    return(invisible(NULL))
+  }
+  # Poll the still-open connections, not the processes: polling a
+  # process reports a stream that is already at EOF as ready on every
+  # call, so a stage that closed one stream while keeping the other
+  # open turned this loop into a busy spin.
+  open_conns <- unlist(
+    lapply(open_idx, function(i) {
+      c(
+        if (has_out[[i]] && isTRUE(procs[[i]]$is_incomplete_output())) {
+          list(procs[[i]]$get_output_connection())
+        },
+        if (has_err[[i]] && isTRUE(procs[[i]]$is_incomplete_error())) {
+          list(procs[[i]]$get_error_connection())
+        }
+      )
+    }),
+    recursive = FALSE
+  )
+  processx::poll(open_conns, if (isTRUE(deadline_hit)) 0L else 200L)
+  return(invisible(NULL))
+}
+
+#' Write the pending input of the first stage of a pipeline
+#'
+#' One write of `pump_pipeline_io()`'s loop. The input connection is
+#' closed when everything is written, or when the write fails because the
+#' first stage exited before it read its input (a broken pipe).
+#'
+#' @param proc The `processx::process` of the first stage.
+#' @param pending_input The input still to write.
+#'
+#' @returns A list with `pending_input`, the input still to write, and
+#'   `input_done`, `TRUE` when nothing more is written.
+#'
+#' @keywords internal
+#' @noRd
+pump_pipeline_write_input <- function(proc, pending_input) {
+  write_res <- tryCatch(
+    proc$write_input(pending_input),
+    error = function(e) e
+  )
+  if (inherits(write_res, "error")) {
+    # Broken pipe: the first stage exited before consuming its input.
+    try(close(proc$get_input_connection()), silent = TRUE)
+    return(list(pending_input = pending_input, input_done = TRUE))
+  }
+  if (identical(length(write_res), 0L)) {
+    close(proc$get_input_connection())
+    return(list(pending_input = write_res, input_done = TRUE))
+  }
+  return(list(pending_input = write_res, input_done = FALSE))
+}
+
+#' The result of `pump_pipeline_io()`
+#'
+#' @param out_chunks,err_chunks Lists with one element per stage: the
+#'   chunks read from its standard output or error.
+#' @param has_out,has_err Logical vectors, one element per stage: whether
+#'   the stream is piped to R.
+#' @param binary Logical. Whether the chunks are raw vectors.
+#' @param timed_out Logical. Whether the deadline ended the pump.
+#' @param broken_pipe The `reap_windows_broken_pipes()` state.
+#'
+#' @returns The list that `pump_pipeline_io()` returns.
+#'
+#' @keywords internal
+#' @noRd
+pump_pipeline_result <- function(
+  out_chunks,
+  err_chunks,
+  has_out,
+  has_err,
+  binary,
+  timed_out,
+  broken_pipe
+) {
   combine <- function(chunks) {
     if (isTRUE(binary)) {
       return(do.call(c, c(list(raw(0L)), chunks)))
     }
     return(paste0(unlist(chunks), collapse = ""))
   }
+  n <- length(has_out)
   stdout_streams <- lapply(seq_len(n), function(i) {
     if (has_out[[i]]) combine(out_chunks[[i]]) else NULL
   })

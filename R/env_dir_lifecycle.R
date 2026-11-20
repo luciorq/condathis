@@ -120,6 +120,7 @@ with_env_dir_replacement <- function(
       # The error reports a copy that could not be moved back, so the
       # `on.exit()` restore must not try again and warn.
       aside$path <- NULL
+      # jarl-ignore condition_call: re-signals a condition object, which `call.` does not apply to
       stop(note_kept_env_dir(cnd, kept, env_name = env_name))
     }
   )
@@ -161,15 +162,47 @@ env_dir_condition_class <- function(backend, class) {
 #' `<root>/envs/<env_name>` exists. `check_exact_env_dir()` refuses
 #' anything else.
 #'
+#' A directory that is an environment by the listing rule
+#' (`conda_prefix_env_exists()`, the same real-path check as
+#' `check_exact_env_dir()`) is not stale: the check of the caller and the
+#' file system disagree, and the deletion is refused. When the rule cannot
+#' tell, it is refused too (rule R5). Only `delete_failed_new_env_dir()`,
+#' which deletes what a failed create left, passes `keep_env = FALSE`.
+#'
+#' @param keep_env Logical. Whether to refuse to delete an environment.
+#'
 #' @keywords internal
 #' @noRd
-delete_stale_env_dir <- function(backend, env_name) {
+delete_stale_env_dir <- function(backend, env_name, keep_env = TRUE) {
   target <- check_exact_env_dir(
     backend,
     env_name = env_name,
     action = "delete",
     class = "condathis_unsafe_env_dir_delete"
   )
+  if (isTRUE(keep_env)) {
+    is_env <- tryCatch(
+      conda_prefix_env_exists(
+        install_dir_for_backend(backend),
+        env_name = env_name
+      ),
+      error = function(e) NA
+    )
+    if (isFALSE(isFALSE(is_env))) {
+      reason <- if (isTRUE(is_env)) {
+        "It is the directory of environment {.field {env_name}}, which the backend did not report."
+      } else {
+        "Could not tell whether it is the directory of environment {.field {env_name}}: the directory of environments cannot be read."
+      }
+      condathis_abort(
+        message = c(
+          `x` = "Refusing to delete {.path {target}}.",
+          `i` = reason
+        ),
+        class = "condathis_unsafe_env_dir_delete"
+      )
+    }
+  }
   fs::dir_delete(target)
   return(invisible(NULL))
 }
@@ -192,7 +225,10 @@ delete_failed_new_env_dir <- function(state, backend, env_name) {
   }
   state$pending <- FALSE
   if (isTRUE(fs::dir_exists(env_dir_for_backend(backend, env_name)))) {
-    try(delete_stale_env_dir(backend, env_name), silent = TRUE)
+    try(
+      delete_stale_env_dir(backend, env_name, keep_env = FALSE),
+      silent = TRUE
+    )
   }
   return(invisible(NULL))
 }
@@ -581,18 +617,20 @@ purge_env_trash_dir <- function(trash_dir) {
 #' @keywords internal
 #' @noRd
 rename_path <- function(from, to) {
-  reason <- ""
+  # The last warning gives the reason.
+  seen <- new.env(parent = emptyenv())
+  seen$reason <- ""
   renamed <- withCallingHandlers(
     file.rename(from, to),
     warning = function(cnd) {
-      reason <<- conditionMessage(cnd)
+      seen$reason <- conditionMessage(cnd)
       invokeRestart("muffleWarning")
     }
   )
   if (isTRUE(renamed)) {
     return(NULL)
   }
-  return(reason)
+  return(seen$reason)
 }
 
 #' Real path of `path`, or `NA` when it cannot be resolved

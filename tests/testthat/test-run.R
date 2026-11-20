@@ -621,17 +621,17 @@ test_that("run() wraps a backend's resolution error with its own class", {
   # error unchanged, with an internal call, and a backend that calls stop()
   # gave a bare simpleError without condathis_error. run_pipeline()
   # already wrapped it.
-  stub <- local_run_family_stub(
+  local_run_family_stub(
     backend_resolve_run = function(...) {
-      stop("plain resolution failure")
+      stop("plain resolution failure", call. = FALSE)
     }
   )
   cnd <- rlang::catch_cnd(
     run("echo", "hi", env_name = "stub-env", verbose = "silent"),
     classes = "error"
   )
-  testthat::expect_identical(
-    class(cnd),
+  testthat::expect_s3_class(
+    cnd,
     c(
       "condathis_run_resolve_failed",
       "condathis_backend_error",
@@ -639,7 +639,8 @@ test_that("run() wraps a backend's resolution error with its own class", {
       "rlang_error",
       "error",
       "condition"
-    )
+    ),
+    exact = TRUE
   )
   testthat::expect_s3_class(cnd$parent, "simpleError")
   testthat::expect_identical(rlang::call_name(conditionCall(cnd)), "run")
@@ -656,7 +657,7 @@ test_that("run() wraps a backend's resolution error with its own class", {
   )
 
   # The condathis classes of the backend's error stay on the new error.
-  stub <- local_run_family_stub(
+  local_run_family_stub(
     "stub-run-classed",
     backend_resolve_run = function(...) {
       cli::cli_abort(
@@ -697,20 +698,25 @@ test_that("the writable-stdin path kills its child when R exits early", {
   # Regression test: an R-level abort during the I/O pump (an error, an
   # interrupt, setTimeLimit()) left the child running until garbage
   # collection.
-  px <- processx:::get_tool("px")
-  seen <- NULL
+  # The `px` helper program that processx installs: a single process that
+  # sleeps, on every OS. processx's own lookup also finds it in a processx
+  # loaded from source.
+  px <- utils::getFromNamespace("get_tool", "processx")("px")
+  testthat::expect_true(nzchar(px))
+  tracked <- new.env(parent = emptyenv())
+  tracked$seen <- NULL
   testthat::local_mocked_bindings(
     pump_process_io = function(proc, ...) {
-      seen <<- proc
-      stop("simulated abort inside the pump")
+      tracked$seen <- proc
+      stop("simulated abort inside the pump", call. = FALSE)
     }
   )
   testthat::expect_error(
     run_process_with_input(px, c("sleep", "30"), input = "x"),
     "simulated abort"
   )
-  testthat::expect_false(is.null(seen))
-  testthat::expect_false(seen$is_alive())
+  testthat::expect_false(is.null(tracked$seen))
+  testthat::expect_false(tracked$seen$is_alive())
 })
 
 # --- Argument checks (rules R1 and R2) --------------------------------------
@@ -785,18 +791,19 @@ testthat::test_that("run() checks timeout and the process arguments before any b
 })
 
 testthat::test_that("run() lowers a huge timeout to what processx accepts", {
-  stub <- local_run_family_stub()
-  seen_timeout <- NULL
+  local_run_family_stub()
+  tracked <- new.env(parent = emptyenv())
+  tracked$seen_timeout <- NULL
   testthat::local_mocked_bindings(
     run_internal_backend = function(..., timeout) {
-      seen_timeout <<- timeout
+      tracked$seen_timeout <- timeout
       return(list(status = 0L, stdout = "", stderr = "", timeout = FALSE))
     }
   )
   run("echo", env_name = "stub-env", timeout = 1e10, verbose = "silent")
-  testthat::expect_identical(seen_timeout, 2147483)
+  testthat::expect_identical(tracked$seen_timeout, 2147483)
   run("echo", env_name = "stub-env", timeout = Inf, verbose = "silent")
-  testthat::expect_identical(seen_timeout, Inf)
+  testthat::expect_identical(tracked$seen_timeout, Inf)
 })
 
 testthat::test_that("run() raises classed errors for error, verbose, input, binary and env_name", {
@@ -987,7 +994,7 @@ testthat::test_that("run() creates condathis-env with the backend that method na
 testthat::test_that("run() status errors carry the exit status and the output", {
   testthat::skip_on_cran()
   # Regression test: the status was only in the message text.
-  stub <- local_run_family_stub()
+  local_run_family_stub()
   rscript <- run_family_rscript()
   code <- "cat('some output'); message('some error'); quit(status = 3)"
   status <- tryCatch(
@@ -1042,7 +1049,7 @@ testthat::test_that("run() status errors carry the exit status and the output", 
 
 testthat::test_that("run() timeout errors carry the shared class and fields", {
   testthat::skip_on_cran()
-  stub <- local_run_family_stub()
+  local_run_family_stub()
   cnd <- testthat::expect_error(
     run(
       run_family_rscript(),
@@ -1072,7 +1079,7 @@ testthat::test_that("run() timeout errors carry the shared class and fields", {
 testthat::test_that("run() checks the dir that backend_resolve_run() returns", {
   # Regression test: dir was not checked, so processx failed late with an
   # error that named no backend.
-  stub <- local_run_family_stub(
+  local_run_family_stub(
     backend_resolve_run = function(backend, cmd, args = character(0L), ...) {
       return(list(command = cmd, args = args, env = NULL, dir = 1))
     }
@@ -1110,7 +1117,7 @@ testthat::test_that("run() checks the dir that backend_resolve_run() returns", {
 testthat::test_that("run() runs in the dir that backend_resolve_run() returns", {
   testthat::skip_on_cran()
   work_dir <- withr::local_tempdir()
-  stub <- local_run_family_stub(
+  local_run_family_stub(
     backend_resolve_run = function(backend, cmd, args = character(0L), ...) {
       return(list(command = cmd, args = args, env = NULL, dir = work_dir))
     }
@@ -1137,7 +1144,7 @@ testthat::test_that("cleanup_tree = TRUE stops a daemon on both stdin paths of r
   # started outlived the call. Without a writable stdin, `processx::run()`
   # already killed it.
   testthat::skip_on_cran()
-  stub <- local_run_family_stub()
+  local_run_family_stub()
   daemon <- local_run_family_daemon()
   for (fn_name in c("run", "run_bin")) {
     for (with_input in c(FALSE, TRUE)) {
@@ -1173,7 +1180,7 @@ testthat::test_that("cleanup_tree = FALSE keeps a daemon alive with stdin = '|'"
   # output pipe ends when processx has read that output (checked with
   # processx 3.9.0), whatever `cleanup_tree` is.
   testthat::skip_on_cran()
-  stub <- local_run_family_stub()
+  local_run_family_stub()
   daemon <- local_run_family_daemon()
   pid_file <- file.path(daemon$dir, "kept.pid")
   res <- run(
@@ -1195,7 +1202,7 @@ testthat::test_that("linux_pdeathsig = TRUE reaches processx on Linux only, on e
   testthat::skip_on_cran()
   # processx warns about a `linux_pdeathsig` other than FALSE on platforms
   # other than Linux, where it ignores it. condathis passes FALSE there.
-  stub <- local_run_family_stub()
+  local_run_family_stub()
   rscript <- run_family_rscript()
   real_process <- processx::process
   seen <- new.env(parent = emptyenv())
@@ -1291,9 +1298,10 @@ testthat::test_that("linux_pdeathsig = TRUE ends the command when R ends, on Lin
     ),
     sleeper
   )
-  pids <- integer(0L)
+  tracked <- new.env(parent = emptyenv())
+  tracked$pids <- integer(0L)
   withr::defer({
-    for (pid in pids) {
+    for (pid in tracked$pids) {
       if (isTRUE(run_family_pid_running(pid))) {
         tryCatch(ps::ps_kill(ps::ps_handle(pid)), error = function(e) NULL)
       }
@@ -1344,7 +1352,7 @@ testthat::test_that("linux_pdeathsig = TRUE ends the command when R ends, on Lin
       ))
       return(NA)
     }
-    pids <<- c(pids, pid)
+    tracked$pids <- c(tracked$pids, pid)
     session$kill()
     return(run_family_pid_survives(pid, wait = 5))
   }
@@ -1648,7 +1656,7 @@ testthat::test_that("resolve_direct_run_command() looks a bare name up on the co
   testthat::expect_identical(
     resolve_direct_run_command(
       "tool",
-      child_env = child_env[["Path"]] |> rlang::set_names("PATH"),
+      child_env = rlang::set_names(child_env[["Path"]], "PATH"),
       on_windows = TRUE
     ),
     norm(fs::path(env_dir, "bin", "tool.cmd"))
@@ -1662,7 +1670,7 @@ testthat::test_that("a bare command found nowhere fails with status 127 in the w
   # Regression test: on Windows, processx looked such a name up in the
   # folder of R and on the PATH of the R session. The not-found path is the
   # same on every OS, so it is checked everywhere.
-  stub <- local_run_family_stub()
+  local_run_family_stub()
   testthat::local_mocked_bindings(
     resolve_direct_run_command = function(command, ...) NULL
   )
@@ -1697,7 +1705,7 @@ testthat::test_that("run(), run_bin() and run_pipeline() report a command killed
   # Regression test: `micromamba run` reports a command killed by signal n
   # as 128 + n (137 for SIGKILL), but a command of another backend, started
   # directly, gave -n, and run_bin() and run_pipeline() always gave -n.
-  stub <- local_run_family_stub()
+  local_run_family_stub()
   rscript <- run_family_rscript()
   kill_self <- c(
     "--vanilla",
@@ -1839,7 +1847,7 @@ testthat::test_that("run() starts the command of a micromamba environment itself
   # What the activate.d script printed is not the command's output.
   res <- run("polyglot", env_name = env_name, verbose = "silent")
   testthat::expect_identical(parse_output(res)[[1L]], polyglot_expected_line())
-  testthat::expect_false(grepl("activate.d output", res$stdout, fixed = TRUE))
+  testthat::expect_no_match(res$stdout, "activate.d output", fixed = TRUE)
   # The "Running" line names the command, not micromamba.
   running <- utils::capture.output(
     run("polyglot", env_name = env_name, verbose = "cmd")
@@ -2120,7 +2128,7 @@ testthat::test_that("run() keeps the session's TMP, unless an activate.d script 
     fs::path(activate_dir, "condathis-tmp.sh")
   )
   writeLines(
-    paste0("@set \"TMP=", gsub("/", "\\\\", script_tmp), "\""),
+    paste0("@set \"TMP=", gsub("/", "\\", script_tmp, fixed = TRUE), "\""),
     fs::path(activate_dir, "condathis-tmp.bat")
   )
   reset_micromamba_activation_cache(script_env)
@@ -2330,7 +2338,7 @@ testthat::test_that("run(timeout =) also bounds a slow activation", {
   took <- as.numeric(difftime(Sys.time(), started, units = "secs"))
   testthat::expect_true(res$timeout)
   testthat::expect_identical(res$status, -9L)
-  testthat::expect_false(grepl("ran", res$stdout, fixed = TRUE))
+  testthat::expect_no_match(res$stdout, "ran", fixed = TRUE)
   testthat::expect_match(res$stderr, "activating environment", fixed = TRUE)
   testthat::expect_lt(took, 25)
   cnd <- testthat::expect_error(

@@ -178,6 +178,28 @@ The processes that \code{condathis} starts, \code{micromamba} included, inherit
 these variables from the R session, so \code{micromamba} downloads packages
 through the same proxy. It ignores the proxy settings of your
 \code{.condarc} and \code{.mambarc} files (see \code{CONDARC} below).
+
+These variables also reach every process unchanged, on purpose:
+
+\describe{
+\item{Certificates}{
+\code{SSL_CERT_FILE}, \code{REQUESTS_CA_BUNDLE}, \code{PIP_CERT} and the other
+certificate variables of the tools that a process runs.
+}
+\item{Package indexes and credentials of pip and uv}{
+Such as \code{PIP_INDEX_URL}, \code{PIP_EXTRA_INDEX_URL}, \code{PIP_CONFIG_FILE}
+(except for \verb{micromamba list}, see below), \code{UV_INDEX_URL} and
+\code{NETRC}. \verb{micromamba create} installs the \verb{pip:} section of an
+environment file with them.
+}
+\item{\verb{CONDA_OVERRIDE_*}}{
+Such as \code{CONDA_OVERRIDE_CUDA}, \code{CONDA_OVERRIDE_GLIBC} and
+\code{CONDA_OVERRIDE_OSX}. They set the virtual packages (\verb{__cuda},
+\verb{__glibc}, \verb{__osx}) that \code{micromamba} solves for, also with
+\code{--no-env}. For example, \code{CONDA_OVERRIDE_CUDA = "12.4"} gets the
+CUDA builds of packages on a machine without a GPU.
+}
+}
 }
 
 \section{Environment variables set or cleared in child processes}{
@@ -307,12 +329,64 @@ installed or removed by these commands see this value too. On
 Windows, micromamba looks there for the Start Menu shortcuts of the
 removed packages.
 }
-\item{\code{PYTHONNOUSERSITE}, \code{PYTHONPATH}, \code{PYTHONHOME}}{
-For \verb{micromamba list}, which \code{\link[=list_packages]{list_packages()}} runs:
-\code{PYTHONNOUSERSITE} is \code{"1"} and the other two are removed, so pip
-reports only the packages of the environment.
+}
+
+Python, pip and uv: the Python state of the R session never reaches a
+process of \code{condathis}. So the python of an environment finds only its
+own modules, and \verb{micromamba create} installs the \verb{pip:} section of an
+environment file into the environment, never elsewhere. For every
+process, \code{micromamba} itself and the commands of \code{\link[=run]{run()}}, \code{\link[=run_bin]{run_bin()}}
+and \code{\link[=run_pipeline]{run_pipeline()}}, with and without activation:
+
+\describe{
+\item{\code{PYTHONHOME}, \code{PYTHONPATH}, \code{PYTHONUSERBASE}, \code{PYTHONSTARTUP}}{
+Removed. To give a command a \code{PYTHONPATH}, set it in the command,
+such as \code{run("env", "PYTHONPATH=/my/modules", "python", "script.py")}
+on Linux and macOS, or add the directory to \code{sys.path} in the
+script.
+}
+\item{\code{PYTHONNOUSERSITE}}{
+Set to \code{"1"}: the user's site directory (\verb{~/.local/lib/python3.*},
+on Windows a \code{Python} directory in \code{APPDATA}) is not on \code{sys.path}.
+}
+\item{\code{UV_PYTHON}, \code{UV_SYSTEM_PYTHON}, \code{UV_PROJECT_ENVIRONMENT}}{
+Removed, so \code{uv} uses the python of the environment.
+}
+\item{\code{PIP_USER}, \code{PIP_REQUIRE_VIRTUALENV}}{
+Set to \code{"false"}, which overrides \code{user} and \code{require-virtualenv} in
+a pip configuration file; \code{PIP_REQUIRE_VENV}, an alias that pip
+also reads, is removed. Otherwise pip installed into the user's
+site directory, or failed: the user's site directory is off, and a
+Conda environment is not a virtual environment. So
+\code{run("python", "-m", "pip", "install", ...)} installs into the
+environment.
+}
+\item{\code{PIP_TARGET}, \code{PIP_PREFIX}, \code{PIP_ROOT}}{
+Removed, whatever their value. A \code{target}, \code{prefix} or \code{root} in a
+pip configuration file still applies (an environment variable
+cannot unset it). To install elsewhere, pass \code{--target} or
+\code{--prefix} to pip in the command.
 }
 }
+
+An activated virtual environment of the session (\code{VIRTUAL_ENV}) is
+undone as well (see \emph{The activation of the R session} below). The
+activation of the environment of a command comes after all this, so a
+variable that an \code{activate.d} script sets reaches the command.
+
+For \verb{micromamba create} and \verb{micromamba install}, which run pip, or uv
+when the environment file lists it, for the \verb{pip:} section,
+\code{VIRTUAL_ENV} and \code{VIRTUAL_ENV_PROMPT} are also removed, whatever their
+value.
+
+For \verb{micromamba list}, which \code{\link[=list_packages]{list_packages()}} runs, and which runs
+\verb{python -m pip inspect} in the environment: \code{PIP_CONFIG_FILE} is the
+null device (\verb{/dev/null}, on Windows \code{nul}), so pip reads no
+configuration file, \code{PIP_USER} is \code{"false"}, \code{PIP_PATH} and \code{PIP_LOCAL}
+are removed, and the working directory is a temporary directory, not the
+one of R. pip then reports only the packages of the environment.
+
+Every other \verb{PIP_*} and \verb{UV_*} variable reaches pip and uv unchanged.
 
 \emph{The activation of the R session.} R can run in an activated Conda or
 pixi environment, or in several nested ones: R installed in a Conda
@@ -355,14 +429,47 @@ first two forms removes \verb{<X>}. The backups are removed.
 A variable that these files of the prefixes above set is removed
 when the session has exactly that value.
 }
+\item{Variables of a pixi global binary}{
+When one of the prefixes above is an environment of \verb{pixi global},
+a variable that its binaries set when they start is removed when the
+session has exactly that value. pixi records them in
+\code{bin/trampoline_configuration} of its home. R started through such a
+binary gets the whole activation of its environment, such as the
+compiler variables \code{CC}, \code{CFLAGS} and \code{CONDA_BUILD_SYSROOT}, and a
+compiler of the environment of a command would see them.
+}
+\item{\code{VIRTUAL_ENV}, \code{VIRTUAL_ENV_PROMPT}}{
+When \code{VIRTUAL_ENV} names a Python virtual environment (a directory
+with \code{pyvenv.cfg}), both are removed, and its \code{bin} directory (on
+Windows \code{Scripts}) leaves \code{PATH}. Activating a virtual environment
+sets them, and so does reticulate inside the R session when it uses
+one, also through \code{Sys.setenv()}.
+}
+\item{What reticulate changed for its python}{
+When reticulate has started Python in the R session, the \code{lib}
+directories that it put in front of \code{LD_LIBRARY_PATH} on Linux (of
+its python and of the python a virtual environment was made from)
+are removed. For a python of a Conda environment, reticulate puts the
+binary directories of that environment in front of \code{PATH}; they are
+removed as those of the prefixes above.
+}
 }
 
 Some changes cannot be undone. A value that an \code{activate.d} script of
-the session's environment set stays, unless it saved a backup above,
-and so does a \code{PATH} entry such a script added. The binary directory of
-an environment that no variable names any more stays too, such as the
-one of a pixi global binary that started the shell before another one
-replaced its \code{CONDA_PREFIX}.
+the session's environment set stays, unless it saved a backup above or
+a pixi global binary recorded it, and so does a \code{PATH} entry such a
+script added. For example, R installed in a Conda environment that has
+the compiler packages, and started from a shell where that environment
+was activated, passes \code{CC}, \code{CFLAGS}, \code{CONDA_BUILD_SYSROOT} and the
+other compiler variables of that environment to the processes it
+starts. The binary directory of an environment that no variable names
+any more stays too, such as the one of a pixi global binary that started
+the shell before another one replaced its \code{CONDA_PREFIX}. reticulate
+moves the directory of a python that is neither in a virtual nor in a
+Conda environment, such as \verb{/usr/bin}, to the front of \code{PATH}; it stays
+there. On macOS, when \verb{/usr/local/opt/openblas} exists, loading
+reticulate sets \code{OPENBLAS} and, when it is unset, \code{OMP_NUM_THREADS=1};
+they stay too.
 
 \emph{The startup of R.} R also changes its own environment when it starts,
 and the processes that \code{condathis} starts do not get those changes
@@ -467,6 +574,13 @@ backend, in the \code{envs} directory of the condathis data directory.
 created.
 \item A \code{micromamba} on \code{PATH}.
 }
+
+A candidate that is a binary exposed by \verb{pixi global} (a trampoline,
+with a \verb{trampoline_configuration/<name>.json} file next to it) is
+replaced by the binary that it starts, the \code{exe} of that file, so the
+activation of the pixi environment that the trampoline sets never
+reaches \code{micromamba}. The option and the variable keep the value you
+set.
 
 A compatible version is 2.8.1 or newer. When no candidate is
 compatible, the first function that needs \code{micromamba} calls

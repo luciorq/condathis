@@ -54,8 +54,10 @@ testthat::test_that("the known backend packages are a table, not dependencies", 
     c("Depends", "Imports", "Suggests", "Enhances", "LinkingTo"),
     colnames(description)
   )) {
-    testthat::expect_false(
-      grepl("rattlerthis", description[1L, field], fixed = TRUE),
+    testthat::expect_no_match(
+      description[1L, field],
+      "rattlerthis",
+      fixed = TRUE,
       info = field
     )
   }
@@ -193,10 +195,11 @@ testthat::test_that("method names a known backend whose package is not installed
 testthat::test_that("a known backend package that fails to load is tried once", {
   reset_known_backend_state()
   withr::defer(reset_known_backend_state())
-  loads <- 0L
+  tracked <- new.env(parent = emptyenv())
+  tracked$loads <- 0L
   testthat::local_mocked_bindings(
     load_backend_namespace = function(pkg) {
-      loads <<- loads + 1L
+      tracked$loads <- tracked$loads + 1L
       return(structure(
         FALSE,
         condition = simpleError("the shared library could not be loaded")
@@ -222,13 +225,13 @@ testthat::test_that("a known backend package that fails to load is tried once", 
       fixed = TRUE
     )
   }
-  testthat::expect_identical(loads, 1L)
+  testthat::expect_identical(tracked$loads, 1L)
   # A package that is not installed is checked again on every call: it may
   # be installed later in the session.
   reset_known_backend_state()
   testthat::local_mocked_bindings(
     load_backend_namespace = function(pkg) {
-      loads <<- loads + 1L
+      tracked$loads <- tracked$loads + 1L
       return(structure(
         FALSE,
         condition = structure(
@@ -247,7 +250,7 @@ testthat::test_that("a known backend package that fails to load is tried once", 
       class = "condathis_backend_not_installed"
     )
   }
-  testthat::expect_identical(loads, 3L)
+  testthat::expect_identical(tracked$loads, 3L)
 })
 
 testthat::test_that("a known backend package that does not register is reported", {
@@ -280,11 +283,12 @@ testthat::test_that("a known backend package that does not register is reported"
 testthat::test_that("a loaded package whose backend was unregistered is not reloaded", {
   reset_known_backend_state()
   withr::defer(reset_known_backend_state())
-  loads <- 0L
+  tracked <- new.env(parent = emptyenv())
+  tracked$loads <- 0L
   testthat::local_mocked_bindings(
     backend_namespace_loaded = function(pkg) TRUE,
     load_backend_namespace = function(pkg) {
-      loads <<- loads + 1L
+      tracked$loads <- tracked$loads + 1L
       return(TRUE)
     }
   )
@@ -298,7 +302,7 @@ testthat::test_that("a loaded package whose backend was unregistered is not relo
     fixed = TRUE
   )
   testthat::expect_match(msg, "Restart R to use it.", fixed = TRUE)
-  testthat::expect_identical(loads, 0L)
+  testthat::expect_identical(tracked$loads, 0L)
 })
 
 testthat::test_that("the .onLoad() of a backend package does not load it again", {
@@ -306,13 +310,13 @@ testthat::test_that("the .onLoad() of a backend package does not load it again",
   with_sandbox_dir({
     state <- local_known_rattler()
     make_known_env("rt-env")
-    inner <- list()
+    inner <- new.env(parent = emptyenv())
     # A backend's .onLoad() that calls condathis functions taking `method`.
     testthat::local_mocked_bindings(
       load_backend_namespace = function(pkg) {
         state$loads <- state$loads + 1L
-        inner$envs <<- list_envs()
-        inner$cnd <<- rlang::catch_cnd(
+        inner$envs <- list_envs()
+        inner$cnd <- rlang::catch_cnd(
           validate_method_arg("rattler"),
           classes = "error"
         )
@@ -441,7 +445,9 @@ testthat::test_that("the positional env_name check finds an environment of a kno
     state <- local_known_rattler()
     make_known_env("rt-pos-env")
     testthat::local_mocked_bindings(
-      resolve_backend = function(...) stop("The specs must not be used.")
+      resolve_backend = function(...) {
+        stop("The specs must not be used.", call. = FALSE)
+      }
     )
     for (fn in c("create_env", "install_packages")) {
       cnd <- rlang::catch_cnd(
@@ -465,7 +471,9 @@ testthat::test_that("the positional env_name check finds an environment of a kno
   with_sandbox_dir({
     make_known_env("rt-pos-env")
     testthat::local_mocked_bindings(
-      resolve_backend = function(...) stop("The specs must not be used.")
+      resolve_backend = function(...) {
+        stop("The specs must not be used.", call. = FALSE)
+      }
     )
     testthat::expect_error(
       install_packages("pkga", "rt-pos-env", verbose = "silent"),
@@ -507,7 +515,7 @@ testthat::test_that("the priority option loads a known backend for a new environ
   # A package that cannot be loaded warns once, and the next backend is
   # used.
   with_sandbox_dir({
-    state <- local_known_rattler(register = FALSE)
+    local_known_rattler(register = FALSE)
     withr::with_options(
       list(condathis.backend_priority = c("rattler", "micromamba")),
       {
@@ -543,8 +551,8 @@ testthat::test_that("a package that loaded without registering is not called unl
   # Regression test: these messages said that the package "could not be
   # loaded".
   with_sandbox_dir({
-    state <- local_known_rattler(register = FALSE)
-    env_dir <- make_known_env("rt-noreg-env")
+    local_known_rattler(register = FALSE)
+    make_known_env("rt-noreg-env")
     cnd <- testthat::expect_warning(
       list_envs(),
       class = "condathis_backend_load_failed"
@@ -606,7 +614,7 @@ testthat::test_that("the error for a missing environment names a known backend t
   withr::defer(reset_known_backend_state())
   withr::defer(reset_warn_once(known_backend_warn_id("rattler")))
   with_sandbox_dir({
-    env_dir <- make_known_env("rt-missing-env")
+    make_known_env("rt-missing-env")
     testthat::expect_warning(
       list_envs(),
       class = "condathis_backend_not_installed"

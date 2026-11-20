@@ -65,12 +65,21 @@
 #' @details
 #' The binary is the build for the platform of the running R (see
 #' [get_sys_arch()]): `linux-64`, `linux-aarch64`, `linux-ppc64le`,
-#' `osx-64`, `osx-arm64`, `win-64` or `win-arm64`. A native ARM64 R on
-#' Windows gets `win-arm64`. An x64 R on an ARM64 PC gets `win-64`, which
-#' runs through x64 emulation. Every R of a user shares the installed
-#' binary. So on an ARM64 PC, the binary installed first stays until you
-#' replace it, for example with `force = TRUE`. Either binary works with
-#' both builds of R: micromamba builds environments for its own platform.
+#' `linux-riscv64`, `osx-64`, `osx-arm64`, `win-64` or `win-arm64`. On
+#' another platform, `install_micromamba()` aborts with class
+#' `condathis_micromamba_not_available_for_arch`.
+#'
+#' `linux-riscv64` has builds from micromamba 2.9.0 on, so an older
+#' version aborts there with the same class. The GitHub releases have them
+#' from 2.10.0-0 on: 2.9.0 comes from the conda-forge mirrors, and its
+#' checksum cannot be checked (see below).
+#'
+#' A native ARM64 R on Windows gets `win-arm64`. An x64 R on an ARM64 PC
+#' gets `win-64`, which runs through x64 emulation. Every R of a user
+#' shares the installed binary. So on an ARM64 PC, the binary installed
+#' first stays until you replace it, for example with `force = TRUE`.
+#' Either binary works with both builds of R: micromamba builds
+#' environments for its own platform.
 #'
 #' `install_micromamba()` tries the compressed archive first, from the
 #' micromamba releases on GitHub, then from the conda-forge channel on
@@ -212,7 +221,9 @@ install_micromamba <- function(
     }
   }
 
-  sys_arch_str <- is_micromamba_available_for_arch()
+  sys_arch_str <- is_micromamba_available_for_arch(
+    micromamba_version = requested_version
+  )
 
   # Build mirror URLs for this platform and version
   mirror_urls <- get_micromamba_urls(
@@ -849,32 +860,16 @@ verify_micromamba_checksum <- function(
     isTRUE(is.na(published$hash)) &&
       isTRUE(length(archive$sha256_urls) > 0L)
   ) {
-    archive_published <- download_published_sha256(
-      urls = archive$sha256_urls,
+    archive_result <- verify_micromamba_archive_checksum(
+      bin_path = bin_path,
+      archive = archive,
       timeout_limit = timeout_limit,
-      method = method
+      method = method,
+      warn_unverified = warn_unverified,
+      warn_mismatch = warn_mismatch
     )
-    if (isFALSE(is.na(archive_published$hash))) {
-      actual_hash <- compute_sha256(bin_path)
-      if (is.na(actual_hash)) {
-        return(warn_unverified(
-          "Could not compute the SHA256 hash of the downloaded binary."
-        ))
-      }
-      archive_hash <- tolower(archive$hash %||% NA_character_)
-      if (
-        isTRUE(identical(archive_published$hash, tolower(actual_hash))) ||
-          isTRUE(identical(archive_published$hash, archive_hash))
-      ) {
-        return(invisible(TRUE))
-      }
-      if (isFALSE(is.na(archive_hash))) {
-        return(warn_mismatch(
-          "SHA256 checksum mismatch for the archive of {.path {bin_path}}.",
-          archive_published$hash,
-          archive_hash
-        ))
-      }
+    if (isFALSE(is.null(archive_result))) {
+      return(invisible(archive_result))
     }
   }
   if (identical(published$problem, "download")) {
@@ -911,6 +906,65 @@ verify_micromamba_checksum <- function(
   }
 
   return(invisible(TRUE))
+}
+
+#' Verify a micromamba binary with the checksum of its archive
+#'
+#' The fallback of `verify_micromamba_checksum()` when the checksum of the
+#' binary cannot be downloaded or read: the `.tar.bz2.sha256` file of the
+#' archive holds the hash of the binary, as for most releases, or the hash
+#' of the archive that the binary was extracted from.
+#'
+#' @param bin_path Character string. Path to the micromamba binary.
+#' @param archive A list with `hash` and `sha256_urls`, as in
+#'   `verify_micromamba_checksum()`.
+#' @param timeout_limit,method Passed to `download_published_sha256()`.
+#' @param warn_unverified,warn_mismatch The warning functions of
+#'   `verify_micromamba_checksum()`.
+#'
+#' @returns `NULL` when the archive's checksum does not decide (it cannot
+#'   be read, or it matches neither hash of a binary downloaded on its
+#'   own). Otherwise the value `verify_micromamba_checksum()` returns:
+#'   `TRUE`, `FALSE` or `NA`.
+#'
+#' @keywords internal
+#' @noRd
+verify_micromamba_archive_checksum <- function(
+  bin_path,
+  archive,
+  timeout_limit,
+  method,
+  warn_unverified,
+  warn_mismatch
+) {
+  archive_published <- download_published_sha256(
+    urls = archive$sha256_urls,
+    timeout_limit = timeout_limit,
+    method = method
+  )
+  if (isFALSE(is.na(archive_published$hash))) {
+    actual_hash <- compute_sha256(bin_path)
+    if (is.na(actual_hash)) {
+      return(warn_unverified(
+        "Could not compute the SHA256 hash of the downloaded binary."
+      ))
+    }
+    archive_hash <- tolower(archive$hash %||% NA_character_)
+    if (
+      isTRUE(identical(archive_published$hash, tolower(actual_hash))) ||
+        isTRUE(identical(archive_published$hash, archive_hash))
+    ) {
+      return(TRUE)
+    }
+    if (isFALSE(is.na(archive_hash))) {
+      return(warn_mismatch(
+        "SHA256 checksum mismatch for the archive of {.path {bin_path}}.",
+        archive_published$hash,
+        archive_hash
+      ))
+    }
+  }
+  return(NULL)
 }
 
 #' Download and read a published SHA256 checksum file

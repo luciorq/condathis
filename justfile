@@ -31,7 +31,9 @@ lint:
   # + no other recipe depends on it.
   air format ./R/ || true;
   air format ./tests/ || true;
-  (jarl check . --select ALL || jarl check . --select ALL --statistics) || true;
+  # The rules are set in `jarl.toml` (every rule). A finding fails the
+  # + recipe, after a count of the findings by rule.
+  jarl check . || (jarl check . --statistics; \builtin exit 1);
   # TODO: @luciorq: This is not capturing lines where `@return` has a line break just after it it.
   find ./R/ -type f -name "*.R" -exec sed -i -e "s|^#' \@return |#' \@returns |g" {} +
   find ./R/ -type f -name "*.R" -exec sed -i -e "s|^#' \@return$|#' \@returns|g" {} +
