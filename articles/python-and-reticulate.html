@@ -42,6 +42,7 @@
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
 <li><a class="dropdown-item" href="../articles/python-and-reticulate.html">Running Python Code with condathis and reticulate</a></li>
+    <li><a class="dropdown-item" href="../articles/python-and-mizu.html">Parallel Python Workers with condathis and mizu</a></li>
     <li><a class="dropdown-item" href="../articles/whole-slide-images.html">Whole-Slide Pathology Images: Binary Pipelines Across Environments</a></li>
     <li><a class="dropdown-item" href="../articles/backends.html">Backends: micromamba and rattler</a></li>
   </ul>
@@ -92,7 +93,7 @@
 <li>
 <strong>Embedded in R with <code>reticulate</code>.</strong> <code>reticulate</code> loads the interpreter from the same environment into the R process. Python objects stay in memory between calls and convert directly to R objects.</li>
 </ul>
-<p>This article shows both, starting from the same environment. The process approach needs nothing beyond <code>condathis</code>. The embedded approach also needs the <code>reticulate</code> package.</p>
+<p>This article shows both, starting from the same environment. The process approach needs nothing beyond <code>condathis</code>. The embedded approach also needs the <code>reticulate</code> package. For a pool of persistent Python worker processes that receive R data through shared memory, see <a href="python-and-mizu.html">Parallel Python Workers with condathis and mizu</a>.</p>
 </section><section class="level2"><h2 id="creating-the-environment">Creating the Environment<a class="anchor" aria-label="anchor" href="#creating-the-environment"></a>
 </h2>
 <p>Pin the Python version and the packages you need. <code>condathis</code> resolves everything from <code>conda-forge</code>, including the interpreter itself, so no system Python is involved.</p>
@@ -112,7 +113,7 @@
 <span><span class="co">#&gt; # A tibble: 3 × 2</span></span>
 <span><span class="co">#&gt;   name   version</span></span>
 <span><span class="co">#&gt;   &lt;chr&gt;  &lt;chr&gt;  </span></span>
-<span><span class="co">#&gt; 1 numpy  2.5.4  </span></span>
+<span><span class="co">#&gt; 1 numpy  2.5.5  </span></span>
 <span><span class="co">#&gt; 2 pandas 3.1.1  </span></span>
 <span><span class="co">#&gt; 3 python 3.13.18</span></span></code></pre></div>
 </div>
@@ -166,7 +167,7 @@
 <span>  verbose <span class="op">=</span> <span class="st">"silent"</span></span>
 <span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">jsonlite</span><span class="fu">::</span><span class="fu"><a href="https://jeroen.r-universe.dev/jsonlite/reference/fromJSON.html" class="external-link">fromJSON</a></span><span class="op">(</span><span class="fu"><a href="../reference/parse_output.html">parse_output</a></span><span class="op">(</span><span class="va">res</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu">jsonlite</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/jsonlite/man/fromJSON.html" class="external-link">fromJSON</a></span><span class="op">(</span><span class="fu"><a href="../reference/parse_output.html">parse_output</a></span><span class="op">(</span><span class="va">res</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt;      Species Sepal.Length Sepal.Width Petal.Length Petal.Width</span></span>
 <span><span class="co">#&gt; 1     setosa         5.01        3.43         1.46        0.25</span></span>
 <span><span class="co">#&gt; 2 versicolor         5.94        2.77         4.26        1.33</span></span>
@@ -217,13 +218,7 @@
 <code>run()</code> or <code>run_bin()</code>
 <a class="anchor" aria-label="anchor" href="#run-or-run_bin"></a>
 </h3>
-<p>Both functions run <code>python</code> from the environment, and start it directly, with the variables of the environment’s activation. The activation is recorded once per environment and reused until the environment or the session’s environment variables change. Repeated short calls are fast with both. They differ in how they find the program:</p>
-<ul>
-<li>
-<code><a href="../reference/run.html">run()</a></code> always activates the environment, and finds <code>python</code> on the activated <code>PATH</code>, where the environment’s directories come first.</li>
-<li>
-<code><a href="../reference/run_bin.html">run_bin()</a></code> resolves the <code>python</code> binary inside the environment first. With <code>activate = FALSE</code>, it starts it without the activation variables.</li>
-</ul>
+<p>Both functions start <code>python</code> from the environment with the variables of its activation, and both are fast for repeated short calls. <code><a href="../reference/run_bin.html">run_bin()</a></code> is superseded by <code><a href="../reference/run.html">run()</a></code>, and both find <code>python</code> the same way: on the activated <code>PATH</code>, where the environment’s directories come first. With <code>activate = FALSE</code>, they set only a fixed activation, without the packages’ <code>activate.d</code> scripts.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">res</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_bin.html">run_bin</a></span><span class="op">(</span></span>
@@ -233,11 +228,11 @@
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="../reference/parse_output.html">parse_output</a></span><span class="op">(</span><span class="va">res</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] "2.5.4"</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] "2.5.5"</span></span></code></pre></div>
 </div>
 </section><section class="level3"><h3 id="chaining-python-with-other-tools">Chaining Python with Other Tools<a class="anchor" aria-label="anchor" href="#chaining-python-with-other-tools"></a>
 </h3>
-<p><code><a href="../reference/run_pipeline.html">run_pipeline()</a></code> connects commands with operating system pipes, like <code>|</code> in a shell. Each stage is described with <code><a href="../reference/run_step.html">run_step()</a></code>, which takes the same command and arguments as <code><a href="../reference/run.html">run()</a></code> but does not run anything by itself. Each stage can live in its own environment, given as <code>env_name</code> to <code><a href="../reference/run_step.html">run_step()</a></code>. Stages without one use the <code>env_name</code> of <code><a href="../reference/run_pipeline.html">run_pipeline()</a></code>, as both do here. A Python stage generates records and a second Python stage, started with <code>-u</code> for unbuffered output, filters them as they arrive.</p>
+<p><code><a href="../reference/run_pipeline.html">run_pipeline()</a></code> connects commands with operating system pipes, like <code>|</code> in a shell. <code><a href="../reference/run_step.html">run_step()</a></code> describes each stage with the same arguments as <code><a href="../reference/run.html">run()</a></code>, and can give it its own <code>env_name</code>. Here a Python stage generates records, and a second one, started with <code>-u</code> for unbuffered output, filters them as they arrive.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">producer</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span></span>
@@ -268,7 +263,7 @@
 <span><span class="co">#&gt; [1] "2 squared is 4"    "4 squared is 16"   "6 squared is 36"  </span></span>
 <span><span class="co">#&gt; [4] "8 squared is 64"   "10 squared is 100"</span></span></code></pre></div>
 </div>
-<p>The data between the two stages never passes through R. <code><a href="../reference/parse_output.html">parse_output()</a></code> reads the standard output of the last stage. <code>res$processes</code> holds the full result of every stage. The producer sets <code>lineterminator='\n'</code> because Python already translates <code>\n</code> to the platform’s line ending on standard output. The default <code>\r\n</code> would become <code>\r\r\n</code> on Windows, and the consumer would read empty rows.</p>
+<p>The data between the two stages never passes through R. <code><a href="../reference/parse_output.html">parse_output()</a></code> reads the standard output of the last stage, and <code>res$processes</code> holds the result of every stage. The producer sets <code>lineterminator='\n'</code> because Python already writes the platform’s line ending. The <code>csv</code> default, <code>\r\n</code>, would become <code>\r\r\n</code> on Windows.</p>
 </section></section><section class="level2"><h2 id="embedding-the-interpreter-with-reticulate">Embedding the Interpreter with reticulate<a class="anchor" aria-label="anchor" href="#embedding-the-interpreter-with-reticulate"></a>
 </h2>
 <p><code>reticulate</code> can bind to any Python interpreter. Point it at the one in the <code>condathis</code> environment and <code>reticulate</code> uses exactly the packages that <code>condathis</code> installed.</p>
@@ -371,7 +366,8 @@
 <p><code>reticulate</code> also provides the knitr engine for <code>python</code> chunks in R Markdown and Quarto documents rendered with knitr. After the <code>use_python()</code> call above, every <code>python</code> chunk in this document runs in the same embedded interpreter. Objects created in R are available in Python as <code>r.&lt;name&gt;</code>.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb15"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">cutoff</span> <span class="op">&lt;-</span> <span class="fl">20</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="co"># jarl-ignore unused_object: read by the python chunk below as r.cutoff</span></span>
+<span><span class="va">cutoff</span> <span class="op">&lt;-</span> <span class="fl">20</span></span></code></pre></div>
 </div>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb16"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
@@ -405,7 +401,7 @@
 <strong>A crash in Python is a crash in R.</strong> A segmentation fault in a compiled Python extension ends the R session too. Use <code><a href="../reference/run.html">run()</a></code> or <code><a href="../reference/run_bin.html">run_bin()</a></code> for code that you do not trust to be stable.</li>
 </ul></section></section><section class="level2"><h2 id="many-python-interpreters-with-mirai">Many Python Interpreters with mirai<a class="anchor" aria-label="anchor" href="#many-python-interpreters-with-mirai"></a>
 </h2>
-<p>The single-interpreter limit applies to one R process, not to one analysis. <code>mirai</code> runs R code in background R processes called daemons. Each daemon is a separate R session, so each one can bind <code>reticulate</code> to a different Python.</p>
+<p>The single-interpreter limit applies to one R process, not to one analysis. <code>mirai</code> runs R code in background R processes called daemons. Each daemon is a separate R session, so each one can bind <code>reticulate</code> to a different Python. Use this when each process needs R code next to Python. For Python-only workers, the <code>mizu</code> article above is simpler.</p>
 <p>Starting every daemon inside an activated <code>condathis</code> environment gives you:</p>
 <ul>
 <li>One persistent Python interpreter per environment, all usable from the same R session.</li>
@@ -459,8 +455,8 @@
 <span>  <span class="op">)</span></span>
 <span><span class="op">}</span></span></code></pre></div>
 </div>
-<p>The two hooks wrap the <code>arrow</code> functions instead of passing them directly. A function from a package carries that package’s namespace when it is serialized. Each daemon would therefore load the R <code>arrow</code> package as soon as it received the configuration. That matters on Windows, where <code>pyarrow</code> must be imported before the R <code>arrow</code> package loads. Both ship a library named <code>arrow.dll</code>, and Windows reuses the one already loaded in the process. If the R package loads first, <code>import pyarrow</code> fails with “DLL load failed”.</p>
-<p>The daemon itself is an <code>Rscript</code> process started by <code>micromamba run -n &lt;env&gt;</code>, which activates the environment first. <code>--no-rc</code> and <code>--no-env</code> make <code>micromamba</code> ignore your configuration files and <code>MAMBA_*</code> settings, as <code>condathis</code> does with its own <code>--rc-file</code>. <code>-r</code> sets the root prefix to the <code>condathis</code> data directory. <code>MAMBA_ROOT_PREFIX</code> sets it too: <code>micromamba</code> reads it before <code>-r</code>, also with <code>--no-env</code>. It aborts at the start when its own default root prefix exists and is not a Conda environment. <code>mirai::nextget("url")</code> returns the address the daemon must connect to.</p>
+<p>The hooks wrap the <code>arrow</code> functions instead of passing them directly, so the daemons do not load the R <code>arrow</code> package when they receive the configuration. On Windows, <code>pyarrow</code> must be imported first: both ship an <code>arrow.dll</code>, and if the R package loads first, <code>import pyarrow</code> fails with “DLL load failed”.</p>
+<p>Each daemon is an <code>Rscript</code> process started by <code>micromamba run -n &lt;env&gt;</code>, which activates the environment first. <code>--no-rc</code> and <code>--no-env</code> make <code>micromamba</code> ignore your configuration files and <code>MAMBA_*</code> settings. <code>-r</code> and <code>MAMBA_ROOT_PREFIX</code> both point it at the <code>condathis</code> data directory: <code>micromamba</code> reads the variable before <code>-r</code> and aborts if its own default root prefix is not a Conda environment. <code>mirai::nextget("url")</code> returns the address the daemon must connect to.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb20"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">umamba_path</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/install_micromamba.html">install_micromamba</a></span><span class="op">(</span>verbose <span class="op">=</span> <span class="st">"silent"</span><span class="op">)</span></span>
@@ -489,11 +485,10 @@
 <span>  ml <span class="op">=</span> <span class="fu">launch_env_daemon</span><span class="op">(</span><span class="st">"py-ml-env"</span>, profile <span class="op">=</span> <span class="st">"ml"</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 </div>
-<p>The daemons start from <code>processx</code>, the same library <code>condathis</code> uses for every command. <code><a href="https://mirai.r-lib.org/reference/remote_config.html" class="external-link">mirai::remote_config()</a></code> with <code>micromamba</code> as the command also works on Linux and macOS. On Windows it fails, because R’s <code><a href="https://rdrr.io/r/base/system2.html" class="external-link">system2()</a></code> launches <code>micromamba</code> in a way that breaks its activation scripts.</p>
-<p>Keep <code>daemon_procs</code> referenced while the daemons run. <code>cleanup_tree = TRUE</code> stops a daemon and its children if its handle is garbage collected.</p>
+<p>The daemons start from <code>processx</code>, as every <code>condathis</code> command does. <code><a href="https://mirai.r-lib.org/reference/remote_config.html" class="external-link">mirai::remote_config()</a></code> with <code>micromamba</code> as the command works on Linux and macOS, but not on Windows, where <code><a href="https://rdrr.io/r/base/system2.html" class="external-link">system2()</a></code> breaks the activation scripts. Keep <code>daemon_procs</code> referenced while the daemons run: <code>cleanup_tree = TRUE</code> stops a daemon and its children when its handle is garbage collected.</p>
 </section><section class="level3"><h3 id="binding-reticulate-in-each-daemon">Binding reticulate in Each Daemon<a class="anchor" aria-label="anchor" href="#binding-reticulate-in-each-daemon"></a>
 </h3>
-<p>Inside an activated daemon, <code>PATH</code> starts with the environment’s binary directories. <code>Sys.which("python")</code> therefore finds that environment’s interpreter. On Windows, that same activated <code>PATH</code> also gives the Python DLL its dependencies. On Linux and macOS, the daemons inherit <code>RETICULATE_CONDA</code> from the main session. <code><a href="https://mirai.r-lib.org/reference/everywhere.html" class="external-link">mirai::everywhere()</a></code> runs the setup code on every daemon of a profile and waits for the daemons to connect. The setup stops with an error if <code>reticulate</code> bound to any Python outside the activated environment. It imports <code>pyarrow</code> before anything in the daemon uses the R <code>arrow</code> package, which avoids the Windows library clash described above.</p>
+<p>Inside an activated daemon, <code>PATH</code> starts with the environment’s directories, so <code>Sys.which("python")</code> finds its interpreter, and on Windows the Python DLL finds its dependencies. On Linux and macOS, the daemons inherit <code>RETICULATE_CONDA</code> from the main session. <code><a href="https://mirai.r-lib.org/reference/everywhere.html" class="external-link">mirai::everywhere()</a></code> runs the setup code on every daemon of a profile. It stops if <code>reticulate</code> bound to a Python outside the environment, and imports <code>pyarrow</code> before anything loads the R <code>arrow</code> package.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb21"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">bind_python</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/substitute.html" class="external-link">quote</a></span><span class="op">(</span><span class="op">{</span></span>
@@ -501,7 +496,10 @@
 <span>  <span class="va">env_dir</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/normalizePath.html" class="external-link">normalizePath</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Sys.getenv.html" class="external-link">Sys.getenv</a></span><span class="op">(</span><span class="st">"CONDA_PREFIX"</span><span class="op">)</span>, winslash <span class="op">=</span> <span class="st">"/"</span><span class="op">)</span></span>
 <span>  <span class="va">py_exe</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/normalizePath.html" class="external-link">normalizePath</a></span><span class="op">(</span><span class="fu">reticulate</span><span class="fu">::</span><span class="fu"><a href="https://rstudio.github.io/reticulate/reference/py_config.html" class="external-link">py_config</a></span><span class="op">(</span><span class="op">)</span><span class="op">$</span><span class="va">python</span>, winslash <span class="op">=</span> <span class="st">"/"</span><span class="op">)</span></span>
 <span>  <span class="kw">if</span> <span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/startsWith.html" class="external-link">startsWith</a></span><span class="op">(</span><span class="va">py_exe</span>, <span class="va">env_dir</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
-<span>    <span class="kw"><a href="https://rdrr.io/r/base/stop.html" class="external-link">stop</a></span><span class="op">(</span><span class="st">"reticulate bound to "</span>, <span class="va">py_exe</span>, <span class="st">" instead of "</span>, <span class="va">env_dir</span><span class="op">)</span></span>
+<span>    <span class="kw"><a href="https://rdrr.io/r/base/stop.html" class="external-link">stop</a></span><span class="op">(</span></span>
+<span>      <span class="st">"reticulate bound to "</span>, <span class="va">py_exe</span>, <span class="st">" instead of "</span>, <span class="va">env_dir</span>,</span>
+<span>      call. <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span>    <span class="op">)</span></span>
 <span>  <span class="op">}</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/invisible.html" class="external-link">invisible</a></span><span class="op">(</span><span class="fu">reticulate</span><span class="fu">::</span><span class="fu"><a href="https://rstudio.github.io/reticulate/reference/import.html" class="external-link">import</a></span><span class="op">(</span><span class="st">"pyarrow"</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">}</span><span class="op">)</span></span>
@@ -527,16 +525,16 @@
 <span><span class="fu"><a href="https://rdrr.io/r/utils/str.html" class="external-link">str</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>geo <span class="op">=</span> <span class="va">geo_info</span><span class="op">[</span><span class="op">]</span>, ml <span class="op">=</span> <span class="va">ml_info</span><span class="op">[</span><span class="op">]</span>, main <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Sys.getpid.html" class="external-link">Sys.getpid</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; List of 3</span></span>
 <span><span class="co">#&gt;  $ geo :List of 4</span></span>
-<span><span class="co">#&gt;   ..$ pid      : int 13832</span></span>
+<span><span class="co">#&gt;   ..$ pid      : int 14490</span></span>
 <span><span class="co">#&gt;   ..$ env      : chr "py-geo-env"</span></span>
 <span><span class="co">#&gt;   ..$ python   : chr "3.13"</span></span>
 <span><span class="co">#&gt;   ..$ PROJ_DATA: logi TRUE</span></span>
 <span><span class="co">#&gt;  $ ml  :List of 4</span></span>
-<span><span class="co">#&gt;   ..$ pid      : int 13844</span></span>
+<span><span class="co">#&gt;   ..$ pid      : int 14503</span></span>
 <span><span class="co">#&gt;   ..$ env      : chr "py-ml-env"</span></span>
 <span><span class="co">#&gt;   ..$ python   : chr "3.12"</span></span>
 <span><span class="co">#&gt;   ..$ PROJ_DATA: logi FALSE</span></span>
-<span><span class="co">#&gt;  $ main: int 12879</span></span></code></pre></div>
+<span><span class="co">#&gt;  $ main: int 14188</span></span></code></pre></div>
 </div>
 <p>Each daemon is its own process with its own Python version. <code>PROJ_DATA</code> is set only in the geo daemon. The <code>proj</code> package sets it in its activation script, and <code>pyproj</code> needs it to find its projection database. That is the activation step the embedded interpreter in the main session skips.</p>
 </section><section class="level3"><h3 id="sharing-input-data-with-mori">Sharing Input Data with mori<a class="anchor" aria-label="anchor" href="#sharing-input-data-with-mori"></a>
@@ -560,8 +558,7 @@
 <span><span class="co">#&gt;    plain   shared </span></span>
 <span><span class="co">#&gt; 16000190      270</span></span></code></pre></div>
 </div>
-<p>Keep <code>points_shared</code> referenced in the main session until the daemons are done with it. The shared region is freed when the last reference in the main session is garbage collected.</p>
-<p><code>mori</code> shares R objects between R processes. Python cannot read them directly. Arrow is the bridge from R to Python inside each daemon.</p>
+<p>Keep <code>points_shared</code> referenced until the daemons are done with it: the shared region is freed when the main session garbage collects it. <code>mori</code> shares R objects between R processes only, so Arrow is the bridge to Python inside each daemon.</p>
 </section><section class="level3"><h3 id="projecting-coordinates-in-the-first-environment">Projecting Coordinates in the First Environment<a class="anchor" aria-label="anchor" href="#projecting-coordinates-in-the-first-environment"></a>
 </h3>
 <p>The geo daemon maps the shared data frame, converts it to an Arrow table, and passes that to Python. <code>reticulate</code> hands Arrow tables to <code>pyarrow</code> through the Arrow C data interface, which shares the buffers instead of copying them. <code>pyproj</code> projects longitude and latitude to Universal Transverse Mercator (UTM) zone 18N, in meters. The result returns to the main session as an Arrow table.</p>
@@ -683,10 +680,6 @@
 </section></section><section class="level2"><h2 id="choosing-an-approach">Choosing an Approach<a class="anchor" aria-label="anchor" href="#choosing-an-approach"></a>
 </h2>
 <table class="table caption-top">
-<colgroup>
-<col style="width: 54%">
-<col style="width: 45%">
-</colgroup>
 <thead><tr class="header">
 <th>Need</th>
 <th>Use</th>
@@ -726,9 +719,13 @@
 <td>
 <code>reticulate</code> in <code>mirai</code> daemons</td>
 </tr>
+<tr class="even">
+<td>Persistent Python worker pools fed with R data</td>
+<td><a href="python-and-mizu.html"><code>mizu</code></a></td>
+</tr>
 </tbody>
 </table>
-<p>In every case, <code>condathis</code> owns the environment. The same <code><a href="../reference/create_env.html">create_env()</a></code> call reproduces it on any machine. To share the environment as a file, write its package specs, with versions pinned, to an environment YAML file and pass it to <code><a href="../reference/create_env.html">create_env()</a></code> with <code><a href="../reference/env_definition.html">env_definition()</a></code>, as in <code>create_env(env_definition("environment.yml"), env_name = "py-data-env")</code>. A lock file, such as an <code>@EXPLICIT</code> or conda-lock file, gives the same packages on every machine of a platform it lists.</p>
+<p>In every case, <code>condathis</code> owns the environment, and the same <code><a href="../reference/create_env.html">create_env()</a></code> call reproduces it on any machine. To share it as a file, pass an environment YAML file with pinned versions, or a lock file, to <code><a href="../reference/create_env.html">create_env()</a></code> with <code><a href="../reference/env_definition.html">env_definition()</a></code>.</p>
 </section><section class="level2"><h2 id="cleaning-up">Cleaning Up<a class="anchor" aria-label="anchor" href="#cleaning-up"></a>
 </h2>
 <div class="cell">

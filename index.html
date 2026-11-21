@@ -42,6 +42,7 @@
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
 <li><a class="dropdown-item" href="articles/python-and-reticulate.html">Running Python Code with condathis and reticulate</a></li>
+    <li><a class="dropdown-item" href="articles/python-and-mizu.html">Parallel Python Workers with condathis and mizu</a></li>
     <li><a class="dropdown-item" href="articles/whole-slide-images.html">Whole-Slide Pathology Images: Binary Pipelines Across Environments</a></li>
     <li><a class="dropdown-item" href="articles/backends.html">Backends: micromamba and rattler</a></li>
   </ul>
@@ -122,9 +123,10 @@
 <p>Install the release version of the package from <a href="https://CRAN.R-project.org/package=condathis" class="external-link">CRAN</a>:</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages</a></span><span class="op">(</span><span class="st">"condathis"</span><span class="op">)</span></span></code></pre></div>
-<p>Or get the development version from <a href="https://luciorq.r-universe.dev/condathis" class="external-link">R-universe</a>:</p>
+<p>Or get the development version from R-universe:</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages</a></span><span class="op">(</span><span class="st">"condathis"</span>, repos <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"https://luciorq.r-universe.dev"</span>, <span class="fu"><a href="https://rdrr.io/r/base/options.html" class="external-link">getOption</a></span><span class="op">(</span><span class="st">"repos"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<p>On Windows (x64) and macOS with R 4.5 or later, <code><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages()</a></code> installs every dependency of <code>condathis</code> from binaries. On R 4.3, and on R 4.4 on Apple silicon (arm64) Macs, CRAN has no binaries of the versions of <code>processx</code> and <code>ps</code> (and, on R 4.3, <code>fs</code>) that <code>condathis</code> needs. They are built from source, which needs <a href="https://cran.r-project.org/bin/windows/Rtools/" class="external-link">Rtools</a> on Windows and the Xcode Command Line Tools (<code>xcode-select --install</code>) on macOS.</p>
 </div>
 <div class="section level2">
 <h2 id="why-condathis">Why <code>condathis</code>?<a class="anchor" aria-label="anchor" href="#why-condathis"></a>
@@ -194,7 +196,7 @@
 </h2>
 <p><code>condathis</code> relies on <a href="https://mamba.readthedocs.io/en/latest/user_guide/micromamba.html" class="external-link"><strong><code>micromamba</code></strong></a> to bring <strong>reproducibility and isolation</strong>. <code>micromamba</code> is a package manager that “does not need a base environment and does not come with a default version of Python”. <code>condathis</code> uses a usable <code>micromamba</code> that it finds, such as one on your <code>PATH</code> (see <em>micromamba discovery</em> in <code><a href="reference/condathis-options.html">?condathis::`condathis-options`</a></code>). When it finds none, it downloads one the first time it needs it, so that first call needs internet access. A message tells you about the download (class <code>condathis_micromamba_downloading</code>), unless <code>verbose = "silent"</code>.</p>
 <p><code>condathis</code> keeps the downloaded <code>micromamba</code>, the package cache and the environments in its own data directory (see <code><a href="reference/get_install_dir.html">condathis::get_install_dir()</a></code>). Environments stay there until you remove them. <code><a href="reference/list_envs.html">condathis::list_envs()</a></code> lists them, <code>condathis::get_env_dir("cowpy-env")</code> returns the directory of one, <code>condathis::install_packages("jq", env_name = "cowpy-env")</code> adds packages to it, <code>condathis::list_packages("cowpy-env")</code> lists its packages, <code>condathis::remove_env("cowpy-env")</code> removes it, and <code><a href="reference/clean_cache.html">condathis::clean_cache()</a></code> deletes the downloaded package files. Removing the <code>condathis</code> package does not delete any of this: the section <em>Removing everything</em> of <code><a href="reference/clean_cache.html">?condathis::clean_cache</a></code> shows how.</p>
-<p><code>micromamba</code> is the built-in <em>backend</em> of <code>condathis</code>. Other packages can add backends with the experimental <code><a href="reference/register_backend.html">register_backend()</a></code>. New environments use <code>micromamba</code> unless you pass <code>method</code> or set <code>options(condathis.backend_priority = ...)</code>. For example, <code>method = "rattler"</code> uses the optional <code>rattlerthis</code> package. It is not on CRAN: it is available from <a href="https://luciorq.r-universe.dev/rattlerthis" class="external-link">R-universe</a>. The <a href="https://luciorq.github.io/condathis/articles/backends.html">backends article</a> shows how to install it and use both backends together.</p>
+<p><code>micromamba</code> is the built-in <em>backend</em> of <code>condathis</code>. Other packages can add backends with the experimental <code><a href="reference/register_backend.html">register_backend()</a></code>. New environments use <code>micromamba</code> unless you pass <code>method</code> or set <code>options(condathis.backend_priority = ...)</code>. For example, <code>method = "rattler"</code> uses the optional <code>rattlerthis</code> package. It is not on CRAN: the <a href="https://luciorq.github.io/condathis/articles/backends.html">backends article</a> shows how to install it from R-universe and use both backends together.</p>
 <p>Already have an environment created outside <code>condathis</code>, for example by <code>conda</code>, <code>mamba</code>, or <code>micromamba</code> itself? Pass its directory as <code>env_name = condathis::env_path("/path/to/env")</code> to <code><a href="reference/run.html">run()</a></code>, <code><a href="reference/run_bin.html">run_bin()</a></code>, <code><a href="reference/run_pipeline.html">run_pipeline()</a></code> or <code><a href="reference/run_step.html">run_step()</a></code> to run commands from it. <code>condathis</code> never modifies such an environment. It runs commands in it with <code>micromamba</code> by default.</p>
 </div>
 <div class="section level2">
@@ -237,7 +239,7 @@
 </h2>
 <p>No shell is involved, so shell syntax in an argument is passed literally.</p>
 <ul>
-<li>Shell builtins, such as <code>echo</code>, are not available as commands. To use shell features, run a shell explicitly, for example <code>condathis::run("bash", "-c", "...")</code>.</li>
+<li>Shell builtins, such as <code>export</code>, <code>source</code> or, on Windows, <code>dir</code> and <code>echo</code>, are not programs, so they cannot be run directly (unless a program of that name, such as <code>echo.exe</code> of Git for Windows, is on <code>PATH</code>). To use shell features, run a shell explicitly, for example <code>condathis::run("bash", "-c", "...")</code>.</li>
 <li>Shell operators such as <code>|</code> and <code>&gt;</code> are not interpreted.
 <ul>
 <li>Instead of <code>&gt;</code>, use the <code>stdout</code>/<code>stderr</code> arguments (a file path redirects to that file).</li>
@@ -268,7 +270,7 @@
 <ul>
 <li>
 <code><a href="articles/condathis.html">vignette("condathis")</a></code> walks through a complete example.</li>
-<li>The <a href="https://luciorq.github.io/condathis/articles/">articles</a> on the package website show how to <a href="https://luciorq.github.io/condathis/articles/python-and-reticulate.html">use Python with <code>reticulate</code></a>, <a href="https://luciorq.github.io/condathis/articles/whole-slide-images.html">stream binary data through pipelines</a>, and <a href="https://luciorq.github.io/condathis/articles/backends.html">choose a backend</a>.</li>
+<li>The <a href="https://luciorq.github.io/condathis/articles/">articles</a> on the package website show how to <a href="https://luciorq.github.io/condathis/articles/python-and-reticulate.html">use Python with <code>reticulate</code></a>, <a href="https://luciorq.github.io/condathis/articles/whole-slide-images.html">stream binary data through pipelines</a>, <a href="https://luciorq.github.io/condathis/articles/backends.html">choose a backend</a>, and <a href="https://luciorq.github.io/condathis/articles/python-and-mizu.html">run parallel Python workers with <code>mizu</code></a>.</li>
 <li>
 <code><a href="reference/run.html">?condathis::run</a></code>, <code><a href="reference/run_pipeline.html">?condathis::run_pipeline</a></code> and <code><a href="reference/create_env.html">?condathis::create_env</a></code> describe every argument. <code><a href="reference/condathis-options.html">?condathis::`condathis-options`</a></code> lists the options and environment variables that <code>condathis</code> reads.</li>
 <li>Upgrading from 0.1.4? <code>news(package = "condathis")</code> lists the breaking changes, each with what to write instead.</li>
@@ -311,7 +313,7 @@
 <h2 data-toc-skip>Developers</h2>
 <ul class="list-unstyled">
 <li>Lucio Queiroz <br><small class="roles"> Author, maintainer, copyright holder </small> <a href="https://orcid.org/0000-0002-6090-1834" target="orcid.widget" aria-label="ORCID" class="external-link"><span class="fab fa-orcid orcid" aria-hidden="true"></span></a>  </li>
-<li>Claudio Zanettini <br><small class="roles"> Author, contributor </small> <a href="https://orcid.org/0000-0001-5043-8033" target="orcid.widget" aria-label="ORCID" class="external-link"><span class="fab fa-orcid orcid" aria-hidden="true"></span></a>  </li>
+<li>Claudio Zanettini <br><small class="roles"> Author </small> <a href="https://orcid.org/0000-0001-5043-8033" target="orcid.widget" aria-label="ORCID" class="external-link"><span class="fab fa-orcid orcid" aria-hidden="true"></span></a>  </li>
 </ul>
 </div>
 

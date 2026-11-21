@@ -2,10 +2,8 @@
 
 Runs a command line tool with a Conda environment activated. The command
 gets the environment variables that the activation sets, including those
-of the `activate.d` scripts of its packages. To run a program without
-activation, use
-[`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md)
-with `activate = FALSE`.
+of the `activate.d` scripts of its packages. With `activate = FALSE`, it
+gets a fixed activation instead, without those scripts.
 
 ## Usage
 
@@ -25,6 +23,7 @@ run(
   supervise = FALSE,
   cleanup_tree = FALSE,
   linux_pdeathsig = FALSE,
+  activate = TRUE,
   timeout = Inf
 )
 ```
@@ -241,6 +240,21 @@ run(
   session ends, even by a crash. Ignored on other platforms. Defaults to
   `FALSE`.
 
+- activate:
+
+  Logical. Whether to run `cmd` with the activation of the backend.
+  Defaults to `TRUE`: the backend activates the environment, with the
+  `activate.d` scripts and `env_vars.d` files of its packages. An
+  activation that fails is an error, as `error` describes. With `FALSE`,
+  no backend code runs: `condathis` sets only `CONDA_PREFIX`,
+  `CONDA_DEFAULT_ENV`, `CONDA_SHLVL` and `MAMBA_SHLVL` (both `1`), empty
+  prompt modifiers, and the binary directories of the environment in
+  front of `PATH` (see
+  [condathis-options](https://luciorq.github.io/condathis/reference/condathis-options.md)).
+  In both modes, the command gets the variables that `condathis` sets in
+  every process it starts. Values other than `TRUE` and `FALSE` abort
+  with class `condathis_invalid_activate`.
+
 - timeout:
 
   Number of seconds the call may take, the activation of the environment
@@ -277,12 +291,33 @@ until the environment changes (its packages, `activate.d` scripts or
 `env_vars.d` files). A change in the environment variables of the R
 session also ends the reuse.
 
+The command does not get the activation of the R session. When R runs in
+an activated Conda or pixi environment, or in several nested ones,
+`condathis` removes their binary directories from `PATH` and their
+variables from the command's environment (see
+[condathis-options](https://luciorq.github.io/condathis/reference/condathis-options.md),
+which also lists what cannot be undone). A program of R's own
+environment so never runs in place of one the environment lacks. The
+command always runs in exactly one activated environment: `CONDA_SHLVL`
+and `MAMBA_SHLVL` are `1` and the prompt modifiers are empty. The
+command does not get what R's own startup set either: no `R_*` variable,
+and not R's part of `LD_LIBRARY_PATH` or, on Windows, of `PATH`
+(Rtools).
+
+A bare `cmd` is looked up on the `PATH` of the command, after the
+activation. On Windows, as in `cmd.exe`, the working directory of the
+command comes first, and a name without an extension is looked up with
+the extensions of `PATHEXT`. A name found nowhere fails with status 127,
+as in a shell.
+
 Arguments in `...` reach the command exactly as given on every platform.
 No shell is involved. Characters such as `>`, `|`, `&`, `%`, `$`, `*`
-and quotes have no special meaning. Shell builtins (for example `echo`
-or `dir` on Windows) are not available as commands. To use shell
-features, run a shell explicitly, as in `run("bash", "-c", "...")`. To
-connect commands with pipes, use
+and quotes have no special meaning. Shell builtins (for example `export`
+or `source`, or `dir` and `echo` on Windows) are not programs and cannot
+be run, unless a program of that name is on the `PATH` of the command
+(as `echo.exe` of Git for Windows). To use shell features, run a shell
+explicitly, as in `run("bash", "-c", "...")`, or on Windows
+`run("cmd", "/c", "dir")`. To connect commands with pipes, use
 [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md).
 One exception applies on Windows. Windows starts batch files (`.bat`,
 `.cmd`) through `cmd.exe`, which parses their arguments again.
@@ -291,6 +326,14 @@ When `env_name` is the default `"condathis-env"` and that environment
 does not exist, `run()` creates it, empty, with the backend that
 `method` selects. `run()` never creates any other missing environment.
 The call fails, as `error` describes.
+
+`run()` does not wait for another R session that changes the
+environment, so do not change or remove an environment
+([`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md)
+with `overwrite = TRUE`,
+[`install_packages()`](https://luciorq.github.io/condathis/reference/install_packages.md),
+[`remove_env()`](https://luciorq.github.io/condathis/reference/remove_env.md))
+while commands run in it. Several `run()` calls can run in parallel.
 
 The errors of a failed or timed-out command carry the fields `status`,
 `stdout`, `stderr` and `timeout`. A handler does not need to parse the

@@ -32,6 +32,7 @@ backend."><meta property="og:image" content="https://luciorq.github.io/condathis
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/python-and-reticulate.html">Running Python Code with condathis and reticulate</a></li>
+    <li><a class="dropdown-item" href="../articles/python-and-mizu.html">Parallel Python Workers with condathis and mizu</a></li>
     <li><a class="dropdown-item" href="../articles/whole-slide-images.html">Whole-Slide Pathology Images: Binary Pipelines Across Environments</a></li>
     <li><a class="dropdown-item" href="../articles/backends.html">Backends: micromamba and rattler</a></li>
   </ul></li>
@@ -123,13 +124,17 @@ with the <code>home/</code> directory of the data directory as their home.
 micromamba needs something from there. It then adds the environment to
 your list. This happens for channel credentials that you saved (with
 <code>micromamba auth login</code>, an <code>anaconda-client</code> token, or a <code>.netrc</code>
-file), and for an environment file (<code><a href="env_definition.html">env_definition()</a></code>) that names your
-home directory (<code>~/</code>, <code>$HOME</code>) or installs pip packages. Listing and
-removing environments never change the file, so the line of an
-environment that <code><a href="remove_env.html">remove_env()</a></code> deleted stays. Both conda and mamba drop such lines the
-next time they list environments. A <code>~</code> at the start of a channel, of a
-package path and of the path of an environment file always means your
-own home directory.</p>
+file), for an environment file (<code><a href="env_definition.html">env_definition()</a></code>) that names your
+home directory (<code>~/</code>, <code>$HOME</code>), and for one that installs pip packages
+when pip or uv would read a file from your home directory: a pip
+configuration file (<code>~/.pip/pip.conf</code>, <code>~/.config/pip/pip.conf</code>, on
+macOS also <code>~/Library/Application Support/pip/pip.conf</code>, on Windows
+<code>~\pip\pip.ini</code>), a uv configuration file (<code>~/.config/uv/uv.toml</code>) or
+uv credentials (<code>uv auth login</code>), or when a <code>keyring</code> program is on
+<code>PATH</code>. Listing environments never changes the file. <code><a href="remove_env.html">remove_env()</a></code>
+deletes only the line of the environment it removed. A <code>~</code> at the start
+of a channel, of a package path and of the path of an environment file
+always means your own home directory.</p>
 <p>The pip that installs the pip packages of an environment file keeps its
 cache in the <code>cache/</code> directory of the data directory on Linux, which
 <code><a href="clean_cache.html">clean_cache()</a></code> deletes. On macOS and Windows, it keeps its cache in
@@ -157,7 +162,7 @@ your own user cache (<code>~/Library/Caches/pip</code>,
 <span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #949494;"># A tibble: 1 × 2</span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   backend    path                                                           </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>      <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>                                                          </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">1</span> micromamba /tmp/Rtmp6wGB7j/condathis-sandbox-2aac2a4517ab/data/R/condathis</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">1</span> micromamba /tmp/Rtmpzrm4bi/condathis-sandbox-2add31c0dab0/data/R/condathis</span>
 <span class="r-in"><span></span></span>
 </code></pre></div>
     </div>

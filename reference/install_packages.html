@@ -30,6 +30,7 @@ condathis_env_not_found). Create it with create_env() first."><meta property="og
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/python-and-reticulate.html">Running Python Code with condathis and reticulate</a></li>
+    <li><a class="dropdown-item" href="../articles/python-and-mizu.html">Parallel Python Workers with condathis and mizu</a></li>
     <li><a class="dropdown-item" href="../articles/whole-slide-images.html">Whole-Slide Pathology Images: Binary Pipelines Across Environments</a></li>
     <li><a class="dropdown-item" href="../articles/backends.html">Backends: micromamba and rattler</a></li>
   </ul></li>
@@ -105,9 +106,12 @@ does not exist aborts with class
 <p><code>packages = &lt;specs&gt;</code> still works. It is deprecated. It warns once per
 session (class <code>condathis_deprecated_packages_arg</code>) when the call comes
 from the console, a script or the tests of the package that makes it.
-Calls made inside other packages do not warn. <code>packages = NULL</code> and
-<code>packages = character(0)</code> install nothing and return status 0, as in
-0.1.4.</p>
+Calls made inside other packages do not warn, except in tests that use
+testthat's third edition (see <a href="condathis-conditions.html">condathis-conditions</a>).
+<code>packages = NULL</code> and <code>packages = character(0)</code> install nothing and
+return status 0, as in 0.1.4. When the backend cannot tell whether the
+environment exists, they abort with class
+<code>condathis_backend_probe_failed</code>.</p>
 <p>Invalid specs abort with these classes:</p><ul><li><p><code>condathis_install_packages_missing_packages</code>: no specs and no
 <code><a href="env_definition.html">env_definition()</a></code>, unless <code>packages = NULL</code> or
 <code>packages = character(0)</code> was given.</p></li>

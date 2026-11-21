@@ -28,6 +28,7 @@ configuration file of yours is in reach."><meta property="og:image" content="htt
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/python-and-reticulate.html">Running Python Code with condathis and reticulate</a></li>
+    <li><a class="dropdown-item" href="../articles/python-and-mizu.html">Parallel Python Workers with condathis and mizu</a></li>
     <li><a class="dropdown-item" href="../articles/whole-slide-images.html">Whole-Slide Pathology Images: Binary Pipelines Across Environments</a></li>
     <li><a class="dropdown-item" href="../articles/backends.html">Backends: micromamba and rattler</a></li>
   </ul></li>
@@ -124,9 +125,9 @@ writes there stay.</p>
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="fu">condathis</span><span class="fu">::</span><span class="fu">with_sandbox_dir</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="fu">fs</span><span class="fu">::</span><span class="fu"><a href="https://fs.r-lib.org/reference/path_expand.html" class="external-link">path_home</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #0000BB; font-weight: bold;">/tmp/Rtmp6wGB7j/condathis-sandbox-2aac2e30d17b/home</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #0000BB; font-weight: bold;">/tmp/Rtmpzrm4bi/condathis-sandbox-2add53a3f9bd/home</span></span>
 <span class="r-in"><span><span class="fu">condathis</span><span class="fu">::</span><span class="fu">with_sandbox_dir</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="fu">tools</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/tools/userdir.html" class="external-link">R_user_dir</a></span><span class="op">(</span><span class="st">"condathis"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "/tmp/Rtmp6wGB7j/condathis-sandbox-2aac34ce62dd/data/R/condathis"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "/tmp/Rtmpzrm4bi/condathis-sandbox-2add1cfbcbb5/data/R/condathis"</span>
 </code></pre></div>
     </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

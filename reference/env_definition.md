@@ -1,4 +1,4 @@
-# Create an environment from a file
+# Describe an environment file
 
 Marks a file as the definition of a Conda environment, such as an
 environment YAML file or a lock file. Pass the result in the `...` of

@@ -20,6 +20,7 @@
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/python-and-reticulate.html">Running Python Code with condathis and reticulate</a></li>
+    <li><a class="dropdown-item" href="../articles/python-and-mizu.html">Parallel Python Workers with condathis and mizu</a></li>
     <li><a class="dropdown-item" href="../articles/whole-slide-images.html">Whole-Slide Pathology Images: Binary Pipelines Across Environments</a></li>
     <li><a class="dropdown-item" href="../articles/backends.html">Backends: micromamba and rattler</a></li>
   </ul></li>
@@ -149,10 +150,11 @@ them. A backend that does not makes <code>remove_env()</code> warn with class
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-    <p>With the micromamba backend, <code>remove_env()</code> does not change
-<code>~/.conda/environments.txt</code>, the registry that conda and mamba share. A
-line that <code><a href="create_env.html">create_env()</a></code> added to that file stays (see Details in
-<code><a href="get_install_dir.html">get_install_dir()</a></code>). On Windows, it also leaves the Start Menu
+    <p>With the micromamba backend, <code>remove_env()</code> deletes the line of the
+removed environment from <code>~/.conda/environments.txt</code>, the registry that
+conda and mamba share, when the file has one (see Details in
+<code><a href="get_install_dir.html">get_install_dir()</a></code>). It leaves every other line as it is. On Windows,
+it leaves the Start Menu
 shortcuts that <code>condathis</code> 0.1.4 and earlier added for packages such as
 <code>spyder</code>. Delete them from the Start Menu.</p>
     </div>

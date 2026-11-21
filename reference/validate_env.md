@@ -47,7 +47,9 @@ validate_env(
   deprecated. It warns once per session (class
   `condathis_deprecated_packages_arg`) when the call comes from the
   console, a script or the tests of the package that makes it. Calls
-  made inside other packages do not warn.
+  made inside other packages do not warn, except in tests that use
+  testthat's third edition (see
+  [condathis-conditions](https://luciorq.github.io/condathis/reference/condathis-conditions.md)).
 
   Or one lock file, given by
   [`env_definition()`](https://luciorq.github.io/condathis/reference/env_definition.md),

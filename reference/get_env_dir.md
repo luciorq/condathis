@@ -108,6 +108,6 @@ condathis::with_sandbox_dir({
   condathis::get_env_dir("my-env")
   #> <data dir>/R/condathis/envs/my-env
 })
-#> /tmp/Rtmp6wGB7j/condathis-sandbox-2aac535504eb/data/R/condathis/envs/condathis-env
-#> /tmp/Rtmp6wGB7j/condathis-sandbox-2aac535504eb/data/R/condathis/envs/my-env
+#> /tmp/Rtmpzrm4bi/condathis-sandbox-2add56ffe30c/data/R/condathis/envs/condathis-env
+#> /tmp/Rtmpzrm4bi/condathis-sandbox-2add56ffe30c/data/R/condathis/envs/my-env
 ```

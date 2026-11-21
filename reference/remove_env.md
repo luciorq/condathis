@@ -134,15 +134,13 @@ makes `remove_env()` warn with class
 
 ## Details
 
-With the micromamba backend, `remove_env()` does not change
-`~/.conda/environments.txt`, the registry that conda and mamba share. A
-line that
-[`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md)
-added to that file stays (see Details in
+With the micromamba backend, `remove_env()` deletes the line of the
+removed environment from `~/.conda/environments.txt`, the registry that
+conda and mamba share, when the file has one (see Details in
 [`get_install_dir()`](https://luciorq.github.io/condathis/reference/get_install_dir.md)).
-On Windows, it also leaves the Start Menu shortcuts that `condathis`
-0.1.4 and earlier added for packages such as `spyder`. Delete them from
-the Start Menu.
+It leaves every other line as it is. On Windows, it leaves the Start
+Menu shortcuts that `condathis` 0.1.4 and earlier added for packages
+such as `spyder`. Delete them from the Start Menu.
 
 ## Other R sessions
 

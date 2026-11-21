@@ -3,7 +3,9 @@
 registered backend, and nothing else:
 For the built-in micromamba backend, the package cache, pkgs, and
 the repodata cache, cache, in its data directory (see
-get_install_dir()).
+get_install_dir()), and home/.local there, where an earlier
+create_env() could have installed the packages of a pip: section
+(see PIP_USER in condathis-options).
 For every other backend, its own package and metadata caches, and
 conda-pkgs in its data directory. conda-pkgs is the package cache
 of the Conda tools that run in its environments (see Child processes
@@ -17,7 +19,9 @@ micromamba, such as ~/.cache/conda, which other tools share."><meta property="og
 registered backend, and nothing else:
 For the built-in micromamba backend, the package cache, pkgs, and
 the repodata cache, cache, in its data directory (see
-get_install_dir()).
+get_install_dir()), and home/.local there, where an earlier
+create_env() could have installed the packages of a pip: section
+(see PIP_USER in condathis-options).
 For every other backend, its own package and metadata caches, and
 conda-pkgs in its data directory. conda-pkgs is the package cache
 of the Conda tools that run in its environments (see Child processes
@@ -48,6 +52,7 @@ micromamba, such as ~/.cache/conda, which other tools share."><meta property="og
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/python-and-reticulate.html">Running Python Code with condathis and reticulate</a></li>
+    <li><a class="dropdown-item" href="../articles/python-and-mizu.html">Parallel Python Workers with condathis and mizu</a></li>
     <li><a class="dropdown-item" href="../articles/whole-slide-images.html">Whole-Slide Pathology Images: Binary Pipelines Across Environments</a></li>
     <li><a class="dropdown-item" href="../articles/backends.html">Backends: micromamba and rattler</a></li>
   </ul></li>
@@ -77,7 +82,9 @@ micromamba, such as ~/.cache/conda, which other tools share."><meta property="og
     <p>Removes the package and metadata caches of condathis and of every
 registered backend, and nothing else:</p><ul><li><p>For the built-in micromamba backend, the package cache, <code>pkgs</code>, and
 the repodata cache, <code>cache</code>, in its data directory (see
-<code><a href="get_install_dir.html">get_install_dir()</a></code>).</p></li>
+<code><a href="get_install_dir.html">get_install_dir()</a></code>), and <code>home/.local</code> there, where an earlier
+<code><a href="create_env.html">create_env()</a></code> could have installed the packages of a <code>pip:</code> section
+(see <code>PIP_USER</code> in <a href="condathis-options.html">condathis-options</a>).</p></li>
 <li><p>For every other backend, its own package and metadata caches, and
 <code>conda-pkgs</code> in its data directory. <code>conda-pkgs</code> is the package cache
 of the Conda tools that run in its environments (see <em>Child processes</em>

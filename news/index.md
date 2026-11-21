@@ -6,9 +6,9 @@ condathis 0.2.0 adds pipelines and runs the environment and command
 functions through backends. It makes the exported functions consistent
 (one argument order, one rule for missing environments, one set of
 condition classes). It no longer changes the files of other Conda tools
-in your home directory, except `~/.conda/environments.txt` in one case
-(see Bug fixes). Some changes break code written for 0.1.4: they come
-first, each with what to write instead.
+in your home directory, except the lines of its own environments in
+`~/.conda/environments.txt` (see Bug fixes). Some changes break code
+written for 0.1.4: they come first, each with what to write instead.
 
 ### Breaking changes
 
@@ -20,7 +20,8 @@ first, each with what to write instead.
   works. It is deprecated: called from the console, a script or the
   tests of your own package, it warns once per session and function
   (class `condathis_deprecated_packages_arg`). Calls made inside other
-  packages do not warn. `env_file =` of
+  packages do not warn, except in tests that use testthat’s third
+  edition, which sets `lifecycle_verbosity = "warning"`. `env_file =` of
   [`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md)
   is deprecated in the same way (class
   `condathis_deprecated_env_file_arg`): pass the file in `...` with the
@@ -134,8 +135,48 @@ first, each with what to write instead.
   directory.
 
 - [`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md)
-  now activates the environment, with the new argument
-  `activate = TRUE`. Pass `activate = FALSE` for the 0.1.4 behavior.
+  is superseded by
+  [`run()`](https://luciorq.github.io/condathis/reference/run.md). It
+  stays for code written for 0.1.4, and now runs a command exactly as
+  [`run()`](https://luciorq.github.io/condathis/reference/run.md) does:
+  it activates the environment, with the `activate.d` scripts of its
+  packages. Pass the new `activate = FALSE` (see New features) to skip
+  them, as 0.1.4 did. The command then also gets `CONDA_PREFIX` and the
+  other variables of a fixed activation, which 0.1.4 left empty. A bare
+  command name is looked up as
+  [`run()`](https://luciorq.github.io/condathis/reference/run.md) does
+  it, on the `PATH` of the command, so a directory that an `activate.d`
+  script puts first wins (see Bug fixes). A name with a directory part
+  is no longer joined to the `bin` directory of the environment: it is a
+  path, as in
+  [`run()`](https://luciorq.github.io/condathis/reference/run.md). On
+  Linux and macOS, a command killed by signal `n` has status `128 + n`,
+  as in [`run()`](https://luciorq.github.io/condathis/reference/run.md)
+  and a shell (`137` for `SIGKILL`), instead of `-n`.
+
+- The commands of
+  [`run()`](https://luciorq.github.io/condathis/reference/run.md),
+  [`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md)
+  and
+  [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md)
+  no longer see the Python settings of the R session, with and without
+  `activate`, so the python of an environment finds only its own
+  modules: `PYTHONPATH`, `PYTHONHOME`, `PYTHONUSERBASE`,
+  `PYTHONSTARTUP`, `UV_PYTHON`, `UV_SYSTEM_PYTHON` and
+  `UV_PROJECT_ENVIRONMENT` are removed, `PYTHONNOUSERSITE` is `1` (your
+  `~/.local` packages are not on `sys.path`), and an activated virtual
+  environment, also one that reticulate uses, is undone (see
+  [`` ?`condathis-options` ``](https://luciorq.github.io/condathis/reference/condathis-options.md)).
+  So that `run("python", "-m", "pip", "install", ...)` installs into the
+  environment, `PIP_USER` and `PIP_REQUIRE_VIRTUALENV` are `false` (also
+  over `user` and `require-virtualenv` in a pip configuration file), and
+  `PIP_TARGET`, `PIP_PREFIX` and `PIP_ROOT` are removed (a `target`,
+  `prefix` or `root` in a pip configuration file still applies); pass
+  `--target` or `--prefix` to pip to install elsewhere. Your package
+  index, credential, certificate and proxy settings still apply. To give
+  a command a `PYTHONPATH`, set it in the command, as in
+  `run("env", "PYTHONPATH=/my/modules", "python", "script.py")` on Linux
+  and macOS, or add the directory to `sys.path` in the script.
 
 - [`run()`](https://luciorq.github.io/condathis/reference/run.md) starts
   the command itself instead of through `micromamba run`, so arguments
@@ -264,7 +305,8 @@ first, each with what to write instead.
   `run_pipeline(run_step("seq", "1", "3"), run_step("cat"))`. A command
   that ends because the next one stopped reading, as `seq` in
   `seq 1 1000000 | head -n 1`, does not count as a failure, also on
-  Windows.
+  Windows. Its status is 141 (128 plus the number of `SIGPIPE`), as in a
+  shell.
   [`parse_output()`](https://luciorq.github.io/condathis/reference/parse_output.md)
   reads the result. Here, `supervise` and `cleanup_tree` default to
   `TRUE`.
@@ -348,6 +390,13 @@ first, each with what to write instead.
     command started when it finishes. All three default to `FALSE` in
     [`run()`](https://luciorq.github.io/condathis/reference/run.md) and
     [`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md).
+  - `activate = FALSE` runs the command without any code of the backend
+    and without the `activate.d` scripts and `env_vars.d` files of the
+    packages. condathis then sets a fixed activation: `CONDA_PREFIX`,
+    `CONDA_DEFAULT_ENV`, `CONDA_SHLVL`, `MAMBA_SHLVL`, the prompt
+    modifiers, and the binary directories of the environment in front of
+    `PATH`. The default, `activate = TRUE`, activates the environment
+    with the backend.
   - [`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md)
     also gains `method`.
 
@@ -402,14 +451,8 @@ first, each with what to write instead.
 
 - `method = "native"`, the 0.1.4 default, still works as a deprecated
   alias for `"micromamba"`. It warns once per session (class
-  `condathis_deprecated_method_native`).
-  [`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md),
-  [`install_packages()`](https://luciorq.github.io/condathis/reference/install_packages.md),
-  [`validate_env()`](https://luciorq.github.io/condathis/reference/validate_env.md),
-  [`remove_env()`](https://luciorq.github.io/condathis/reference/remove_env.md),
-  [`run()`](https://luciorq.github.io/condathis/reference/run.md) and
-  [`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md)
-  do not warn for calls made inside other packages.
+  `condathis_deprecated_method_native`), and not for calls made inside
+  other packages.
 
 - Every error has the class `condathis_error` and every warning
   `condathis_warning`, with classes for the function and the problem
@@ -467,6 +510,21 @@ first, each with what to write instead.
   [`get_install_dir()`](https://luciorq.github.io/condathis/reference/get_install_dir.md)
   create only the data directory). Without a usable micromamba, they
   read the data directory.
+
+- [`env_exists()`](https://luciorq.github.io/condathis/reference/env_exists.md),
+  [`run()`](https://luciorq.github.io/condathis/reference/run.md),
+  [`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md)
+  and
+  [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md)
+  start no micromamba process to check that an environment exists: they
+  read its directory. So `env_exists(verbose = "cmd")` no longer prints
+  a micromamba command. With the recorded activation (see New features),
+  a call of
+  [`run()`](https://luciorq.github.io/condathis/reference/run.md) in an
+  existing environment takes about as long as starting the command
+  itself: about 20 ms on Linux, where
+  [`run()`](https://luciorq.github.io/condathis/reference/run.md) of
+  0.1.4 took about 270 ms.
 
 - When a function needs micromamba and finds no usable binary, it says
   that it downloads one, naming the version and the path (message class
@@ -537,15 +595,22 @@ first, each with what to write instead.
   from 2.8.1 on still work, and condathis reads the listing format of
   micromamba 2.9 and later.
 
+- [`install_micromamba()`](https://luciorq.github.io/condathis/reference/install_micromamba.md)
+  installs micromamba on Linux on RISC-V (`linux-riscv64`), where
+  micromamba has builds from version 2.9.0 on.
+
 - condathis now imports filelock (\>= 1.0.3) and ps (\>= 1.9.3). It
-  needs cli (\>= 3.4.0), processx (\>= 3.9.0) and rlang (\>= 1.0.0). It
-  suggests digest, which checks the micromamba download on R older than
-  4.5.0 when it is installed.
+  needs cli (\>= 3.4.0), fs (\>= 1.6.7), processx (\>= 3.9.0), rlang
+  (\>= 1.1.0), stringr (\>= 1.5.0) and withr (\>= 3.0.2). On Windows and
+  macOS with R 4.3, and on Apple silicon Macs with R 4.4, some of them
+  install from source (see the README). It suggests digest, which checks
+  the micromamba download on R older than 4.5.0 when it is installed.
 
 ### Bug fixes
 
 - condathis no longer changes the files of other Conda tools in your
-  home directory, except `~/.conda/environments.txt` in the case below:
+  home directory, except the lines of its own environments in
+  `~/.conda/environments.txt` (see below):
 
   - [`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md)
     no longer deletes `~/.mamba` (`%APPDATA%\.mamba` on Windows) when it
@@ -562,10 +627,14 @@ first, each with what to write instead.
     [`run()`](https://luciorq.github.io/condathis/reference/run.md)
     leaves no `mamba/proc` directory in your cache directory.
   - Listing and removing environments no longer rewrite
-    `~/.conda/environments.txt`, and
+    `~/.conda/environments.txt`:
+    [`remove_env()`](https://luciorq.github.io/condathis/reference/remove_env.md)
+    deletes only the line of the environment it removed.
     [`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md)
-    adds the environment to it only when micromamba needs your home
-    directory (see
+    adds the environment to the file only when micromamba needs your
+    home directory, such as for saved channel credentials, or pip
+    settings or credentials for the pip packages of an environment file
+    (see
     [`?get_install_dir`](https://luciorq.github.io/condathis/reference/get_install_dir.md)).
   - On Windows, packages no longer add Start Menu shortcuts. Shortcuts
     that 0.1.4 added stay after
@@ -578,12 +647,74 @@ first, each with what to write instead.
   [`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md)
   its `PATH`.
 
+- The processes that condathis starts no longer get the activation of
+  the R session. When R runs in an activated Conda or pixi environment,
+  or in several nested ones, the binary directories of those
+  environments are removed from `PATH`, and their variables (such as
+  `CONDA_PREFIX_1`, `CONDA_EXE` and `PIXI_PROJECT_ROOT`) are removed or
+  restored (see
+  [`` ?`condathis-options` ``](https://luciorq.github.io/condathis/reference/condathis-options.md)).
+  A program of R’s own environment so no longer runs in place of one
+  that the environment lacks, with and without `activate`. On Windows, a
+  command that is itself a program of R’s own Conda environment, such as
+  R’s own `Rscript`, still gets that environment’s directories, at the
+  end of its `PATH`, to load its DLLs. The commands of
+  [`run()`](https://luciorq.github.io/condathis/reference/run.md),
+  [`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md)
+  and
+  [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md)
+  always run in exactly one activated environment: `CONDA_SHLVL` and
+  `MAMBA_SHLVL` are `1` and the prompt modifiers are empty, with every
+  backend and in both `activate` modes. The activation of an environment
+  no longer records the activation of a micromamba that a wrapper, such
+  as a pixi global binary, started (`CONDA_SHLVL=2`, `CONDA_PREFIX_1`).
+  A micromamba path that is a pixi global binary (in the
+  `condathis.micromamba_path` option, `CONDATHIS_MICROMAMBA_PATH` or on
+  `PATH`) runs the micromamba it starts, so the activation of an
+  environment has micromamba’s `condabin` directory on `PATH` and its
+  own `MAMBA_EXE`. When R was started through a pixi global binary, the
+  variables that the binary set, such as the compiler variables `CC`,
+  `CFLAGS` and `CONDA_BUILD_SYSROOT` of R’s environment, are removed
+  too. An activated Python virtual environment, also one that reticulate
+  set in the R session, is undone: its `bin` (`Scripts`) directory
+  leaves `PATH`, and `VIRTUAL_ENV` is removed. When reticulate has
+  started Python in the R session, the `lib` directories it put in front
+  of `LD_LIBRARY_PATH` (Linux) are removed, and so are the directories
+  of a Conda python that it put in front of `PATH`, so a command no
+  longer loads that python’s libraries or runs its programs.
+  reticulate’s other changes stay (see
+  [`` ?`condathis-options` ``](https://luciorq.github.io/condathis/reference/condathis-options.md)).
+
+- The processes that condathis starts no longer get what R’s own startup
+  set. Every `R_*` and `_R_*` variable is removed, also one you set,
+  such as `R_LIBS_USER`, so an R of the environment never loads packages
+  built for your R. `R_HOME` is now unset, not `""`. R’s default
+  `EDITOR`, `PAGER`, `MAKE`, `SED`, `TAR` and `LN_S` are removed, as are
+  R’s directories in front of `LD_LIBRARY_PATH` (Linux) and
+  `DYLD_FALLBACK_LIBRARY_PATH` (macOS), and on Windows R’s
+  `CURL_CA_BUNDLE` and the Rtools directories in front of `PATH`. A
+  value you set yourself stays (see
+  [`` ?`condathis-options` ``](https://luciorq.github.io/condathis/reference/condathis-options.md)).
+
+- On Windows,
+  [`run()`](https://luciorq.github.io/condathis/reference/run.md),
+  [`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md)
+  and
+  [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md)
+  look a bare command name up as `cmd.exe` does: in the working
+  directory, then on the `PATH` of the command, with the extensions of
+  `PATHEXT`. processx searched the folder of R’s own executable and the
+  `PATH` of the R session instead, so a name that the environment lacked
+  could run a program of R or of the environment R runs in. A name found
+  nowhere now fails with status 127, as on Linux and macOS.
+
 - [`with_sandbox_dir()`](https://luciorq.github.io/condathis/reference/with_sandbox_dir.md)
   restores the working directory and every environment variable, those
   that `code` set included, and deletes the sandbox before it returns,
-  also after an error. At top level, as in examples, 0.1.4 kept `HOME`
-  and the data directories redirected for the rest of the session. It
-  also kept the sandbox on disk.
+  also after an error (on Windows, also when it holds a junction). At
+  top level, as in examples, 0.1.4 kept `HOME` and the data directories
+  redirected for the rest of the session. It also kept the sandbox on
+  disk.
 
 - micromamba now works when its default root prefix
   (`$XDG_DATA_HOME/mamba`, else `~/.local/share/mamba`) exists but is
@@ -628,6 +759,12 @@ first, each with what to write instead.
   no longer deletes the leftover directory of a name that micromamba
   does not list.
 
+- When the `envs` directory of the data directory is a symbolic link (on
+  Windows, a junction), for example to a larger disk, its environments
+  are found. 0.1.4 did not list them, and
+  [`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md)
+  deleted such an environment before it created it again.
+
 - The check that an existing environment has the requested packages no
   longer hangs on a `*` after an operator (`"zlib>=1.2.*"`). It no
   longer counts `"zlib=1.3.*.*"`, `"zlib~=1"` or `"zlib>=1.2,"` as
@@ -669,7 +806,33 @@ first, each with what to write instead.
 
 - [`list_packages()`](https://luciorq.github.io/condathis/reference/list_packages.md)
   lists only the pip packages of the environment, not those of your user
-  site directory or `PYTHONPATH`.
+  site directory or `PYTHONPATH`, whatever your pip settings and working
+  directory: a `pip` directory in the working directory of R no longer
+  runs in place of the environment’s pip.
+
+- [`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md)
+  and
+  [`install_packages()`](https://luciorq.github.io/condathis/reference/install_packages.md)
+  install the `pip:` section of an environment file into the
+  environment, whatever your Python and pip settings. pip skipped
+  packages found in `PYTHONPATH` or your user site directory, installed
+  into your user site directory with `PIP_USER` or `user = true` in a
+  pip configuration file, and failed with `PIP_REQUIRE_VIRTUALENV`; uv
+  installed into the virtual environment of `VIRTUAL_ENV` or the python
+  of `UV_PYTHON`. Your package index, credential, certificate and proxy
+  settings still apply (see
+  [`` ?`condathis-options` ``](https://luciorq.github.io/condathis/reference/condathis-options.md)).
+
+- [`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md)
+  and
+  [`install_packages()`](https://luciorq.github.io/condathis/reference/install_packages.md)
+  install the `pip:` section of an environment file in a directory you
+  cannot write to, such as one installed with a package. micromamba
+  writes a temporary file next to the environment file, so pip failed.
+  condathis now passes a copy of the file, unless the section names
+  paths relative to the file (`-r requirements.txt`, `-e .`, `./pkg`):
+  then it aborts with class
+  `condathis_micromamba_env_file_dir_not_writable`.
 
 - [`run()`](https://luciorq.github.io/condathis/reference/run.md) and
   [`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md)
@@ -677,13 +840,18 @@ first, each with what to write instead.
   `"100000"`, not `"1e+05"`.
 
 - On Windows,
+  [`run()`](https://luciorq.github.io/condathis/reference/run.md),
   [`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md)
-  finds the programs of an environment in `Library/bin`, `Scripts` and
+  and
+  [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md)
+  find the programs of an environment in `Library/bin`, `Scripts` and
   the other directories that activation adds to `PATH`, with the
-  extensions of `PATHEXT`. 0.1.4 looked only in `bin`.
+  extensions of `PATHEXT`. 0.1.4’s
   [`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md)
-  no longer resolves the symbolic links of a program found on `PATH`,
-  which changed `argv[0]` of multicall programs such as busybox.
+  looked only in `bin`. On Linux and macOS,
+  [`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md)
+  no longer resolves the symbolic links of a program, which changed
+  `argv[0]` of multicall programs such as busybox.
 
 - [`install_micromamba()`](https://luciorq.github.io/condathis/reference/install_micromamba.md):
 

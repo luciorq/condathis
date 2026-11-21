@@ -34,6 +34,7 @@ here are unset, such as HOMEDRIVE and HOMEPATH on Windows."><meta property="og:i
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/python-and-reticulate.html">Running Python Code with condathis and reticulate</a></li>
+    <li><a class="dropdown-item" href="../articles/python-and-mizu.html">Parallel Python Workers with condathis and mizu</a></li>
     <li><a class="dropdown-item" href="../articles/whole-slide-images.html">Whole-Slide Pathology Images: Binary Pipelines Across Environments</a></li>
     <li><a class="dropdown-item" href="../articles/backends.html">Backends: micromamba and rattler</a></li>
   </ul></li>
@@ -140,13 +141,17 @@ option.</p></dd>
 
 <dt><code>CONDA_PREFIX</code></dt>
 <dd><p>Prefix of the Conda environment active in the calling shell.
-<code>condathis</code> reads it only to look for <code>micromamba</code> inside that prefix
-during discovery. It never passes it on to child processes.</p></dd>
+<code>condathis</code> reads it to look for <code>micromamba</code> inside that prefix
+during discovery, and to remove the activation of the R session from
+child processes (see <em>The activation of the R session</em> below). It
+never passes it on to child processes.</p></dd>
 
 <dt><code>PATH</code></dt>
 <dd><p>Searched for <code>micromamba</code> as the last discovery fallback. Also the
-base <code>PATH</code> for child processes. <code><a href="run_bin.html">run_bin()</a></code> and <code><a href="run_pipeline.html">run_pipeline()</a></code>
-prepend the environment's binary directories to it.</p></dd>
+base <code>PATH</code> of child processes, without the binary directories of
+the Conda and pixi environments that the R session runs in (see
+below). <code><a href="run.html">run()</a></code>, <code><a href="run_bin.html">run_bin()</a></code> and <code><a href="run_pipeline.html">run_pipeline()</a></code> put the
+environment's binary directories in front of it.</p></dd>
 
 <dt><code>PATHEXT</code></dt>
 <dd><p>Windows only. Extensions tried when a command name is resolved
@@ -212,7 +217,7 @@ out of your own directories.</p>
 
 
 
-<p><code><a href="install_micromamba.html">install_micromamba()</a></code> downloads with <code><a href="https://jeroen.r-universe.dev/curl/reference/curl_download.html" class="external-link">curl::curl_download()</a></code> when
+<p><code><a href="install_micromamba.html">install_micromamba()</a></code> downloads with <code><a href="https://rdrr.io/pkg/curl/man/curl_download.html" class="external-link">curl::curl_download()</a></code> when
 <code>curl</code> 5.0.0 or later is installed, and with <code><a href="https://rdrr.io/r/utils/download.file.html" class="external-link">utils::download.file()</a></code>
 otherwise. Both honor the standard proxy variables, such as
 <code>http_proxy</code>, <code>https_proxy</code>, and <code>no_proxy</code>.</p>
@@ -220,7 +225,26 @@ otherwise. Both honor the standard proxy variables, such as
 these variables from the R session, so <code>micromamba</code> downloads packages
 through the same proxy. It ignores the proxy settings of your
 <code>.condarc</code> and <code>.mambarc</code> files (see <code>CONDARC</code> below).</p>
-    </div>
+<p>These variables also reach every process unchanged, on purpose:</p>
+<dl><dt>Certificates</dt>
+<dd><p><code>SSL_CERT_FILE</code>, <code>REQUESTS_CA_BUNDLE</code>, <code>PIP_CERT</code> and the other
+certificate variables of the tools that a process runs.</p></dd>
+
+<dt>Package indexes and credentials of pip and uv</dt>
+<dd><p>Such as <code>PIP_INDEX_URL</code>, <code>PIP_EXTRA_INDEX_URL</code>, <code>PIP_CONFIG_FILE</code>
+(except for <code>micromamba list</code>, see below), <code>UV_INDEX_URL</code> and
+<code>NETRC</code>. <code>micromamba create</code> installs the <code>pip:</code> section of an
+environment file with them.</p></dd>
+
+<dt><code>CONDA_OVERRIDE_*</code></dt>
+<dd><p>Such as <code>CONDA_OVERRIDE_CUDA</code>, <code>CONDA_OVERRIDE_GLIBC</code> and
+<code>CONDA_OVERRIDE_OSX</code>. They set the virtual packages (<code>__cuda</code>,
+<code>__glibc</code>, <code>__osx</code>) that <code>micromamba</code> solves for, also with
+<code>--no-env</code>. For example, <code>CONDA_OVERRIDE_CUDA = "12.4"</code> gets the
+CUDA builds of packages on a machine without a GPU.</p></dd>
+
+
+</dl></div>
     <div class="section level2">
     <h2 id="environment-variables-set-or-cleared-in-child-processes">Environment variables set or cleared in child processes<a class="anchor" aria-label="anchor" href="#environment-variables-set-or-cleared-in-child-processes"></a></h2>
 
@@ -228,9 +252,10 @@ through the same proxy. It ignores the proxy settings of your
 
 <p>Every process <code>condathis</code> starts, whether <code>micromamba</code> itself or a
 command run by <code><a href="run.html">run()</a></code>, <code><a href="run_bin.html">run_bin()</a></code> or <code><a href="run_pipeline.html">run_pipeline()</a></code>, starts from a
-copy of the calling session's environment. <code>condathis</code> then applies the
-overrides below to that copy only. <code>condathis</code> never modifies the calling
-R session. A process that you start yourself does not get these
+copy of the calling session's environment, without the activation of
+the R session (see <em>The activation of the R session</em> below).
+<code>condathis</code> then applies the overrides below to that copy only.
+<code>condathis</code> never modifies the calling R session. A process that you start yourself does not get these
 overrides. Pass <code>--no-rc</code> and <code>--no-env</code> to <code>micromamba</code> or <code>conda</code> to
 ignore your own Conda settings.</p>
 <p>Cleared or reset, so that the user's own Conda or Mamba setup does not
@@ -270,7 +295,8 @@ application data folder.</p></dd>
 <dd><p>Set to <code>""</code>.</p></dd>
 
 <dt><code>CONDA_SHLVL</code>, <code>MAMBA_SHLVL</code></dt>
-<dd><p>Set to <code>"0"</code>.</p></dd>
+<dd><p>Set to <code>"0"</code>. The commands of <code><a href="run.html">run()</a></code>, <code><a href="run_bin.html">run_bin()</a></code> and
+<code><a href="run_pipeline.html">run_pipeline()</a></code> get <code>"1"</code> (see below).</p></dd>
 
 <dt><code>CONDA_PKGS_DIRS</code>, <code>MAMBA_PKGS_DIRS</code></dt>
 <dd><p>For <code>micromamba</code> and the commands of its environments, environments
@@ -305,8 +331,9 @@ directory. The value is the same with <code>activate = TRUE</code> and
 value.</p></dd>
 
 <dt><code>R_HOME</code></dt>
-<dd><p>Set to <code>""</code>, so an R installed in a Conda environment does not pick
-up the R installation of the calling session.</p></dd>
+<dd><p>Removed, with every other <code>R_*</code> variable (see <em>The startup of R</em>
+below), so an R installed in a Conda environment does not pick up
+the R installation of the calling session.</p></dd>
 
 <dt><code>TMPDIR</code></dt>
 <dd><p>Set to a new temporary directory for each call. <code>condathis</code> removes
@@ -338,19 +365,174 @@ while the activation is recorded, and the commands of <code><a href="run.html">r
 <dd><p>For <code>micromamba env list</code>, <code>micromamba env remove</code> and, unless it
 needs your home directory, <code>micromamba create</code>: the <code>home/</code>
 directory of the condathis data directory. So <code>micromamba</code> does not
-change <code>~/.conda/environments.txt</code> (see Details in
+rewrite <code>~/.conda/environments.txt</code> (see Details in
 <code><a href="get_install_dir.html">get_install_dir()</a></code>). The scripts that packages run when they are
 installed or removed by these commands see this value too. On
 Windows, micromamba looks there for the Start Menu shortcuts of the
 removed packages.</p></dd>
 
-<dt><code>PYTHONNOUSERSITE</code>, <code>PYTHONPATH</code>, <code>PYTHONHOME</code></dt>
-<dd><p>For <code>micromamba list</code>, which <code><a href="list_packages.html">list_packages()</a></code> runs:
-<code>PYTHONNOUSERSITE</code> is <code>"1"</code> and the other two are removed, so pip
-reports only the packages of the environment.</p></dd>
+
+</dl><p>Python, pip and uv: the Python state of the R session never reaches a
+process of <code>condathis</code>. So the python of an environment finds only its
+own modules, and <code>micromamba create</code> installs the <code>pip:</code> section of an
+environment file into the environment, never elsewhere. For every
+process, <code>micromamba</code> itself and the commands of <code><a href="run.html">run()</a></code>, <code><a href="run_bin.html">run_bin()</a></code>
+and <code><a href="run_pipeline.html">run_pipeline()</a></code>, with and without activation:</p>
+<dl><dt><code>PYTHONHOME</code>, <code>PYTHONPATH</code>, <code>PYTHONUSERBASE</code>, <code>PYTHONSTARTUP</code></dt>
+<dd><p>Removed. To give a command a <code>PYTHONPATH</code>, set it in the command,
+such as <code>run("env", "PYTHONPATH=/my/modules", "python", "script.py")</code>
+on Linux and macOS, or add the directory to <code>sys.path</code> in the
+script.</p></dd>
+
+<dt><code>PYTHONNOUSERSITE</code></dt>
+<dd><p>Set to <code>"1"</code>: the user's site directory (<code>~/.local/lib/python3.*</code>,
+on Windows a <code>Python</code> directory in <code>APPDATA</code>) is not on <code>sys.path</code>.</p></dd>
+
+<dt><code>UV_PYTHON</code>, <code>UV_SYSTEM_PYTHON</code>, <code>UV_PROJECT_ENVIRONMENT</code></dt>
+<dd><p>Removed, so <code>uv</code> uses the python of the environment.</p></dd>
+
+<dt><code>PIP_USER</code>, <code>PIP_REQUIRE_VIRTUALENV</code></dt>
+<dd><p>Set to <code>"false"</code>, which overrides <code>user</code> and <code>require-virtualenv</code> in
+a pip configuration file; <code>PIP_REQUIRE_VENV</code>, an alias that pip
+also reads, is removed. Otherwise pip installed into the user's
+site directory, or failed: the user's site directory is off, and a
+Conda environment is not a virtual environment. So
+<code>run("python", "-m", "pip", "install", ...)</code> installs into the
+environment.</p></dd>
+
+<dt><code>PIP_TARGET</code>, <code>PIP_PREFIX</code>, <code>PIP_ROOT</code></dt>
+<dd><p>Removed, whatever their value. A <code>target</code>, <code>prefix</code> or <code>root</code> in a
+pip configuration file still applies (an environment variable
+cannot unset it). To install elsewhere, pass <code>--target</code> or
+<code>--prefix</code> to pip in the command.</p></dd>
 
 
-</dl><p>With the default <code>activate = TRUE</code> of <code><a href="run.html">run()</a></code>, <code><a href="run_bin.html">run_bin()</a></code> and
+</dl><p>An activated virtual environment of the session (<code>VIRTUAL_ENV</code>) is
+undone as well (see <em>The activation of the R session</em> below). The
+activation of the environment of a command comes after all this, so a
+variable that an <code>activate.d</code> script sets reaches the command.</p>
+<p>For <code>micromamba create</code> and <code>micromamba install</code>, which run pip, or uv
+when the environment file lists it, for the <code>pip:</code> section,
+<code>VIRTUAL_ENV</code> and <code>VIRTUAL_ENV_PROMPT</code> are also removed, whatever their
+value.</p>
+<p>For <code>micromamba list</code>, which <code><a href="list_packages.html">list_packages()</a></code> runs, and which runs
+<code>python -m pip inspect</code> in the environment: <code>PIP_CONFIG_FILE</code> is the
+null device (<code>/dev/null</code>, on Windows <code>nul</code>), so pip reads no
+configuration file, <code>PIP_USER</code> is <code>"false"</code>, <code>PIP_PATH</code> and <code>PIP_LOCAL</code>
+are removed, and the working directory is a temporary directory, not the
+one of R. pip then reports only the packages of the environment.</p>
+<p>Every other <code>PIP_*</code> and <code>UV_*</code> variable reaches pip and uv unchanged.</p>
+<p><em>The activation of the R session.</em> R can run in an activated Conda or
+pixi environment, or in several nested ones: R installed in a Conda
+environment, R started from a shell where <code>conda activate</code> or
+<code>pixi shell</code> ran, or R started through a pixi global binary. The
+processes that <code>condathis</code> starts do not get that activation, within
+the limits below. So a program of R's own environment does not run in
+place of one that the environment of the command lacks. Before the
+overrides above,
+<code>condathis</code> changes the copy of the session's environment this way:</p>
+<dl><dt><code>PATH</code></dt>
+<dd><p>The binary directories of these Conda prefixes are removed: the
+prefixes of <code>CONDA_PREFIX</code>, of every <code>CONDA_PREFIX_&lt;n&gt;</code> and
+<code>CONDA_ENV_SHLVL_&lt;n&gt;_CONDA_PREFIX</code>, and the prefix that R itself is
+installed in. Only a directory with a <code>conda-meta</code> directory counts
+as a prefix. Other entries stay, such as
+the <code>condabin</code> directory of <code>conda init</code> and <code>~/.pixi/bin</code>. One
+exception on Windows: a command that is a program of R's own prefix,
+such as <code>file.path(R.home("bin"), "Rscript.exe")</code>, gets the binary
+directories of that prefix back at the end of its <code>PATH</code>, because it
+loads its DLLs from there.</p></dd>
+
+<dt><code>CONDA_PREFIX_&lt;n&gt;</code>, <code>CONDA_ENV_SHLVL_&lt;n&gt;_*</code>, <code>CONDA_EXE</code>,
+<code>CONDA_PYTHON_EXE</code>, <code>_CE_CONDA</code>, <code>_CE_M</code>, <code>MAMBA_EXE</code></dt>
+<dd><p>Removed. These variables record the activation of the session.</p></dd>
+
+<dt><code>PIXI_PROJECT_*</code>, <code>PIXI_WORKSPACE_*</code>, <code>PIXI_ENVIRONMENT_*</code>,
+<code>PIXI_PROMPT</code>, <code>PIXI_IN_SHELL</code>, <code>PIXI_EXE</code></dt>
+<dd><p>Removed. Other <code>PIXI_*</code> variables, such as <code>PIXI_HOME</code>, stay.</p></dd>
+
+<dt><code>CONDA_BACKUP_&lt;X&gt;</code>, <code>&lt;X&gt;_CONDA_BACKUP</code>, <code>CONDA_ENV_SHLVL_&lt;n&gt;_&lt;X&gt;</code></dt>
+<dd><p>The value of <code>&lt;X&gt;</code> before the activation, saved by the activation
+scripts of compiler and other packages, or by pixi. <code>&lt;X&gt;</code> gets that
+value back, as the deactivation scripts do: an empty backup of the
+first two forms removes <code>&lt;X&gt;</code>. The backups are removed.</p></dd>
+
+<dt>Variables of <code>conda-meta/state</code> and <code>etc/conda/env_vars.d</code></dt>
+<dd><p>A variable that these files of the prefixes above set is removed
+when the session has exactly that value.</p></dd>
+
+<dt>Variables of a pixi global binary</dt>
+<dd><p>When one of the prefixes above is an environment of <code>pixi global</code>,
+a variable that its binaries set when they start is removed when the
+session has exactly that value. pixi records them in
+<code>bin/trampoline_configuration</code> of its home. R started through such a
+binary gets the whole activation of its environment, such as the
+compiler variables <code>CC</code>, <code>CFLAGS</code> and <code>CONDA_BUILD_SYSROOT</code>, and a
+compiler of the environment of a command would see them.</p></dd>
+
+<dt><code>VIRTUAL_ENV</code>, <code>VIRTUAL_ENV_PROMPT</code></dt>
+<dd><p>When <code>VIRTUAL_ENV</code> names a Python virtual environment (a directory
+with <code>pyvenv.cfg</code>), both are removed, and its <code>bin</code> directory (on
+Windows <code>Scripts</code>) leaves <code>PATH</code>. Activating a virtual environment
+sets them, and so does reticulate inside the R session when it uses
+one, also through <code><a href="https://rdrr.io/r/base/Sys.setenv.html" class="external-link">Sys.setenv()</a></code>.</p></dd>
+
+<dt>What reticulate changed for its python</dt>
+<dd><p>When reticulate has started Python in the R session, the <code>lib</code>
+directories that it put in front of <code>LD_LIBRARY_PATH</code> on Linux (of
+its python and of the python a virtual environment was made from)
+are removed. For a python of a Conda environment, reticulate puts the
+binary directories of that environment in front of <code>PATH</code>; they are
+removed as those of the prefixes above.</p></dd>
+
+
+</dl><p>Some changes cannot be undone. A value that an <code>activate.d</code> script of
+the session's environment set stays, unless it saved a backup above or
+a pixi global binary recorded it, and so does a <code>PATH</code> entry such a
+script added. For example, R installed in a Conda environment that has
+the compiler packages, and started from a shell where that environment
+was activated, passes <code>CC</code>, <code>CFLAGS</code>, <code>CONDA_BUILD_SYSROOT</code> and the
+other compiler variables of that environment to the processes it
+starts. The binary directory of an environment that no variable names
+any more stays too, such as the one of a pixi global binary that started
+the shell before another one replaced its <code>CONDA_PREFIX</code>. reticulate
+moves the directory of a python that is neither in a virtual nor in a
+Conda environment, such as <code>/usr/bin</code>, to the front of <code>PATH</code>; it stays
+there. On macOS, when <code>/usr/local/opt/openblas</code> exists, loading
+reticulate sets <code>OPENBLAS</code> and, when it is unset, <code>OMP_NUM_THREADS=1</code>;
+they stay too.</p>
+<p><em>The startup of R.</em> R also changes its own environment when it starts,
+and the processes that <code>condathis</code> starts do not get those changes
+either. So an R of the environment of the command never loads packages
+built for the R of the session, and a program of the environment never
+loads R's libraries or certificates:</p>
+<dl><dt><code>R_*</code>, <code>_R_*</code></dt>
+<dd><p>Removed, also a variable the user set, such as <code>R_LIBS_USER</code> or
+<code>R_PROFILE_USER</code>: only R reads them, and an R that the command
+starts sets its own. The R of the session keeps them.</p></dd>
+
+<dt><code>EDITOR</code>, <code>PAGER</code>, <code>MAKE</code>, <code>SED</code>, <code>TAR</code>, <code>LN_S</code>,
+<code>CURL_CA_BUNDLE</code>, <code>MSYS2_ENV_CONV_EXCL</code></dt>
+<dd><p>Removed when the session has exactly the value that R's startup
+gives them (<code>etc/Renviron</code> of R). A value the user set stays, such
+as <code>EDITOR=nvim</code>.</p></dd>
+
+<dt><code>LD_LIBRARY_PATH</code>, <code>DYLD_FALLBACK_LIBRARY_PATH</code>,
+<code>DYLD_LIBRARY_PATH</code></dt>
+<dd><p>The directories that R put in front (<code>etc/ldpaths</code> of R) are
+removed. The directories after them stay.</p></dd>
+
+<dt><code>PATH</code> on Windows</dt>
+<dd><p>The Rtools directories that R put in front (<code>R_RTOOLS45_PATH</code>) are
+removed. A command finds Rtools only when the <code>PATH</code> that R started
+with has it.</p></dd>
+
+
+</dl><p><code>condathis</code> learns the values of R's startup by starting R's own
+<code>Rscript</code> once per R session, without the user's <code>.Renviron</code> and
+<code>.Rprofile</code>. When that fails, only the <code>R_*</code> variables and the Rtools
+directories are removed.</p>
+<p>With the default <code>activate = TRUE</code> of <code><a href="run.html">run()</a></code>, <code><a href="run_bin.html">run_bin()</a></code> and
 <code><a href="run_pipeline.html">run_pipeline()</a></code>, <code>condathis</code> applies activation variables on top. For
 the micromamba backend, these are the variables that a real
 <code>micromamba run</code> activation sets. They include the variables from
@@ -362,10 +544,17 @@ or <code>env_vars.d</code> files) or the session's environment variables change.
 starts the command itself. Values that name the command's <code>TMPDIR</code> are
 recorded again for every command. Values that name the working directory
 are recorded again in another working directory. For other backends, the
-backend package sets the activation variables (see <code><a href="register_backend.html">register_backend()</a></code>).</p>
-<p>With <code>activate = FALSE</code>, <code><a href="run_bin.html">run_bin()</a></code> applies no activation variables and
-only prepends the environment's binary directories to <code>PATH</code>.
-<code><a href="run_pipeline.html">run_pipeline()</a></code> sets this fixed set instead:</p>
+backend package sets the activation variables (see <code><a href="register_backend.html">register_backend()</a></code>).
+When the <code>PATH</code> of an activation names none of the environment's binary
+directories, <code>condathis</code> puts them in front of it.</p>
+<p>In both modes and for every backend, a command of <code><a href="run.html">run()</a></code>, <code><a href="run_bin.html">run_bin()</a></code>
+and <code><a href="run_pipeline.html">run_pipeline()</a></code> runs in exactly one activated environment,
+whatever the R session runs in: <code>CONDA_SHLVL</code> and <code>MAMBA_SHLVL</code> are
+<code>"1"</code>, and <code>CONDA_PROMPT_MODIFIER</code> and <code>MAMBA_PROMPT_MODIFIER</code> are
+<code>""</code>, whatever the activation set.</p>
+<p>With <code>activate = FALSE</code>, <code><a href="run.html">run()</a></code>, <code><a href="run_bin.html">run_bin()</a></code> and <code><a href="run_pipeline.html">run_pipeline()</a></code> set
+this fixed set instead, without any backend code and without the
+<code>activate.d</code> scripts and <code>env_vars.d</code> files of the packages:</p>
 <dl><dt><code>CONDA_PREFIX</code>, <code>CONDA_DEFAULT_ENV</code></dt>
 <dd><p>The environment directory and its name. For an environment given by
 <code><a href="env_path.html">env_path()</a></code>, the name is its directory.</p></dd>
@@ -374,15 +563,15 @@ only prepends the environment's binary directories to <code>PATH</code>.
 <dd><p>Set to <code>"1"</code>.</p></dd>
 
 <dt><code>CONDA_PROMPT_MODIFIER</code>, <code>MAMBA_PROMPT_MODIFIER</code></dt>
-<dd><p>Set to <code>"(&lt;env_name&gt;) "</code>.</p></dd>
+<dd><p>Set to <code>""</code>.</p></dd>
 
 <dt><code>PATH</code></dt>
-<dd><p>The environment's binary directories, prepended to the session
-<code>PATH</code>.</p></dd>
+<dd><p>The environment's binary directories, in front of the <code>PATH</code>
+described above.</p></dd>
 
 
-</dl><p><code>CONDA_ENVS_PATH</code> is the same as with <code>activate = TRUE</code>: it comes from
-the clean variables above.</p>
+</dl><p><code>TMPDIR</code> and <code>CONDA_ENVS_PATH</code> are the same as with <code>activate = TRUE</code>:
+they come from the clean variables above.</p>
 <p>On Windows, variable names are matched case-insensitively. An override
 replaces any inherited spelling of the same name, such as <code>Path</code>.</p>
     </div>
@@ -403,7 +592,13 @@ backend, in the <code>envs</code> directory of the condathis data directory.
 <code>condathis</code> ignores an environment of that name that another backend
 created.</p></li>
 <li><p>A <code>micromamba</code> on <code>PATH</code>.</p></li>
-</ol><p>A compatible version is 2.8.1 or newer. When no candidate is
+</ol><p>A candidate that is a binary exposed by <code>pixi global</code> (a trampoline,
+with a <code>trampoline_configuration/&lt;name&gt;.json</code> file next to it) is
+replaced by the binary that it starts, the <code>exe</code> of that file, so the
+activation of the pixi environment that the trampoline sets never
+reaches <code>micromamba</code>. The option and the variable keep the value you
+set.</p>
+<p>A compatible version is 2.8.1 or newer. When no candidate is
 compatible, the first function that needs <code>micromamba</code> calls
 <code><a href="install_micromamba.html">install_micromamba()</a></code>, which downloads the default version into the
 managed location. That function says so first, unless its <code>verbose</code> is
@@ -437,7 +632,7 @@ to <code>FALSE</code> to turn spinners and progress off in an interactive sessio
 <span class="r-in"><span><span class="fu">condathis</span><span class="fu">::</span><span class="fu"><a href="with_sandbox_dir.html">with_sandbox_dir</a></span><span class="op">(</span><span class="op">{</span></span></span>
 <span class="r-in"><span>  <span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="fu">condathis</span><span class="fu">::</span><span class="fu"><a href="get_install_dir.html">get_install_dir</a></span><span class="op">(</span><span class="op">)</span><span class="op">$</span><span class="va">path</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">}</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "/tmp/Rtmp6wGB7j/condathis-sandbox-2aac2f3e1233/data/R/condathis"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "/tmp/Rtmpzrm4bi/condathis-sandbox-2add34a53058/data/R/condathis"</span>
 <span class="r-in"><span></span></span>
 </code></pre></div>
     </div>

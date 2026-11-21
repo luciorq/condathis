@@ -5,7 +5,12 @@ registered backend, and nothing else:
 
 - For the built-in micromamba backend, the package cache, `pkgs`, and
   the repodata cache, `cache`, in its data directory (see
-  [`get_install_dir()`](https://luciorq.github.io/condathis/reference/get_install_dir.md)).
+  [`get_install_dir()`](https://luciorq.github.io/condathis/reference/get_install_dir.md)),
+  and `home/.local` there, where an earlier
+  [`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md)
+  could have installed the packages of a `pip:` section (see `PIP_USER`
+  in
+  [condathis-options](https://luciorq.github.io/condathis/reference/condathis-options.md)).
 
 - For every other backend, its own package and metadata caches, and
   `conda-pkgs` in its data directory. `conda-pkgs` is the package cache

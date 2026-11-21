@@ -59,9 +59,13 @@ install_packages(
   `packages = <specs>` still works. It is deprecated. It warns once per
   session (class `condathis_deprecated_packages_arg`) when the call
   comes from the console, a script or the tests of the package that
-  makes it. Calls made inside other packages do not warn.
+  makes it. Calls made inside other packages do not warn, except in
+  tests that use testthat's third edition (see
+  [condathis-conditions](https://luciorq.github.io/condathis/reference/condathis-conditions.md)).
   `packages = NULL` and `packages = character(0)` install nothing and
-  return status 0, as in 0.1.4.
+  return status 0, as in 0.1.4. When the backend cannot tell whether the
+  environment exists, they abort with class
+  `condathis_backend_probe_failed`.
 
   Invalid specs abort with these classes:
 

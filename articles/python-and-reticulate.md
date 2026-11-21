@@ -20,7 +20,10 @@ interpreter from R:
 
 This article shows both, starting from the same environment. The process
 approach needs nothing beyond `condathis`. The embedded approach also
-needs the `reticulate` package.
+needs the `reticulate` package. For a pool of persistent Python worker
+processes that receive R data through shared memory, see [Parallel
+Python Workers with condathis and
+mizu](https://luciorq.github.io/condathis/articles/python-and-mizu.md).
 
 ## Creating the Environment
 
@@ -46,7 +49,7 @@ pkgs[pkgs$name %in% c("python", "numpy", "pandas"), c("name", "version")]
 #> # A tibble: 3 × 2
 #>   name   version
 #>   <chr>  <chr>  
-#> 1 numpy  2.5.4  
+#> 1 numpy  2.5.5  
 #> 2 pandas 3.1.1  
 #> 3 python 3.13.18
 ```
@@ -180,18 +183,14 @@ tail(parse_output(res, stream = "stderr"), 1)
 
 ### `run()` or `run_bin()`
 
-Both functions run `python` from the environment, and start it directly,
-with the variables of the environment’s activation. The activation is
-recorded once per environment and reused until the environment or the
-session’s environment variables change. Repeated short calls are fast
-with both. They differ in how they find the program:
-
-- [`run()`](https://luciorq.github.io/condathis/reference/run.md) always
-  activates the environment, and finds `python` on the activated `PATH`,
-  where the environment’s directories come first.
-- [`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md)
-  resolves the `python` binary inside the environment first. With
-  `activate = FALSE`, it starts it without the activation variables.
+Both functions start `python` from the environment with the variables of
+its activation, and both are fast for repeated short calls.
+[`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md)
+is superseded by
+[`run()`](https://luciorq.github.io/condathis/reference/run.md), and
+both find `python` the same way: on the activated `PATH`, where the
+environment’s directories come first. With `activate = FALSE`, they set
+only a fixed activation, without the packages’ `activate.d` scripts.
 
 ``` r
 
@@ -202,25 +201,19 @@ res <- run_bin(
 )
 
 parse_output(res)
-#> [1] "2.5.4"
+#> [1] "2.5.5"
 ```
 
 ### Chaining Python with Other Tools
 
 [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md)
-connects commands with operating system pipes, like `|` in a shell. Each
-stage is described with
-[`run_step()`](https://luciorq.github.io/condathis/reference/run_step.md),
-which takes the same command and arguments as
-[`run()`](https://luciorq.github.io/condathis/reference/run.md) but does
-not run anything by itself. Each stage can live in its own environment,
-given as `env_name` to
-[`run_step()`](https://luciorq.github.io/condathis/reference/run_step.md).
-Stages without one use the `env_name` of
-[`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md),
-as both do here. A Python stage generates records and a second Python
-stage, started with `-u` for unbuffered output, filters them as they
-arrive.
+connects commands with operating system pipes, like `|` in a shell.
+[`run_step()`](https://luciorq.github.io/condathis/reference/run_step.md)
+describes each stage with the same arguments as
+[`run()`](https://luciorq.github.io/condathis/reference/run.md), and can
+give it its own `env_name`. Here a Python stage generates records, and a
+second one, started with `-u` for unbuffered output, filters them as
+they arrive.
 
 ``` r
 
@@ -255,11 +248,10 @@ parse_output(res)
 
 The data between the two stages never passes through R.
 [`parse_output()`](https://luciorq.github.io/condathis/reference/parse_output.md)
-reads the standard output of the last stage. `res$processes` holds the
-full result of every stage. The producer sets `lineterminator='\n'`
-because Python already translates `\n` to the platform’s line ending on
-standard output. The default `\r\n` would become `\r\r\n` on Windows,
-and the consumer would read empty rows.
+reads the standard output of the last stage, and `res$processes` holds
+the result of every stage. The producer sets `lineterminator='\n'`
+because Python already writes the platform’s line ending. The `csv`
+default, `\r\n`, would become `\r\r\n` on Windows.
 
 ## Embedding the Interpreter with reticulate
 
@@ -412,6 +404,7 @@ Python as `r.<name>`.
 
 ``` r
 
+# jarl-ignore unused_object: read by the python chunk below as r.cutoff
 cutoff <- 20
 ```
 
@@ -473,7 +466,8 @@ nrow(reticulate::py$efficient)
 The single-interpreter limit applies to one R process, not to one
 analysis. `mirai` runs R code in background R processes called daemons.
 Each daemon is a separate R session, so each one can bind `reticulate`
-to a different Python.
+to a different Python. Use this when each process needs R code next to
+Python. For Python-only workers, the `mizu` article above is simpler.
 
 Starting every daemon inside an activated `condathis` environment gives
 you:
@@ -541,24 +535,20 @@ for (profile in c("geo", "ml")) {
 }
 ```
 
-The two hooks wrap the `arrow` functions instead of passing them
-directly. A function from a package carries that package’s namespace
-when it is serialized. Each daemon would therefore load the R `arrow`
-package as soon as it received the configuration. That matters on
-Windows, where `pyarrow` must be imported before the R `arrow` package
-loads. Both ship a library named `arrow.dll`, and Windows reuses the one
-already loaded in the process. If the R package loads first,
-`import pyarrow` fails with “DLL load failed”.
+The hooks wrap the `arrow` functions instead of passing them directly,
+so the daemons do not load the R `arrow` package when they receive the
+configuration. On Windows, `pyarrow` must be imported first: both ship
+an `arrow.dll`, and if the R package loads first, `import pyarrow` fails
+with “DLL load failed”.
 
-The daemon itself is an `Rscript` process started by
+Each daemon is an `Rscript` process started by
 `micromamba run -n <env>`, which activates the environment first.
 `--no-rc` and `--no-env` make `micromamba` ignore your configuration
-files and `MAMBA_*` settings, as `condathis` does with its own
-`--rc-file`. `-r` sets the root prefix to the `condathis` data
-directory. `MAMBA_ROOT_PREFIX` sets it too: `micromamba` reads it before
-`-r`, also with `--no-env`. It aborts at the start when its own default
-root prefix exists and is not a Conda environment.
-`mirai::nextget("url")` returns the address the daemon must connect to.
+files and `MAMBA_*` settings. `-r` and `MAMBA_ROOT_PREFIX` both point it
+at the `condathis` data directory: `micromamba` reads the variable
+before `-r` and aborts if its own default root prefix is not a Conda
+environment. `mirai::nextget("url")` returns the address the daemon must
+connect to.
 
 ``` r
 
@@ -589,31 +579,24 @@ daemon_procs <- list(
 )
 ```
 
-The daemons start from `processx`, the same library `condathis` uses for
-every command.
+The daemons start from `processx`, as every `condathis` command does.
 [`mirai::remote_config()`](https://mirai.r-lib.org/reference/remote_config.html)
-with `micromamba` as the command also works on Linux and macOS. On
-Windows it fails, because R’s
-[`system2()`](https://rdrr.io/r/base/system2.html) launches `micromamba`
-in a way that breaks its activation scripts.
-
-Keep `daemon_procs` referenced while the daemons run.
-`cleanup_tree = TRUE` stops a daemon and its children if its handle is
-garbage collected.
+with `micromamba` as the command works on Linux and macOS, but not on
+Windows, where [`system2()`](https://rdrr.io/r/base/system2.html) breaks
+the activation scripts. Keep `daemon_procs` referenced while the daemons
+run: `cleanup_tree = TRUE` stops a daemon and its children when its
+handle is garbage collected.
 
 ### Binding reticulate in Each Daemon
 
-Inside an activated daemon, `PATH` starts with the environment’s binary
-directories. `Sys.which("python")` therefore finds that environment’s
-interpreter. On Windows, that same activated `PATH` also gives the
-Python DLL its dependencies. On Linux and macOS, the daemons inherit
-`RETICULATE_CONDA` from the main session.
+Inside an activated daemon, `PATH` starts with the environment’s
+directories, so `Sys.which("python")` finds its interpreter, and on
+Windows the Python DLL finds its dependencies. On Linux and macOS, the
+daemons inherit `RETICULATE_CONDA` from the main session.
 [`mirai::everywhere()`](https://mirai.r-lib.org/reference/everywhere.html)
-runs the setup code on every daemon of a profile and waits for the
-daemons to connect. The setup stops with an error if `reticulate` bound
-to any Python outside the activated environment. It imports `pyarrow`
-before anything in the daemon uses the R `arrow` package, which avoids
-the Windows library clash described above.
+runs the setup code on every daemon of a profile. It stops if
+`reticulate` bound to a Python outside the environment, and imports
+`pyarrow` before anything loads the R `arrow` package.
 
 ``` r
 
@@ -622,7 +605,10 @@ bind_python <- quote({
   env_dir <- normalizePath(Sys.getenv("CONDA_PREFIX"), winslash = "/")
   py_exe <- normalizePath(reticulate::py_config()$python, winslash = "/")
   if (!startsWith(py_exe, env_dir)) {
-    stop("reticulate bound to ", py_exe, " instead of ", env_dir)
+    stop(
+      "reticulate bound to ", py_exe, " instead of ", env_dir,
+      call. = FALSE
+    )
   }
   invisible(reticulate::import("pyarrow"))
 })
@@ -651,16 +637,16 @@ ml_info <- mirai::mirai(daemon_info(), daemon_info = daemon_info, .compute = "ml
 str(list(geo = geo_info[], ml = ml_info[], main = Sys.getpid()))
 #> List of 3
 #>  $ geo :List of 4
-#>   ..$ pid      : int 13832
+#>   ..$ pid      : int 14490
 #>   ..$ env      : chr "py-geo-env"
 #>   ..$ python   : chr "3.13"
 #>   ..$ PROJ_DATA: logi TRUE
 #>  $ ml  :List of 4
-#>   ..$ pid      : int 13844
+#>   ..$ pid      : int 14503
 #>   ..$ env      : chr "py-ml-env"
 #>   ..$ python   : chr "3.12"
 #>   ..$ PROJ_DATA: logi FALSE
-#>  $ main: int 12879
+#>  $ main: int 14188
 ```
 
 Each daemon is its own process with its own Python version. `PROJ_DATA`
@@ -695,12 +681,10 @@ c(
 #> 16000190      270
 ```
 
-Keep `points_shared` referenced in the main session until the daemons
-are done with it. The shared region is freed when the last reference in
-the main session is garbage collected.
-
-`mori` shares R objects between R processes. Python cannot read them
-directly. Arrow is the bridge from R to Python inside each daemon.
+Keep `points_shared` referenced until the daemons are done with it: the
+shared region is freed when the main session garbage collects it. `mori`
+shares R objects between R processes only, so Arrow is the bridge to
+Python inside each daemon.
 
 ### Projecting Coordinates in the First Environment
 
@@ -857,19 +841,15 @@ vapply(daemon_procs, function(proc) proc$is_alive(), logical(1))
 | Direct conversion of data frames and arrays | `reticulate` |
 | Python chunks in R Markdown or Quarto | `reticulate` |
 | Several persistent interpreters, each fully activated | `reticulate` in `mirai` daemons |
+| Persistent Python worker pools fed with R data | [`mizu`](https://luciorq.github.io/condathis/articles/python-and-mizu.md) |
 
-In every case, `condathis` owns the environment. The same
+In every case, `condathis` owns the environment, and the same
 [`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md)
-call reproduces it on any machine. To share the environment as a file,
-write its package specs, with versions pinned, to an environment YAML
-file and pass it to
+call reproduces it on any machine. To share it as a file, pass an
+environment YAML file with pinned versions, or a lock file, to
 [`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md)
 with
-[`env_definition()`](https://luciorq.github.io/condathis/reference/env_definition.md),
-as in
-`create_env(env_definition("environment.yml"), env_name = "py-data-env")`.
-A lock file, such as an `@EXPLICIT` or conda-lock file, gives the same
-packages on every machine of a platform it lists.
+[`env_definition()`](https://luciorq.github.io/condathis/reference/env_definition.md).
 
 ## Cleaning Up
 

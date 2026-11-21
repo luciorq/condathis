@@ -62,13 +62,21 @@ Install the release version of the package from
 install.packages("condathis")
 ```
 
-Or get the development version from
-[R-universe](https://luciorq.r-universe.dev/condathis):
+Or get the development version from R-universe:
 
 ``` r
 
 install.packages("condathis", repos = c("https://luciorq.r-universe.dev", getOption("repos")))
 ```
+
+On Windows (x64) and macOS with R 4.5 or later,
+[`install.packages()`](https://rdrr.io/r/utils/install.packages.html)
+installs every dependency of `condathis` from binaries. On R 4.3, and on
+R 4.4 on Apple silicon (arm64) Macs, CRAN has no binaries of the
+versions of `processx` and `ps` (and, on R 4.3, `fs`) that `condathis`
+needs. They are built from source, which needs
+[Rtools](https://cran.r-project.org/bin/windows/Rtools/) on Windows and
+the Xcode Command Line Tools (`xcode-select --install`) on macOS.
 
 ## Why `condathis`?
 
@@ -186,10 +194,9 @@ can add backends with the experimental
 New environments use `micromamba` unless you pass `method` or set
 `options(condathis.backend_priority = ...)`. For example,
 `method = "rattler"` uses the optional `rattlerthis` package. It is not
-on CRAN: it is available from
-[R-universe](https://luciorq.r-universe.dev/rattlerthis). The [backends
+on CRAN: the [backends
 article](https://luciorq.github.io/condathis/articles/backends.html)
-shows how to install it and use both backends together.
+shows how to install it from R-universe and use both backends together.
 
 Already have an environment created outside `condathis`, for example by
 `conda`, `mamba`, or `micromamba` itself? Pass its directory as
@@ -251,8 +258,10 @@ lists the other classes.
 No shell is involved, so shell syntax in an argument is passed
 literally.
 
-- Shell builtins, such as `echo`, are not available as commands. To use
-  shell features, run a shell explicitly, for example
+- Shell builtins, such as `export`, `source` or, on Windows, `dir` and
+  `echo`, are not programs, so they cannot be run directly (unless a
+  program of that name, such as `echo.exe` of Git for Windows, is on
+  `PATH`). To use shell features, run a shell explicitly, for example
   `condathis::run("bash", "-c", "...")`.
 - Shell operators such as `|` and `>` are not interpreted.
   - Instead of `>`, use the `stdout`/`stderr` arguments (a file path
@@ -301,8 +310,10 @@ literally.
   `reticulate`](https://luciorq.github.io/condathis/articles/python-and-reticulate.html),
   [stream binary data through
   pipelines](https://luciorq.github.io/condathis/articles/whole-slide-images.html),
-  and [choose a
-  backend](https://luciorq.github.io/condathis/articles/backends.html).
+  [choose a
+  backend](https://luciorq.github.io/condathis/articles/backends.html),
+  and [run parallel Python workers with
+  `mizu`](https://luciorq.github.io/condathis/articles/python-and-mizu.html).
 - [`?condathis::run`](https://luciorq.github.io/condathis/reference/run.md),
   [`?condathis::run_pipeline`](https://luciorq.github.io/condathis/reference/run_pipeline.md)
   and

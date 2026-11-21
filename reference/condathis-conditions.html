@@ -32,6 +32,7 @@ it can change in any release."><meta property="og:image" content="https://lucior
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/python-and-reticulate.html">Running Python Code with condathis and reticulate</a></li>
+    <li><a class="dropdown-item" href="../articles/python-and-mizu.html">Parallel Python Workers with condathis and mizu</a></li>
     <li><a class="dropdown-item" href="../articles/whole-slide-images.html">Whole-Slide Pathology Images: Binary Pipelines Across Environments</a></li>
     <li><a class="dropdown-item" href="../articles/backends.html">Backends: micromamba and rattler</a></li>
   </ul></li>
@@ -218,14 +219,17 @@ for <code>packages =</code> in <code><a href="create_env.html">create_env()</a><
 console, a script or the tests of the calling package. Calls made
 inside other packages do not warn.
 <code>options(lifecycle_verbosity = "warning")</code> makes those calls warn
-too, and <code>"quiet"</code> turns the warning off.</p></li>
+too, and <code>"quiet"</code> turns the warning off. testthat's third edition
+sets <code>lifecycle_verbosity = "warning"</code> inside <code>test_that()</code>, so in
+those tests calls made inside other packages, such as a dependency
+that calls condathis, warn too;
+<code>withr::local_options(lifecycle_verbosity = "quiet")</code> silences them.</p></li>
 <li><p><code>condathis_deprecated_env_file_arg</code><br>
 for <code>env_file =</code> in <code><a href="create_env.html">create_env()</a></code>: pass an <code><a href="env_definition.html">env_definition()</a></code> in
 <code>...</code> instead. The same rule as for <code>packages =</code>.</p></li>
 <li><p><code>condathis_deprecated_method_native</code><br>
-for <code>method = "native"</code> (once per session). <code><a href="create_env.html">create_env()</a></code>,
-<code><a href="install_packages.html">install_packages()</a></code>, <code><a href="validate_env.html">validate_env()</a></code>, <code><a href="remove_env.html">remove_env()</a></code>, <code><a href="run.html">run()</a></code> and
-<code><a href="run_bin.html">run_bin()</a></code> apply the same rule as for <code>packages =</code>.</p></li>
+for <code>method = "native"</code> (once per session), in every function that
+takes <code>method</code>. The same rule as for <code>packages =</code>.</p></li>
 <li><p><code>condathis_deprecated_arg</code><br>
 for <code>timeout_limit</code> in <code><a href="install_micromamba.html">install_micromamba()</a></code>.</p></li>
 </ul></li>
@@ -237,9 +241,9 @@ for <code>timeout_limit</code> in <code><a href="install_micromamba.html">instal
 <p>The status and timeout errors of <code><a href="run.html">run()</a></code>, <code><a href="run_bin.html">run_bin()</a></code> and
 <code><a href="run_pipeline.html">run_pipeline()</a></code> carry these fields, so a handler does not need to read
 the message:</p><ul><li><p><code>status</code>: the exit status, an integer. It is <code>-9</code> for a timeout, and
-<code>127</code> for a command that could not start. A command killed by signal
-<code>n</code> has the status <code>128 + n</code> in <code><a href="run.html">run()</a></code> on Linux and macOS, as in a
-shell. In <code><a href="run_bin.html">run_bin()</a></code> and <code><a href="run_pipeline.html">run_pipeline()</a></code>, the status is <code>-n</code>.</p></li>
+<code>127</code> for a command that could not start. On Linux and macOS, a
+command killed by signal <code>n</code> has the status <code>128 + n</code>, as in a shell
+(<code>137</code> for <code>SIGKILL</code>, <code>141</code> for <code>SIGPIPE</code>).</p></li>
 <li><p><code>stdout</code>, <code>stderr</code>: the captured output, or <code>NA</code> when that stream was
 not captured.</p></li>
 <li><p><code>timeout</code>: <code>TRUE</code> for a timeout, <code>FALSE</code> otherwise.</p></li>
@@ -407,6 +411,12 @@ the binary is not installed. Shown also with <code>verbose = "silent"</code>.</p
 no usable binary was found, so it is downloaded.</p></li>
 <li><p><code>condathis_micromamba_status_error</code><br>
 a <code>micromamba</code> command failed.</p></li>
+<li><p><code>condathis_micromamba_env_file_dir_not_writable</code><br>
+the directory of an environment file with a <code>pip:</code> section is not
+writable, so micromamba cannot write its temporary file there, and the
+section names paths relative to that directory, so <code>condathis</code> cannot
+pass a copy. <code><a href="create_env.html">create_env()</a></code> and <code><a href="install_packages.html">install_packages()</a></code> raise it with
+their class of a backend failure.</p></li>
 <li><p><code>condathis_micromamba_bin_path_not_executable</code></p></li>
 <li><p><code>condathis_micromamba_version_not_detected</code></p></li>
 <li><p><code>condathis_micromamba_not_available_for_arch</code></p></li>
@@ -446,7 +456,7 @@ a value in <code>...</code>, also <code>condathis_invalid_cmd_args</code>.</p></
 <li><p><code>condathis_&lt;function&gt;_invalid_env_name</code></p></li>
 <li><p><code>condathis_&lt;function&gt;_invalid_&lt;argument&gt;</code><br>
 for <code>timeout</code>, <code>supervise</code>, <code>cleanup_tree</code>, <code>linux_pdeathsig</code>,
-<code>stdin</code>, <code>stdout</code>, <code>stderr</code> and, for <code><a href="run_bin.html">run_bin()</a></code>, <code>activate</code>.</p></li>
+<code>stdin</code>, <code>stdout</code>, <code>stderr</code> and <code>activate</code>.</p></li>
 </ul><p>Then:</p><ul><li><p><code>condathis_&lt;function&gt;_env_not_found</code></p></li>
 <li><p><code>condathis_&lt;function&gt;_resolve_failed</code></p></li>
 <li><p><code>condathis_&lt;function&gt;_status_error</code></p></li>

@@ -147,8 +147,10 @@ By using `condathis`, you get:
   [`list_packages()`](https://luciorq.github.io/condathis/reference/list_packages.md)
   lists them.
 - [`env_definition()`](https://luciorq.github.io/condathis/reference/env_definition.md)
-  creates an environment from a file, such as an environment YAML file
-  or a lock file:
+  marks a file, such as an environment YAML file or a lock file, as the
+  definition of an environment.
+  [`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md)
+  then creates the environment from it:
   `create_env(env_definition("environment.yml"), env_name = "my-env")`.
   A lock file, such as an `@EXPLICIT` or conda-lock file, installs the
   exact packages it lists, without a solve.
@@ -171,4 +173,5 @@ By using `condathis`, you get:
   [`?clean_cache`](https://luciorq.github.io/condathis/reference/clean_cache.md).
 - The [articles](https://luciorq.github.io/condathis/articles/) on the
   package website show how to use Python with `reticulate`, how to
-  stream binary data through pipelines, and how to choose a backend.
+  stream binary data through pipelines, how to choose a backend, and how
+  to run parallel Python workers with `mizu`.

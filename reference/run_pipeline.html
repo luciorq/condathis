@@ -36,6 +36,7 @@ use the env_name of run_pipeline()."><meta property="og:image" content="https://
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/python-and-reticulate.html">Running Python Code with condathis and reticulate</a></li>
+    <li><a class="dropdown-item" href="../articles/python-and-mizu.html">Parallel Python Workers with condathis and mizu</a></li>
     <li><a class="dropdown-item" href="../articles/whole-slide-images.html">Whole-Slide Pathology Images: Binary Pipelines Across Environments</a></li>
     <li><a class="dropdown-item" href="../articles/backends.html">Backends: micromamba and rattler</a></li>
   </ul></li>
@@ -266,11 +267,9 @@ platforms. Defaults to <code>FALSE</code>.</p></dd>
 
 
 <dt id="arg-activate">activate<a class="anchor" aria-label="anchor" href="#arg-activate"></a></dt>
-<dd><p>Logical. <code>TRUE</code> (the default) runs each command with the
-activation of its environment, as <code><a href="run.html">run()</a></code> does. <code>FALSE</code> sets a fixed
-set of variables instead, without <code>activate.d</code> scripts (see
-<a href="condathis-options.html">condathis-options</a>). Each command runs in the working directory of
-the R session, unless the activation of a backend gives another one.</p></dd>
+<dd><p>Logical. As <code>activate</code> of <code><a href="run.html">run()</a></code>, for every command.
+Each command runs in the working directory of the R session, unless
+the activation of a backend gives another one.</p></dd>
 
 
 <dt id="arg-timeout">timeout<a class="anchor" aria-label="anchor" href="#arg-timeout"></a></dt>
@@ -302,8 +301,8 @@ count (see <em>Broken pipes</em>).</p></dd>
 
 <dt>statuses</dt>
 <dd><p>Integer vector, the exit status of each command. A
-command that a signal ends has the negative signal number, such as
--13 for <code>SIGPIPE</code>.</p></dd>
+command that a signal ends has the status 128 plus the signal number
+on Linux and macOS, such as 141 for <code>SIGPIPE</code>.</p></dd>
 
 <dt>processes</dt>
 <dd><p>List of <code>condathis_result</code> objects, one per command,
@@ -331,7 +330,7 @@ reads the pipe in place of the command that exited. It kills the writer
 when more output comes after the pipe was empty for about one second in
 total. It also kills the writer when more than 64 KiB comes, which is
 what a Linux pipe holds. Output that was already in the pipe does not
-count. Either way, the status of the writer is -13, and that is not a
+count. Either way, the status of the writer is 141, and that is not a
 failure. It does not make <code>error = "cancel"</code> abort, and it is not the
 <code>status</code> of the result. So <code>seq 1 1000000 | head -n 1</code> has status 0.
 Programs that handle <code>SIGPIPE</code> themselves, such as R and Python, exit

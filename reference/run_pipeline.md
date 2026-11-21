@@ -242,14 +242,10 @@ run_pipeline(
 
 - activate:
 
-  Logical. `TRUE` (the default) runs each command with the activation of
-  its environment, as
-  [`run()`](https://luciorq.github.io/condathis/reference/run.md) does.
-  `FALSE` sets a fixed set of variables instead, without `activate.d`
-  scripts (see
-  [condathis-options](https://luciorq.github.io/condathis/reference/condathis-options.md)).
-  Each command runs in the working directory of the R session, unless
-  the activation of a backend gives another one.
+  Logical. As `activate` of
+  [`run()`](https://luciorq.github.io/condathis/reference/run.md), for
+  every command. Each command runs in the working directory of the R
+  session, unless the activation of a backend gives another one.
 
 - timeout:
 
@@ -283,7 +279,8 @@ reads. It is a classed list with:
 - statuses:
 
   Integer vector, the exit status of each command. A command that a
-  signal ends has the negative signal number, such as -13 for `SIGPIPE`.
+  signal ends has the status 128 plus the signal number on Linux and
+  macOS, such as 141 for `SIGPIPE`.
 
 - processes:
 
@@ -312,7 +309,7 @@ reads the pipe in place of the command that exited. It kills the writer
 when more output comes after the pipe was empty for about one second in
 total. It also kills the writer when more than 64 KiB comes, which is
 what a Linux pipe holds. Output that was already in the pipe does not
-count. Either way, the status of the writer is -13, and that is not a
+count. Either way, the status of the writer is 141, and that is not a
 failure. It does not make `error = "cancel"` abort, and it is not the
 `status` of the result. So `seq 1 1000000 | head -n 1` has status 0.
 Programs that handle `SIGPIPE` themselves, such as R and Python, exit

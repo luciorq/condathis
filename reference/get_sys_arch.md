@@ -15,8 +15,8 @@ get_sys_arch()
 ## Value
 
 A character string such as `"Linux-x86_64"`, `"Linux-aarch64"`,
-`"Darwin-x86_64"` or `"Darwin-arm64"`. On Windows it is
-`"Windows-aarch64"` for a native ARM64 build of R. It is
+`"Linux-riscv64"`, `"Darwin-x86_64"` or `"Darwin-arm64"`. On Windows it
+is `"Windows-aarch64"` for a native ARM64 build of R. It is
 `"Windows-x86-64"` for an x64 build, also when that build runs through
 x64 emulation on an ARM64 PC.
 

@@ -34,6 +34,7 @@ conda-meta/ instead. It never installs micromamba."><meta property="og:image" co
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/python-and-reticulate.html">Running Python Code with condathis and reticulate</a></li>
+    <li><a class="dropdown-item" href="../articles/python-and-mizu.html">Parallel Python Workers with condathis and mizu</a></li>
     <li><a class="dropdown-item" href="../articles/whole-slide-images.html">Whole-Slide Pathology Images: Binary Pipelines Across Environments</a></li>
     <li><a class="dropdown-item" href="../articles/backends.html">Backends: micromamba and rattler</a></li>
   </ul></li>
@@ -106,7 +107,8 @@ host, and an environment never lists it.
 deprecated. It warns once per session (class
 <code>condathis_deprecated_packages_arg</code>) when the call comes from the
 console, a script or the tests of the package that makes it. Calls
-made inside other packages do not warn.</p>
+made inside other packages do not warn, except in tests that use
+testthat's third edition (see <a href="condathis-conditions.html">condathis-conditions</a>).</p>
 <p>Or one lock file, given by <code><a href="env_definition.html">env_definition()</a></code>, such as
 <code>env_definition("conda-lock.yml")</code>, without package specs. Then the
 environment must have exactly the packages that the lock lists for its

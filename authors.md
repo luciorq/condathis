@@ -5,7 +5,7 @@
 - **Lucio Queiroz**. Author, maintainer, copyright holder.
   [](https://orcid.org/0000-0002-6090-1834)
 
-- **Claudio Zanettini**. Author, contributor.
+- **Claudio Zanettini**. Author.
   [](https://orcid.org/0000-0001-5043-8033)
 
 ## Citation

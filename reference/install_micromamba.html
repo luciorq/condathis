@@ -34,6 +34,7 @@ to choose the version, or to install micromamba ahead of time."><meta property="
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/python-and-reticulate.html">Running Python Code with condathis and reticulate</a></li>
+    <li><a class="dropdown-item" href="../articles/python-and-mizu.html">Parallel Python Workers with condathis and mizu</a></li>
     <li><a class="dropdown-item" href="../articles/whole-slide-images.html">Whole-Slide Pathology Images: Binary Pipelines Across Environments</a></li>
     <li><a class="dropdown-item" href="../articles/backends.html">Backends: micromamba and rattler</a></li>
   </ul></li>
@@ -115,7 +116,7 @@ function lowers values above 2147483 seconds (about 24.8 days) to
 <code><a href="https://rdrr.io/r/utils/download.file.html" class="external-link">utils::download.file()</a></code>: one of <code>"auto"</code> (the default), <code>"internal"</code>,
 <code>"libcurl"</code>, <code>"wget"</code>, <code>"curl"</code> or <code>"wininet"</code>. It is ignored when the
 <code>curl</code> package 5.0.0 or later is installed, because then
-<code><a href="https://jeroen.r-universe.dev/curl/reference/curl_download.html" class="external-link">curl::curl_download()</a></code> is used. Other values abort with class<br><code>condathis_install_micromamba_invalid_download_method</code>.</p></dd>
+<code><a href="https://rdrr.io/pkg/curl/man/curl_download.html" class="external-link">curl::curl_download()</a></code> is used. Other values abort with class<br><code>condathis_install_micromamba_invalid_download_method</code>.</p></dd>
 
 
 <dt id="arg-force">force<a class="anchor" aria-label="anchor" href="#arg-force"></a></dt>
@@ -156,12 +157,19 @@ with class <code>condathis_install_micromamba_download_failed</code>.</p>
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p>The binary is the build for the platform of the running R (see
 <code><a href="get_sys_arch.html">get_sys_arch()</a></code>): <code>linux-64</code>, <code>linux-aarch64</code>, <code>linux-ppc64le</code>,
-<code>osx-64</code>, <code>osx-arm64</code>, <code>win-64</code> or <code>win-arm64</code>. A native ARM64 R on
-Windows gets <code>win-arm64</code>. An x64 R on an ARM64 PC gets <code>win-64</code>, which
-runs through x64 emulation. Every R of a user shares the installed
-binary. So on an ARM64 PC, the binary installed first stays until you
-replace it, for example with <code>force = TRUE</code>. Either binary works with
-both builds of R: micromamba builds environments for its own platform.</p>
+<code>linux-riscv64</code>, <code>osx-64</code>, <code>osx-arm64</code>, <code>win-64</code> or <code>win-arm64</code>. On
+another platform, <code>install_micromamba()</code> aborts with class
+<code>condathis_micromamba_not_available_for_arch</code>.</p>
+<p><code>linux-riscv64</code> has builds from micromamba 2.9.0 on, so an older
+version aborts there with the same class. The GitHub releases have them
+from 2.10.0-0 on: 2.9.0 comes from the conda-forge mirrors, and its
+checksum cannot be checked (see below).</p>
+<p>A native ARM64 R on Windows gets <code>win-arm64</code>. An x64 R on an ARM64 PC
+gets <code>win-64</code>, which runs through x64 emulation. Every R of a user
+shares the installed binary. So on an ARM64 PC, the binary installed
+first stays until you replace it, for example with <code>force = TRUE</code>.
+Either binary works with both builds of R: micromamba builds
+environments for its own platform.</p>
 <p><code>install_micromamba()</code> tries the compressed archive first, from the
 micromamba releases on GitHub, then from the conda-forge channel on
 anaconda.org and prefix.dev. It extracts the archive with R's internal

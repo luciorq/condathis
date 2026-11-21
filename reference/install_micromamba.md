@@ -62,7 +62,7 @@ install_micromamba(
   one of `"auto"` (the default), `"internal"`, `"libcurl"`, `"wget"`,
   `"curl"` or `"wininet"`. It is ignored when the `curl` package 5.0.0
   or later is installed, because then
-  [`curl::curl_download()`](https://jeroen.r-universe.dev/curl/reference/curl_download.html)
+  [`curl::curl_download()`](https://rdrr.io/pkg/curl/man/curl_download.html)
   is used. Other values abort with class  
   `condathis_install_micromamba_invalid_download_method`.
 
@@ -108,13 +108,22 @@ returns. A failed download aborts with class
 
 The binary is the build for the platform of the running R (see
 [`get_sys_arch()`](https://luciorq.github.io/condathis/reference/get_sys_arch.md)):
-`linux-64`, `linux-aarch64`, `linux-ppc64le`, `osx-64`, `osx-arm64`,
-`win-64` or `win-arm64`. A native ARM64 R on Windows gets `win-arm64`.
-An x64 R on an ARM64 PC gets `win-64`, which runs through x64 emulation.
-Every R of a user shares the installed binary. So on an ARM64 PC, the
-binary installed first stays until you replace it, for example with
-`force = TRUE`. Either binary works with both builds of R: micromamba
-builds environments for its own platform.
+`linux-64`, `linux-aarch64`, `linux-ppc64le`, `linux-riscv64`, `osx-64`,
+`osx-arm64`, `win-64` or `win-arm64`. On another platform,
+`install_micromamba()` aborts with class
+`condathis_micromamba_not_available_for_arch`.
+
+`linux-riscv64` has builds from micromamba 2.9.0 on, so an older version
+aborts there with the same class. The GitHub releases have them from
+2.10.0-0 on: 2.9.0 comes from the conda-forge mirrors, and its checksum
+cannot be checked (see below).
+
+A native ARM64 R on Windows gets `win-arm64`. An x64 R on an ARM64 PC
+gets `win-64`, which runs through x64 emulation. Every R of a user
+shares the installed binary. So on an ARM64 PC, the binary installed
+first stays until you replace it, for example with `force = TRUE`.
+Either binary works with both builds of R: micromamba builds
+environments for its own platform.
 
 `install_micromamba()` tries the compressed archive first, from the
 micromamba releases on GitHub, then from the conda-forge channel on

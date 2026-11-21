@@ -70,16 +70,20 @@ still runs micromamba with your home directory when micromamba needs
 something from there. It then adds the environment to your list. This
 happens for channel credentials that you saved (with
 `micromamba auth login`, an `anaconda-client` token, or a `.netrc`
-file), and for an environment file
+file), for an environment file
 ([`env_definition()`](https://luciorq.github.io/condathis/reference/env_definition.md))
-that names your home directory (`~/`, `$HOME`) or installs pip packages.
-Listing and removing environments never change the file, so the line of
-an environment that
+that names your home directory (`~/`, `$HOME`), and for one that
+installs pip packages when pip or uv would read a file from your home
+directory: a pip configuration file (`~/.pip/pip.conf`,
+`~/.config/pip/pip.conf`, on macOS also
+`~/Library/Application Support/pip/pip.conf`, on Windows
+`~\pip\pip.ini`), a uv configuration file (`~/.config/uv/uv.toml`) or uv
+credentials (`uv auth login`), or when a `keyring` program is on `PATH`.
+Listing environments never changes the file.
 [`remove_env()`](https://luciorq.github.io/condathis/reference/remove_env.md)
-deleted stays. Both conda and mamba drop such lines the next time they
-list environments. A `~` at the start of a channel, of a package path
-and of the path of an environment file always means your own home
-directory.
+deletes only the line of the environment it removed. A `~` at the start
+of a channel, of a package path and of the path of an environment file
+always means your own home directory.
 
 The pip that installs the pip packages of an environment file keeps its
 cache in the `cache/` directory of the data directory on Linux, which
@@ -110,5 +114,5 @@ condathis::with_sandbox_dir({
 #> # A tibble: 1 × 2
 #>   backend    path                                                           
 #>   <chr>      <chr>                                                          
-#> 1 micromamba /tmp/Rtmp6wGB7j/condathis-sandbox-2aac2a4517ab/data/R/condathis
+#> 1 micromamba /tmp/Rtmpzrm4bi/condathis-sandbox-2add31c0dab0/data/R/condathis
 ```

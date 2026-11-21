@@ -1,11 +1,12 @@
 # Run a binary from a Conda environment
 
-Runs a program of a Conda environment, found in the binary directories
-of the environment. With `activate = TRUE` (the default), the program
-runs with the activation of the environment, as in
-[`run()`](https://luciorq.github.io/condathis/reference/run.md). With
-`activate = FALSE`, `run_bin()` only puts the binary directories in
-front of `PATH`.
+`run_bin()` is superseded by
+[`run()`](https://luciorq.github.io/condathis/reference/run.md), which
+takes the same arguments and runs the command the same way. `run_bin()`
+stays for code written for earlier versions of `condathis`. Its errors
+have their own classes, `condathis_run_bin_*`, which also carry the
+`condathis_run_*` classes (see
+[condathis-conditions](https://luciorq.github.io/condathis/reference/condathis-conditions.md)).
 
 ## Usage
 
@@ -41,11 +42,10 @@ run_bin(
 - ...:
 
   Arguments of the command, unnamed, as in
-  [`run()`](https://luciorq.github.io/condathis/reference/run.md). Each
-  element of a character, numeric or logical vector is one argument.
-  `run_bin()` drops `NULL` values and writes numbers in full. `NA`,
-  named arguments, and values that are not atomic vectors abort with
-  class `condathis_run_bin_invalid_args`.
+  [`run()`](https://luciorq.github.io/condathis/reference/run.md).
+  Values that
+  [`run()`](https://luciorq.github.io/condathis/reference/run.md)
+  rejects abort with class `condathis_run_bin_invalid_args`.
 
 - env_name:
 
@@ -245,19 +245,18 @@ run_bin(
 
 - activate:
 
-  Logical. Whether to run `cmd` with the activation of the environment.
-  Defaults to `TRUE`, which activates the environment as
-  [`run()`](https://luciorq.github.io/condathis/reference/run.md) does.
-  An activation that fails is an error, as `error` describes. With
-  `FALSE`, `run_bin()` skips the activation. It resolves `cmd` in the
-  binary directories of the environment (then on the `PATH` of the R
-  session), puts those directories in front of `PATH`, and applies no
-  activation variables or `activate.d` scripts. In both modes, the
-  command gets the variables that `condathis` sets in every process it
-  starts (see
+  Logical. Whether to run `cmd` with the activation of the backend.
+  Defaults to `TRUE`: the backend activates the environment, with the
+  `activate.d` scripts and `env_vars.d` files of its packages. An
+  activation that fails is an error, as `error` describes. With `FALSE`,
+  no backend code runs: `condathis` sets only `CONDA_PREFIX`,
+  `CONDA_DEFAULT_ENV`, `CONDA_SHLVL` and `MAMBA_SHLVL` (both `1`), empty
+  prompt modifiers, and the binary directories of the environment in
+  front of `PATH` (see
   [condathis-options](https://luciorq.github.io/condathis/reference/condathis-options.md)).
-  Values other than `TRUE` and `FALSE` abort with class
-  `condathis_invalid_activate`.
+  In both modes, the command gets the variables that `condathis` sets in
+  every process it starts. Values other than `TRUE` and `FALSE` abort
+  with class `condathis_invalid_activate`.
 
 - timeout:
 
@@ -274,56 +273,20 @@ run_bin(
 
 ## Value
 
-A `condathis_result` object, invisibly: a classed list with `status`,
-`stdout`, `stderr`, `timeout`, `pid`, `cmd` and `env_name`, which prints
-as a short summary. `status` is the exit status of the command. On Linux
-and macOS, a command that a signal ends has the negative signal number
-as status (-15 for `SIGTERM`, where
-[`run()`](https://luciorq.github.io/condathis/reference/run.md) reports
-143). `stdout` and `stderr` are `NA` when that stream was not captured
-(a target other than `"|"`). `pid` is the process ID of the command with
-`stdin = "|"`, and `NA` otherwise. `cmd` is your command line, each part
-quoted, also when the backend runs it through a wrapper. It masks the
-credentials of URLs (see `verbose`). `env_name` is the environment name,
-or the directory of an
-[`env_path()`](https://luciorq.github.io/condathis/reference/env_path.md).
+A `condathis_result` object, invisibly, as for
+[`run()`](https://luciorq.github.io/condathis/reference/run.md).
 
 ## Details
 
-The binary directories are `bin` on Linux and macOS. On Windows, they
-are the environment directory, `Library/mingw-w64/bin`,
-`Library/usr/bin`, `Library/bin`, `Scripts` and `bin`, searched with the
-extensions of `PATHEXT`. `run_bin()` looks up a `cmd` that is not there
-on the `PATH` that the program gets. That `PATH` lists the binary
-directories first. Then it lists the `PATH` of the activation with
-`activate = TRUE`, or of the R session with `activate = FALSE`.
-`run_bin()` uses a `cmd` with a directory part as it is.
-
-With `activate = TRUE`, `run_bin()` differs from
-[`run()`](https://luciorq.github.io/condathis/reference/run.md) in two
-ways only. It finds `cmd` differently. It reports a different status for
-a command that a signal ends.
-[`run()`](https://luciorq.github.io/condathis/reference/run.md) looks up
-a bare name on the activated `PATH` (on Windows, in the binary
-directories first). `run_bin()` looks it up in the binary directories
-first on every platform.
-
-When `env_name` is the default `"condathis-env"` and that environment
-does not exist, `run_bin()` creates it, empty, with the backend that
-`method` selects. `run_bin()` never creates any other missing
-environment, and no program from `PATH` runs. The call fails, as `error`
-describes.
-
-The errors of a failed or timed-out command carry the fields `status`,
-`stdout`, `stderr` and `timeout`. A handler does not need to parse the
-message.
+In `condathis` 0.1.4, `run_bin()` ran a program of the environment
+without its activation. It now activates the environment, as
+[`run()`](https://luciorq.github.io/condathis/reference/run.md) does.
+`activate = FALSE` gives the fixed activation of
+[`run()`](https://luciorq.github.io/condathis/reference/run.md).
 
 ## See also
 
-[`env_path()`](https://luciorq.github.io/condathis/reference/env_path.md)
-for an environment created outside `condathis`, and
-[condathis-conditions](https://luciorq.github.io/condathis/reference/condathis-conditions.md)
-for the condition classes.
+[`run()`](https://luciorq.github.io/condathis/reference/run.md).
 
 Other commands:
 [`parse_output()`](https://luciorq.github.io/condathis/reference/parse_output.md),
@@ -336,8 +299,6 @@ Other commands:
 ``` r
 if (FALSE) { # \dontrun{
 condathis::with_sandbox_dir({
-  # A local channel shipped with condathis, with `polyglot`: a
-  # dependency-free script that runs on Linux, macOS and Windows.
   channel <- system.file(
     "extdata", "polyglot-channel",
     package = "condathis"
@@ -347,31 +308,8 @@ condathis::with_sandbox_dir({
     env_name = "polyglot-env",
     channels = channel
   )
-
-  # Run the 'polyglot' script, on any platform
+  # The same as condathis::run("polyglot", env_name = "polyglot-env")
   condathis::run_bin("polyglot", env_name = "polyglot-env")
-
-  # Create an environment with 'python' and 'ripgrep', which conda-forge
-  # builds for Linux, macOS and Windows (it has no Windows builds of GNU
-  # tools such as `grep`)
-  condathis::create_env(
-    c("conda-forge::python", "conda-forge::ripgrep"),
-    env_name = "my-env"
-  )
-
-  # Run Python code with the 'python' of the 'my-env' environment
-  condathis::run_bin(
-    "python", "-c", "import sys; print(sys.version)",
-    env_name = "my-env"
-  )
-
-  # Run the 'rg' (ripgrep) binary with additional arguments, without
-  # activation
-  condathis::run_bin(
-    "rg", "--version",
-    env_name = "my-env",
-    activate = FALSE
-  )
 })
 } # }
 ```

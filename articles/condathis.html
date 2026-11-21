@@ -42,6 +42,7 @@
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
 <li><a class="dropdown-item" href="../articles/python-and-reticulate.html">Running Python Code with condathis and reticulate</a></li>
+    <li><a class="dropdown-item" href="../articles/python-and-mizu.html">Parallel Python Workers with condathis and mizu</a></li>
     <li><a class="dropdown-item" href="../articles/whole-slide-images.html">Whole-Slide Pathology Images: Binary Pipelines Across Environments</a></li>
     <li><a class="dropdown-item" href="../articles/backends.html">Backends: micromamba and rattler</a></li>
   </ul>
@@ -178,7 +179,7 @@
 <li>
 <code><a href="../reference/install_packages.html">install_packages()</a></code> adds packages to an existing environment, and <code><a href="../reference/list_packages.html">list_packages()</a></code> lists them.</li>
 <li>
-<code><a href="../reference/env_definition.html">env_definition()</a></code> creates an environment from a file, such as an environment YAML file or a lock file: <code>create_env(env_definition("environment.yml"), env_name = "my-env")</code>. A lock file, such as an <code>@EXPLICIT</code> or conda-lock file, installs the exact packages it lists, without a solve.</li>
+<code><a href="../reference/env_definition.html">env_definition()</a></code> marks a file, such as an environment YAML file or a lock file, as the definition of an environment. <code><a href="../reference/create_env.html">create_env()</a></code> then creates the environment from it: <code>create_env(env_definition("environment.yml"), env_name = "my-env")</code>. A lock file, such as an <code>@EXPLICIT</code> or conda-lock file, installs the exact packages it lists, without a solve.</li>
 <li>
 <code><a href="../reference/run_pipeline.html">run_pipeline()</a></code> connects commands with pipes, as <code>|</code> does in a shell, each in its own environment if needed.</li>
 <li>
@@ -187,7 +188,7 @@
 <code><a href="../reference/list_envs.html">list_envs()</a></code> lists the environments of <code>condathis</code>, <code><a href="../reference/remove_env.html">remove_env()</a></code> removes one, and <code><a href="../reference/clean_cache.html">clean_cache()</a></code> deletes the downloaded package files.</li>
 <li>
 <code><a href="../reference/get_install_dir.html">get_install_dir()</a></code> shows the data directory of <code>condathis</code>, which holds <code>micromamba</code>, the environments and the package cache. To remove everything that <code>condathis</code> installed, see the section <em>Removing everything</em> in <code><a href="../reference/clean_cache.html">?clean_cache</a></code>.</li>
-<li>The <a href="https://luciorq.github.io/condathis/articles/">articles</a> on the package website show how to use Python with <code>reticulate</code>, how to stream binary data through pipelines, and how to choose a backend.</li>
+<li>The <a href="https://luciorq.github.io/condathis/articles/">articles</a> on the package website show how to use Python with <code>reticulate</code>, how to stream binary data through pipelines, how to choose a backend, and how to run parallel Python workers with <code>mizu</code>.</li>
 </ul></section><script id="quarto-html-after-body" type="application/javascript">
   window.document.addEventListener("DOMContentLoaded", function (event) {
       var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);

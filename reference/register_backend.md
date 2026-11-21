@@ -295,12 +295,12 @@ needs no lock of its own against those sessions.
 
 - `backend_resolve_run(backend, cmd, args = character(0L), env_name = "condathis-env", verbose = "silent", base_env = NULL, timeout = Inf)`
   describes, without running `cmd`, how to run `cmd` with `args` in the
-  activated environment. `base_env` is the environment that the command
-  gets without activation: the session's environment with the changes of
-  *Child processes*. Compute the activation against it, not against the
-  environment of the R session. `condathis` always passes it. `timeout`
-  is the number of seconds the function may take: what is left of the
-  `timeout` of
+  activated environment. `base_env` is the environment of the command
+  before any activation: the session's environment with the changes of
+  *Child processes*, the activation of the R session undone included.
+  Compute the activation against it, not against the environment of the
+  R session. `condathis` always passes it. `timeout` is the number of
+  seconds the function may take: what is left of the `timeout` of
   [`run()`](https://luciorq.github.io/condathis/reference/run.md),
   [`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md)
   or
@@ -316,19 +316,17 @@ needs no lock of its own against those sessions.
   returns `list(command, args, env, dir)`:
 
   - `command`: a single string, the program to start: an absolute path,
-    or a bare name. `condathis` starts a bare name the same way for
-    every backend. On Linux and macOS, it is looked up on the `PATH` of
-    the command, after `env` is applied. On Windows,
-    [`run()`](https://luciorq.github.io/condathis/reference/run.md) and
-    [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md)
-    look it up in the binary directories of the environment, with the
-    extensions of `PATHEXT`. Otherwise, they leave it to `processx`,
-    which searches the working directory and the `PATH` of the R session
-    for `<name>.com` and `<name>.exe`.
+    or a bare name.
+    [`run()`](https://luciorq.github.io/condathis/reference/run.md),
     [`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md)
-    searches the binary directories of the environment and then the
-    `PATH` of the command. A bare name that is found nowhere fails to
-    start.
+    and
+    [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md)
+    start a bare name the same way for every backend. On Linux and
+    macOS, it is looked up on the `PATH` of the command, after `env` is
+    applied. On Windows, as in `cmd.exe`, the working directory of the
+    command comes first, and a name without an extension is looked up
+    with the extensions of `PATHEXT`. A bare name that is found nowhere
+    fails to start, with status 127.
 
   - `args`: a character vector, or `NULL`. It replaces the user's
     arguments, so it must contain them.
@@ -337,20 +335,24 @@ needs no lock of its own against those sessions.
     activation variables. Each entry replaces the variable of the same
     name in the environment of the command, `PATH` included. An `NA`
     entry removes the variable, for a variable that the activation
-    unsets.
-    [`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md)
-    also prepends the environment's binary directories to `PATH`.
+    unsets. When the `PATH` that results names none of the binary
+    directories of the environment, `condathis` puts them in front of
+    it. `CONDA_SHLVL`, `MAMBA_SHLVL` and the prompt modifiers are always
+    `"1"`, `"1"`, `""` and `""`, whatever `env` sets.
 
   - `dir`: `NULL` to keep R's working directory, or the path of an
     existing directory to run the command in.
 
-  `condathis` calls it only with activation on
-  ([`run()`](https://luciorq.github.io/condathis/reference/run.md), and
+  `condathis` calls it only with `activate = TRUE` (the default of
+  [`run()`](https://luciorq.github.io/condathis/reference/run.md),
   [`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md)
   and
-  [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md)
-  with `activate = TRUE`). It calls it only for an environment that this
-  backend reported as existing. It never calls it for an
+  [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md)).
+  With `activate = FALSE`, no backend function describes the command:
+  `condathis` sets a fixed activation itself (see
+  [condathis-options](https://luciorq.github.io/condathis/reference/condathis-options.md)).
+  It calls it only for an environment that this backend reported as
+  existing. It never calls it for an
   [`env_path()`](https://luciorq.github.io/condathis/reference/env_path.md)
   environment (see `backend_resolve_run_in_dir()`). A value that breaks
   these rules aborts with `condathis_backend_resolve_run_invalid`.
@@ -672,18 +674,21 @@ subdirectory. It compares a `file://` channel by its absolute path.
 
 ## Child processes
 
-`condathis` starts `command` with a copy of the session's environment in
-which the `CONDA_*` and `MAMBA_*` variables listed in
+`condathis` starts `command` with a copy of the session's environment
+without the activation of the R session (the binary directories of the
+Conda and pixi environments that R runs in are removed from `PATH`, and
+the variables listed in
 [condathis-options](https://luciorq.github.io/condathis/reference/condathis-options.md)
-are cleared. It then applies `env`. For commands of every backend other
-than `"micromamba"`, `CONDA_ENVS_PATH` is the parent directory of the
-environment directory from `backend_get_env_dir()`, so a Conda tool run
-in the environment creates named environments next to it.
-`CONDA_PKGS_DIRS` and `MAMBA_PKGS_DIRS` are `<root>/conda-pkgs` for them
-when that parent directory is `<root>/envs`, and `""` otherwise. A Conda
-tool run in the environment keeps its package cache in the backend's
-root, never in the user's home directory or in the cache of another
-backend.
+are removed or restored), and with the `CONDA_*` and `MAMBA_*` variables
+listed there cleared. It then applies `env`. For commands of every
+backend other than `"micromamba"`, `CONDA_ENVS_PATH` is the parent
+directory of the environment directory from `backend_get_env_dir()`, so
+a Conda tool run in the environment creates named environments next to
+it. `CONDA_PKGS_DIRS` and `MAMBA_PKGS_DIRS` are `<root>/conda-pkgs` for
+them when that parent directory is `<root>/envs`, and `""` otherwise. A
+Conda tool run in the environment keeps its package cache in the
+backend's root, never in the user's home directory or in the cache of
+another backend.
 [`clean_cache()`](https://luciorq.github.io/condathis/reference/clean_cache.md)
 empties it. For an environment given by
 [`env_path()`](https://luciorq.github.io/condathis/reference/env_path.md),
@@ -788,7 +793,7 @@ Other backends:
 # object in its own constructor, for example `new_backend_mybackend()` in
 # *Registering from a backend package* of `?register_backend`.
 not_implemented <- function(...) {
-  stop("Not implemented by this example backend.")
+  stop("Not implemented by this example backend.", call. = FALSE)
 }
 mybackend <- structure(
   list(

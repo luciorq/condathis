@@ -90,17 +90,21 @@ Set these in the shell, in an `.Renviron` file, or with
 - `CONDA_PREFIX`:
 
   Prefix of the Conda environment active in the calling shell.
-  `condathis` reads it only to look for `micromamba` inside that prefix
-  during discovery. It never passes it on to child processes.
+  `condathis` reads it to look for `micromamba` inside that prefix
+  during discovery, and to remove the activation of the R session from
+  child processes (see *The activation of the R session* below). It
+  never passes it on to child processes.
 
 - `PATH`:
 
   Searched for `micromamba` as the last discovery fallback. Also the
-  base `PATH` for child processes.
+  base `PATH` of child processes, without the binary directories of the
+  Conda and pixi environments that the R session runs in (see below).
+  [`run()`](https://luciorq.github.io/condathis/reference/run.md),
   [`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md)
   and
   [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md)
-  prepend the environment's binary directories to it.
+  put the environment's binary directories in front of it.
 
 - `PATHEXT`:
 
@@ -184,7 +188,7 @@ directories.
 
 [`install_micromamba()`](https://luciorq.github.io/condathis/reference/install_micromamba.md)
 downloads with
-[`curl::curl_download()`](https://jeroen.r-universe.dev/curl/reference/curl_download.html)
+[`curl::curl_download()`](https://rdrr.io/pkg/curl/man/curl_download.html)
 when `curl` 5.0.0 or later is installed, and with
 [`utils::download.file()`](https://rdrr.io/r/utils/download.file.html)
 otherwise. Both honor the standard proxy variables, such as
@@ -195,6 +199,28 @@ these variables from the R session, so `micromamba` downloads packages
 through the same proxy. It ignores the proxy settings of your `.condarc`
 and `.mambarc` files (see `CONDARC` below).
 
+These variables also reach every process unchanged, on purpose:
+
+- Certificates:
+
+  `SSL_CERT_FILE`, `REQUESTS_CA_BUNDLE`, `PIP_CERT` and the other
+  certificate variables of the tools that a process runs.
+
+- Package indexes and credentials of pip and uv:
+
+  Such as `PIP_INDEX_URL`, `PIP_EXTRA_INDEX_URL`, `PIP_CONFIG_FILE`
+  (except for `micromamba list`, see below), `UV_INDEX_URL` and `NETRC`.
+  `micromamba create` installs the `pip:` section of an environment file
+  with them.
+
+- `CONDA_OVERRIDE_*`:
+
+  Such as `CONDA_OVERRIDE_CUDA`, `CONDA_OVERRIDE_GLIBC` and
+  `CONDA_OVERRIDE_OSX`. They set the virtual packages (`__cuda`,
+  `__glibc`, `__osx`) that `micromamba` solves for, also with
+  `--no-env`. For example, `CONDA_OVERRIDE_CUDA = "12.4"` gets the CUDA
+  builds of packages on a machine without a GPU.
+
 ## Environment variables set or cleared in child processes
 
 Every process `condathis` starts, whether `micromamba` itself or a
@@ -203,11 +229,12 @@ command run by
 [`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md)
 or
 [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md),
-starts from a copy of the calling session's environment. `condathis`
-then applies the overrides below to that copy only. `condathis` never
-modifies the calling R session. A process that you start yourself does
-not get these overrides. Pass `--no-rc` and `--no-env` to `micromamba`
-or `conda` to ignore your own Conda settings.
+starts from a copy of the calling session's environment, without the
+activation of the R session (see *The activation of the R session*
+below). `condathis` then applies the overrides below to that copy only.
+`condathis` never modifies the calling R session. A process that you
+start yourself does not get these overrides. Pass `--no-rc` and
+`--no-env` to `micromamba` or `conda` to ignore your own Conda settings.
 
 Cleared or reset, so that the user's own Conda or Mamba setup does not
 interfere:
@@ -253,7 +280,12 @@ interfere:
 
 - `CONDA_SHLVL`, `MAMBA_SHLVL`:
 
-  Set to `"0"`.
+  Set to `"0"`. The commands of
+  [`run()`](https://luciorq.github.io/condathis/reference/run.md),
+  [`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md)
+  and
+  [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md)
+  get `"1"` (see below).
 
 - `CONDA_PKGS_DIRS`, `MAMBA_PKGS_DIRS`:
 
@@ -300,8 +332,9 @@ interfere:
 
 - `R_HOME`:
 
-  Set to `""`, so an R installed in a Conda environment does not pick up
-  the R installation of the calling session.
+  Removed, with every other `R_*` variable (see *The startup of R*
+  below), so an R installed in a Conda environment does not pick up the
+  R installation of the calling session.
 
 - `TMPDIR`:
 
@@ -344,19 +377,199 @@ interfere:
 
   For `micromamba env list`, `micromamba env remove` and, unless it
   needs your home directory, `micromamba create`: the `home/` directory
-  of the condathis data directory. So `micromamba` does not change
+  of the condathis data directory. So `micromamba` does not rewrite
   `~/.conda/environments.txt` (see Details in
   [`get_install_dir()`](https://luciorq.github.io/condathis/reference/get_install_dir.md)).
   The scripts that packages run when they are installed or removed by
   these commands see this value too. On Windows, micromamba looks there
   for the Start Menu shortcuts of the removed packages.
 
-- `PYTHONNOUSERSITE`, `PYTHONPATH`, `PYTHONHOME`:
+Python, pip and uv: the Python state of the R session never reaches a
+process of `condathis`. So the python of an environment finds only its
+own modules, and `micromamba create` installs the `pip:` section of an
+environment file into the environment, never elsewhere. For every
+process, `micromamba` itself and the commands of
+[`run()`](https://luciorq.github.io/condathis/reference/run.md),
+[`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md)
+and
+[`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md),
+with and without activation:
 
-  For `micromamba list`, which
-  [`list_packages()`](https://luciorq.github.io/condathis/reference/list_packages.md)
-  runs: `PYTHONNOUSERSITE` is `"1"` and the other two are removed, so
-  pip reports only the packages of the environment.
+- `PYTHONHOME`, `PYTHONPATH`, `PYTHONUSERBASE`, `PYTHONSTARTUP`:
+
+  Removed. To give a command a `PYTHONPATH`, set it in the command, such
+  as `run("env", "PYTHONPATH=/my/modules", "python", "script.py")` on
+  Linux and macOS, or add the directory to `sys.path` in the script.
+
+- `PYTHONNOUSERSITE`:
+
+  Set to `"1"`: the user's site directory (`~/.local/lib/python3.*`, on
+  Windows a `Python` directory in `APPDATA`) is not on `sys.path`.
+
+- `UV_PYTHON`, `UV_SYSTEM_PYTHON`, `UV_PROJECT_ENVIRONMENT`:
+
+  Removed, so `uv` uses the python of the environment.
+
+- `PIP_USER`, `PIP_REQUIRE_VIRTUALENV`:
+
+  Set to `"false"`, which overrides `user` and `require-virtualenv` in a
+  pip configuration file; `PIP_REQUIRE_VENV`, an alias that pip also
+  reads, is removed. Otherwise pip installed into the user's site
+  directory, or failed: the user's site directory is off, and a Conda
+  environment is not a virtual environment. So
+  `run("python", "-m", "pip", "install", ...)` installs into the
+  environment.
+
+- `PIP_TARGET`, `PIP_PREFIX`, `PIP_ROOT`:
+
+  Removed, whatever their value. A `target`, `prefix` or `root` in a pip
+  configuration file still applies (an environment variable cannot unset
+  it). To install elsewhere, pass `--target` or `--prefix` to pip in the
+  command.
+
+An activated virtual environment of the session (`VIRTUAL_ENV`) is
+undone as well (see *The activation of the R session* below). The
+activation of the environment of a command comes after all this, so a
+variable that an `activate.d` script sets reaches the command.
+
+For `micromamba create` and `micromamba install`, which run pip, or uv
+when the environment file lists it, for the `pip:` section,
+`VIRTUAL_ENV` and `VIRTUAL_ENV_PROMPT` are also removed, whatever their
+value.
+
+For `micromamba list`, which
+[`list_packages()`](https://luciorq.github.io/condathis/reference/list_packages.md)
+runs, and which runs `python -m pip inspect` in the environment:
+`PIP_CONFIG_FILE` is the null device (`/dev/null`, on Windows `nul`), so
+pip reads no configuration file, `PIP_USER` is `"false"`, `PIP_PATH` and
+`PIP_LOCAL` are removed, and the working directory is a temporary
+directory, not the one of R. pip then reports only the packages of the
+environment.
+
+Every other `PIP_*` and `UV_*` variable reaches pip and uv unchanged.
+
+*The activation of the R session.* R can run in an activated Conda or
+pixi environment, or in several nested ones: R installed in a Conda
+environment, R started from a shell where `conda activate` or
+`pixi shell` ran, or R started through a pixi global binary. The
+processes that `condathis` starts do not get that activation, within the
+limits below. So a program of R's own environment does not run in place
+of one that the environment of the command lacks. Before the overrides
+above, `condathis` changes the copy of the session's environment this
+way:
+
+- `PATH`:
+
+  The binary directories of these Conda prefixes are removed: the
+  prefixes of `CONDA_PREFIX`, of every `CONDA_PREFIX_<n>` and
+  `CONDA_ENV_SHLVL_<n>_CONDA_PREFIX`, and the prefix that R itself is
+  installed in. Only a directory with a `conda-meta` directory counts as
+  a prefix. Other entries stay, such as the `condabin` directory of
+  `conda init` and `~/.pixi/bin`. One exception on Windows: a command
+  that is a program of R's own prefix, such as
+  `file.path(R.home("bin"), "Rscript.exe")`, gets the binary directories
+  of that prefix back at the end of its `PATH`, because it loads its
+  DLLs from there.
+
+- `CONDA_PREFIX_<n>`, `CONDA_ENV_SHLVL_<n>_*`, `CONDA_EXE`,
+  `CONDA_PYTHON_EXE`, `_CE_CONDA`, `_CE_M`, `MAMBA_EXE`:
+
+  Removed. These variables record the activation of the session.
+
+- `PIXI_PROJECT_*`, `PIXI_WORKSPACE_*`, `PIXI_ENVIRONMENT_*`,
+  `PIXI_PROMPT`, `PIXI_IN_SHELL`, `PIXI_EXE`:
+
+  Removed. Other `PIXI_*` variables, such as `PIXI_HOME`, stay.
+
+- `CONDA_BACKUP_<X>`, `<X>_CONDA_BACKUP`, `CONDA_ENV_SHLVL_<n>_<X>`:
+
+  The value of `<X>` before the activation, saved by the activation
+  scripts of compiler and other packages, or by pixi. `<X>` gets that
+  value back, as the deactivation scripts do: an empty backup of the
+  first two forms removes `<X>`. The backups are removed.
+
+- Variables of `conda-meta/state` and `etc/conda/env_vars.d`:
+
+  A variable that these files of the prefixes above set is removed when
+  the session has exactly that value.
+
+- Variables of a pixi global binary:
+
+  When one of the prefixes above is an environment of `pixi global`, a
+  variable that its binaries set when they start is removed when the
+  session has exactly that value. pixi records them in
+  `bin/trampoline_configuration` of its home. R started through such a
+  binary gets the whole activation of its environment, such as the
+  compiler variables `CC`, `CFLAGS` and `CONDA_BUILD_SYSROOT`, and a
+  compiler of the environment of a command would see them.
+
+- `VIRTUAL_ENV`, `VIRTUAL_ENV_PROMPT`:
+
+  When `VIRTUAL_ENV` names a Python virtual environment (a directory
+  with `pyvenv.cfg`), both are removed, and its `bin` directory (on
+  Windows `Scripts`) leaves `PATH`. Activating a virtual environment
+  sets them, and so does reticulate inside the R session when it uses
+  one, also through
+  [`Sys.setenv()`](https://rdrr.io/r/base/Sys.setenv.html).
+
+- What reticulate changed for its python:
+
+  When reticulate has started Python in the R session, the `lib`
+  directories that it put in front of `LD_LIBRARY_PATH` on Linux (of its
+  python and of the python a virtual environment was made from) are
+  removed. For a python of a Conda environment, reticulate puts the
+  binary directories of that environment in front of `PATH`; they are
+  removed as those of the prefixes above.
+
+Some changes cannot be undone. A value that an `activate.d` script of
+the session's environment set stays, unless it saved a backup above or a
+pixi global binary recorded it, and so does a `PATH` entry such a script
+added. For example, R installed in a Conda environment that has the
+compiler packages, and started from a shell where that environment was
+activated, passes `CC`, `CFLAGS`, `CONDA_BUILD_SYSROOT` and the other
+compiler variables of that environment to the processes it starts. The
+binary directory of an environment that no variable names any more stays
+too, such as the one of a pixi global binary that started the shell
+before another one replaced its `CONDA_PREFIX`. reticulate moves the
+directory of a python that is neither in a virtual nor in a Conda
+environment, such as `/usr/bin`, to the front of `PATH`; it stays there.
+On macOS, when `/usr/local/opt/openblas` exists, loading reticulate sets
+`OPENBLAS` and, when it is unset, `OMP_NUM_THREADS=1`; they stay too.
+
+*The startup of R.* R also changes its own environment when it starts,
+and the processes that `condathis` starts do not get those changes
+either. So an R of the environment of the command never loads packages
+built for the R of the session, and a program of the environment never
+loads R's libraries or certificates:
+
+- `R_*`, `_R_*`:
+
+  Removed, also a variable the user set, such as `R_LIBS_USER` or
+  `R_PROFILE_USER`: only R reads them, and an R that the command starts
+  sets its own. The R of the session keeps them.
+
+- `EDITOR`, `PAGER`, `MAKE`, `SED`, `TAR`, `LN_S`, `CURL_CA_BUNDLE`,
+  `MSYS2_ENV_CONV_EXCL`:
+
+  Removed when the session has exactly the value that R's startup gives
+  them (`etc/Renviron` of R). A value the user set stays, such as
+  `EDITOR=nvim`.
+
+- `LD_LIBRARY_PATH`, `DYLD_FALLBACK_LIBRARY_PATH`, `DYLD_LIBRARY_PATH`:
+
+  The directories that R put in front (`etc/ldpaths` of R) are removed.
+  The directories after them stay.
+
+- `PATH` on Windows:
+
+  The Rtools directories that R put in front (`R_RTOOLS45_PATH`) are
+  removed. A command finds Rtools only when the `PATH` that R started
+  with has it.
+
+`condathis` learns the values of R's startup by starting R's own
+`Rscript` once per R session, without the user's `.Renviron` and
+`.Rprofile`. When that fails, only the `R_*` variables and the Rtools
+directories are removed.
 
 With the default `activate = TRUE` of
 [`run()`](https://luciorq.github.io/condathis/reference/run.md),
@@ -376,13 +589,26 @@ command. Values that name the working directory are recorded again in
 another working directory. For other backends, the backend package sets
 the activation variables (see
 [`register_backend()`](https://luciorq.github.io/condathis/reference/register_backend.md)).
+When the `PATH` of an activation names none of the environment's binary
+directories, `condathis` puts them in front of it.
+
+In both modes and for every backend, a command of
+[`run()`](https://luciorq.github.io/condathis/reference/run.md),
+[`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md)
+and
+[`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md)
+runs in exactly one activated environment, whatever the R session runs
+in: `CONDA_SHLVL` and `MAMBA_SHLVL` are `"1"`, and
+`CONDA_PROMPT_MODIFIER` and `MAMBA_PROMPT_MODIFIER` are `""`, whatever
+the activation set.
 
 With `activate = FALSE`,
+[`run()`](https://luciorq.github.io/condathis/reference/run.md),
 [`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md)
-applies no activation variables and only prepends the environment's
-binary directories to `PATH`.
+and
 [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md)
-sets this fixed set instead:
+set this fixed set instead, without any backend code and without the
+`activate.d` scripts and `env_vars.d` files of the packages:
 
 - `CONDA_PREFIX`, `CONDA_DEFAULT_ENV`:
 
@@ -396,14 +622,15 @@ sets this fixed set instead:
 
 - `CONDA_PROMPT_MODIFIER`, `MAMBA_PROMPT_MODIFIER`:
 
-  Set to `"(<env_name>) "`.
+  Set to `""`.
 
 - `PATH`:
 
-  The environment's binary directories, prepended to the session `PATH`.
+  The environment's binary directories, in front of the `PATH` described
+  above.
 
-`CONDA_ENVS_PATH` is the same as with `activate = TRUE`: it comes from
-the clean variables above.
+`TMPDIR` and `CONDA_ENVS_PATH` are the same as with `activate = TRUE`:
+they come from the clean variables above.
 
 On Windows, variable names are matched case-insensitively. An override
 replaces any inherited spelling of the same name, such as `Path`.
@@ -431,6 +658,13 @@ compatible version:
     created.
 
 7.  A `micromamba` on `PATH`.
+
+A candidate that is a binary exposed by `pixi global` (a trampoline,
+with a `trampoline_configuration/<name>.json` file next to it) is
+replaced by the binary that it starts, the `exe` of that file, so the
+activation of the pixi environment that the trampoline sets never
+reaches `micromamba`. The option and the variable keep the value you
+set.
 
 A compatible version is 2.8.1 or newer. When no candidate is compatible,
 the first function that needs `micromamba` calls
@@ -470,5 +704,5 @@ to `FALSE` to turn spinners and progress off in an interactive session.
 condathis::with_sandbox_dir({
   print(condathis::get_install_dir()$path)
 })
-#> [1] "/tmp/Rtmp6wGB7j/condathis-sandbox-2aac2f3e1233/data/R/condathis"
+#> [1] "/tmp/Rtmpzrm4bi/condathis-sandbox-2add34a53058/data/R/condathis"
 ```

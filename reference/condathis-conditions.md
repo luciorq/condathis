@@ -257,6 +257,10 @@ function, and a handler for `condathis_error` catches every error of
     or the tests of the calling package. Calls made inside other
     packages do not warn. `options(lifecycle_verbosity = "warning")`
     makes those calls warn too, and `"quiet"` turns the warning off.
+    testthat's third edition sets `lifecycle_verbosity = "warning"`
+    inside `test_that()`, so in those tests calls made inside other
+    packages, such as a dependency that calls condathis, warn too;
+    `withr::local_options(lifecycle_verbosity = "quiet")` silences them.
 
   - `condathis_deprecated_env_file_arg`  
     for `env_file =` in
@@ -266,14 +270,8 @@ function, and a handler for `condathis_error` catches every error of
     in `...` instead. The same rule as for `packages =`.
 
   - `condathis_deprecated_method_native`  
-    for `method = "native"` (once per session).
-    [`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md),
-    [`install_packages()`](https://luciorq.github.io/condathis/reference/install_packages.md),
-    [`validate_env()`](https://luciorq.github.io/condathis/reference/validate_env.md),
-    [`remove_env()`](https://luciorq.github.io/condathis/reference/remove_env.md),
-    [`run()`](https://luciorq.github.io/condathis/reference/run.md) and
-    [`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md)
-    apply the same rule as for `packages =`.
+    for `method = "native"` (once per session), in every function that
+    takes `method`. The same rule as for `packages =`.
 
   - `condathis_deprecated_arg`  
     for `timeout_limit` in
@@ -289,14 +287,9 @@ and
 carry these fields, so a handler does not need to read the message:
 
 - `status`: the exit status, an integer. It is `-9` for a timeout, and
-  `127` for a command that could not start. A command killed by signal
-  `n` has the status `128 + n` in
-  [`run()`](https://luciorq.github.io/condathis/reference/run.md) on
-  Linux and macOS, as in a shell. In
-  [`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md)
-  and
-  [`run_pipeline()`](https://luciorq.github.io/condathis/reference/run_pipeline.md),
-  the status is `-n`.
+  `127` for a command that could not start. On Linux and macOS, a
+  command killed by signal `n` has the status `128 + n`, as in a shell
+  (`137` for `SIGKILL`, `141` for `SIGPIPE`).
 
 - `stdout`, `stderr`: the captured output, or `NA` when that stream was
   not captured.
@@ -564,6 +557,16 @@ The warnings about the SHA256 check of a download:
 - `condathis_micromamba_status_error`  
   a `micromamba` command failed.
 
+- `condathis_micromamba_env_file_dir_not_writable`  
+  the directory of an environment file with a `pip:` section is not
+  writable, so micromamba cannot write its temporary file there, and the
+  section names paths relative to that directory, so `condathis` cannot
+  pass a copy.
+  [`create_env()`](https://luciorq.github.io/condathis/reference/create_env.md)
+  and
+  [`install_packages()`](https://luciorq.github.io/condathis/reference/install_packages.md)
+  raise it with their class of a backend failure.
+
 - `condathis_micromamba_bin_path_not_executable`
 
 - `condathis_micromamba_version_not_detected`
@@ -620,9 +623,7 @@ with `run` or `run_bin` as `<function>`. Arguments:
 
 - `condathis_<function>_invalid_<argument>`  
   for `timeout`, `supervise`, `cleanup_tree`, `linux_pdeathsig`,
-  `stdin`, `stdout`, `stderr` and, for
-  [`run_bin()`](https://luciorq.github.io/condathis/reference/run_bin.md),
-  `activate`.
+  `stdin`, `stdout`, `stderr` and `activate`.
 
 Then:
 
