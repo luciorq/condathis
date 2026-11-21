@@ -200,11 +200,11 @@ Updated 2026-11-18.
       `LD_LIBRARY_PATH` and Conda `PATH` undone; no write probe for an
       environment file without pip; NEWS, `?run`, README and the
       reticulate article corrected; `px` lookup without a skip
-- [ ] Before submitting (maintainer): push `main` so the pkgdown site
-      has `articles/python-and-mizu.html` (the README links it; it
-      answers 404 today), then rerun the incoming check with
-      `_R_CHECK_CRAN_INCOMING_REMOTE_=true` and the test environments of
-      `cran-comments.md` on the final tree, and make its results line
+- [x] Push `main` so the pkgdown site has
+      `articles/python-and-mizu.html`, then rerun the incoming check with
+      `_R_CHECK_CRAN_INCOMING_REMOTE_=true` (2026-11-21: Status OK)
+- [ ] Before submitting (maintainer): run the test environments of
+      `cran-comments.md` on the final tree and make its results line
       match
 
 ## Explicitly not planned

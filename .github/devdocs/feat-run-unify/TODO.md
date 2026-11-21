@@ -292,9 +292,12 @@ status summary there. Decisions D0 to D22 are in PLAN.md.
       now runs the real binary, so the test compares with
       `get_best_micromamba_path()` (926 of 926 pass with the trampoline
       and with the real binary)
-- [ ] Before submitting: deploy the pkgdown site so the mizu article URL
+- [x] Before submitting: deploy the pkgdown site so the mizu article URL
       in README resolves, then rerun `R CMD check --as-cran` with remote
-      URL checks
+      URL checks (2026-11-21: Status OK, with qpdf)
+- [x] 32: the vendored `polyglot` build 1 is the file published on
+      prefix.dev (SHA256 `e48bcdd9...0b`); the first copy was a local
+      build of the same contents with another timestamp
 
 ## Before submitting 0.2.0
 

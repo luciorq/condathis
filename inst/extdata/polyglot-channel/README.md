@@ -10,7 +10,7 @@ it runs on.
 - Published: <https://prefix.dev/channels/universe/packages/polyglot>
 - File: `noarch/polyglot-0.1.0-h4616a5c_1.conda` (build 1, which records
   the MIT license), SHA256
-  `83da2f436e7b4221bcc9ae2ebd29b9630a0f1c4e1e151e214a315a7b3486cc0b`
+  `e48bcdd948bb6889265b3edfdbddb859667d24dac22cbddc2947077f2344cf0b`
 
 `noarch/repodata.json` is the package's entry from the `universe` channel's
 `noarch/repodata.json`. A channel needs no platform subdirectory when all its
