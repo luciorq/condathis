@@ -201,10 +201,10 @@ system.time({
   pids <- mizu_collect_all(tasks)
 })
 #>    user  system elapsed 
-#>   0.001   0.000   1.902
+#>     0.0     0.0     1.9
 table(unlist(pids))
 #> 
-#> 13943 13945 
+#> 13581 13583 
 #>     2     2
 ```
 
@@ -242,7 +242,7 @@ system.time({
   py_sd <- mizu_collect(mizu_submit_call(pool, mizu_call("numpy.std", x)))
 })
 #>    user  system elapsed 
-#>   0.009   0.009   0.038
+#>   0.010   0.007   0.030
 
 all.equal(py_sd, stats::sd(x), tolerance = 1e-6)
 #> [1] TRUE

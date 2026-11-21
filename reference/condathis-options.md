@@ -704,5 +704,5 @@ to `FALSE` to turn spinners and progress off in an interactive session.
 condathis::with_sandbox_dir({
   print(condathis::get_install_dir()$path)
 })
-#> [1] "/tmp/Rtmpzrm4bi/condathis-sandbox-2add34a53058/data/R/condathis"
+#> [1] "/tmp/Rtmpel16Et/condathis-sandbox-29a672d275/data/R/condathis"
 ```

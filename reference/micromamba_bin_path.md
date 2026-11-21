@@ -44,5 +44,5 @@ condathis::with_sandbox_dir({
   # The path where condathis installs micromamba
   print(condathis::micromamba_bin_path())
 })
-#> /tmp/Rtmpzrm4bi/condathis-sandbox-2add3d3a0998/data/R/condathis/micromamba/bin/micromamba
+#> /tmp/Rtmpel16Et/condathis-sandbox-29a61e26cd75/data/R/condathis/micromamba/bin/micromamba
 ```

@@ -114,5 +114,5 @@ condathis::with_sandbox_dir({
 #> # A tibble: 1 × 2
 #>   backend    path                                                           
 #>   <chr>      <chr>                                                          
-#> 1 micromamba /tmp/Rtmpzrm4bi/condathis-sandbox-2add31c0dab0/data/R/condathis
+#> 1 micromamba /tmp/Rtmpel16Et/condathis-sandbox-29a63bd58153/data/R/condathis
 ```
