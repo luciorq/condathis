@@ -25,6 +25,31 @@ polyglot_channel <- function(name = NULL, .local_envir = parent.frame()) {
   return(paste0("file://", if (isTRUE(is_windows())) "/", channel_dir))
 }
 
+# The `polyglot` package of the shipped channel, as its entry in
+# `noarch/repodata.json`, plus `file` (the file name). Tests read the file
+# name, build and hashes from here, so a new build of the package needs no
+# test changes (see inst/extdata/polyglot-channel/README.md).
+polyglot_package <- function() {
+  repodata <- jsonlite::read_json(system.file(
+    "extdata",
+    "polyglot-channel",
+    "noarch",
+    "repodata.json",
+    package = "condathis",
+    mustWork = TRUE
+  ))
+  entries <- repodata[["packages.conda"]]
+  is_polyglot <- vapply(
+    entries,
+    function(entry) identical(entry[["name"]], "polyglot"),
+    logical(1L)
+  )
+  stopifnot(identical(sum(is_polyglot), 1L))
+  entry <- entries[is_polyglot][[1L]]
+  entry[["file"]] <- names(entries)[is_polyglot]
+  return(entry)
+}
+
 # The first line `polyglot` prints on this platform.
 polyglot_expected_line <- function() {
   if (isTRUE(is_windows())) {

@@ -803,7 +803,7 @@ local_url_channel <- function(.local_envir = parent.frame()) {
   )
   files_dir <- fs::path(base_dir, "elsewhere", "files")
   fs::dir_create(files_dir)
-  file_name <- "polyglot-0.1.0-h4616a5c_0.conda"
+  file_name <- polyglot_package()[["file"]]
   fs::file_copy(
     fs::path(channel_dir, "noarch", file_name),
     fs::path(files_dir, file_name)
@@ -1464,7 +1464,7 @@ testthat::test_that("micromamba create gets ~ expanded in package paths and the 
 
 # The URL of the `polyglot` package of a local channel.
 polyglot_package_url <- function(channel = polyglot_channel()) {
-  return(paste0(channel, "/noarch/polyglot-0.1.0-h4616a5c_0.conda"))
+  return(paste0(channel, "/noarch/", polyglot_package()[["file"]]))
 }
 
 # Lock files for `polyglot`, written as conda, conda-lock and mambajs
@@ -1478,14 +1478,15 @@ write_explicit_lock <- function(
   channel = polyglot_channel(),
   subdir = "noarch"
 ) {
-  url <- paste0(channel, "/", subdir, "/polyglot-0.1.0-h4616a5c_0.conda")
+  pkg <- polyglot_package()
+  url <- paste0(channel, "/", subdir, "/", pkg[["file"]])
   writeLines(
     c(
       "# This file may be used to create an environment using:",
       "# $ conda create --name <env> --file <this file>",
       paste0("# platform: ", platform),
       "@EXPLICIT",
-      paste0(url, "#59a37b1b046df5560f1b25abb0ddf8f8")
+      paste0(url, "#", pkg[["md5"]])
     ),
     path
   )
@@ -1519,8 +1520,8 @@ write_conda_lock <- function(
       "  dependencies: {}",
       paste0("  url: ", polyglot_package_url(channel)),
       "  hash:",
-      "    md5: 59a37b1b046df5560f1b25abb0ddf8f8",
-      "    sha256: 8c37f42361a32fb76093020403b38064644a7410e8ffc65c669b5595eca36507",
+      paste0("    md5: ", polyglot_package()[["md5"]]),
+      paste0("    sha256: ", polyglot_package()[["sha256"]]),
       paste0("  category: ", category),
       "  optional: false"
     ),
@@ -1530,6 +1531,15 @@ write_conda_lock <- function(
 }
 
 write_mambajs_lock <- function(path, platform, channel = polyglot_channel()) {
+  pkg <- polyglot_package()
+  record <- list(
+    name = "polyglot",
+    build = pkg[["build"]],
+    version = pkg[["version"]],
+    subdir = "noarch",
+    channel = "polyglot",
+    hash = list(sha256 = pkg[["sha256"]])
+  )
   lock <- list(
     lockVersion = "1.0.0",
     platform = platform,
@@ -1538,18 +1548,7 @@ write_mambajs_lock <- function(path, platform, channel = polyglot_channel()) {
     channelInfo = list(
       polyglot = list(list(url = channel, protocol = "file"))
     ),
-    packages = list(
-      `polyglot-0.1.0-h4616a5c_0.conda` = list(
-        name = "polyglot",
-        build = "h4616a5c_0",
-        version = "0.1.0",
-        subdir = "noarch",
-        channel = "polyglot",
-        hash = list(
-          sha256 = "8c37f42361a32fb76093020403b38064644a7410e8ffc65c669b5595eca36507"
-        )
-      )
-    ),
+    packages = stats::setNames(list(record), pkg[["file"]]),
     pipPackages = structure(list(), names = character(0L))
   )
   jsonlite::write_json(lock, path, auto_unbox = TRUE, pretty = TRUE)
@@ -1567,7 +1566,7 @@ testthat::test_that("micromamba describes each format from the contents of the f
     return(data.frame(
       name = "polyglot",
       version = "0.1.0",
-      build_string = "h4616a5c_0",
+      build_string = polyglot_package()[["build"]],
       platform = platform,
       stringsAsFactors = FALSE
     ))
@@ -2329,7 +2328,12 @@ testthat::test_that("micromamba compares an environment with the packages of a l
   # A lock with another build of the package.
   other <- fs::path(dir, "other.txt")
   writeLines(
-    sub("h4616a5c_0", "h0000000_0", readLines(lock), fixed = TRUE),
+    sub(
+      polyglot_package()[["build"]],
+      "h0000000_0",
+      readLines(lock),
+      fixed = TRUE
+    ),
     other
   )
   testthat::expect_error(
@@ -2348,7 +2352,7 @@ testthat::test_that("micromamba compares an environment with the packages of a l
   )
   testthat::expect_identical(
     attr(res, "unexpected"),
-    "polyglot-0.1.0-h4616a5c_0"
+    paste0("polyglot-0.1.0-", polyglot_package()[["build"]])
   )
   # An environment YAML file is never compared.
   yaml <- fs::path(dir, "environment.yml")

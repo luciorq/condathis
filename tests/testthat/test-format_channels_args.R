@@ -155,7 +155,7 @@ testthat::test_that("micromamba installs from a local channel in a directory wit
   # The package URL too, not the link that micromamba got.
   testthat::expect_identical(
     pkgs$url,
-    paste0(expected_url, "/noarch/polyglot-0.1.0-h4616a5c_0.conda")
+    paste0(expected_url, "/noarch/", polyglot_package()[["file"]])
   )
   testthat::expect_identical(
     get_env_history_channels(get_env_dir(env_name)),

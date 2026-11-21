@@ -80,7 +80,8 @@ See "Addendum 2026-11-16" in `PLAN.md` and `../feat-run-unify/`.
 - [x] 9.2: Windows result of `test-env_definition.R` confirmed (round 5,
       2026-11-13)
 - [ ] 9.3: (recommended) build and test rattlerthis against this tree
-- [ ] 9.4: add a license to the upstream `polyglot` repository
+- [x] 9.4: add a license to the upstream `polyglot` repository (MIT,
+      2026-11-20; commit and push it there)
 - [ ] 9.5: `just check-win-devel` and `just check-win-release`; update
       "Test environments" in `cran-comments.md`
 - [ ] 9.6: `devtools::submit_cran()` and confirm the email, before

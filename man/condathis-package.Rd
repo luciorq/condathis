@@ -46,7 +46,7 @@ Useful links:
 Authors:
 \itemize{
   \item Lucio Queiroz \email{luciorqueiroz@gmail.com} (\href{https://orcid.org/0000-0002-6090-1834}{ORCID}) [copyright holder]
-  \item Claudio Zanettini \email{claudio.zanettini@gmail.com} (\href{https://orcid.org/0000-0001-5043-8033}{ORCID}) [contributor]
+  \item Claudio Zanettini \email{claudio.zanettini@gmail.com} (\href{https://orcid.org/0000-0001-5043-8033}{ORCID})
 }
 
 }

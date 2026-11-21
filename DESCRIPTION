@@ -4,7 +4,7 @@ Version: 0.2.0
 Authors@R: c(
     person("Lucio", "Queiroz", , "luciorqueiroz@gmail.com", role = c("aut", "cre", "cph"),
            comment = c(ORCID = "0000-0002-6090-1834")),
-    person("Claudio", "Zanettini", , "claudio.zanettini@gmail.com", role = c("aut", "ctb"),
+    person("Claudio", "Zanettini", , "claudio.zanettini@gmail.com", role = "aut",
            comment = c(ORCID = "0000-0001-5043-8033"))
   )
 Description: Runs command line interface (CLI) tools in isolated and

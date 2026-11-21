@@ -64,7 +64,7 @@ there with a pointer to this file.
 | 16 | condathis on WebAssembly (webR) | r-universe research 2026-11-05 | idea | yes: whether to abort early |
 | 17 | Optional `packages =` compatibility leftovers (6) | `packages =` review 2026-11-13 | b to f done in 0.2.0 (2026-11-18); a open | one: positional `channels` |
 | 18 | rattlerthis follow-ups of `env_definition()` | feat-env-file 2026-11-13 | a, b done; c, d open | no |
-| 19 | Empty `LICENSE` in the upstream `polyglot` repository | CRAN docs review 2026-11-13 | open, maintainer only | no |
+| 19 | Empty `LICENSE` in the upstream `polyglot` repository | CRAN docs review 2026-11-13 | done 2026-11-20 (MIT) | no |
 | 20 | Small leftovers of the 2026-11-13 reviews | CRAN preparation reviews | a, b, e done 2026-11-18; c, d open | no |
 | 21 | Follow-ups of the run-family unification | feat-run-unify 2026-11-16 | open (e and parts of f done in 0.2.0) | yes: `R_LIBS*` |
 | 22 | `run()` waits for a change of its environment by another session | feat-run-unify D17, 2026-11-18 | deferred to after 0.2.0 | yes: whether to wait |
@@ -1094,8 +1094,8 @@ Decisions, as built:
   environment from the file.
 - DOC-4: README "Learn More" and the vignette's Next Steps link the
   mizu article, as `_pkgdown.yml` already lists it.
-- DOC-5: not changed. Claudio Zanettini keeps `c("aut", "ctb")`, as in
-  the 0.1.4 release; `"aut"` alone is cosmetic and the maintainer's call.
+- DOC-5: changed on 2026-11-20 by the maintainer's decision: Claudio
+  Zanettini is `role = "aut"` only (was `c("aut", "ctb")`).
   The maintainer listed twice in `?condathis-package` is how roxygen
   renders it.
 - `?install_packages`: `packages = NULL` with a failed environment probe

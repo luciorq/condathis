@@ -157,8 +157,15 @@ Updated 2026-11-18.
       environment probe aborts with `condathis_backend_probe_failed`;
       the probe is the one of `resolve_backend()` (2026-11-18,
       feat-run-unify D19)
-- [ ] 19: add a license file to the upstream `polyglot` repository
-      (maintainer)
+- [x] 19: add a license file to the upstream `polyglot` repository:
+      MIT text in its `LICENSE.txt` (was empty), `license: MIT` in
+      `recipe/recipe.yaml`, a License section in its README (2026-11-20;
+      the maintainer commits and pushes it)
+- [x] 19: the shipped `polyglot-channel` holds build 1 of polyglot
+      0.1.0 (`h4616a5c_1`, records `license: MIT`); the tests read its
+      file name, build and hashes from `noarch/repodata.json`
+      (`polyglot_package()`). The maintainer uploads that same file to
+      prefix.dev `universe` (2026-11-21)
 - [x] 20a: Windows backslashes in the relative branch of
       `resolve_env_bin_path()` (2026-11-18, feat-run-unify D19; one kappa
       run left)
@@ -187,8 +194,8 @@ Updated 2026-11-18.
 - [x] 25: docs survey DOC-1 to DOC-4: NEWS sandbox bullet dropped,
       shell builtins per OS, `env_definition()` title, mizu article
       linked; `?install_packages` names the probe abort (2026-11-18)
-- [ ] 25: DOC-5, `role = "aut"` for Claudio Zanettini (optional,
-      maintainer)
+- [x] 25: DOC-5, `role = "aut"` for Claudio Zanettini (maintainer
+      decision 2026-11-20; `man/condathis-package.Rd` regenerated)
 - [x] Review of round 8 (feat-run-unify D21): reticulate's
       `LD_LIBRARY_PATH` and Conda `PATH` undone; no write probe for an
       environment file without pip; NEWS, `?run`, README and the
